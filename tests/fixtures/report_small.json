@@ -1,0 +1,12 @@
+{"faction":"USSR","t":540,"round":6,"plan_revision":2,"intent":"","bases":[
+{"id":0,"name":"USSR HQ","owner":"USSR","hq":true,"objective":false,"links":[1,2],"x":1000,"z":1000,"supplies":800,"threatened":false},
+{"id":1,"name":"Farm","owner":"USSR","hq":false,"objective":false,"links":[0,3],"x":1800,"z":1200,"supplies":150,"threatened":true},
+{"id":2,"name":"Relay hill","owner":"","hq":false,"objective":false,"links":[0,4],"x":1200,"z":2200},
+{"id":3,"name":"Town","owner":"US","hq":false,"objective":true,"links":[1,4,5],"x":2600,"z":1500},
+{"id":4,"name":"Crossroads","owner":"US","hq":false,"objective":false,"links":[2,3,5],"x":2400,"z":2600},
+{"id":5,"name":"US HQ","owner":"US","hq":true,"objective":false,"links":[3,4],"x":3800,"z":2800}],
+"squads":[
+{"slot":0,"role":"ATTACK","alive":10,"size":10,"ready":true,"target":3,"x":1900,"z":1300},
+{"slot":1,"role":"ATTACK","alive":7,"size":10,"ready":true,"target":3,"x":1850,"z":1250},
+{"slot":2,"role":"DEFEND","alive":10,"size":10,"ready":true,"target":1,"x":1800,"z":1200},
+{"slot":3,"role":"RESERVE","alive":0,"size":10,"ready":false,"target":-1}]}

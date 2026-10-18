@@ -1,0 +1,10 @@
+{
+  "port": 8765,
+  "provider": "doctrine",
+  "model": "",
+  "api_key_env": "",
+  "timeout_s": 25,
+  "doctrines_dir": "doctrines",
+  "log_dir": ".runtime/bridge",
+  "_note": "Copy to lab/bridge.local.json (not committed) to change it. provider: doctrine (our rules, no key), gemini or claude. For a model set \"model\" to its current name and \"api_key_env\" to the name of an environment variable that holds your key, e.g. GEMINI_API_KEY or ANTHROPIC_API_KEY."
+}

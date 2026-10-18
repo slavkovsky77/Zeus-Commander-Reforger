@@ -1,0 +1,125 @@
+"""Offline checks of the lab's Python side: plan validation, the rules doctrine, the plain-line
+answer, the LLM answer parsing, the bridge over HTTP, and the log metrics.
+
+    python -m unittest discover -s tests -v
+"""
+import json
+import sys
+import threading
+import unittest
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "lab"))
+
+import bridge  # noqa: E402
+import doctrine  # noqa: E402
+import metrics  # noqa: E402
+import providers  # noqa: E402
+from plan import to_lines, validate  # noqa: E402
+
+REPORT = json.loads((ROOT / "tests" / "fixtures" / "report_small.json").read_text(encoding="utf-8"))
+
+
+class PlanTests(unittest.TestCase):
+    def test_unknown_ids_and_foreign_holds_are_dropped(self):
+        clean, problems = validate({"intent": "go\nnow", "main_effort": 99, "supporting": [3, "x"],
+                                    "hold": [1, 3], "avoid": [4, 3]}, REPORT)
+        self.assertIsNone(clean["main_effort"])
+        self.assertEqual(clean["supporting"], [3])
+        self.assertEqual(clean["hold"], [1])
+        self.assertEqual(clean["avoid"], [4])
+        self.assertEqual(clean["intent"], "go now")
+        self.assertTrue(any("no base 99" in p for p in problems))
+        self.assertTrue(any("not ours" in p for p in problems))
+
+    def test_lines(self):
+        clean, _ = validate({"intent": "Main effort Town", "main_effort": 3, "hold": [1], "avoid": [5],
+                             "concentration": "heavy"}, REPORT)
+        lines = to_lines(clean, "llm").splitlines()
+        self.assertEqual(lines[0], "ok source=llm")
+        self.assertIn("intent Main effort Town", lines)
+        self.assertIn("priority 3 80", lines)
+        self.assertIn("demand 3 35", lines)
+        self.assertIn("priority 1 40", lines)
+        self.assertIn("priority 5 -60", lines)
+
+
+class DoctrineTests(unittest.TestCase):
+    def test_reachable(self):
+        self.assertEqual(sorted(b["id"] for b in doctrine.reachable_targets(REPORT)), [2, 3])
+
+    def test_decide(self):
+        d = doctrine.decide(REPORT)
+        self.assertEqual(d["main_effort"], 3)          # the enemy-held objective next to our squads
+        self.assertEqual(d["concentration"], "heavy")
+        self.assertEqual(d["hold"][:2], [1, 0])          # the threatened farm first, then the HQ
+        clean, problems = validate(d, REPORT)
+        self.assertEqual(problems, [])
+
+
+class ProviderTests(unittest.TestCase):
+    def test_extract_json_from_fenced_answer(self):
+        self.assertEqual(providers.extract_json('Sure:\n```json\n{"main_effort": 3}\n```')["main_effort"], 3)
+
+    def test_report_text_has_every_base_and_squad(self):
+        text = providers.report_text(REPORT)
+        for name in ("USSR HQ", "Farm", "Relay hill", "Town", "Crossroads", "US HQ"):
+            self.assertIn(name, text)
+        self.assertIn("UNDER THREAT", text)
+        self.assertIn("7/10", text)
+
+    def test_llm_needs_a_key(self):
+        with self.assertRaises(ValueError):
+            providers.make({"provider": "gemini", "model": "x", "api_key_env": "ZCR_TEST_NO_SUCH_VAR"})
+
+
+class BridgeTests(unittest.TestCase):
+    def test_round_trip(self):
+        cfg = {"port": 0, "provider": "doctrine", "log_dir": ".runtime/test-bridge"}
+        server = bridge.serve(cfg)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            url = f"http://127.0.0.1:{server.server_port}/plan"
+            req = urllib.request.Request(url, data=json.dumps(REPORT).encode(), method="POST")
+            answer = urllib.request.urlopen(req, timeout=10).read().decode()
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertTrue(answer.startswith("ok source=doctrine\n"))
+        self.assertIn("priority 3 80", answer)
+
+    def test_failed_model_falls_back_to_doctrine(self):
+        s = bridge.Strategist({"provider": "doctrine", "log_dir": ".runtime/test-bridge"})
+
+        class Broken:
+            name = "gemini"
+
+            def decide(self, report, text):
+                raise TimeoutError("model too slow")
+
+        s.provider = Broken()
+        self.assertTrue(s.plan(REPORT).startswith("ok source=doctrine-fallback"))
+
+
+class MetricsTests(unittest.TestCase):
+    def test_measure(self):
+        log = [
+            "12:00:01 SCRIPT : [ZCR][SNAPSHOT] faction=USSR t=60 round=1 bytes=900",
+            "12:00:02 SCRIPT : [ZCR][LOSS] t=95 victim=Character_US_Rifleman side=US kind=man killer_side=USSR killer_kind=man relation=KILLED_BY_ENEMY_AI distance=210 x=10 z=20",
+            "12:00:03 SCRIPT : [ZCR][LOSS] t=120 victim=BTR70 side=USSR kind=vehicle killer_side=US killer_kind=man relation=KILLED_BY_ENEMY_AI distance=90 x=11 z=21",
+            "12:00:04 SCRIPT : [AICF][STAGE1][INFO][BASE_OWNER_CHANGED] base=Town#3 old_owner=US new_owner=USSR",
+            "12:00:05 SCRIPT : [ZCR][PLAN] faction=USSR revision=3 source=llm priorities=3 demands=1 intent=Main effort Town",
+            "12:00:06 SCRIPT (W): [ZCR][BRIDGE_MISS] faction=US round=2 missed=1 reason=EREST_ERROR_TIMEOUT",
+        ]
+        m = metrics.measure(log)
+        self.assertEqual(m["lost"], {"US": {"man": 1}, "USSR": {"vehicle": 1}})
+        self.assertEqual(m["captures"], {"USSR": 1})
+        self.assertEqual(m["plans"], {"llm": 1})
+        self.assertEqual(m["bridge_misses"], 1)
+        self.assertEqual(m["minutes"], 2.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
