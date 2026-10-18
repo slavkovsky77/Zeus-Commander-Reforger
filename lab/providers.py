@@ -86,12 +86,21 @@ class _LLM:
 
     def __init__(self, cfg: dict):
         self.model = cfg.get("model") or ""
-        self.key = os.environ.get(cfg.get("api_key_env", ""), "")
+        # The key: an environment variable, else a file that holds it (e.g. one another tool of
+        # yours already keeps). Only its name or path is in the config, never the key.
+        self.key = os.environ.get(cfg.get("api_key_env", ""), "") if cfg.get("api_key_env") else ""
+        if not self.key and cfg.get("api_key_file"):
+            try:
+                text = open(cfg["api_key_file"], encoding="utf-8").read()
+                self.key = next((l.strip() for l in text.splitlines() if l.strip()), "")
+            except OSError:
+                pass
         self.timeout = float(cfg.get("timeout_s", 25))
         if not self.model:
             raise ValueError(f"{self.name}: set \"model\" in the bridge config")
         if not self.key:
-            raise ValueError(f"{self.name}: the environment variable {cfg.get('api_key_env')!r} holds no API key")
+            raise ValueError(f"{self.name}: no API key - neither environment variable {cfg.get('api_key_env')!r}"
+                             f" nor file {cfg.get('api_key_file')!r} holds one")
 
     def prompts(self, report: dict, doctrine_text: str) -> tuple:
         system = SYSTEM.format(faction=report.get("faction"), doctrine=doctrine_text.strip() or "(none)", schema=SCHEMA)

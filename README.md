@@ -34,7 +34,8 @@ own start with `[AICF]`. Game options: `-zcrPlanSeconds` (default 90), `-zcrBrid
    here): `setx OPENROUTER_API_KEY "<your key>"`. New terminals see it.
 2. `lab/bridge.local.json` (not committed) picks the model: `"provider": "openrouter"`,
    `"model": "google/gemini-3.8-flash"` (or `"anthropic/claude-haiku-5.5"`, any id from
-   https://openrouter.ai/models), `"api_key_env": "OPENROUTER_API_KEY"`. Direct `gemini` and
+   https://openrouter.ai/models), `"api_key_env": "OPENROUTER_API_KEY"`, or `"api_key_file"`: the
+   path of a file that already holds the key (Martin's: the one Mantella uses). Direct `gemini` and
    `claude` connectors work the same way with their own keys.
 3. Try it without the game: `python lab/replay.py tests/fixtures/report_small.json`.
 4. `python lab/bridge.py`, then start a match with `--bridge`.
