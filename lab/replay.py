@@ -28,7 +28,12 @@ def main() -> int:
     a = ap.parse_args()
     cfg = load_config(a.config)
     provider = providers.make(cfg)
-    reports = [json.loads(l) for l in Path(a.snapshots).read_text(encoding="utf-8").splitlines() if l.strip()]
+    text = Path(a.snapshots).read_text(encoding="utf-8")
+    try:
+        one = json.loads(text)   # a single report (.json)
+        reports = one if isinstance(one, list) else [one]
+    except ValueError:           # one report per line (.jsonl, as the game writes them)
+        reports = [json.loads(l) for l in text.splitlines() if l.strip()]
     reports = [r for r in reports if not a.faction or r.get("faction") == a.faction][::a.every]
     for r in reports:
         try:
