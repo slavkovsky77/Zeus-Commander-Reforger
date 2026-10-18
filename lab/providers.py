@@ -1,4 +1,5 @@
-"""The strategist behind the bridge: our rules doctrine, or an LLM (Gemini or Claude).
+"""The strategist behind the bridge: our rules doctrine, or an LLM (Gemini, Claude, or any model
+through OpenRouter).
 
 The LLM gets the side's doctrine text (doctrines/<FACTION>.md, Martin's to write and change) and a
 compact situation report, and must answer with one JSON object (see SCHEMA). The API key comes
@@ -125,7 +126,23 @@ class Claude(_LLM):
         return "".join(part.get("text", "") for part in r.get("content", []) if part.get("type") == "text")
 
 
-PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude}
+class OpenRouter(_LLM):
+    """Any model through one OpenRouter key: "model" is OpenRouter's id, e.g.
+    "google/gemini-3.8-flash" or "anthropic/claude-haiku-5.5" (https://openrouter.ai/models)."""
+    name = "openrouter"
+
+    def ask(self, system: str, user: str) -> str:
+        r = _post("https://openrouter.ai/api/v1/chat/completions",
+                  {"model": self.model, "temperature": 0.4, "max_tokens": 800,
+                   "response_format": {"type": "json_object"},
+                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
+                  {"authorization": f"Bearer {self.key}", "x-title": "Zeus Commander Reforger"}, self.timeout)
+        if "error" in r:
+            raise RuntimeError(f"openrouter: {r['error']}")
+        return r["choices"][0]["message"]["content"] or ""
+
+
+PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude, "openrouter": OpenRouter}
 
 
 def make(cfg: dict):

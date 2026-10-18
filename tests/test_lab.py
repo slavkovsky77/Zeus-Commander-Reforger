@@ -70,6 +70,31 @@ class ProviderTests(unittest.TestCase):
         self.assertIn("UNDER THREAT", text)
         self.assertIn("7/10", text)
 
+    def test_openrouter_request_and_answer(self):
+        seen = {}
+
+        def fake_post(url, body, headers, timeout):
+            seen.update(url=url, body=body, headers=headers)
+            return {"choices": [{"message": {"content": '{"intent": "Take Town", "main_effort": 3, "hold": [1]}'}}]}
+
+        old = providers._post
+        providers._post = fake_post
+        try:
+            import os
+            os.environ["ZCR_TEST_OPENROUTER_KEY"] = "test-key"
+            p = providers.make({"provider": "openrouter", "model": "google/gemini-3.8-flash",
+                                "api_key_env": "ZCR_TEST_OPENROUTER_KEY"})
+            decision, raw, _ = providers.timed(p, REPORT, "Mass on one axis.")
+        finally:
+            providers._post = old
+            os.environ.pop("ZCR_TEST_OPENROUTER_KEY", None)
+        self.assertEqual(seen["url"], "https://openrouter.ai/api/v1/chat/completions")
+        self.assertEqual(seen["headers"]["authorization"], "Bearer test-key")
+        self.assertEqual(seen["body"]["model"], "google/gemini-3.8-flash")
+        self.assertIn("Mass on one axis.", seen["body"]["messages"][0]["content"])
+        self.assertIn("Town", seen["body"]["messages"][1]["content"])
+        self.assertEqual(decision["main_effort"], 3)
+
     def test_llm_needs_a_key(self):
         with self.assertRaises(ValueError):
             providers.make({"provider": "gemini", "model": "x", "api_key_env": "ZCR_TEST_NO_SUCH_VAR"})
