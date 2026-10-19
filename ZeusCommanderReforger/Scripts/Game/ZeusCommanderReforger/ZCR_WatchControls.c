@@ -295,6 +295,7 @@ class ZCR_WatchControls
 				{
 					m_bLocked = false;
 					m_bAutoOff = false;
+					ZCR_Watch.ResetOrbit();
 				}
 				// One side or both (Martin: "a button to switch between the factions"): BOTH -> US -> USSR.
 				string cmd = b.m_sCmd;

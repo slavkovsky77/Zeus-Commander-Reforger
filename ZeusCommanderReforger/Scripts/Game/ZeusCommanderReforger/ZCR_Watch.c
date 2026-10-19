@@ -116,6 +116,19 @@ class ZCR_Watch
 	// Free look: the camera is the watcher's - WASD, right mouse held to look, Shift faster, Q/E down/up.
 	protected bool m_bFree;
 	protected bool m_bScanned;
+	protected float m_fOrbitYaw;          // the watcher's turn round the shot (right mouse), 0 = from the south
+	protected float m_fOrbitLift = 1;     // and up or down (height factor)
+	protected int m_iOrbitX = -1;
+	protected int m_iOrbitY = -1;
+
+	// AUTO puts the camera back to the director's angle.
+	static void ResetOrbit()
+	{
+		if (!s_Instance)
+			return;
+		s_Instance.m_fOrbitYaw = 0;
+		s_Instance.m_fOrbitLift = 1;
+	}
 	protected vector m_vFreePos;
 	protected float m_fYaw;
 	protected float m_fPitch = -30;
@@ -465,7 +478,25 @@ class ZCR_Watch
 			if (fp[1] - ground > 5)
 				ground = fp[1] - 2;
 		}
-		vector eye = Vector(spot[0], ground + height, spot[2] - back);
+		// Orbit (Martin: "free look on locked units - rotation"): the right mouse button held and dragged
+		// turns the camera round what it shows, up and down too; it stays until AUTO.
+		int mx, my;
+		WidgetManager.GetMousePos(mx, my);
+		if (Debug.GetMouseState(MouseState.RIGHT) & Debug.MB_PRESSED_MASK)
+		{
+			if (m_iOrbitX >= 0)
+			{
+				m_fOrbitYaw += (mx - m_iOrbitX) * 0.25;
+				m_fOrbitLift = Math.Clamp(m_fOrbitLift + (my - m_iOrbitY) * 0.004, 0.2, 3);
+			}
+			m_iOrbitX = mx;
+			m_iOrbitY = my;
+		}
+		else
+			m_iOrbitX = -1;
+		height = height * m_fOrbitLift;
+		float oy = m_fOrbitYaw * Math.DEG2RAD;
+		vector eye = Vector(spot[0] - Math.Sin(oy) * back, ground + height, spot[2] - Math.Cos(oy) * back);
 		float eyeGround = world.GetSurfaceY(eye[0], eye[2]);
 		// Above the ground under the camera: 8 m, 4 m for the close-ups (Martin: zoom the firefights more).
 		float clearance = 8;
@@ -476,7 +507,7 @@ class ZCR_Watch
 		vector look = Vector(spot[0], ground + 2, spot[2]) - eye;
 		float pitch = Math.Atan2(look[1], Math.Sqrt(look[0] * look[0] + look[2] * look[2])) * Math.RAD2DEG;
 		m_Camera.SetOrigin(eye);
-		m_Camera.SetYawPitchRoll(Vector(0, pitch, 0));
+		m_Camera.SetYawPitchRoll(Vector(m_fOrbitYaw, pitch, 0));
 	}
 
 	// The overlay: each marker projected onto the screen every frame.
