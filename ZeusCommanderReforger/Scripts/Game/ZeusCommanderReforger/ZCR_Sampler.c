@@ -127,6 +127,19 @@ class ZCR_Sampler
 		return n;
 	}
 
+	// Whether a soldier of this side is within 'radius' of 'at' (alive, last sample).
+	static bool OwnNear(string side, vector at, float radius)
+	{
+		if (!s_Instance)
+			return false;
+		foreach (IEntity e, ZCR_SoldierState st : s_Instance.m_mState)
+		{
+			if (e && st && st.m_sSide == side && vector.DistanceXZ(st.m_vPos, at) < radius)
+				return true;
+		}
+		return false;
+	}
+
 	// Whether this side's soldiers have seen 'e' in the last 'seconds'.
 	static bool Knows(string side, IEntity e, int seconds)
 	{

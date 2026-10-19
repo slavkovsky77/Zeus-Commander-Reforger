@@ -230,14 +230,17 @@ class ZCR_DroneSites
 		{
 			if (s.m_sSide == side || s.m_bLost)
 				continue;
-			bool seen = s.m_Truck && ZCR_Sampler.Knows(side, s.m_Truck, 120);
+			// Seen: its truck or an operator in a soldier's sight in the last 3 minutes, or a soldier of
+			// ours within 250 m of it (a truck there can't be missed - perception alone hardly ever lists
+			// an empty vehicle: no counter-drone strike in the first matches).
+			bool seen = (s.m_Truck && ZCR_Sampler.Knows(side, s.m_Truck, 180)) || ZCR_Sampler.OwnNear(side, s.m_vPos, 250);
 			if (!seen && s.m_Operators)
 			{
 				array<AIAgent> agents = {};
 				s.m_Operators.GetAgents(agents);
 				foreach (AIAgent a : agents)
 				{
-					if (a && a.GetControlledEntity() && ZCR_Sampler.Knows(side, a.GetControlledEntity(), 120))
+					if (a && a.GetControlledEntity() && ZCR_Sampler.Knows(side, a.GetControlledEntity(), 180))
 						seen = true;
 				}
 			}
