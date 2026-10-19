@@ -393,6 +393,56 @@ class ZCR_Director
 			height = 230;
 			m_vLastFight = target;
 		}
+		if (key.IsEmpty() && !hotTurn)
+		{
+			// An assault (Arma 3's attack shot): soldiers of a side within 300 m of a base they don't
+			// hold - an FIA garrison or the enemy's - and the more so with losses there in the last
+			// minute. Most of the early fighting is against FIA, whose soldiers aren't in the lists.
+			string bestSide;
+			int bestNode = -1;
+			float bestScore;
+			int bestCount;
+			foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+			{
+				string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
+				foreach (string side : MAIN_SIDES)
+				{
+					if (owner == side)
+						continue;
+					int n;
+					foreach (IEntity e : m_aMen)
+					{
+						if (ZCR_LossLog.SideOf(e) == side && vector.DistanceXZ(e.GetOrigin(), pos) < 300)
+							n++;
+					}
+					if (n < 4)
+						continue;
+					float sc = n + 3 * LossesNear(pos, 400, now - 60, "");
+					if (vector.DistanceXZ(pos, m_vLastFight) < 250 && m_iRepeats >= 2)
+						sc *= 0.3;
+					if (sc > bestScore)
+					{
+						bestScore = sc;
+						bestNode = node;
+						bestSide = side;
+						bestCount = n;
+					}
+				}
+			}
+			if (bestNode >= 0)
+			{
+				target = ZCR_Strategist.s_mNodePos.Get(bestNode);
+				string holder = ZCR_Strategist.s_mNodeOwner.Get(bestNode);
+				label = string.Format("%1 ASSAULT on %2 (%3) - %4 soldiers within 300 m", bestSide, ZCR_Strategist.s_mNodeName.Get(bestNode), holder, bestCount);
+				int lost = LossesNear(target, 400, now - 60, "");
+				if (lost > 0)
+					label += string.Format(" - %1 lost there in the last minute", lost);
+				key = "assault" + bestNode;
+				back = 180;
+				height = 200;
+				m_vLastFight = target;
+			}
+		}
 		if (key.IsEmpty() && !hotTurn && !m_aMoving.IsEmpty())
 		{
 			// Nobody fighting: follow someone on the move, alternating the side; in a vehicle, the
@@ -475,7 +525,7 @@ class ZCR_Director
 			label = string.Format("HOT ZONE %1 - %2", Near(target), Score());
 			key = "hot";
 		}
-		m_bLastWasFight = key.StartsWith("fight");
+		m_bLastWasFight = key.StartsWith("fight") || key.StartsWith("assault");
 		if (key == m_sLastKey)
 			m_iRepeats++;
 		else
