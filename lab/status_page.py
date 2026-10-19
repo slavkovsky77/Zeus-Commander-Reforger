@@ -26,9 +26,9 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 # Kept by hand as the night goes: what is open, what is next.
 # The night in short, kept by hand: what Martin should know first.
 SUMMARY = [
-    "The loop runs: a watched, recorded match and a headless head-to-head side by side, all night; every change goes in at the next match boundary.",
+    "The loop ran all night (02:40-09:27): 13 watched and recorded matches and 12 headless head-to-heads side by side; every change went in at the next match boundary. Both loops have stopped; the strategist bridges are still up.",
     "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
-    "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. Headless, the USSR doctrine lost 1-2 twice before storm and won 3-2 and 2-1 with it (rules, then Gemini). On the US side (Arland's stronger side) no gain yet: 2-2 with storm, where AI Conflict's own US wins 2-1 in three controls of four. It costs soldiers: 30-45 lost a match instead of 15-20 when it storms a hill.",
+    "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. Headless, the USSR doctrine lost 1-2 twice before storm; with it, 3-2, 2-1 and 3-2 (the last capture 50 s before the end). On the US side (Arland's stronger side) no gain yet: 2-2 with storm, where AI Conflict's own US wins 2-1 in three controls of four. It costs soldiers: 30-45 lost a match instead of 15-20 when it storms a hill.",
     "Everon too: the doctrine with storm won 4-1 (three bases taken, 13 soldiers lost) where the same matchup ended 2-2 before storm - but see the bug below for its second half.",
     "Bug found and fixed (07:27): the watched and the headless match share one strategist bridge, and the doctrine kept its memory per side only - two matches with the same strategist on the same side reset each other. Affected: headless llm-phased v none (05:22) and phased v none (06:54), watched US llm-phased (05:16, the first 9 min of 05:44) and the second half of the Everon 4-1 (06:42). Now memory is per match and side.",
     "Watch first: the picks at the top of the videos, newest first. The camera now cuts to FPV drone runs at launch and to every storm.",
@@ -48,6 +48,7 @@ NIGHT = [
     ("07:25", "headless", "Arland", "USSR Gemini", "+ storm", "", "1-2", "Airport Base 15.7 min"),
     ("07:55", "headless", "Arland", "US Gemini", "+ storm", "", "2-2", "Airport Base 10.7 min"),
     ("08:26", "headless", "Arland", "control", "", "", "2-1", "-"),
+    ("08:56", "headless", "Arland", "USSR rules", "all fixes", "", "2-2 (2-3 at the end)", "Airport Base 16.8, Farm 29.4 min (50 s before the end)"),
     ("04:17", "watched", "Arland", "USSR Gemini", "gather, drones", "", "2-3", "Airport Base 12:15, Farm 22:16"),
     ("04:46", "watched", "Everon", "US rules", "+ commit, drones", "", "2-2", "Camurac 26:01"),
     ("05:15", "watched", "Arland", "US Gemini", "+ commit, drones", "yes", "2-2", "Moss Hill 26:02"),
@@ -58,6 +59,7 @@ NIGHT = [
     ("07:41", "watched", "Everon", "USSR rules", "+ storm, drones", "", "3-2", "Old Wood 13:59"),
     ("08:11", "watched", "Arland", "USSR Gemini", "+ storm, drones", "", "2-2", "Airport Base 17:47"),
     ("08:40", "watched", "Everon", "US rules", "all fixes, drones (22 min)", "", "2-2", "Military Depot 13:49 (storm 10:34; US lost 3)"),
+    ("09:03", "watched", "Arland", "US Gemini", "5-minute filler at the end", "", "-", "-"),
 ]
 
 PROBLEMS = [
@@ -257,11 +259,11 @@ pre.mermaid {{ background:var(--surface); border:1px solid var(--rule); padding:
 </style>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Reforger lab · night of 18–19 Oct · updated {now}</div>
+  <div class="eyebrow">Reforger lab · night of 18–19 Oct · final {now}</div>
   <h1>Reforger Commander Lab</h1>
   <p>Zeus Commander's commander on Arma Reforger, built on AI Conflict. Tonight: matches on screen with the camera director and recorded, and headless head-to-head matches. In each, one side gets our strategist (our rules or Gemini) and the other runs on AI Conflict alone.</p>
   <div class="verdict">
-    <div><b>Running now</b>Watched match {watch_n} on screen (recorded) and a headless head-to-head beside it.</div>
+    <div><b>Running now</b>Nothing - the night's loops have finished.</div>
     <div><b>So far</b>{n_batch} finished head-to-head matches, {n_videos} recordings.</div>
     <div><b>Best so far</b>{verdict_best}</div>
   </div>
