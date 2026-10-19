@@ -13,6 +13,12 @@ modded class SCR_PlayerController
 {
 	void ZCR_CamCommand(string cmd, vector pos)
 	{
+		// Solo: the host's own buttons go straight to its director.
+		if (Replication.IsServer())
+		{
+			ZCR_Director.Command(GetPlayerId(), cmd, pos);
+			return;
+		}
 		Rpc(RpcAsk_ZCRCam, cmd, pos);
 	}
 
@@ -48,7 +54,7 @@ class ZCR_WatchControls
 	protected static const float X0 = 0.005;
 	protected static const float W = 0.08;
 	protected static const float GAP = 0.004;
-	protected static const float Y0 = 0.16;
+	protected static const float Y0 = 0.23;
 	protected static const float H = 0.05;
 
 	protected ImageWidget m_Catcher;

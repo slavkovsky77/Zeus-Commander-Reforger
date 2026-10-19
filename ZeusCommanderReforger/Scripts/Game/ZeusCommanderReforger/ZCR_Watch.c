@@ -25,11 +25,16 @@ modded class SCR_BaseGameMode
 	void ZCR_SendShot(vector target, float back, float height, RplId follow, string label, int seconds)
 	{
 		Rpc(RpcDo_ZCRShot, target, back, height, follow, label, seconds);
+		// Solo (the game hosts the match): a broadcast doesn't reach the host's own screen.
+		if (!System.IsConsoleApp())
+			ZCR_Watch.OnShot(target, back, height, follow, label);
 	}
 
 	void ZCR_SendOverlay(string panel, string markers)
 	{
 		Rpc(RpcDo_ZCROverlay, panel, markers);
+		if (!System.IsConsoleApp())
+			ZCR_Watch.OnOverlay(panel, markers);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
@@ -114,7 +119,8 @@ class ZCR_Watch
 		if (!s_bChecked)
 		{
 			s_bChecked = true;
-			if (Replication.IsServer() || !System.IsCLIParam("zcrWatch"))
+			// -zcrWatch: the game on screen (joining a lab server, or hosting a solo match itself).
+			if (!System.IsCLIParam("zcrWatch"))
 				return;
 			s_Instance = new ZCR_Watch();
 			s_Instance.m_FollowId = RplId.Invalid();
@@ -246,7 +252,7 @@ class ZCR_Watch
 		FrameSlot.SetAnchorMax(m_Root, 1, 1);
 		FrameSlot.SetOffsets(m_Root, 0, 0, 0, 0);
 		m_Caption = NewText(0.15, 0.84, 0.85, 0.95, 24, 0.55);
-		m_Panel = NewText(0.005, 0.005, 0.55, 0.14, 17, 0.5);
+		m_Panel = NewText(0.005, 0.005, 0.66, 0.215, 21, 0.6);
 		if (m_Caption)
 			m_Caption.SetFont(FONT_BOLD);
 		if (m_Panel)

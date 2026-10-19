@@ -3,6 +3,9 @@ and a picture of the window (Windows Graphics Capture, whatever is in front of i
 diagnostic build's Diag Menu, e.g. Cheats > "DTime multiplier" for a faster solo match.
 
     python lab/keys.py shot out.jpg                 # the game window now
+    python lab/keys.py size 2400 1350               # a large window, still windowed
+    python lab/keys.py window                       # a normal window (borders), maximised
+    python lab/keys.py speed 2                      # solo match at 2x (once, on a fresh game)
     python lab/keys.py press down down right        # keys, one after another
     python lab/keys.py hold lwin+lalt down right    # keys while holding others (the Diag Menu)
     python lab/keys.py holdshot lwin+lalt down out.jpg   # the same, and a picture before letting go
@@ -65,9 +68,40 @@ def game_hwnd():
 
 def front(hwnd) -> None:
     u = ctypes.windll.user32
-    u.ShowWindow(hwnd, 9)
+    if u.IsIconic(hwnd):          # only un-minimise; never change its size or mode
+        u.ShowWindow(hwnd, 9)
     u.SetForegroundWindow(hwnd)
     time.sleep(0.4)
+
+
+def normal_maximised(hwnd) -> None:
+    """A normal window - title bar, borders - maximised (the game opens borderless). Martin watches it
+    remotely and wants a window, at full resolution."""
+    u = ctypes.windll.user32
+    u.GetWindowLongW.restype = ctypes.c_long
+    st = u.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+    new = (st & ~0x80000000) | 0x00CF0000          # WS_POPUP off, WS_OVERLAPPEDWINDOW on
+    u.SetWindowLongW(hwnd, -16, ctypes.c_long(new - (1 << 32) if new >= 1 << 31 else new))
+    u.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020 | 0x0001 | 0x0002 | 0x0004)   # frame changed
+    u.ShowWindow(hwnd, 3)
+
+
+def set_speed(hwnd, speed: float) -> None:
+    """The diagnostic build's Diag Menu (held Win+Alt), freshly opened: Cheats (12th) > "DTime
+    multiplier" (7th) on, then its value (8th) from 1 in steps of 0.01. Only where the game hosts the
+    match (solo); measured 2.0x at a steady 60 fps (19 Oct)."""
+    front(hwnd)
+    for k in ("lwin", "lalt"):
+        key(k, False)
+        time.sleep(0.05)
+    time.sleep(0.4)
+    try:
+        for k in ["down"] * 11 + ["right"] + ["down"] * 6 + ["right", "down"] + ["right"] * round((speed - 1) * 100):
+            tap(k)
+    finally:
+        for k in ("lalt", "lwin"):
+            key(k, True)
+            time.sleep(0.05)
 
 
 def shot(hwnd, out: str) -> None:
@@ -84,6 +118,20 @@ def main() -> int:
     cmd, rest = sys.argv[1], sys.argv[2:]
     if cmd == "shot":
         shot(hwnd, rest[0])
+        return 0
+    if cmd == "speed":
+        set_speed(hwnd, float(rest[0]))
+        return 0
+    if cmd == "window":
+        normal_maximised(hwnd)
+        return 0
+    if cmd == "size":
+        # A large window, still windowed (Martin watches it remotely): W H, centred on the screen.
+        u = ctypes.windll.user32
+        w, h = int(rest[0]), int(rest[1])
+        sw, sh = u.GetSystemMetrics(0), u.GetSystemMetrics(1)
+        u.ShowWindow(hwnd, 9)
+        u.SetWindowPos(hwnd, 0, max(0, (sw - w) // 2), max(0, (sh - h) // 2 - 20), w, h, 0x0004)
         return 0
     front(hwnd)
     if cmd == "press":

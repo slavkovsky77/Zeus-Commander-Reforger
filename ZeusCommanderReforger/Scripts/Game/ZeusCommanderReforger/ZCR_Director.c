@@ -222,6 +222,26 @@ class ZCR_Director
 		}
 	}
 
+	// The panel's event feed: captures, storms, drone teams - the last three, newest first.
+	protected static ref array<string> s_aNotes = {};
+
+	static void Note(string text)
+	{
+		s_aNotes.InsertAt(Clock(ZCR_LossLog.Seconds()) + " " + text, 0);
+		while (s_aNotes.Count() > 3)
+			s_aNotes.Remove(3);
+	}
+
+	// Who is commanding, in plain words.
+	protected static string Commander(string source)
+	{
+		if (source.Contains("llm"))
+			return "our doctrine + Gemini";
+		if (source == "AI Conflict")
+			return "AI Conflict alone";
+		return "our doctrine";
+	}
+
 	protected static string Clock(int seconds)
 	{
 		int m = seconds / 60;
@@ -977,7 +997,10 @@ class ZCR_Director
 			}
 			markers += Marker("G", goal + Vector(0, 70, 0), Colour(side), 1, side + " MAIN EFFORT");
 		}
-		string panel;
+		// The panel (Martin: "not clear what is actually happening"): the score, each side's plan in
+		// plain words, drones, and the last events.
+		string panel = string.Format("%1   |   lost in the last 2 min: US %2, USSR %3   |   game time %4\n",
+			Score(), LossesNear(vector.Zero, 1e9, now - 120, "US"), LossesNear(vector.Zero, 1e9, now - 120, "USSR"), Clock(now));
 		foreach (string side : MAIN_SIDES)
 		{
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
@@ -985,13 +1008,23 @@ class ZCR_Director
 			string source = plan.GetSource();
 			if (intent.IsEmpty())
 			{
-				intent = "AI Conflict's own commander decides";
+				intent = "its own commander decides";
 				source = "AI Conflict";
 			}
-			panel += string.Format("%1 commander (%2): %3\n", side, source, intent);
+			panel += string.Format("%1 (%2): %3\n", side, Commander(source), intent);
 		}
-		panel += string.Format("%1 | lost in the last 2 min: US %2, USSR %3 | game time %4",
-			Score(), LossesNear(vector.Zero, 1e9, now - 120, "US"), LossesNear(vector.Zero, 1e9, now - 120, "USSR"), Clock(now));
+		panel += string.Format("Drones: US %1 teams sent, %2 in the air   |   USSR %3 teams sent, %4 in the air",
+			ZCR_Drones.Launched("US"), ZCR_Drones.InAir("US"), ZCR_Drones.Launched("USSR"), ZCR_Drones.InAir("USSR"));
+		if (!s_aNotes.IsEmpty())
+		{
+			panel += "\nLatest: ";
+			foreach (int i, string note : s_aNotes)
+			{
+				if (i > 0)
+					panel += "   -   ";
+				panel += note;
+			}
+		}
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)
 			gameMode.ZCR_SendOverlay(panel, markers);

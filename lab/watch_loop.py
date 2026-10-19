@@ -28,6 +28,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+import keys  # noqa: E402
 import metrics  # noqa: E402
 import reforger  # noqa: E402
 
@@ -49,9 +50,9 @@ def git_commit() -> str:
     return r.stdout.strip() + ("+changes" if dirty else "")
 
 
-def opts(map_name: str, client: bool, us: str, ussr: str, label: str) -> Namespace:
+def opts(map_name: str, client: bool, us: str, ussr: str, label: str, solo: bool = False) -> Namespace:
     return Namespace(map=map_name, port=PORT, client=client, drones=True, watch=True, plan_seconds=90,
-                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False)
+                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo)
 
 
 def start(o: Namespace, tag: str):
@@ -152,7 +153,8 @@ def ffmpeg_start(out: Path, hwnd):
     """Records the game window only (Windows Graphics Capture): what is in front of it - VS Code, a
     browser, a notification - stays out of the video (gdigrab of the desktop recorded all of it)."""
     w = client_rect(hwnd)[2]
-    grab = f"gfxcapture=hwnd={int(hwnd)}:max_framerate=30:capture_cursor=0,hwdownload,format=bgra"
+    # scale_aspect: if the window changes size, the picture is scaled into the first frame size.
+    grab = f"gfxcapture=hwnd={int(hwnd)}:max_framerate=30:capture_cursor=0:resize_mode=scale_aspect,hwdownload,format=bgra"
     argv = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-filter_complex",
             grab + (",scale=1920:-2" if w > 1920 else "") + ",format=nv12",
             "-c:v", "h264_mf", "-hw_encoding", "1", "-b:v", "8M", str(out)]
@@ -236,13 +238,17 @@ def write_index(path: Path, video: Path, meta: dict, m: dict, key: list, shots: 
 
 
 # --- one match -------------------------------------------------------------------------------------
-def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front: bool) -> dict:
+def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front: bool, solo: bool = False, speed: float = 1) -> dict:
+    """minutes: game minutes; solo at speed x takes minutes / x on the clock."""
     label = f"w{n}-{map_name}-{us}-v-{ussr}"
     meta = {"map": map_name, "us": us, "ussr": ussr, "strategist": f"US {us} v USSR {ussr}", "commit": git_commit(),
-            "started": f"{datetime.now():%Y-%m-%d %H:%M}", "minutes": minutes, "ended": ""}
-    log(f"match {n}: {map_name}, {meta['strategist']}, {minutes:.0f} min, build {meta['commit']}")
+            "started": f"{datetime.now():%Y-%m-%d %H:%M}", "minutes": minutes, "ended": "", "solo": solo, "speed": speed}
+    log(f"match {n}: {map_name}, {meta['strategist']}, {minutes:.0f} min, build {meta['commit']}"
+        + (f", solo at {speed:g}x" if solo else ""))
     kill_crash_reporters()
-    server, sprof = start(opts(map_name, False, us, ussr, label), "server")
+    # Solo: the game hosts the match itself - one process, server and screen (the Diag Menu's time
+    # multiplier works only there).
+    server, sprof = start(opts(map_name, False, us, ussr, label, solo=solo), "solo" if solo else "server")
     client = ff = None
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     video = VIDEOS / f"{stamp}_{label}.mp4"
@@ -253,7 +259,10 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         if not wait_for(sprof, server, "ROSTER_READY", 600):
             meta["ended"] = "server did not get ready"
             return meta
-        client, cprof = start(opts(map_name, True, us, ussr, label), "client")
+        if solo:
+            client, cprof = server, sprof
+        else:
+            client, cprof = start(opts(map_name, True, us, ussr, label), "client")
         if not wait_for(cprof, client, "[ZCR][CAM]", 300):
             meta["ended"] = "the game did not start the camera"
             return meta
@@ -262,6 +271,19 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         if not hwnd:
             meta["ended"] = "no game window"
             return meta
+        if solo:
+            # The game re-applies its own window size while starting up (19 Oct: it ended a narrow
+            # 851x1341 window): maximise until it stays.
+            sw = user32.GetSystemMetrics(0)
+            for _ in range(6):
+                keys.normal_maximised(hwnd)
+                time.sleep(3)
+                if user32.IsZoomed(hwnd) and client_rect(hwnd)[2] >= sw * 0.9:
+                    break
+            log(f"window {client_rect(hwnd)[2]}x{client_rect(hwnd)[3]}{' maximised' if user32.IsZoomed(hwnd) else ' NOT maximised'}")
+            if speed > 1:
+                keys.set_speed(hwnd, speed)
+                log(f"time multiplier {speed:g}x set")
         if keep_front:
             user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)
             user32.SetForegroundWindow(hwnd)
@@ -270,7 +292,7 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         rec_start = int(time.strftime("%H")) * 3600 + int(time.strftime("%M")) * 60 + int(time.strftime("%S"))
         log(f"recording {mkv.name}")
         t0 = time.time()
-        while time.time() - t0 < minutes * 60:
+        while time.time() - t0 < minutes * 60 / (speed if solo else 1):
             time.sleep(10)
             if server.poll() is not None:
                 meta["ended"] = f"server exited ({server.returncode})"
@@ -285,7 +307,7 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             if "event: disconnected" in read_log(cprof):
                 meta["ended"] = "the game was disconnected"
                 break
-        meta["minutes"] = round((time.time() - t0) / 60, 1)
+        meta["minutes"] = round((time.time() - t0) / 60 * (speed if solo else 1), 1)
     finally:
         if ff:
             ffmpeg_stop(ff)
@@ -319,6 +341,8 @@ def main() -> int:
     ap.add_argument("--rotation", default="everon:none:llm,everon:llm:none,everon:none:doctrine",
                     help="map:US strategist:USSR strategist, each none / doctrine / llm")
     ap.add_argument("--keep-front", action="store_true", help="keep the game on top (only when nobody uses the PC)")
+    ap.add_argument("--solo", action="store_true", help="the game hosts each match itself, in a normal maximised window")
+    ap.add_argument("--speed", type=float, default=1, help="solo only: the Diag Menu's time multiplier, e.g. 2")
     a = ap.parse_args()
     rotation = [tuple(x.split(":")) for x in a.rotation.split(",") if x]
     import bridges
@@ -336,7 +360,8 @@ def main() -> int:
                 log(f"rotation now {override.read_text(encoding='utf-8').strip()}")
         map_name, us, ussr = rotation[n % len(rotation)]
         n += 1
-        meta = match(n, map_name, us, ussr, min(a.minutes, max(5, (end - time.time()) / 60 - 3)), a.keep_front)
+        wall = (a.speed if a.solo else 1)
+        meta = match(n, map_name, us, ussr, min(a.minutes, max(5, ((end - time.time()) / 60 - 3) * wall)), a.keep_front, a.solo, a.speed)
         fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
         if fails >= 3:
             log("three matches in a row failed to start - stopping")

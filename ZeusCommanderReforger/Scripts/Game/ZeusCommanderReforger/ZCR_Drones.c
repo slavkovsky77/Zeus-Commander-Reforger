@@ -191,6 +191,7 @@ class ZCR_Drones
 		string kind = "anti-infantry";
 		if (antiVehicle)
 			kind = "anti-vehicle";
+		ZCR_Director.Note(string.Format("%1 drone team %2 to %3", side, n, goalName));
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
 			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why), LogLevel.NORMAL);
 		Find(at, side);
@@ -286,6 +287,23 @@ class ZCR_Drones
 			}
 		}
 		return bestNode;
+	}
+
+	// For the watch panel: teams launched so far, and drones in the air now.
+	static int Launched(FactionKey side)
+	{
+		return s_mCount.Get(side);
+	}
+
+	static int InAir(FactionKey side)
+	{
+		int n;
+		for (int i; i < s_aDrones.Count(); i++)
+		{
+			if (s_aDrones[i] && s_aDroneSide[i] == side)
+				n++;
+		}
+		return n;
 	}
 
 	protected static int Active(FactionKey side)
