@@ -15,7 +15,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 
 ## The screen
 - [Done] Make clear what is happening (125) | Plans in plain words, drones, latest events.
-- [Done] Director closer on fights, for a while (149) | Fight and assault shots ~110 m out for 22 s, close-ups 24 m from a soldier in contact.
+- [Done] Director closer on fights, for a while (149, 150) | Fights 60 m out for 22 s, assaults 70 m, storms 80 m, close-ups over the shoulder (14 m behind, 4 m up) on a soldier in contact.
 - [Done] BLUFOR left, OPFOR right, like Arma 3's live logs (138) | Who commands, plan, now doing, drones, latest decisions; score and speed on top; losses, cover and stacking along the bottom.
 - [Done] Arma 3's colours: dark background, side colours, green captures (140) | Captures green, losses red, attacks and storms yellow.
 - [Done] Drones visible on screen (125, 136) | An FPV tag on every drone, the camera at the drone's height.
