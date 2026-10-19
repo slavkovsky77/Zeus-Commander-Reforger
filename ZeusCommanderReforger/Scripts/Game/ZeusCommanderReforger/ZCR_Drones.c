@@ -1,7 +1,10 @@
 // FPV drone teams for the commanders (-zcrDrones on the server; needs Martin's FPV AI Drones and
 // Realistic Combat Drones loaded). A team of 4 AI-flown FPVs starts at the side's own base nearest
 // its target and flies there with a Move waypoint; the drones go for enemy soldiers within 200 m
-// (anti-infantry) or vehicles (anti-vehicle, every third team).
+// (anti-infantry) or vehicles (anti-vehicle - only where the side has seen an enemy vehicle near
+// the target: anti-vehicle teams sent to FIA bases hovered there and were lost, 12 of 68 drones).
+// Teams start from a clear spot 40-120 m from the base - open sky, nothing within 12 m, level
+// ground (from 30 m off the centre, drones hit barracks, trees and a transformer at take-off).
 // Drone warfare doctrine (Martin, review note 118: modern combat, heavy drone use): a side with our
 // strategist sends its teams where the plan says (drone <base>: prep fire on the objective while
 // gathering, pressure during the assault and storm) - a team every 90 s, up to 3 in the air
@@ -154,7 +157,7 @@ class ZCR_Drones
 		if (best > 4000)
 			return;
 		int n = s_mCount.Get(side) + 1;
-		bool antiVehicle = n % 3 == 0;
+		bool antiVehicle = ZCR_Sampler.KnownVehiclesNear(side, goal, 300) > 0;
 		Resource res = Resource.Load(Team(side, antiVehicle));
 		if (!res || !res.IsValid())
 		{
@@ -164,7 +167,7 @@ class ZCR_Drones
 		}
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
-		vector at = from + Vector(30, 0, 30);
+		vector at = ClearSpot(from, goal);
 		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
 		params.Transform[3] = at;
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
@@ -191,6 +194,71 @@ class ZCR_Drones
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
 			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why), LogLevel.NORMAL);
 		Find(at, side);
+	}
+
+	protected static ref TraceParam s_Trace;
+
+	// A launch spot near the base: 40-120 m from it, toward the goal first; open sky (nothing within
+	// 40 m above), nothing within 12 m around at 1-3 m height, and level ground. Else 60 m off.
+	protected static vector ClearSpot(vector base, vector goal)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		vector toward = goal - base;
+		toward[1] = 0;
+		if (toward.Length() > 1)
+			toward.Normalize();
+		else
+			toward = Vector(1, 0, 0);
+		array<float> dists = {40, 60, 80, 100, 120};
+		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
+		foreach (float d : dists)
+		{
+			foreach (float a : angles)
+			{
+				float r = a * Math.DEG2RAD;
+				vector dir = Vector(toward[0] * Math.Cos(r) - toward[2] * Math.Sin(r), 0, toward[0] * Math.Sin(r) + toward[2] * Math.Cos(r));
+				vector p = base + dir * d;
+				p[1] = world.GetSurfaceY(p[0], p[2]);
+				if (Clear(world, p))
+					return p;
+			}
+		}
+		return base + toward * 60;
+	}
+
+	protected static bool Clear(BaseWorld world, vector p)
+	{
+		if (!s_Trace)
+			s_Trace = new TraceParam();
+		s_Trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		s_Trace.TargetLayers = 0;
+		s_Trace.LayerMask = 0xffffffff;
+		s_Trace.Exclude = null;
+		// Open sky.
+		s_Trace.Start = p + Vector(0, 1, 0);
+		s_Trace.End = p + Vector(0, 40, 0);
+		if (world.TraceMove(s_Trace, null) < 1.0)
+			return false;
+		// Nothing around, at 1 and 3 m, in 8 directions.
+		for (int i = 0; i < 8; i++)
+		{
+			float r = i * 45 * Math.DEG2RAD;
+			vector dir = Vector(Math.Cos(r), 0, Math.Sin(r));
+			foreach (float h : {1.0, 3.0})
+			{
+				s_Trace.Start = p + Vector(0, h, 0);
+				s_Trace.End = p + Vector(0, h, 0) + dir * 12;
+				if (world.TraceMove(s_Trace, null) < 1.0)
+					return false;
+			}
+		}
+		// Level ground: the four corners 4 m out within 1.5 m of the centre.
+		foreach (vector o : {Vector(4, 0, 0), Vector(-4, 0, 0), Vector(0, 0, 4), Vector(0, 0, -4)})
+		{
+			if (Math.AbsFloat(world.GetSurfaceY(p[0] + o[0], p[2] + o[2]) - p[1]) > 1.5)
+				return false;
+		}
+		return true;
 	}
 
 	protected static float NearestOwn(FactionKey side, vector at)

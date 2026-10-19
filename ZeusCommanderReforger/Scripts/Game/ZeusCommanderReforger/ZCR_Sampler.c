@@ -103,6 +103,29 @@ class ZCR_Sampler
 		return n;
 	}
 
+	// Enemy vehicles (or soldiers in them) this side has seen in the last minute within 'radius' of
+	// 'at' - an anti-vehicle FPV team only goes where there is one.
+	static int KnownVehiclesNear(string side, vector at, float radius)
+	{
+		if (!s_Instance)
+			return 0;
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!s_Instance.m_mKnownPos.Find(side, pos) || !s_Instance.m_mKnownAt.Find(side, when))
+			return 0;
+		int now = ZCR_LossLog.Seconds();
+		int n;
+		foreach (IEntity e, vector p : pos)
+		{
+			if (!e || now - when.Get(e) > 60 || vector.DistanceXZ(p, at) > radius)
+				continue;
+			IEntity root = e.GetRootParent();
+			if (Vehicle.Cast(e) || (root && Vehicle.Cast(root)))
+				n++;
+		}
+		return n;
+	}
+
 	// The biggest group of enemy soldiers of the main sides (not FIA) this side has seen in the last
 	// minute: where, and how many within 100 m of it - for the drones' hunt.
 	static int KnownCluster(string side, out vector where)
