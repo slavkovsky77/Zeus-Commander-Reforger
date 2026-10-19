@@ -72,6 +72,20 @@ def read_log(profile: Path) -> str:
     return log_file.read_text(encoding="utf-8", errors="replace") if log_file else ""
 
 
+def game_seconds(profile: Path) -> int:
+    """The commander's clock (t= of its latest log line), in game seconds; -1 if none yet."""
+    found = re.findall(r"\[ZCR\]\[[A-Z_]+\][^\n]*? t=(\d+)", read_log(profile)[-200000:])
+    return int(found[-1]) if found else -1
+
+
+def measured_speed(profile: Path, seconds: float = 20) -> float:
+    """Game seconds per real second over 'seconds'."""
+    a, t0 = game_seconds(profile), time.time()
+    time.sleep(seconds)
+    b = game_seconds(profile)
+    return (b - a) / (time.time() - t0) if a >= 0 and b >= 0 else 0
+
+
 def wait_for(profile: Path, proc, needle: str, seconds: float) -> bool:
     t0 = time.time()
     while time.time() - t0 < seconds:
@@ -276,8 +290,15 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             return meta
         if solo:
             if speed > 1:
+                # Set, then measured: the keys can go astray (another window in front - a match ran
+                # at 1x, 19 Oct 22:14); under 2/3 of the speed, set again once.
                 keys.set_speed(hwnd, speed)
-                log(f"time multiplier {speed:g}x set")
+                got = measured_speed(cprof)
+                if got < speed * 0.67:
+                    log(f"time multiplier {speed:g}x did not take (measured {got:.1f}x) - setting it again")
+                    keys.set_speed(hwnd, speed)
+                    got = measured_speed(cprof)
+                log(f"time multiplier {speed:g}x set, measured {got:.1f}x")
             # The game opens in its own MAXIMIZED mode (reforger.window_settings); the speed is set
             # first (the Diag Menu is worked with Win held, and Windows takes Win+arrow as "snap the
             # window"), then the window maximised again in case it snapped.
