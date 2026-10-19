@@ -225,6 +225,21 @@ class PhasedTests(unittest.TestCase):
         self.assertEqual(phased.force_at(r, town, 900), 24.0)
         self.assertEqual(phased.force_near(r, town, 450), 25.0)
 
+    def test_assault_on_the_objective_gets_longer(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        p.decide(self.report(190))                       # assault Town
+        r = self.report(190 + 620)
+        r["squads"][0].update(x=2550, z=1450)            # 10 soldiers on Town: still gaining
+        p.decide(r)
+        self.assertEqual(p.state["USSR"]["target"], 3)
+        self.assertNotIn(3, p.state["USSR"]["fails"])
+        r = self.report(190 + 920)
+        r["squads"][0].update(x=2550, z=1450)
+        p.decide(r)                                      # 15 min: called off all the same
+        self.assertEqual(p.state["USSR"]["fails"][3], 1)
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

@@ -27,7 +27,9 @@ NEED = 25.0          # soldiers: two and a half full squads
 NEED_PER_FAIL = 10.0
 GATHER_RADIUS = 600
 ASSAULT_RADIUS = 900   # squads sent to the objective, on their way in (force_at)
-ASSAULT_MAX = 600      # s without a capture: called off, another objective
+ASSAULT_MAX = 600      # s without a capture: called off, another objective...
+ASSAULT_MAX_ON_IT = 900   # ...unless we hold ground on it (ON_IT soldiers within 250 m): until then
+ON_IT = 10.0
 COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
 
 
@@ -136,9 +138,13 @@ class Phased:
                         "avoid": [target["id"]], "concentration": "heavy"}, raw
         # Assault.
         near = force_at(report, target, ASSAULT_RADIUS)
-        if (elapsed >= 360 and near < 0.35 * need) or elapsed >= ASSAULT_MAX:
+        # Arma 3 calls an assault off when it stops gaining ground: here, no capture in 10 min and
+        # nobody on the objective - with soldiers on it, a capture takes 5-10 min more, so 15 min.
+        on_it = force_near(report, target, 250) >= ON_IT
+        stalled = elapsed >= ASSAULT_MAX_ON_IT or (elapsed >= ASSAULT_MAX and not on_it)
+        if (elapsed >= 360 and near < 0.35 * need) or stalled:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
-            st.update(phase="gather" if elapsed < ASSAULT_MAX else "pick", since=t, need=need + NEED_PER_FAIL)
+            st.update(phase="pick" if stalled else "gather", since=t, need=need + NEED_PER_FAIL)
             if st["phase"] == "pick":
                 return self.decide(report, doctrine_text)
             return {"intent": f"The attack on {name} bled out - falling back to gather more", "main_effort": stage["id"] if stage else None,
