@@ -10,14 +10,22 @@
 // Both sides (the soldiers' own reflex, not a commander's choice); -zcrNoDroneReact turns it off.
 // Measured every 10 s: [ZCR][DRONETHREAT] t= side= near= (soldiers within 150 m of an enemy drone)
 // covered= (% under a roof or canopy) reacting= (% running to cover now) prone=.
+class ZCR_DroneSeen
+{
+	IEntity m_Drone;
+	vector m_vAt;
+	string m_sSide;
+}
+
 class ZCR_DroneThreat
 {
 	protected static ref ZCR_DroneThreat s_Instance;
 	protected static bool s_bStarted;
 	protected static ref map<IEntity, int> s_mReactedAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mRunningUntil = new map<IEntity, int>();
-	protected static ref map<IEntity, vector> s_mDroneLast = new map<IEntity, vector>();
-	protected static ref map<IEntity, string> s_mDroneSide = new map<IEntity, string>();
+	// Drones in the air, with where each was last seen - kept in a list (a map keyed by the drone loses
+	// the entry when the drone is deleted, so the scatter after a hit never ran).
+	protected static ref array<ref ZCR_DroneSeen> s_aSeen = {};
 	protected static ref array<IEntity> s_aFound = {};
 	protected static ref TraceParam s_Trace;
 	protected static int s_iNextLog;
@@ -41,17 +49,12 @@ class ZCR_DroneThreat
 		map<string, int> running = new map<string, int>();
 		map<string, int> prone = new map<string, int>();
 		// Drones that went off since the last tick: scatter the survivors round where they were.
-		array<IEntity> gone = {};
-		foreach (IEntity d, vector last : s_mDroneLast)
+		for (int g = s_aSeen.Count() - 1; g >= 0; g--)
 		{
-			if (!d)
-				gone.Insert(d);
-		}
-		foreach (IEntity d : gone)
-		{
-			Scatter(s_mDroneLast.Get(d), s_mDroneSide.Get(d), now);
-			s_mDroneLast.Remove(d);
-			s_mDroneSide.Remove(d);
+			if (s_aSeen[g].m_Drone)
+				continue;
+			Scatter(s_aSeen[g].m_vAt, s_aSeen[g].m_sSide, now);
+			s_aSeen.Remove(g);
 		}
 		for (int i; i < ZCR_Drones.s_aDrones.Count(); i++)
 		{
@@ -62,8 +65,20 @@ class ZCR_DroneThreat
 			vector dp = drone.GetOrigin();
 			if (dp[1] - GetGame().GetWorld().GetSurfaceY(dp[0], dp[2]) < 2)
 				continue;
-			s_mDroneLast.Set(drone, dp);
-			s_mDroneSide.Set(drone, droneSide);
+			ZCR_DroneSeen seen;
+			foreach (ZCR_DroneSeen x : s_aSeen)
+			{
+				if (x.m_Drone == drone)
+					seen = x;
+			}
+			if (!seen)
+			{
+				seen = new ZCR_DroneSeen();
+				seen.m_Drone = drone;
+				seen.m_sSide = droneSide;
+				s_aSeen.Insert(seen);
+			}
+			seen.m_vAt = dp;
 			s_aFound.Clear();
 			GetGame().GetWorld().QueryEntitiesBySphere(dp, REACT, s_Instance.AddMan, null, EQueryEntitiesFlags.DYNAMIC);
 			foreach (IEntity e : s_aFound)
