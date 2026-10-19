@@ -62,6 +62,7 @@ class ZCR_WatchControls
 	protected ref array<ref ZCR_WatchButton> m_aButtons = {};
 	protected MenuBase m_Host;
 	protected bool m_bLocked;
+	protected string m_sFocus;          // the side the camera keeps to: "" both, "US", "USSR"
 	protected bool m_bAutoOff;
 	protected float m_fClock;
 	protected float m_fLastClick = -10;
@@ -147,6 +148,7 @@ class ZCR_WatchControls
 		Add("AUTO ON", "auto", 4, 1);
 		Add("PREV POINT", "point-", 5, 0);
 		Add("NEXT POINT", "point+", 5, 1);
+		Add("BOTH SIDES", "side", 6, 0);
 		Labels();
 	}
 
@@ -191,6 +193,15 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("AUTO ON");
 			}
+			else if (b.m_sCmd == "side")
+			{
+				if (m_sFocus == "US")
+					b.m_wText.SetText("US ONLY");
+				else if (m_sFocus == "USSR")
+					b.m_wText.SetText("USSR ONLY");
+				else
+					b.m_wText.SetText("BOTH SIDES");
+			}
 		}
 		Colours();
 	}
@@ -211,6 +222,10 @@ class ZCR_WatchControls
 				else
 					c = new Color(0.15, 0.55, 0.22, 0.8);
 			}
+			else if (b.m_sCmd == "side" && m_sFocus == "US")
+				c = new Color(0.18, 0.35, 0.75, 0.85);
+			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
+				c = new Color(0.7, 0.18, 0.15, 0.85);
 			b.m_wBack.SetColor(c);
 		}
 	}
@@ -247,8 +262,20 @@ class ZCR_WatchControls
 					m_bLocked = false;
 					m_bAutoOff = false;
 				}
+				// One side or both (Martin: "a button to switch between the factions"): BOTH -> US -> USSR.
+				string cmd = b.m_sCmd;
+				if (cmd == "side")
+				{
+					if (m_sFocus.IsEmpty())
+						m_sFocus = "US";
+					else if (m_sFocus == "US")
+						m_sFocus = "USSR";
+					else
+						m_sFocus = "";
+					cmd = "side-" + m_sFocus;
+				}
 				Labels();
-				Send(b.m_sCmd, vector.Zero);
+				Send(cmd, vector.Zero);
 				return;
 			}
 		}

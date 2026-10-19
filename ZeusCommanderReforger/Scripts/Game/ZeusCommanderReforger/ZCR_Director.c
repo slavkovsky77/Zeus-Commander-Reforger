@@ -522,9 +522,7 @@ class ZCR_Director
 		{
 			// Close-up in the fight just shown, alternating the side.
 			array<IEntity> pool = {};
-			string want = "US";
-			if (m_iShot % 2 == 0)
-				want = "USSR";
+			string want = Turn("US", "USSR");
 			// Someone actually in the fight first (knows an enemy within 400 m) - Martin: "watch the
 			// fight closer, zoom in for a while".
 			foreach (IEntity e : m_aMen)
@@ -588,7 +586,7 @@ class ZCR_Director
 				string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
 				foreach (string side : MAIN_SIDES)
 				{
-					if (owner == side)
+					if (owner == side || (!m_sFocus.IsEmpty() && side != m_sFocus))
 						continue;
 					int n;
 					foreach (IEntity e : m_aMen)
@@ -630,9 +628,7 @@ class ZCR_Director
 			// Nobody fighting: follow someone on the move, alternating the side; in a vehicle, the
 			// vehicle (the Arma 3 director followed APCs carrying troops).
 			array<IEntity> movers = {};
-			string wanted = "US";
-			if (m_iShot % 2 == 0)
-				wanted = "USSR";
+			string wanted = Turn("US", "USSR");
 			foreach (IEntity e : m_aMoving)
 			{
 				if (ZCR_LossLog.SideOf(e) == wanted)
@@ -673,9 +669,7 @@ class ZCR_Director
 		{
 			// The hot zone again: one side's objective instead, the sides in turn (Arma 3's
 			// objective shot) - the quiet first minutes otherwise show the same view over and over.
-			string side = "US";
-			if (m_iShot % 2 == 0)
-				side = "USSR";
+			string side = Turn("US", "USSR");
 			for (int k = 0; k < 2 && key.IsEmpty(); k++)
 			{
 				ZCR_StrategicPlan sidePlan = ZCR_StrategicPlan.Get(side);
@@ -881,6 +875,11 @@ class ZCR_Director
 				m_sForce = "front";
 			NextShot(now);
 		}
+		else if (cmd.StartsWith("side-"))
+		{
+			m_sFocus = cmd.Substring(5, cmd.Length() - 5);
+			Print(string.Format("[ZCR][CAMUI] t=%1 side focus %2", now, m_sFocus), LogLevel.NORMAL);
+		}
 		else if (cmd == "point+" || cmd == "point-")
 		{
 			int pdir = 1;
@@ -900,6 +899,17 @@ class ZCR_Director
 	}
 
 	protected int m_iPoint = -1;
+	protected string m_sFocus;          // SIDE button: "" both sides, "US" or "USSR" only
+
+	// The side a shot keeps to: the focus, else the sides in turn.
+	protected string Turn(string a, string b)
+	{
+		if (!m_sFocus.IsEmpty())
+			return m_sFocus;
+		if (m_iShot % 2 == 0)
+			return b;
+		return a;
+	}
 
 	// NEXT / PREV POINT (Martin: "switch between points, so I can watch one point"): the bases in turn;
 	// the camera stays over the one shown (locked) until AUTO.
@@ -908,6 +918,9 @@ class ZCR_Director
 		array<int> nodes = {};
 		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
 		{
+			// One side: its own bases and the one it attacks.
+			if (!m_sFocus.IsEmpty() && ZCR_Strategist.s_mNodeOwner.Get(node) != m_sFocus && node != ZCR_StrategicPlan.Get(m_sFocus).GetMainEffort())
+				continue;
 			int at = 0;
 			while (at < nodes.Count() && nodes[at] < node)
 				at++;
@@ -957,6 +970,8 @@ class ZCR_Director
 			array<ref array<IEntity>> bySide = {};
 			foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
 			{
+				if (!m_sFocus.IsEmpty() && faction != m_sFocus)
+					continue;
 				array<IEntity> leaders = {};
 				array<float> dist = {};
 				for (int s; state && s < state.GetSlotCount(); s++)
@@ -1083,7 +1098,7 @@ class ZCR_Director
 			}
 			// In the air: well above the ground.
 			vector p = d.GetOrigin();
-			if (p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]) > 5)
+			if (p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]) > 5 && (m_sFocus.IsEmpty() || ZCR_Drones.s_aDroneSide[i] == m_sFocus))
 			{
 				m_sDroneSide = ZCR_Drones.s_aDroneSide[i];
 				return d;
