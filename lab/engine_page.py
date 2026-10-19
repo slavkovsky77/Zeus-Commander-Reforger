@@ -24,12 +24,14 @@ ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
     "Running now": "The self-improving loop: a watched, recorded match on screen and a headless head-to-head beside it - both with drones on both sides (from r8).",
-    "Today's result": "Arma 3's soldier measurements on Reforger: its AI fights from cover only 5-8% of the time (Arma 3 with our soldier layer: 30-40%), and an assault force bunches up (69-90% stacked).",
+    "Today's result": "Drone warfare doctrine: drones wear the defenders down and a careful storm takes the base 75 s later; drones cause about half the losses (front: 70-96%).",
     "Being built next": "Drone warfare doctrine measured (drones' share of losses against the front band 70-96%); then a soldier layer for cover and spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r8", "Drones wear them down, a short storm finishes",
+     "First headless match with the drone doctrine: the USSR took Airport Base at 13.7 min and Farm at 21 min, each 75 s after the storm order (before drones, 5-12 min), and was storming a third base at the end - 3-2, the USSR lost 16. Drones caused 49% of all losses (front band 70-96%). On screen, Everon: Old Wood 3 min after the storm, the US lost 4."),
     ("design", "r8", "Drone warfare doctrine",
      "Your direction: modern combat, heavy drone use. The doctrine names drone targets: FPV prep fire on the objective while the force gathers, and pressure during the assault and storm - a team every 90 s, up to 3 in the air. AI Conflict's side flies drones too (every 4 min, at its squads' main target), and the headless matches load the drone mods, so drones count in every measurement. Judged like the Arma 3 page: the drones' share of losses against the front-line band 70-96%."),
     ("design", "r8", "The attack sized by what the side has seen",
@@ -139,7 +141,7 @@ CHANGELOG = [
       "Each side's knowledge (enemies its soldiers saw in the last minute); the force needed is 2x the known defenders + 4; storm when 2 or fewer are left in sight.",
       "Watch buttons tested on screen; captions name the soldier's role."],
      "Martin: modern combat realistic style - heavy drone use by the bot, a drone warfare doctrine; get as close as Arma 3.",
-     "First headless drone match running (USSR prep fire on Airport Base at t=45)."),
+     "First headless drone match: USSR doctrine 3-2 - Airport Base at 13.7 min and Farm at 21 min, each 75 s after the storm order; USSR lost 16; drones caused 49% of all losses (15 USSR teams, 7 US, 55 strikes). Watched Everon: Old Wood 3 min after the storm, the US lost 4, drones 51% of losses."),
     (7, "soldier measures, watch buttons", "19 Oct, from 12:29",
      ["Arma 3's soldier measurements (ZCR_Sampler): fighting from cover, sitting ducks, stacking in the field; which cover (ground, building, tree, vehicle, object; roof or canopy overhead).",
       "Careful storm (priority 25) by default.",
