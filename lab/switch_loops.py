@@ -11,14 +11,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNTIME = ROOT / ".runtime"
-MARK = {"watch": ("watch_night.out", " video "), "batch": ("batch_night.out", " done ")}
+MARK = {"watch": ("watch_*.out", " video "), "batch": ("batch_*.out", " done ")}   # the newest log of each loop
 SCRIPT = {"watch": "watch_loop.py", "batch": "batch.py"}
 
 
 def count(name: str) -> int:
-    f, needle = MARK[name]
-    p = RUNTIME / f
-    return p.read_text(encoding="utf-8", errors="replace").count(needle) if p.exists() else 0
+    pattern, needle = MARK[name]
+    logs = sorted(RUNTIME.glob(pattern), key=lambda p: p.stat().st_mtime)
+    return logs[-1].read_text(encoding="utf-8", errors="replace").count(needle) if logs else 0
 
 
 def ps(filter_ps: str) -> None:
