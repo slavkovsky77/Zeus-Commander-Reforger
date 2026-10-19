@@ -11,7 +11,6 @@ diagnostic build's Diag Menu, e.g. Cheats > "DTime multiplier" for a faster solo
     python lab/keys.py holdshot lwin+lalt down out.jpg   # the same, and a picture before letting go
 """
 import ctypes
-import struct
 import subprocess
 import sys
 import time
@@ -87,40 +86,6 @@ def normal_maximised(hwnd) -> None:
     u.ShowWindow(hwnd, 3)
 
 
-def _displays() -> list:
-    """The active displays' (adapter low, adapter high, target id) for the display config calls."""
-    u = ctypes.windll.user32
-    np, nm = ctypes.c_uint(), ctypes.c_uint()
-    u.GetDisplayConfigBufferSizes(2, ctypes.byref(np), ctypes.byref(nm))         # QDC_ONLY_ACTIVE_PATHS
-    paths = ctypes.create_string_buffer(72 * np.value)
-    modes = ctypes.create_string_buffer(64 * nm.value)
-    if u.QueryDisplayConfig(2, ctypes.byref(np), paths, ctypes.byref(nm), modes, None):
-        return []
-    return [struct.unpack_from("<IiI", paths.raw, 72 * i + 20) for i in range(np.value)]
-
-
-def hdr_states() -> dict:
-    """HDR (Windows' "advanced colour") on or off, per display."""
-    out = {}
-    for d in _displays():
-        q = ctypes.create_string_buffer(32)
-        struct.pack_into("<IIIiI", q, 0, 9, 32, *d)                               # GET_ADVANCED_COLOR_INFO
-        if ctypes.windll.user32.DisplayConfigGetDeviceInfo(q) == 0:
-            out[d] = bool(struct.unpack_from("<I", q.raw, 20)[0] & 2)
-    return out
-
-
-def restore_hdr(was: dict) -> None:
-    """Put HDR back as it was: Win+Alt+B turns it on or off, and the speed setting holds Win+Alt for
-    ~15 s - a "b" typed then turned Martin's desktop washed-out grey (19 Oct, 21:12)."""
-    for d, now in hdr_states().items():
-        if d in was and now != was[d]:
-            s = ctypes.create_string_buffer(24)
-            struct.pack_into("<IIIiII", s, 0, 10, 24, *d, 1 if was[d] else 0)   # SET_ADVANCED_COLOR_STATE
-            ctypes.windll.user32.DisplayConfigSetDeviceInfo(s)
-            print(f"HDR was turned {'on' if now else 'off'} while the keys were held - put back")
-
-
 def set_speed(hwnd, speed: float) -> None:
     """The diagnostic build's Diag Menu (held Win+Alt), freshly opened: Cheats (12th) > "DTime
     multiplier" (7th) on, then its value (8th) from 1 in steps of 0.01. Only where the game hosts the
@@ -128,12 +93,11 @@ def set_speed(hwnd, speed: float) -> None:
     front(hwnd)
     # Windows takes Win+arrow as "snap the window": with ~200 presses the game window was thrown
     # between the screen halves (Martin, 19 Oct). Window snapping is off while the menu is worked,
-    # and put back as it was (read back, retried) - also if this fails half way. HDR too (Win+Alt+B).
+    # and put back as it was (read back, retried) - also if this fails half way.
     u = ctypes.windll.user32
     was = ctypes.c_int()
     u.SystemParametersInfoW(0x0082, 0, ctypes.byref(was), 0)          # SPI_GETWINARRANGING
     u.SystemParametersInfoW(0x0083, 0, None, 0x2)                       # SPI_SETWINARRANGING off
-    hdr = hdr_states()
     for k in ("lwin", "lalt"):
         key(k, False)
         time.sleep(0.05)
@@ -149,7 +113,6 @@ def set_speed(hwnd, speed: float) -> None:
         for k in ("lalt", "lwin"):
             key(k, True)
             time.sleep(0.05)
-        restore_hdr(hdr)
         for _ in range(3):
             u.SystemParametersInfoW(0x0083, 1 if was.value else 0, ctypes.c_void_p(1) if was.value else None, 0x2)
             now = ctypes.c_int()
