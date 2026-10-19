@@ -23,13 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The watched loop at 3x on Arland, two armies only (no FIA), fireteams of 5, drone trucks with operators, Arma 3's side panels; the headless batch beside it at 1x, mostly two-army matchups.",
-    "Today's result": "Two armies only, fireteams, drone sites, drones where enemies are known: the doctrine side +1 and +3 headless (loss ratio 1.39-1.43), drones hit 69-94% and cause 56-79% of losses (front band 70-96%), stacking 1-4% (Arma 3's limit 10%). Watched matches at 3x: 9.4 minutes each.",
-    "Being built next": "Measuring fireteams, bounding and drone sites in the two-army matches; drone sites moving forward with the front; riding to the attack more often.",
+    "Running now": "The watched loop at 3x on Arland, two armies, now our doctrine against our doctrine (rules and Gemini), with AI Conflict alone as every fourth match - the side check; the headless batch the same at 1x.",
+    "Today's result": "A regression found at 21:30: since 18:40 the watched matches had teams of one man waiting 10-20 minutes at base, 0-3 drone teams a match and not one ride all day - and the measures hid it. Fixed in our own AI Conflict (r16-r18): teams of 3 out at 1.8 min, drones up 50-100% of the time, soldiers riding in 58-83% of samples, idle soldiers in cover, panic when a drone is heard.",
+    "Being built next": "Buildings first for cover, fortifications the bot builds, a wider formation; the scorecard on every match, watched first.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("bug", "found", "The regression the measures hid",
+     "Martin, 21:40: no cars, no use of cover, no drones, sitting ducks - how didn't you notice? Three gaps: builds were judged on the headless batch, not the watched matches (drone teams 4-9 there, 0-3 in the watched ones); the measures skipped what the screen shows (cover only for soldiers in a fight, stacking only away from the base, whole-match averages hid 10-20 idle minutes); nothing flagged a regression - '0 rides' and '40 drone launches refused' sat in every log. Now lab/scorecard.py checks every match against fixed limits: first team out by 3 min, at most 40% at the main base at 10 min, teams of 2.5+, a drone team every 4 min, drones up 60% of the time, soldiers riding in 25% of samples. The 21:00 match fails 11 of 12; r18 passes nearly all."),
+    ("good", "r16", "Teams out at once",
+     "AI Conflict started every fireteam with 1 soldier and its one barracks recruited the rest one at a time, so teams waited at the main base 10-20 minutes (first out at 12.5 and 21 min). Our fork starts them with 3 of 5 and sends them out with 3: first team out at 1.3-1.8 min."),
+    ("good", "r16-r18", "Drones up all match, and they scan",
+     "My own 17:45 rule (drones only where enemies are known) had grounded them: nobody scouted. Now a team with nothing known flies a search near the front, its drones spot for their side (300 m, line of sight), a team with nothing to hit moves on after 15 s or sweeps a 250 m circle; AI Conflict's side every 2 min. Never over the enemy's main base - that camped its spawn. Drones up 50-100% of the time; Martin: 'drones attacks are deadly'."),
+    ("good", "r17-r18", "Infantry rides",
+     "AI Conflict never let infantry ride (refused 270-746 times a match), and infantry teams had no vehicle kind. Now teams ride light transport (M998, UAZ) from 300 m, 16 vehicles per side; out short of the objective where it can't see them. Soldiers riding in 58-83% of samples; a tag over each vehicle shows who is aboard; the camera cuts to vehicles on the move."),
+    ("good", "r18", "Cover and panic",
+     "Idle soldiers anywhere go under a roof or canopy within 40 m, 6 m apart. When a drone is heard (250 m) each runs to his own covered spot, or spreads out 15-25 m and then goes down: 89-93% react. March steps end in the best cover nearby, at a jog."),
     ("good", "r14", "Drones where enemies are known",
      "In the two-army matches drones were sent to enemy bases nobody had been seen at and hovered there until lost (23 of 84 hit). Now a team goes to an enemy-held objective only if enemies were seen near it - else to the nearest enemy seen within 1.5 km, or no team. Next watched match: 25 of 36 hit (69%), drones 62% of losses, the US +1 with a loss ratio of 1.35. A faster tempo (60 s, 4 up) gave nothing - the drone sites and the teams in the air are the limit."),
     ("good", "r14", "Two armies: stacking under Arma 3's limit",
@@ -142,9 +152,10 @@ CAMERA = [
 ]
 
 PROBLEMS = [
+    ("risk", "Formation spacing", "One drone can still take a whole team on the march: the wedge's spacing is in the game's formation config, not reachable from script; the panic spreads them only once a drone is heard.", "review note 183"),
+    ("design", "Fortifications", "Martin wants the bot to build bunkers and defenses on points, used for cover: what AI Conflict and Conflict can build is to be looked at.", "review note 186"),
     ("risk", "Soldiers walk into the open", "Reforger's AI fights from cover 5-13% of the time (Arma 3 30-40%) and at 22-38 m: the game's attack leaves cover after 5 s and closes to 15 m. An assault force is 69-90% stacked - FPV bait. r10 holds cover 20 s; bounding and spacing next.", "review notes 113, 124, 125"),
     ("risk", "Drones invisible on screen", "Drones do hit (Everon 14:54: 22 of 25 finished drones hit soldiers), but the director's drone shot showed an empty field - from the screen they seem not to work.", "review note 125"),
-    ("risk", "Infantry walks 270-710 m", "Nobody rides: AI Conflict never motorizes infantry by itself. Light vehicles with a covered dismount are in the r12 probe.", "review notes 127, 128"),
     ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default; the headless matches will tell.", "review note 106"),
     ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min: AI Conflict holds them at the base just taken, then walks them in 220 m steps.", "review note 109"),
     ("risk", "Arland favours the US", "In the controls (AI Conflict on both sides) the US ends 2-1 three times out of four: read the USSR side's results against that.", "4 controls"),
@@ -153,12 +164,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Covered dismount probe (r12): light vehicles to a point the objective can't see, then on foot - walk and ride measured.",
-    "r10 cover measured in a match where our soldiers fight (the solo watched matches).",
-    "Bounding and spacing like Arma 3's soldier layer: one team covers while the other moves; no 6+ bunches near the enemy.",
-    "The director's drone shot: find the drone and follow it to the hit, so drones show on screen.",
-    "Motorize only for long marches (over 1 km), measured as the walk and the follow-on time.",
-    "Short scenario tests (squads already 600 m from the objective) for the soldier layer, so each change is tested in minutes.",
+    "The scorecard on every match, watched first; a regression in any check stops the line.",
+    "Buildings first when soldiers look for cover; fortifications the bot builds on its points.",
+    "A wider formation (our own formation config) so one drone can't take a team.",
+    "Skills for what Martin repeats: the lab loops, scoring a match with frames, logging a remark, the pages.",
+    "Short scenario tests (teams already 600 m from the objective) for the soldier layer.",
 ]
 
 FACTS = [
@@ -167,7 +177,8 @@ FACTS = [
     "A base is taken through the game's own capture point: our soldiers there and no enemy inside. AI Conflict sends attackers to the capture point, which can be away from the base's own position.",
     "AI Conflict walks squads to an objective in 220 m approach steps, and a Reforger group under fire stops to fight at each step - squads stalled 300-600 m out.",
     "Reforger AI priorities (SCR_AIAction): group move 50, fighting a spotted group 70; soldier formation movement 30, fire position 60, attack a chosen target 90, danger reactions +1000. A waypoint's priority level adds to the move.",
-    "AI Conflict's commander never gives infantry a vehicle; a squad made motorized (by a player, or our doctrine) gets one of 10 trucks per side for routes over 400 m, dropped 150 m short.",
+    "AI Conflict's commander never gives infantry a vehicle (our fork does: light transport from 300 m, 16 per side); a squad made motorized gets a vehicle for routes over 400 m, dropped 150 m short.",
+    "AI Conflict starts every infantry team with one soldier and recruits the rest one at a time at the side's barracks (our fork: 3 of 5 at the start, out with 3).",
     "FIA garrisons spawn only where an observer is near (a player or the camera).",
     "A drone kill has no killer in the game's death event: the lab credits a death with no killer within 5 s of an FPV detonation to the drone.",
     "Speed: only the game's diagnostic build can run faster (Diag Menu > Cheats > DTime multiplier, 0.01-20x), and only where it hosts the match itself - a dedicated server can't (its diagnostic build lacks the setting). 2x measured at 60 fps. Headless servers run at 1x, up to four side by side.",
@@ -177,6 +188,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (18, "cover, panic, scan, rides you can see", "19 Oct, from 22:05",
+     ["Idle soldiers anywhere go under a roof or canopy within 40 m, 6 m apart.",
+      "Drone panic from 250 m: each to his own covered spot, or spread out 15-25 m, then down.",
+      "Drones never hang: on after 15 s, a 250 m sweep, then home; searches never over the enemy's main base (it camped the spawn).",
+      "Rides from 300 m, 16 vehicles per side; tags over vehicles with who is aboard; the camera cuts to vehicles; riding measured as soldiers in moving vehicles.",
+      "Watched and batch matches: our doctrine against our doctrine, AI Conflict alone as the side check."],
+     "Martin: infantry chilling on the base while massacred by drones; no units use vehicles; they should panic when they hear a drone; drones hang in the air; vehicles miss tags; doctrine v doctrine.",
+     "6-minute probes: soldiers riding in 58-83% of samples, 89-93% react to drones, sweeps instead of hovering; Martin 22:08-22:09: a nice reaction from a Soviet soldier, the dismount worked."),
     (17, "our own AI Conflict: rides, covered steps, jog", "19 Oct, from 21:51",
      ["AI Conflict (our fork) let no infantry team ride - not one ride all day; now infantry teams ride light transport (M998, UAZ) on marches over 500 m.",
       "Each 220 m march step ends at the best cover within 60 m (trees, roofs, buildings, walls, rocks); teams jog between points.",

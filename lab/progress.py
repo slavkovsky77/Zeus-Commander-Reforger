@@ -62,6 +62,7 @@ BUILDS = [
     (15, "drone reaction", "2026-10-19 20:40", "soldiers (both sides) run to overhead cover or get down when an enemy drone is within 150 m; scatter after a hit; watched at 3x"),
     (16, "teams out at once, drones search", "2026-10-19 21:28", "fireteams start with 3 of 5 and leave with 3 (they waited 10-20 min as one man); drones search when nothing is known and spot for their side"),
     (17, "rides, covered steps", "2026-10-19 21:51", "infantry teams ride light vehicles on marches over 500 m (not one ride before), jog, end each march step in cover; AI Conflict's side flies drones every 2 min"),
+    (18, "cover, panic, scan", "2026-10-19 22:05", "idle soldiers to cover anywhere, drone panic from 250 m, drones sweep instead of hovering, rides from 300 m, 16 vehicles per side"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
