@@ -277,8 +277,19 @@ class ZCR_Director
 		string intent = plan.GetIntent();
 		if (intent.IsEmpty())
 		{
-			source = "AI Conflict";
-			intent = "AI Conflict's own commander decides";
+			// No plan yet: our doctrine before its first plan (a minute in), or AI Conflict alone
+			// (Martin, 23:17: "AI Conflict alone vs AI Conflict alone? wtf" - it was the first minute).
+			string bridge;
+			if (System.GetCLIParam("zcrBridge" + side, bridge) && bridge.StartsWith("http"))
+			{
+				source = "phased";
+				intent = "first plan a minute into the match";
+			}
+			else
+			{
+				source = "AI Conflict";
+				intent = "AI Conflict's own commander decides";
+			}
 		}
 		string name = "BLUFOR";
 		if (side == "USSR")
