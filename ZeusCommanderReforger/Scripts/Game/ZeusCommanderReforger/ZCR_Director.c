@@ -311,6 +311,7 @@ class ZCR_Director
 		text += string.Format("%1 bases  -  %2 soldiers  -  lost %3 in the last 2 min", held, men, LossesNear(vector.Zero, 1e9, now - 120, side)) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "PLAN") + br + "  " + ZCR_Feed.Col(ZCR_Feed.YELLOW, intent) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "NOW DOING") + br + ZCR_Feed.NowText(side) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "GOALS") + br + ZCR_Goals.Text(side, m_mOwners) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "DRONES") + string.Format("  %1 teams sent, %2 in the air", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side)) + br;
 		if (ZCR_DroneSites.On())
 			text += "  sites: " + ZCR_DroneSites.Text(side) + br;
