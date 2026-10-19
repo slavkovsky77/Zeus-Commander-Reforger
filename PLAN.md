@@ -9,9 +9,9 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Watch in a normal window with borders at full resolution (130) | The game opens in its own maximised mode from its settings file.
 - [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116) | Under the BLUFOR panel.
 - [Done] Recordings show only the game, never the desktop (126) | Windows Graphics Capture of the game window.
-- [Done] Always sped up (144) | Watched matches at 2x; headless servers can't (1x, several side by side).
+- [Done] Always sped up (144, 164) | Watched matches at 3x on Arland; headless servers can't (1x, several side by side).
 - [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
-- [Todo] Try 3x and 4x (129) | Check drones, vehicles and the AI with the bigger time steps.
+- [Done] Try 3x (129, 164) | 3x on Arland: 2.99x at 54-60 fps, a match in 9.4 minutes, drones and soldiers as at 2x. The watched loop runs at 3x.
 
 ## The screen
 - [Done] Make clear what is happening (125) | Plans in plain words, drones, latest events.
