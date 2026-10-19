@@ -161,7 +161,11 @@ class Phased:
             return {"intent": f"The attack on {name} bled out - falling back to gather more", "main_effort": stage["id"] if stage else None,
                     "supporting": [], "hold": hold[:3], "avoid": [target["id"]], "concentration": "heavy"}, raw
         intent = st.get("llm_intent") or ""
-        commit = 0 if hold else COMMIT
+        # Defenders go back only when a base of ours is being taken (seizing) - "threatened" also
+        # means a few enemies near it, which flipped the commit every round or two.
+        own = own_bases(report)
+        seized = any(b.get("seizing") for b in own) if any("seizing" in b for b in own) else bool(hold)
+        commit = 0 if seized else COMMIT
         storm = elapsed >= STORM_AFTER and near >= STORM_FORCE * need
         verb = "Storming" if storm else "Assault on"
         lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")

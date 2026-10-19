@@ -264,6 +264,19 @@ class PhasedTests(unittest.TestCase):
         clean, problems = validate({"main_effort": 3, "storm": 4}, self.report(440))
         self.assertIsNone(clean["storm"])                # only the main effort is stormed
 
+    def test_commit_stays_with_enemies_near_but_no_capture(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        r = self.report(190)
+        for b in r["bases"]:
+            b["seizing"] = 0                             # the Farm is "threatened" but nobody takes it
+        d, _ = p.decide(r)
+        self.assertEqual(d["commit"], 2)
+        next(b for b in r["bases"] if b["id"] == 1)["seizing"] = 1
+        d, _ = p.decide(r)
+        self.assertEqual(d["commit"], 0)                 # being captured: defenders go back
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()
