@@ -11,7 +11,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Fixed] Keyboard hijacked, Arma crashed, focus buggy at match start (198) | The speed is set by the game itself now (Diag Menu engine values), no key presses.
 - [Done] Free look like the normal game; orbit round a locked unit, right mouse only (194, 195) | FREE LOOK button (WASD, Q/E, Shift); right-mouse drag turns the camera round any shot.
 - [Done] A team's actual goal and IDs in the captions (196) | 'USSR team A3 (3 men) - ATTACK Moss Hill - 450 m to go - riding', TEAM GOAL marker.
-- [In progress] REPORT and good/bad reports with timestamps and logs (202) | REPORT button writes what the camera shows; /good and /bad skills gather the log and a frame.
+- [Done] REPORT and good/bad reports with timestamps and logs (202) | REPORT button in the game; /good and /bad skills: the moment, the caption, the team's lines, frames from the recording, a numbered note and the analysis; good ones kept as regression checks.
 - [Done] Recordings show only the game, never the desktop (126) | Windows Graphics Capture of the game window.
 - [Done] Always sped up (144, 164) | Watched matches at 3x on Arland; headless servers can't (1x, several side by side).
 - [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
@@ -28,7 +28,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Soldiers
 - [Fixed] Soldiers chilling at the base, all groups one guy (173) | AI Conflict started every team with 1 man and recruited the rest one at a time: teams waited 10-20 min. Now 3 of 5 at the start, out with 3: first team out at 1.8 min.
 - [In progress] Reckless soldiers: fights at 1-6 m, nobody prone under drones (200) | Hold 60 m from a seen enemy, prone held under drones, cover spots spread 6 m (r19) - to verify.
-- [In progress] Drone panic as an optimisation target (201) | Charts: dead lying prone, covered/running near drones; scorecard checks next.
+- [Done] Drone panic as an optimisation target (201) | Charts and scorecard checks: safe near drones, drone victims standing / prone.
 - [In progress] They walk across open fields like nothing is happening (125, 174, 197) | Each 220 m march step now ends in the best cover within 60 m (trees, roofs, buildings, walls) and teams jog; in a fight the game's attack still leaves cover after 5 s (r10 holds it 20 s).
 - [In progress] Fight from cover like Arma 3 (30-40%) (113, 124, 133) | In the game's own cover 40% (AI Conflict alone 24-27%); Arma 3's stricter measure 9.5%.
 - [In progress] Fireteams of 2-5, never single file down a road (135, 141, 159) | AI Conflict changed: 20 teams of 5 per side, wedge formation. Two-army probe: stacking 4.1% (Arma 3's limit 10%, first time under it), 3.6 soldiers a team, 8 m to the nearest friend.
@@ -47,8 +47,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
 - [Fixed] Vehicles have no tags - who is in them? (187) | A tag over each vehicle: side, vehicle, how many aboard; the camera cuts to vehicles on the move.
 - [Fixed] No supplies transported by trucks (203) | AI Conflict had made dispatch manual-only; the automatic scheduler is back for the AI sides.
-- [In progress] Engineering and goals overview for each side (204) | Main effort, bases to hold, supplies needed, what the engineers build.
-- [Todo] Build bunkers and defenses on points, used for cover; buildings for vehicles (186, 192, 204) | AI Conflict's builders already build barracks, armory and vehicle depots with Conflict's building system; a fortification type (bunkers, sandbags, trenches) at points near the front is next, defenders posted in them.
+- [Done] Engineering and goals overview for each side (204) | GOALS in each panel: attack, hold, resupply, engineers now, built so far.
+- [In progress] Build bunkers and defenses on points, used for cover; buildings for vehicles (186, 192, 204) | A FORTIFICATION type in our AI Conflict: Conflict's own bunker, two per base near the front; 800 starting supplies in the lab. To see in a match; sandbags, MG nests and defenders posted in them next. Was: AI Conflict's builders already build barracks, armory and vehicle depots with Conflict's building system; a fortification type (bunkers, sandbags, trenches) at points near the front is next, defenders posted in them.
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
@@ -84,5 +84,5 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
 - [Done] Two armies only, no FIA, for faster testing (154, 156) | -zcrNoFIA: FIA's bases split between the sides at the start, the front in the middle from the first minute; FIA's ambient patrols don't spawn. The watched matches run it from 18:09 (.runtime/watch_extra.txt).
 - [Done] Our doctrine v our doctrine; AI Conflict alone only as a side check (189, 199) | Watched and batch: rules v rules, Gemini v rules, rules v Gemini, then rules v AI Conflict.
-- [Todo] Skills for what Martin repeats, so it's reproducible (190) | Run/restart the lab loops, score a match with frames, log a remark into notes + plan + pages, republish the pages.
+- [In progress] Skills for what Martin repeats, so it's reproducible (190) | /good and /bad done; next: run/restart the lab loops, republish the pages. Run/restart the lab loops, score a match with frames, log a remark into notes + plan + pages, republish the pages.
 - [Todo] Short scenario tests (129) | Squads already 600 m from the objective, to test soldier changes in minutes.
