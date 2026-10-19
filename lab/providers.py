@@ -167,6 +167,7 @@ class PhasedRules:
         if cfg.get("first_target"):
             # Lab A/B: the first objective fixed by name (e.g. "Moss Hill"), our rules after that.
             first = {"name": cfg["first_target"], "used": False}
+            self._first = first
 
             def picker(report, text):
                 if first["used"]:
@@ -179,6 +180,15 @@ class PhasedRules:
         self.p = phased.Phased(picker, self.name)
 
     def decide(self, report: dict, doctrine_text: str) -> tuple:
+        target = getattr(self, "_first", None)
+        if target and not target["used"]:
+            # Lab A/B: hold at the HQ until the fixed first objective is within reach.
+            hit = next((b for b in report.get("bases", []) if b.get("name") == target["name"]), None)
+            if hit is None or not hit.get("attackable", True):
+                hq = next((b["id"] for b in report.get("bases", [])
+                           if b.get("hq") and b.get("owner") == report.get("faction")), None)
+                return {"intent": f"Holding until {target['name']} is within reach", "main_effort": hq,
+                        "supporting": [], "hold": [], "avoid": [], "concentration": "normal"}, ""
         return self.p.decide(report, doctrine_text)
 
 
