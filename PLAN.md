@@ -27,6 +27,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] Bounding: one half covers, the other moves (134, 146) | Refined (60-350 m from the enemy, 4+ men): USSR lost 5 instead of 14, exchange 3.4, two bases. On by default from 19 Oct 17:20; measured in every match.
 - [Todo] Spacing against drones (118) | Teams apart from each other near the enemy.
 
+- [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
+
 ## Vehicles
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport first (M998, UAZ-452); no motorcycles in the vanilla game.
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
@@ -55,6 +57,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Ground cover told apart from other cover; overhead cover against drones (114) | Ground, building, tree, vehicle, object; roof or canopy.
 - [Done] How far the infantry walks, riding to the attack (127) | 270-890 m on foot; nobody rode yet.
 - [Done] How the engine behaves: fighting distance, server fps (127) | 22-38 m; watched Everon servers had run at 12-18 fps.
+- [Done] How soldiers behave when drones come, in detail (167) | Near an enemy drone: % under cover, running, prone; drone victims in the open and standing; soldiers in the field with nothing overhead.
 - [Done] Team size and spacing to the nearest friend (141) | Charted from r13: 2.1-3.6 soldiers per team, 6-8 m apart (squads in single file: 3-5 m).
 
 ## Lab
