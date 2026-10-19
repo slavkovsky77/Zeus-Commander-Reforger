@@ -21,12 +21,16 @@ class ZCR_Dismount
 		return !ZCR_StrategicPlan.Get(s_sFaction).IsEmpty();
 	}
 
-	static bool IsChosen(vector p)
+	// A covered point chosen within 'radius' of p (the vehicle has arrived), or false.
+	static bool NearChosen(vector p, float radius, out vector point)
 	{
 		foreach (vector q : s_aPoints)
 		{
-			if (vector.DistanceXZ(p, q) < 1)
+			if (vector.DistanceXZ(p, q) < radius)
+			{
+				point = q;
 				return true;
+			}
 		}
 		return false;
 	}
@@ -147,19 +151,19 @@ modded class AICF_VehicleTransitFlow
 	}
 
 	// At the covered point: everyone out (AI Conflict lets them out only within 150 m of the objective).
+	// The vehicle's waypoint completes as it arrives, so this checks where the vehicle is, not the
+	// waypoint (19 Oct probe: it arrived, the route was made again to the same point, three times).
 	override AICF_TripOutcome Tick(AICF_TransportTrip trip, string causationId)
 	{
-		if (trip && trip.GetLease() && trip.GetLease().GetVehicle())
+		if (trip && trip.GetLease() && trip.GetLease().GetVehicle() && trip.GetAssignment())
 		{
 			AICF_VehicleMovementState state = trip.GetMovementState();
-			vector end;
-			if (state)
-				end = state.GetRouteEndpoint();
-			if (state && state.GetRouteWaypoint() && state.IsRouteWaypointBound() && ZCR_Dismount.IsChosen(end)
-				&& vector.DistanceXZ(trip.GetLease().GetVehicle().GetOrigin(), end) <= 20)
+			vector at = trip.GetLease().GetVehicle().GetOrigin();
+			vector point;
+			if (state && ZCR_Dismount.NearChosen(at, 25, point) && vector.DistanceXZ(at, state.GetTacticalTarget()) < ZCR_Dismount.FAR + 60)
 			{
 				Print(string.Format("[ZCR][DISMOUNT] t=%1 faction=%2 out at=%3 %4 from_objective=%5", ZCR_LossLog.Seconds(), trip.GetAssignment().GetFactionKey(),
-					Math.Round(end[0]), Math.Round(end[2]), Math.Round(vector.DistanceXZ(end, state.GetTacticalTarget()))), LogLevel.NORMAL);
+					Math.Round(point[0]), Math.Round(point[2]), Math.Round(vector.DistanceXZ(at, state.GetTacticalTarget()))), LogLevel.NORMAL);
 				AbortOwnedActions(trip);
 				return AICF_TripOutcome.StartDismount("ZCR_COVERED_DISMOUNT", causationId);
 			}
