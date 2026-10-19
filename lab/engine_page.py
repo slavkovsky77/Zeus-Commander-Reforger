@@ -30,6 +30,10 @@ VERDICT = {
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r14", "Drones where enemies are known",
+     "In the two-army matches drones were sent to enemy bases nobody had been seen at and hovered there until lost (23 of 84 hit). Now a team goes to an enemy-held objective only if enemies were seen near it - else to the nearest enemy seen within 1.5 km, or no team. Next watched match: 25 of 36 hit (69%), drones 62% of losses, the US +1 with a loss ratio of 1.35. A faster tempo (60 s, 4 up) gave nothing - the drone sites and the teams in the air are the limit."),
+    ("good", "r14", "Two armies: stacking under Arma 3's limit",
+     "With fireteams and no FIA, stacking is 2-5% (Arma 3's limit 10%, first time under it), teams of 3 soldiers 7-8 m apart; drones cause 60-79% of losses - inside the front-line band of 70-96% in the best matches."),
     ("good", "r14", "Two armies only, drone trucks",
      "Your test scenario: -zcrNoFIA splits FIA's bases between the two sides at the start, so the front is in the middle from the first minute; the base game's ambient FIA patrols (which spawn near any player, the camera too) are blocked. Drones launch only from drone sites - a drone truck with a 2-man operator team, at the main base and later a forward base; destroy the truck or both operators and that base has no drones (the main site is rebuilt after 5 min); a side that has seen an enemy site sends every third team at it."),
     ("good", "r13", "Fireteams of 5, changed in AI Conflict itself",
