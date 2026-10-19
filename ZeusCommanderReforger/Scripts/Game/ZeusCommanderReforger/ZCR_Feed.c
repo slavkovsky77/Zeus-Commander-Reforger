@@ -27,11 +27,12 @@ class ZCR_Feed
 		// The same line again moves to the top instead.
 		for (int i = lines.Count() - 1; i >= 0; i--)
 		{
-			int sp = lines[i].IndexOf(" ");
-			if (sp > 0 && lines[i].Substring(sp + 1, lines[i].Length() - sp - 1) == text)
+			string l = lines[i].Trim();
+			int sp = l.IndexOf(" ");
+			if (sp > 0 && l.Substring(sp + 1, l.Length() - sp - 1) == text)
 				lines.Remove(i);
 		}
-		lines.InsertAt(Clock(ZCR_LossLog.Seconds()) + " " + text, 0);
+		lines.InsertAt("  " + Clock(ZCR_LossLog.Seconds()) + " " + text, 0);
 		while (lines.Count() > 8)
 			lines.Remove(8);
 	}
@@ -121,14 +122,14 @@ class ZCR_Feed
 		array<string> lines = {};
 		foreach (string key, int n : squads)
 		{
-			string line = string.Format("%1: %2 squads, %3 men", key, n, men.Get(key));
+			string line = string.Format("  %1: %2 teams, %3 men", key, n, men.Get(key));
 			if (riding.Get(key) > 0)
 				line += string.Format(" (%1 riding)", riding.Get(key));
 			lines.Insert(line);
 		}
 		lines.Sort();
 		if (forming > 0)
-			lines.Insert(string.Format("forming at the main base: %1 squads", forming));
+			lines.Insert(string.Format("  forming at the main base: %1 teams", forming));
 		s_mNow.Set(side, lines);
 		if (!top.IsEmpty() && top != "-" && s_mMainTarget.Get(side) != top)
 		{
@@ -142,7 +143,7 @@ class ZCR_Feed
 	{
 		array<string> lines;
 		if (!s_mNow.Find(side, lines) || lines.IsEmpty())
-			return "nothing yet - squads forming";
+			return "  nothing yet - teams forming";
 		string joined;
 		foreach (int i, string l : lines)
 		{

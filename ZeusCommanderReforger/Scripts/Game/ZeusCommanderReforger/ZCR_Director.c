@@ -282,10 +282,10 @@ class ZCR_Director
 		}
 		string text = string.Format("%1  %2  -  %3\n%4 bases  -  %5 soldiers  -  lost %6 in the last 2 min\n", side, name, Commander(source), held, men,
 			LossesNear(vector.Zero, 1e9, now - 120, side));
-		text += "PLAN\n" + intent + "\n";
-		text += "NOW DOING\n" + ZCR_Feed.NowText(side) + "\n";
-		text += string.Format("DRONES  %1 teams sent, %2 in the air\n", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side));
-		text += "LATEST\n" + ZCR_Feed.Latest(side);
+		text += "\n== PLAN ==\n  " + intent + "\n";
+		text += "== NOW DOING ==\n" + ZCR_Feed.NowText(side) + "\n";
+		text += string.Format("== DRONES ==  %1 teams sent, %2 in the air\n", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side));
+		text += "== LATEST ==\n" + ZCR_Feed.Latest(side);
 		return text;
 	}
 

@@ -267,8 +267,8 @@ class ZCR_Watch
 		// lab's measures along the bottom, the shot's caption above them.
 		m_Caption = NewText(0.26, 0.865, 0.74, 0.945, 22, 0.55);
 		m_Panel = NewText(0.26, 0.005, 0.74, 0.045, 20, 0.6);
-		m_Left = NewText(0.004, 0.005, 0.252, 0.555, 17, 0.72, new Color(0.04, 0.1, 0.26, 1));
-		m_Right = NewText(0.748, 0.005, 0.996, 0.555, 17, 0.72, new Color(0.26, 0.05, 0.05, 1));
+		m_Left = NewText(0.004, 0.005, 0.252, 0.47, 17, 0.5, new Color(0.02, 0.06, 0.16, 1));
+		m_Right = NewText(0.748, 0.005, 0.996, 0.47, 17, 0.5, new Color(0.16, 0.03, 0.03, 1));
 		m_Bottom = NewText(0.004, 0.953, 0.996, 0.995, 16, 0.6);
 		if (m_Left)
 			m_Left.SetFont(FONT);

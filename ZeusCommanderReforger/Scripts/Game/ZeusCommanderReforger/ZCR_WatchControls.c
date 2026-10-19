@@ -54,7 +54,7 @@ class ZCR_WatchControls
 	protected static const float X0 = 0.005;
 	protected static const float W = 0.08;
 	protected static const float GAP = 0.004;
-	protected static const float Y0 = 0.575;      // under the BLUFOR panel
+	protected static const float Y0 = 0.49;       // under the BLUFOR panel
 	protected static const float H = 0.05;
 
 	protected ImageWidget m_Catcher;
