@@ -396,7 +396,20 @@ class ZCR_Director
 			}
 			if (movers.IsEmpty())
 				movers.Copy(m_aMoving);
+			// Out in the field, not walking around a base: the one farthest from any base.
 			IEntity mover = movers.GetRandomElement();
+			float farthest = -1;
+			foreach (IEntity e : movers)
+			{
+				float nearest = 1e9;
+				foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+					nearest = Math.Min(nearest, vector.DistanceXZ(e.GetOrigin(), pos));
+				if (nearest > farthest)
+				{
+					farthest = nearest;
+					mover = e;
+				}
+			}
 			IEntity root = mover.GetRootParent();
 			follow = mover;
 			string what = "soldier";
