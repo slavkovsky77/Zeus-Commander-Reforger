@@ -6,6 +6,51 @@
 class ZCR_Setup
 {
 	protected static bool s_bDone;
+	protected static bool s_bStocked;
+
+	// Starting supplies (Martin, 19 Oct 23:59: "we can add some more supplies so the strategic bot
+	// actually tries to build defenses"): every base of the two sides gets at least this stock once, at
+	// the first tick after the split - -zcrStartSupplies N (default 800 in the two-army scenario, else
+	// off). Bunkers cost 100, and a build must leave AI Conflict's reserve for replacing teams (a few
+	// hundred); the front bases started near empty and no truck hauled supplies until r19.
+	// Logs [ZCR][SETUP] ... stocked=.
+	static void StartSupplies()
+	{
+		if (s_bStocked || !Replication.IsServer())
+			return;
+		int target;
+		string value;
+		if (System.GetCLIParam("zcrStartSupplies", value) && !value.IsEmpty())
+			target = value.ToInt();
+		else if (System.IsCLIParam("zcrNoFIA"))
+			target = 800;
+		if (target <= 0 || (System.IsCLIParam("zcrNoFIA") && !s_bDone))
+			return;
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return;
+		s_bStocked = true;
+		array<SCR_MilitaryBaseComponent> all = {};
+		system.GetBases(all);
+		int stocked;
+		foreach (SCR_MilitaryBaseComponent b : all)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetFaction())
+				continue;
+			string key = base.GetFaction().GetFactionKey();
+			if (key != "US" && key != "USSR")
+				continue;
+			float have = base.GetSupplies();
+			float room = base.GetSuppliesMax() - have;
+			int add = Math.Min(target - have, room);
+			if (add <= 0)
+				continue;
+			base.AddSupplies(add);
+			stocked++;
+		}
+		Print(string.Format("[ZCR][SETUP] t=%1 stocked=%2 bases_to_at_least=%3", ZCR_LossLog.Seconds(), stocked, target), LogLevel.NORMAL);
+	}
 
 	static void NoFIA()
 	{
