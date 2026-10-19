@@ -37,7 +37,7 @@ class Run:
         self.label = f"b-{map_name}-{us}-v-{ussr}"
         self.profile = ROOT / ".runtime" / "runs" / f"{self.label}-{stamp}"
         self.profile.mkdir(parents=True)
-        o = Namespace(map=map_name, port=port, client=False, drones=False, watch=False, plan_seconds=90,
+        o = Namespace(map=map_name, port=port, client=False, drones=True, watch=False, plan_seconds=90,
                       bridge=False, bridge_url="", us=us, ussr=ussr)
         cmd = reforger.command(o, self.profile)
         self.commit = git_commit()

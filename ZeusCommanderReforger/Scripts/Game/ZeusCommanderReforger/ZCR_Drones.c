@@ -1,9 +1,12 @@
-// FPV drone teams for the commander (-zcrDrones on the server; needs Martin's FPV AI Drones and
-// Realistic Combat Drones loaded). A side whose strategist is attacking - its main effort is a base
-// it doesn't hold - gets a team of 4 AI-flown FPVs at its own base nearest the objective, sent to
-// the objective with a Move waypoint: the drones fly there and go for enemy soldiers within 200 m
-// (anti-infantry) or vehicles (anti-vehicle, every third team). At most two teams a side in the
-// air, one new team every 4 minutes. A side on AI Conflict alone gets none.
+// FPV drone teams for the commanders (-zcrDrones on the server; needs Martin's FPV AI Drones and
+// Realistic Combat Drones loaded). A team of 4 AI-flown FPVs starts at the side's own base nearest
+// its target and flies there with a Move waypoint; the drones go for enemy soldiers within 200 m
+// (anti-infantry) or vehicles (anti-vehicle, every third team).
+// Drone warfare doctrine (Martin, review note 118: modern combat, heavy drone use): a side with our
+// strategist sends its teams where the plan says (drone <base>: prep fire on the objective while
+// gathering, pressure during the assault and storm) - a team every 90 s, up to 3 in the air
+// (-zcrDroneTempo / -zcrDroneMax). A side on AI Conflict alone gets a baseline too, so both sides
+// use drones: every 4 minutes, up to 2, at the base most of its attack squads are sent to.
 // Uses the mod's Game Master teams by prefab only, so this addon still runs without the mod
 // (the prefab doesn't load and nothing happens).
 class ZCR_Drones
@@ -32,23 +35,89 @@ class ZCR_Drones
 		return "{116F0030E01EB0DB}PrefabsEditable/FPVAI/E_FPVAI_Station_AP_USSR.et";
 	}
 
-	// Called by the strategist after each plan (server).
+	protected static int CliInt(string name, int fallback)
+	{
+		string value;
+		if (System.GetCLIParam(name, value) && !value.IsEmpty())
+			return value.ToInt();
+		return fallback;
+	}
+
+	// Called by the strategist after each plan (server): the doctrine's drone targets, else the
+	// main effort when it is a base we don't hold.
 	static void OnPlan(FactionKey side, ZCR_StrategicPlan plan, bool fromStrategist)
 	{
 		if (!Replication.IsServer() || !System.IsCLIParam("zcrDrones") || !fromStrategist)
 			return;
-		int target = plan.GetMainEffort();
-		vector goal;
-		if (target < 0 || !ZCR_Strategist.s_mNodePos.Find(target, goal))
-			return;
-		// Attacking: the main effort is not ours.
-		if (ZCR_Strategist.s_mNodeOwner.Get(target) == side)
+		int target = -1;
+		foreach (int t : plan.GetDroneTargets())
+		{
+			if (ZCR_Strategist.s_mNodePos.Contains(t) && ZCR_Strategist.s_mNodeOwner.Get(t) != side)
+			{
+				target = t;
+				break;
+			}
+		}
+		if (target < 0)
+		{
+			target = plan.GetMainEffort();
+			if (target < 0 || ZCR_Strategist.s_mNodeOwner.Get(target) == side)
+				return;
+		}
+		Launch(side, target, CliInt("zcrDroneTempo", 90), CliInt("zcrDroneMax", 3), "doctrine");
+	}
+
+	// AI Conflict's side (no strategist): a baseline - every 4 min, up to 2, at the base most of
+	// its attack squads are sent to.
+	static void Baseline(FactionKey side, AICF_FactionState state, AICF_ObjectiveGraph graph)
+	{
+		if (!Replication.IsServer() || !System.IsCLIParam("zcrDrones") || !state || !graph)
 			return;
 		int now = ZCR_LossLog.Seconds();
 		int next;
 		if (s_mNextAt.Find(side, next) && now < next)
 			return;
-		if (Active(side) >= 2)
+		map<int, int> votes = new map<int, int>();
+		for (int s; s < state.GetSlotCount(); s++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(s);
+			if (!slot || slot.GetRole() != AICF_EGroupRole.ATTACK || !slot.GetTargetBase())
+				continue;
+			for (int i = 0; i < graph.GetNodeCount(); i++)
+			{
+				AICF_ObjectiveNode node = graph.GetNode(i);
+				if (node && node.GetBase() == slot.GetTargetBase())
+				{
+					votes.Set(i, votes.Get(i) + 1);
+					break;
+				}
+			}
+		}
+		int target = -1;
+		int most;
+		foreach (int node, int n : votes)
+		{
+			if (n > most && ZCR_Strategist.s_mNodeOwner.Get(node) != side && ZCR_Strategist.s_mNodePos.Contains(node))
+			{
+				most = n;
+				target = node;
+			}
+		}
+		if (target < 0)
+			return;
+		Launch(side, target, 240, 2, "baseline");
+	}
+
+	protected static void Launch(FactionKey side, int target, int tempo, int maxUp, string why)
+	{
+		vector goal;
+		if (!ZCR_Strategist.s_mNodePos.Find(target, goal))
+			return;
+		int now = ZCR_LossLog.Seconds();
+		int next;
+		if (s_mNextAt.Find(side, next) && now < next)
+			return;
+		if (Active(side) >= maxUp)
 			return;
 		// Our base nearest the objective.
 		vector from;
@@ -96,12 +165,12 @@ class ZCR_Drones
 		s_aTeams.Insert(team);
 		s_aTeamSide.Insert(side);
 		s_mCount.Set(side, n);
-		s_mNextAt.Set(side, now + 240);
+		s_mNextAt.Set(side, now + tempo);
 		string kind = "anti-infantry";
 		if (antiVehicle)
 			kind = "anti-vehicle";
-		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7", now, side, n, kind,
-			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), ZCR_Strategist.s_mNodeName.Get(target), Math.Round(best)), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
+			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), ZCR_Strategist.s_mNodeName.Get(target), Math.Round(best), why), LogLevel.NORMAL);
 		Find(at, side);
 	}
 

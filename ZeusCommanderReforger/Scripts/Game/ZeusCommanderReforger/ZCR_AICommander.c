@@ -17,6 +17,9 @@ modded class AICF_AICommander
 					matchController.ZCR_Motorize(m_Faction, m_FactionState, plan.GetMotorize());
 			}
 			ZCR_ApplyStorm(plan.GetStorm());
+			// A side on AI Conflict alone uses drones too (a baseline; ZCR_Drones).
+			if (plan.IsEmpty())
+				ZCR_Drones.Baseline(m_sFactionKey, m_FactionState, m_ObjectiveGraph);
 		}
 		return super.Tick(matchController, reason);
 	}

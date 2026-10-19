@@ -309,8 +309,8 @@ def html(agg: dict, rows: list) -> str:
     mix = [("FPV drones", {b: ks.get("cause_drone") for b, ks in agg.get("all", {}).items()}),
            ("Direct fire", {b: ks.get("cause_direct") for b, ks in agg.get("all", {}).items()}),
            ("Unknown", {b: ks.get("cause_unknown") for b, ks in agg.get("all", {}).items()})]
-    add("What causes the losses", "Share of soldiers lost, all matches of each build. A death with no killer within 5 s of an FPV detonation counts as the drone's.",
-        mix, unit="%", ymax=100)
+    add("What causes the losses", "Share of soldiers lost, all matches of each build. A death with no killer within 5 s of an FPV detonation counts as the drone's. The green band is what front-line reports give for drones (the drone warfare doctrine's aim, review note 118).",
+        mix, unit="%", ymax=100, band=(70, 96, "front: drones 70-96%"))
     add("Drones in use", "FPV teams launched, strikes and kills per watched match (only watched matches load the drone mods; only our strategist's side gets drones).",
         [("Teams", {b: ks.get("drone_teams") for b, ks in agg.get("all", {}).items()}),
          ("Strikes", {b: ks.get("drone_strikes") for b, ks in agg.get("all", {}).items()}),

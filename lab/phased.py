@@ -163,9 +163,10 @@ class Phased:
                 elapsed = 0
             else:
                 sname = stage.get("name") or f"base {stage['id']}"
-                return {"intent": f"Gathering at {sname} for the attack on {name}: {have:.0f} of {need:.0f} soldiers there",
+                # Drone warfare doctrine: FPV prep fire on the objective while the force gathers.
+                return {"intent": f"Gathering at {sname} for the attack on {name}: {have:.0f} of {need:.0f} soldiers there, drones on it",
                         "main_effort": stage["id"], "supporting": [], "hold": [stage["id"], *[h for h in hold if h != stage["id"]]][:3],
-                        "avoid": [target["id"]], "concentration": "heavy"}, raw
+                        "avoid": [target["id"]], "concentration": "heavy", "drones": [target["id"]]}, raw
         # Assault.
         near = force_at(report, target, ASSAULT_RADIUS)
         # Arma 3 calls an assault off when it stops gaining ground: here, no capture in 10 min and
@@ -200,4 +201,4 @@ class Phased:
         lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
                 "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit,
-                "storm": target["id"] if storm else None}, raw
+                "storm": target["id"] if storm else None, "drones": [target["id"]]}, raw

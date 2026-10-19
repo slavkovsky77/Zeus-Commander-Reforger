@@ -324,6 +324,18 @@ class PhasedTests(unittest.TestCase):
         d, _ = phased.Phased().decide(self.report(100))
         self.assertFalse(d["motorize"])
 
+    def test_drones_on_the_objective_while_gathering_and_assaulting(self):
+        import phased
+        p = phased.Phased()
+        d, _ = p.decide(self.report(100, weak=True))     # gathering at the Farm for Town
+        self.assertEqual(d["drones"], [3])
+        clean, _ = validate(d, self.report(100))
+        self.assertIn("drone 3", to_lines(clean, "phased").splitlines())
+        d, _ = p.decide(self.report(190))                # assault Town
+        self.assertEqual(d["drones"], [3])
+        clean, _ = validate({"main_effort": 3, "drones": [1, 3]}, self.report(190))
+        self.assertEqual(clean["drones"], [3])           # never our own base
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

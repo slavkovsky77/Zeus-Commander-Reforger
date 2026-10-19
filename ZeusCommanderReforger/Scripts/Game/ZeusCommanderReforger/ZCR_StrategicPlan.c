@@ -9,6 +9,8 @@
 //             a minimal garrison while nothing threatens us (ZCR_CommitDefenders).
 //   storm     a base the squads sent there go into without stopping to fight at range (ZCR_Storm).
 //   motorize  the attack squads ride trucks to their objectives (ZCR_Motorize).
+//   drone     bases the FPV teams go for (drone warfare doctrine: prep fire before the storm,
+//             pressure during it) - ZCR_Drones.
 // Server only. Every change is logged as [ZCR][PLAN] for the lab.
 class ZCR_StrategicPlan
 {
@@ -25,6 +27,7 @@ class ZCR_StrategicPlan
 	protected int m_iCommit;
 	protected int m_iStorm = -1;
 	protected bool m_bMotorize;
+	protected ref array<int> m_aDroneTargets = {};
 
 	static ZCR_StrategicPlan Get(FactionKey faction)
 	{
@@ -69,6 +72,18 @@ class ZCR_StrategicPlan
 	void SetCommit(int commit)
 	{
 		m_iCommit = Math.ClampInt(commit, 0, 2);
+	}
+
+	array<int> GetDroneTargets()
+	{
+		return m_aDroneTargets;
+	}
+
+	void SetDroneTargets(array<int> targets)
+	{
+		m_aDroneTargets.Clear();
+		if (targets)
+			m_aDroneTargets.Copy(targets);
 	}
 
 	bool GetMotorize()
@@ -169,6 +184,7 @@ class ZCR_StrategicPlan
 		m_iCommit = 0;
 		m_iStorm = -1;
 		m_bMotorize = false;
+		m_aDroneTargets.Clear();
 		Apply(null, null, "", source);
 	}
 }
