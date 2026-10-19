@@ -45,6 +45,7 @@ BUILDS = [
     (5, "fixes", "2026-10-19 07:55", "doctrine memory per match (two matches shared it); far objectives no longer 'bled out'"),
     (6, "motorize", "2026-10-19 10:30", "attack squads ride trucks (probes); storm priority as a setting"),
     (7, "soldier measures", "2026-10-19 12:29", "Arma 3's soldier measurements (cover, sitting ducks, stacking); careful storm by default; watch buttons"),
+    (8, "drone doctrine", "2026-10-19 13:00", "drone warfare doctrine: prep fire and pressure, both sides fly drones, headless too; force and storm from what the side has seen"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
 KEYS = ["cover", "ducks", "stacked", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
@@ -209,9 +210,10 @@ def measure_run(run: Path, log: Path):
         row[f"cause_{k}"] = round(100 * causes[k] / total, 1) if total else None
     stuck = sum(1 for l in lines if "GROUP_STUCK_DETECTED" in l and f"faction={side} " in l)
     row["stuck"] = round(stuck / m["minutes"] * 20, 1)
-    row["drone_teams"] = m["drone_teams"].get(side, 0) if kind == "watched" else None
-    row["drone_strikes"] = m["drone_strikes"] if kind == "watched" else None
-    row["drone_kills"] = sum(m["drone_kills"].values()) if kind == "watched" else None
+    has_drones = any("[ZCR][DRONES]" in l for l in lines)
+    row["drone_teams"] = m["drone_teams"].get(side, 0) if has_drones else None
+    row["drone_strikes"] = m["drone_strikes"] if has_drones else None
+    row["drone_kills"] = sum(m["drone_kills"].values()) if has_drones else None
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
     row.update(soldier_metrics(lines, side))
 
@@ -311,7 +313,7 @@ def html(agg: dict, rows: list) -> str:
            ("Unknown", {b: ks.get("cause_unknown") for b, ks in agg.get("all", {}).items()})]
     add("What causes the losses", "Share of soldiers lost, all matches of each build. A death with no killer within 5 s of an FPV detonation counts as the drone's. The green band is what front-line reports give for drones (the drone warfare doctrine's aim, review note 118).",
         mix, unit="%", ymax=100, band=(70, 96, "front: drones 70-96%"))
-    add("Drones in use", "FPV teams launched, strikes and kills per watched match (only watched matches load the drone mods; only our strategist's side gets drones).",
+    add("Drones in use", "FPV teams launched, strikes and kills per match - watched matches only until r7; from r8 headless too, and both sides fly drones.",
         [("Teams", {b: ks.get("drone_teams") for b, ks in agg.get("all", {}).items()}),
          ("Strikes", {b: ks.get("drone_strikes") for b, ks in agg.get("all", {}).items()}),
          ("Kills", {b: ks.get("drone_kills") for b, ks in agg.get("all", {}).items()})], ymax=25)

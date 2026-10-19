@@ -23,18 +23,24 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The self-improving loop: a watched, recorded match on screen (with drones) and a headless head-to-head beside it.",
+    "Running now": "The self-improving loop: a watched, recorded match on screen and a headless head-to-head beside it - both with drones on both sides (from r8).",
     "Today's result": "Arma 3's soldier measurements on Reforger: its AI fights from cover only 5-8% of the time (Arma 3 with our soldier layer: 30-40%), and an assault force bunches up (69-90% stacked).",
-    "Being built next": "The watch buttons from Arma 3 on screen; then a soldier layer for cover and spacing.",
+    "Being built next": "Drone warfare doctrine measured (drones' share of losses against the front band 70-96%); then a soldier layer for cover and spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r8", "Drone warfare doctrine",
+     "Your direction: modern combat, heavy drone use. The doctrine names drone targets: FPV prep fire on the objective while the force gathers, and pressure during the assault and storm - a team every 90 s, up to 3 in the air. AI Conflict's side flies drones too (every 4 min, at its squads' main target), and the headless matches load the drone mods, so drones count in every measurement. Judged like the Arma 3 page: the drones' share of losses against the front-line band 70-96%."),
+    ("design", "r8", "The attack sized by what the side has seen",
+     "As on Arma 3, the AI never cheats: each side remembers the enemies its soldiers saw in the last minute, and the situation report gives each base the known defenders. The force needed is twice the known defenders plus 4 (at least 25), and the storm comes once our soldiers near the objective see 2 or fewer defenders left - else after 4 minutes, as before."),
+    ("good", "r7", "Watch buttons work",
+     "Tested on screen with taps sent like a phone stream: NEXT, CLOSER, a tap that picked up a US squad leader (the camera follows him, LOCKED), AUTO back to the director."),
     ("good", "r7", "Arma 3's soldier measurements",
      "Same definitions as the Arma 3 page: fighting from cover (of the soldiers who know an enemy within 300 m, something solid within 3 m toward the nearest, or a roof), sitting ducks (deaths standing or lying still in the open), stacking (6+ friends within 25 m, counted in the field - AI Conflict gathers its recruits at the main base). First numbers: from cover 5-8%, sitting ducks 27-63%, the USSR assault force 69-90% stacked. These are the biggest gaps to Arma 3."),
     ("design", "r7", "Which cover, and what hides from drones",
      "Each covered soldier's cover is named: toward the enemy the ground (a crest), a building, a tree, a vehicle or another object; overhead a roof or tree canopy - what hides him from a drone, which a crest doesn't. Every death logs both, so we can see whether canopy saves soldiers from FPVs."),
-    ("design", "r7", "Watch buttons, as on Arma 3",
+    ("design", "r7", "The watch buttons",
      "For watching on the phone: PREV / NEXT SHOT, PREV / NEXT GROUP, LOCK, ACTION, CLOSER / WIDER, OVERVIEW, AUTO; a tap on a soldier or vehicle follows it, elsewhere the camera flies there for 30 s. The tap is read a moment late (the phone stream clicks before it moves, note 80)."),
     ("risk", "r7", "Careful storm: mixed so far",
      "Moss Hill probes: careful (25) took it once in two (15 and 32 lost); full (1000) three in three (28-46 lost). Careful is the default now and the headless matches will tell."),
@@ -127,6 +133,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (8, "drone doctrine", "19 Oct, from 13:00",
+     ["Drone warfare doctrine: the plan names drone targets - prep fire while gathering, pressure during assault and storm; a team every 90 s, up to 3 up.",
+      "Both sides fly drones (AI Conflict's side a baseline: every 4 min, up to 2); headless matches load the drone mods.",
+      "Each side's knowledge (enemies its soldiers saw in the last minute); the force needed is 2x the known defenders + 4; storm when 2 or fewer are left in sight.",
+      "Watch buttons tested on screen; captions name the soldier's role."],
+     "Martin: modern combat realistic style - heavy drone use by the bot, a drone warfare doctrine; get as close as Arma 3.",
+     "First headless drone match running (USSR prep fire on Airport Base at t=45)."),
     (7, "soldier measures, watch buttons", "19 Oct, from 12:29",
      ["Arma 3's soldier measurements (ZCR_Sampler): fighting from cover, sitting ducks, stacking in the field; which cover (ground, building, tree, vehicle, object; roof or canopy overhead).",
       "Careful storm (priority 25) by default.",
