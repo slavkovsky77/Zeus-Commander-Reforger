@@ -13,6 +13,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 KV = re.compile(r"(\w+)=(\S*)")
+CLOCK = re.compile(r"^\s*(\d{1,2}):(\d\d):(\d\d)(?:\.(\d+))?")
+
+
+def clock(line: str):
+    m = CLOCK.match(line)
+    if not m:
+        return None
+    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + float("0." + (m.group(4) or "0"))
 
 
 def fields(line: str, tag: str) -> dict:
@@ -20,6 +28,10 @@ def fields(line: str, tag: str) -> dict:
 
 
 def measure(lines) -> dict:
+    lines = list(lines)
+    # FPV detonations (Martin's FPV AI Drones logs each): a death with no killer within 5 s after
+    # one is the drone's - Reforger gives a drone kill no instigator.
+    detonations = [c for c in (clock(l) for l in lines if "FPVAI: drone" in l and " detonated" in l) if c is not None]
     lost = defaultdict(Counter)        # side -> {"man": n, "vehicle": n}
     by = defaultdict(Counter)          # side -> {killer kind: n}
     friendly = 0
@@ -38,7 +50,10 @@ def measure(lines) -> dict:
             by[f.get("side", "?")][f.get("killer_kind", "none")] += 1
             if "FRIENDLY" in f.get("relation", ""):
                 friendly += 1
-            if any(k in f.get("killer", "").lower() for k in ("fpv", "drone")):
+            t = clock(line)
+            no_killer = f.get("killer_kind", "none") == "none"
+            if any(k in f.get("killer", "").lower() for k in ("fpv", "drone")) or (
+                    no_killer and t is not None and any(0 <= t - d <= 5 for d in detonations)):
                 drone_kills[f.get("side", "?")] += 1
             t_end = max(t_end, int(f.get("t", 0) or 0))
         elif "BASE_OWNER_CHANGED]" in line:
@@ -69,6 +84,7 @@ def measure(lines) -> dict:
         "snapshots": snapshots,
         "drone_teams": dict(drone_teams),
         "drone_kills": dict(drone_kills),   # by the side that lost the soldier
+        "drone_strikes": len(detonations),
         "score": score,   # bases held at the last round: US, USSR, FIA, objectives
     }
 
