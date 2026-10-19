@@ -252,7 +252,8 @@ class ZCR_Sampler
 		if (dir.Length() < 0.5)
 			return "none";
 		dir.Normalize();
-		if (!Trace(eye, eye + dir * COVER_RANGE, self, other, TraceFlags.ENTS | TraceFlags.WORLD, EPhysicsLayerDefs.FireGeometry))
+		// Terrain is on its own layer: without it a crest never counted (ground=0 in every sample).
+		if (!Trace(eye, eye + dir * COVER_RANGE, self, other, TraceFlags.ENTS | TraceFlags.WORLD, EPhysicsLayerDefs.FireGeometry | EPhysicsLayerDefs.Terrain))
 			return "none";
 		return Kind(m_Trace.TraceEnt);
 	}
