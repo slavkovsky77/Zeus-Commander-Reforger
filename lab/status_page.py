@@ -28,7 +28,7 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 SUMMARY = [
     "The loop runs: a watched, recorded match and a headless head-to-head side by side, all night; every change goes in at the next match boundary.",
     "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
-    "Storm works: Moss Hill fell in all three matches with storm, at 15-20 min; without it, it fell at 26-29 min or not at all. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. It costs more soldiers.",
+    "Storm works: Moss Hill fell in all three matches with storm, at 15-20 min; without it, it fell at 26-29 min or not at all. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville; and in the first headless storm match the USSR doctrine won 3-2 too (Moss Hill at 16.7, Arleville at 27.3 min), where before storm it took nothing in two headless matches. It costs soldiers: 30-45 lost a match instead of 15-20.",
     "Watch first: the newest pick below. The camera now cuts to FPV drone runs at launch and to every storm.",
 ]
 
