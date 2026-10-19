@@ -59,4 +59,5 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 
 ## Lab
 - [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
+- [In progress] Two armies only, no FIA, for faster testing (154) | -zcrNoFIA: FIA's bases split between the sides at the start, the front in the middle from the first minute. Probe running.
 - [Todo] Short scenario tests (129) | Squads already 600 m from the objective, to test soldier changes in minutes.
