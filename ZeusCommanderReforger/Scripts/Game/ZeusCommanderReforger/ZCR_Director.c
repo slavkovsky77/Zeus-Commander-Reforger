@@ -303,6 +303,7 @@ class ZCR_Director
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "DRONES") + string.Format("  %1 teams sent, %2 in the air", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side)) + br;
 		if (ZCR_DroneSites.On())
 			text += "  sites: " + ZCR_DroneSites.Text(side) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "SUPPLIES") + ZCR_Logistics.Text(side, now, m_mOwners) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "LATEST DECISIONS") + br + ZCR_Feed.Latest(side);
 		return text;
 	}
@@ -1260,7 +1261,7 @@ class ZCR_Director
 		string markers;
 		// Bases, in their owner's colour.
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
-			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, ZCR_Strategist.BaseName(base));
+			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, string.Format("%1  %2", ZCR_Strategist.BaseName(base), ZCR_Logistics.Stock(base)));
 		// Losses of the last 90 s, fading.
 		for (int i; i < ZCR_LossLog.s_aRecentPos.Count(); i++)
 		{
