@@ -224,7 +224,7 @@ class ZCR_Watch
 		return GetGame().GetWorkspace().CreateWidget(type, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), z, parent);
 	}
 
-	protected TextWidget NewText(float x0, float y0, float x1, float y1, int size, float shade, Color tint = null)
+	protected TextWidget NewText(float x0, float y0, float x1, float y1, int size, float shade, Color tint = null, bool rich = false)
 	{
 		ImageWidget back = ImageWidget.Cast(NewWidget(WidgetType.ImageWidgetTypeID, 1001, m_Root));
 		if (back)
@@ -237,7 +237,10 @@ class ZCR_Watch
 			else
 				back.SetColor(new Color(0, 0, 0, shade));
 		}
-		TextWidget text = TextWidget.Cast(NewWidget(WidgetType.TextWidgetTypeID, 1002, m_Root));
+		WidgetType kind = WidgetType.TextWidgetTypeID;
+		if (rich)
+			kind = WidgetType.RichTextWidgetTypeID;   // colours and bold, like Arma 3's structured text
+		TextWidget text = TextWidget.Cast(NewWidget(kind, 1002, m_Root));
 		if (text)
 		{
 			FrameSlot.SetAnchorMin(text, x0 + 0.01, y0 + 0.008);
@@ -266,10 +269,12 @@ class ZCR_Watch
 		// Arma 3's layout: a panel per side - BLUFOR left, OPFOR right - the score along the top, the
 		// lab's measures along the bottom, the shot's caption above them.
 		m_Caption = NewText(0.26, 0.865, 0.74, 0.945, 22, 0.55);
-		m_Panel = NewText(0.26, 0.005, 0.74, 0.045, 20, 0.6);
-		m_Left = NewText(0.004, 0.005, 0.252, 0.47, 17, 0.5, new Color(0.02, 0.06, 0.16, 1));
-		m_Right = NewText(0.748, 0.005, 0.996, 0.47, 17, 0.5, new Color(0.16, 0.03, 0.03, 1));
-		m_Bottom = NewText(0.004, 0.953, 0.996, 0.995, 16, 0.6);
+		// Arma 3's panel look (ZC_fnc_debugPanel): black at 62%, the side's name in its colour, grey
+		// section labels, captures green, losses red, attacks and storms yellow.
+		m_Panel = NewText(0.26, 0.005, 0.74, 0.045, 20, 0.62, null, true);
+		m_Left = NewText(0.004, 0.005, 0.252, 0.47, 17, 0.62, null, true);
+		m_Right = NewText(0.748, 0.005, 0.996, 0.47, 17, 0.62, null, true);
+		m_Bottom = NewText(0.004, 0.953, 0.996, 0.995, 16, 0.62, null, true);
 		if (m_Left)
 			m_Left.SetFont(FONT);
 		if (m_Right)

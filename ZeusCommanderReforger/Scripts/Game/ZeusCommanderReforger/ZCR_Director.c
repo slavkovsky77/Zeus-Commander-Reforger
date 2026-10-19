@@ -280,12 +280,14 @@ class ZCR_Director
 			if (e && ZCR_LossLog.SideOf(e) == side)
 				men++;
 		}
-		string text = string.Format("%1  %2  -  %3\n%4 bases  -  %5 soldiers  -  lost %6 in the last 2 min\n", side, name, Commander(source), held, men,
-			LossesNear(vector.Zero, 1e9, now - 120, side));
-		text += "\n== PLAN ==\n  " + intent + "\n";
-		text += "== NOW DOING ==\n" + ZCR_Feed.NowText(side) + "\n";
-		text += string.Format("== DRONES ==  %1 teams sent, %2 in the air\n", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side));
-		text += "== LATEST ==\n" + ZCR_Feed.Latest(side);
+		// Arma 3's panel: the side in its colour and bold, grey section labels, coloured decisions.
+		string br = "<br/>";
+		string text = "<b>" + ZCR_Feed.SideCol(side, side + "  " + name) + "</b>  " + Commander(source) + br;
+		text += string.Format("%1 bases  -  %2 soldiers  -  lost %3 in the last 2 min", held, men, LossesNear(vector.Zero, 1e9, now - 120, side)) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "PLAN") + br + "  " + ZCR_Feed.Col(ZCR_Feed.YELLOW, intent) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "NOW DOING") + br + ZCR_Feed.NowText(side) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "DRONES") + string.Format("  %1 teams sent, %2 in the air", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side)) + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "LATEST DECISIONS") + br + ZCR_Feed.Latest(side);
 		return text;
 	}
 
@@ -1059,7 +1061,7 @@ class ZCR_Director
 		// logs"): a slim top line with the score and time, the US (BLUFOR) on the left and the USSR
 		// (OPFOR) on the right - who commands, its plan, what its squads do now, drones, its latest
 		// decisions - and the lab's measures along the bottom.
-		string top = string.Format("%1     game time %2%3", Score(), Clock(now), Speed(now));
+		string top = "<b>" + Score() + "</b>     game time " + Clock(now) + ZCR_Feed.Col(ZCR_Feed.YELLOW, Speed(now));
 		string left = SidePanel("US", now);
 		string right = SidePanel("USSR", now);
 		string bottom;
@@ -1067,8 +1069,8 @@ class ZCR_Director
 		{
 			if (i > 0)
 				bottom += "        |        ";
-			bottom += string.Format("%1 lost %2 (by fire %3, no killer - drones, blasts %4)", side, ZCR_Feed.s_mLostFire.Get(side) + ZCR_Feed.s_mLostOther.Get(side),
-				ZCR_Feed.s_mLostFire.Get(side), ZCR_Feed.s_mLostOther.Get(side));
+			bottom += ZCR_Feed.SideCol(side, "<b>" + side + "</b>") + ZCR_Feed.Col(ZCR_Feed.RED, string.Format(" lost %1", ZCR_Feed.s_mLostFire.Get(side) + ZCR_Feed.s_mLostOther.Get(side)))
+				+ string.Format(" (by fire %1, no killer - drones, blasts %2)", ZCR_Feed.s_mLostFire.Get(side), ZCR_Feed.s_mLostOther.Get(side));
 			if (ZCR_Feed.s_mCover.Contains(side))
 				bottom += string.Format(" - in cover %1%", ZCR_Feed.s_mCover.Get(side));
 			if (ZCR_Feed.s_mStacked.Contains(side))

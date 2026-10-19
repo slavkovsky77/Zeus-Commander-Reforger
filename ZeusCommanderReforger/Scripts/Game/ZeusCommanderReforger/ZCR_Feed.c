@@ -37,17 +37,61 @@ class ZCR_Feed
 			lines.Remove(8);
 	}
 
+	// Arma 3's colours (ZC_fnc_feed / ZC_fnc_debugPanel).
+	static const string GREEN = "155,224,138,255";
+	static const string RED = "255,138,112,255";
+	static const string YELLOW = "255,208,96,255";
+	static const string GREY = "154,154,154,255";
+	static const string LIGHT = "200,200,200,255";
+	static const string BLUE = "122,168,255,255";
+	static const string OPFOR_RED = "255,112,112,255";
+
+	static string Col(string rgba, string text)
+	{
+		return "<color rgba='" + rgba + "'>" + text + "</color>";
+	}
+
+	static string SideCol(string side, string text)
+	{
+		if (side == "US")
+			return Col(BLUE, text);
+		if (side == "USSR")
+			return Col(OPFOR_RED, text);
+		return text;
+	}
+
+	// A decision's colour by what it is: captures green, losses red, attacks and plans yellow.
+	protected static string Tint(string text)
+	{
+		if (text.StartsWith("TOOK"))
+			return Col(GREEN, text);
+		if (text.StartsWith("LOST") || text.StartsWith("no clear"))
+			return Col(RED, text);
+		if (text.StartsWith("STORM") || text.StartsWith("PLAN") || text.StartsWith("main attack"))
+			return Col(YELLOW, text);
+		if (text.Contains("drone team"))
+			return Col("255,180,120,255", text);
+		if (text.Contains("vehicle") || text.Contains("joins the attack"))
+			return Col("160,210,255,255", text);
+		return text;
+	}
+
 	static string Latest(string side)
 	{
 		array<string> lines;
 		if (!s_mLines.Find(side, lines) || lines.IsEmpty())
-			return "-";
+			return "  -";
 		string joined;
 		foreach (int i, string l : lines)
 		{
 			if (i > 0)
-				joined += "\n";
-			joined += l;
+				joined += "<br/>";
+			string t = l.Trim();
+			int sp = t.IndexOf(" ");
+			if (sp > 0)
+				joined += "  " + Col(LIGHT, t.Substring(0, sp)) + " " + Tint(t.Substring(sp + 1, t.Length() - sp - 1));
+			else
+				joined += "  " + t;
 		}
 		return joined;
 	}
@@ -148,7 +192,7 @@ class ZCR_Feed
 		foreach (int i, string l : lines)
 		{
 			if (i > 0)
-				joined += "\n";
+				joined += "<br/>";
 			joined += l;
 		}
 		return joined;
