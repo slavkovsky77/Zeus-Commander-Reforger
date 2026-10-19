@@ -28,12 +28,18 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] Bounding: one half covers, the other moves (134, 146) | Refined (60-350 m from the enemy, 4+ men): USSR lost 5 instead of 14, exchange 3.4, two bases. On by default from 19 Oct 17:20; measured in every match.
 - [Todo] Spacing against drones (118) | Teams apart from each other near the enemy.
 
+- [Fixed] Enemy infantry chilling at the base, massacred by drones (181) | Drone searches camped the enemy's main base while teams waited there; searches now stay near the front.
+- [In progress] Not out in the open - hide in cover, ideally buildings (182) | Idle soldiers anywhere go under a roof or canopy within 40 m, spread 6 m apart; buildings first and fortifications still to do.
+- [In progress] Spread out within a team - one drone kills them all (183) | Near a drone each runs to his own spot 6-8 m apart; a wider formation needs our own formation config.
+- [Done] Panic when a drone is heard: run, spread out, cover (184) | From 250 m: own covered spot within 40 m, else spread 15-25 m apart, then down. 89-93% react.
 - [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
 
 ## Vehicles
 - [Fixed] They don't use vehicles at all (175) | Not one ride all day: AI Conflict refused every infantry team a vehicle. Infantry teams now ride light transport (M998, UAZ) on marches over 500 m: 20 teams rode in an 8-minute probe.
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
+- [Fixed] Vehicles have no tags - who is in them? (187) | A tag over each vehicle: side, vehicle, how many aboard; the camera cuts to vehicles on the move.
+- [Todo] Build bunkers and defenses on points, used for cover (186) | What AI Conflict / Conflict can build, what it costs, a defend posture that occupies it.
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
@@ -41,6 +47,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Drone warfare doctrine: heavy drone use (118, 158, 160) | Prep fire while gathering, pressure during the assault; both sides fly drones. Two armies only: drones cause 60-79% of losses (front band 70-96%); drones go where enemies are known. A faster tempo gave nothing (the sites and teams in the air limit it).
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
 - [Fixed] Drones launched into the sea, then among their own soldiers (132, 137) | Never the sea; no clear spot, no team.
+- [Done] Drones hang a minute not knowing what to do - always scan (185) | On after 15 s: to enemies seen, the next search point, or a 250 m sweep, then home.
 - [In progress] Drones stop sometimes, stuck in the air (142, 147) | Measured: most lost drones hovered at their goal with nothing to hit (up to 18 a match). From 17:45: a team hovering a minute goes on to the nearest enemy its side saw; none for 2.5 min, it's called home.
 - [In progress] Drone operators or drone trucks at bases; destroy them and that position has no drones (143, 155, 157) | Drone sites: a drone truck with a 2-man operator team at the main base, a forward one near the front (ready in 2 min, at most 3); truck destroyed or both operators dead: no drones from there, the main site rebuilt after 5 min; every third team goes for an enemy site the side has seen. Probe: both sides launched all match, 59 of 64 drones hit. Forward sites and counter-drone strikes still to be seen (Everon).
 
@@ -67,4 +74,6 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Lab
 - [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
 - [Done] Two armies only, no FIA, for faster testing (154, 156) | -zcrNoFIA: FIA's bases split between the sides at the start, the front in the middle from the first minute; FIA's ambient patrols don't spawn. The watched matches run it from 18:09 (.runtime/watch_extra.txt).
+- [Done] Our doctrine v our doctrine; AI Conflict alone only as a side check (189) | Watched and batch: rules v rules, Gemini v rules, rules v Gemini, then rules v AI Conflict.
+- [Todo] Skills for what Martin repeats, so it's reproducible (190) | Run/restart the lab loops, score a match with frames, log a remark into notes + plan + pages, republish the pages.
 - [Todo] Short scenario tests (129) | Squads already 600 m from the objective, to test soldier changes in minutes.
