@@ -24,6 +24,14 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
          "phased": "rules + attack doctrine", "llm-phased": "Gemini + attack doctrine"}
 
 # Kept by hand as the night goes: what is open, what is next.
+# The night in short, kept by hand: what Martin should know first.
+SUMMARY = [
+    "The loop runs: a watched, recorded match and a headless head-to-head side by side, all night; every change goes in at the next match boundary.",
+    "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
+    "Storm works: Moss Hill fell in all three matches with storm, at 15-20 min; without it, it fell at 26-29 min or not at all. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. It costs more soldiers.",
+    "Watch first: the newest pick below. The camera now cuts to FPV drone runs at launch and to every storm.",
+]
+
 PROBLEMS = [
     ("finding", "Squads stop 300-600 m short", "AI Conflict walks squads to an objective in 220 m steps, and a Reforger group under fire stops to fight at each step: on Moss Hill 40-65 USSR soldiers held 270-600 m out for 23 minutes. Fix (from 05:45): the doctrine STORMS after 4 minutes of assault - the attack orders get a player-order priority, like a Game Master's forced move. Probe: the nearest squad went 446 -> 88 m in 6 minutes and the USSR took Moss Hill at 16.7 minutes (with AI Conflict alone a control took Moss Hill for the US at 28.8 minutes); costly (FIA 35, USSR 28 lost around it)."),
     ("finding", "Assaults trickled in", "AI Conflict refills squads one at a time and its 4 DEFEND squads never attack. Fix (from 04:52): the doctrine COMMITS 2 defender squads to the assault while nothing of ours is being captured; seen in every doctrine match since (6-9 men each), released after a capture or a threat."),
@@ -165,7 +173,8 @@ def build() -> str:
     return TEMPLATE.format(
         now=now, n_batch=len(done), n_videos=len(vids), watch_n=running_watch, verdict_best=html.escape(verdict_best),
         chart=bar_chart(chart, ""), table="".join(table) or "<tr><td colspan='9' class='muted'>Waiting for the first 30-minute match.</td></tr>",
-        videos="".join(vid_html) or "<p class='muted'>The first recording is on its way.</p>", problems=probs, next=nxt, log=log)
+        videos="".join(vid_html) or "<p class='muted'>The first recording is on its way.</p>", problems=probs, next=nxt, log=log,
+        summary="".join(f"<li>{html.escape(x)}</li>" for x in SUMMARY))
 
 
 TEMPLATE = """<title>Reforger Commander Lab</title>
@@ -211,6 +220,7 @@ td.num {{ font-variant-numeric:tabular-nums; white-space:nowrap; }}
 .prob {{ display:grid; grid-template-columns:6.5rem 1fr; gap:6px 12px; padding-block:10px; border-bottom:1px solid var(--rule); }}
 .prob p {{ margin:2px 0 0; }}
 @media (max-width:560px) {{ .prob {{ grid-template-columns:1fr; }} }}
+.summary li {{ margin:6px 0; max-width:72ch; }}
 pre.mermaid {{ background:var(--surface); border:1px solid var(--rule); padding:12px; overflow-x:auto; }}
 </style>
 <div class="wrap">
@@ -224,6 +234,9 @@ pre.mermaid {{ background:var(--surface); border:1px solid var(--rule); padding:
     <div><b>Best so far</b>{verdict_best}</div>
   </div>
 </header>
+
+<h2>The night in short</h2>
+<ul class="summary">{summary}</ul>
 
 <h2>Does the strategist help?</h2>
 <p>Bases held at the end of a 30-minute match by the side with the strategist, minus the other side's. Each strategist plays both US and USSR, so a side's map advantage cancels out. The control row is AI Conflict against itself: how far apart two equal sides land by chance.</p>
