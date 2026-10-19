@@ -48,7 +48,7 @@ BUILDS = [
     (8, "drone doctrine", "2026-10-19 13:00", "drone warfare doctrine: prep fire and pressure, both sides fly drones, headless too; force and storm from what the side has seen"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
-KEYS = ["cover", "ducks", "stacked", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["cover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -214,6 +214,9 @@ def measure_run(run: Path, log: Path):
     row["drone_teams"] = m["drone_teams"].get(side, 0) if has_drones else None
     row["drone_strikes"] = m["drone_strikes"] if has_drones else None
     row["drone_kills"] = sum(m["drone_kills"].values()) if has_drones else None
+    # Both sides fly drones from r8: what our drones killed, and what we lost to theirs.
+    row["drone_kills_ours"] = sum(n for s_, n in m["drone_kills"].items() if s_ != side) if has_drones else None
+    row["lost_to_drones"] = m["drone_kills"].get(side, 0) if has_drones else None
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
     row.update(soldier_metrics(lines, side))
 
@@ -313,6 +316,9 @@ def html(agg: dict, rows: list) -> str:
            ("Unknown", {b: ks.get("cause_unknown") for b, ks in agg.get("all", {}).items()})]
     add("What causes the losses", "Share of soldiers lost, all matches of each build. A death with no killer within 5 s of an FPV detonation counts as the drone's. The green band is what front-line reports give for drones (the drone warfare doctrine's aim, review note 118).",
         mix, unit="%", ymax=100, band=(70, 96, "front: drones 70-96%"))
+    add("Drone exchange", "Soldiers killed by our strategist's drones, and soldiers it lost to the enemy's drones, per match (both sides fly drones from r8).",
+        [("Killed by our drones", {b: ks.get("drone_kills_ours") for b, ks in agg.get("all", {}).items()}),
+         ("Lost to theirs", {b: ks.get("lost_to_drones") for b, ks in agg.get("all", {}).items()})])
     add("Drones in use", "FPV teams launched, strikes and kills per match - watched matches only until r7; from r8 headless too, and both sides fly drones.",
         [("Teams", {b: ks.get("drone_teams") for b, ks in agg.get("all", {}).items()}),
          ("Strikes", {b: ks.get("drone_strikes") for b, ks in agg.get("all", {}).items()}),
