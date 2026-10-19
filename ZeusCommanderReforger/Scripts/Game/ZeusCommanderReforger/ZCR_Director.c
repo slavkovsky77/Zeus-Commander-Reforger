@@ -158,7 +158,9 @@ class ZCR_Director
 		int now = ZCR_LossLog.Seconds();
 		WatchCaptures(now);
 		// FPV teams hit 8-20 s after launch - too quick for the shot rhythm: cut to them at once.
-		if (!m_bHold && ZCR_Drones.s_iFoundAt > m_iDroneCutAt && LiveDrone())
+		// (Not while the camera stays on a drone's impact - a new team cut it away at once.)
+		bool onImpact = m_sLastKey == "drone" && m_iDroneGoneAt >= 0 && now - m_iDroneGoneAt < 8;
+		if (!m_bHold && !onImpact && ZCR_Drones.s_iFoundAt > m_iDroneCutAt && LiveDrone())
 		{
 			m_iDroneCutAt = ZCR_Drones.s_iFoundAt;
 			m_bDroneNow = true;

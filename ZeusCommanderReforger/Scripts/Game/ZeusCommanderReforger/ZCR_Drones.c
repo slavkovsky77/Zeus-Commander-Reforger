@@ -120,8 +120,8 @@ class ZCR_Drones
 	protected static ref map<SCR_AIGroup, int> s_mTeamNo = new map<SCR_AIGroup, int>();
 
 	// Drones stuck in the air (Martin: "drones get stuck in the air and don't move"; Arma 3 note 53):
-	// a team hovering at its goal for a minute with nothing to hit gets a new goal - the nearest enemy
-	// its side has seen in the last minute, within 1.2 km; with none, after 2.5 minutes its drones
+	// a team hovering at its goal for 25 s with nothing to hit gets a new goal - the nearest enemy
+	// its side has seen in the last minute, within 1.2 km; with none, after 1.5 minutes its drones
 	// are called home (removed). The drone mod's group station follows the team's waypoint.
 	// Logs [ZCR][DRONES] ... retarget / home.
 	static void Tend(FactionKey side)
@@ -133,7 +133,9 @@ class ZCR_Drones
 			if (!team || s_aTeamSide[i] != side || !s_mTeamGoal.Contains(team))
 				continue;
 			int since = now - s_mTeamGoalAt.Get(team);
-			if (since < 60)
+			// 25 game seconds at the goal with nothing to hit (Martin watching: they hang in the air -
+			// at 2x the old minute was half a minute on screen).
+			if (since < 25)
 				continue;
 			vector goal = s_mTeamGoal.Get(team);
 			array<IEntity> hovering = {};
@@ -156,13 +158,13 @@ class ZCR_Drones
 					hovering.Count(), since, Math.Round(enemy[0]), Math.Round(enemy[2]), Math.Round(vector.DistanceXZ(enemy, goal))), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1 had nothing to hit - on to enemies seen %2 m away", s_mTeamNo.Get(team), Math.Round(vector.DistanceXZ(enemy, goal))));
 			}
-			else if (since >= 150)
+			else if (since >= 90)
 			{
 				foreach (IEntity d : hovering)
 					SCR_EntityHelper.DeleteEntityAndChildren(d);
 				s_mTeamGoalAt.Set(team, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 home hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
-				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit for 2.5 min - called home", s_mTeamNo.Get(team)));
+				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit for 1.5 min - called home", s_mTeamNo.Get(team)));
 			}
 		}
 	}
