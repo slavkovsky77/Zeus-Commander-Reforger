@@ -479,8 +479,8 @@ class ZCR_Director
 			target = ZCR_Storm.s_aEventPos[storm];
 			label = ZCR_Storm.s_aEventText[storm];
 			key = "assault-storm" + storm;
-			back = 140;
-			height = 110;
+			back = 80;
+			height = 60;
 			m_vLastFight = target;
 			ZCR_Storm.s_aEventAt[storm] = -1000;
 		}
@@ -543,8 +543,8 @@ class ZCR_Director
 				target = follow.GetOrigin();
 				label = string.Format("CLOSE-UP: %1 %2 %3", ZCR_LossLog.SideOf(follow), ZCR_LossLog.Role(follow), Near(target));
 				key = "close";
-				back = 24;
-				height = 14;
+				back = 14;
+				height = 7;
 				duration = 20;
 			}
 		}
@@ -558,8 +558,8 @@ class ZCR_Director
 			if (lostUS + lostUSSR > 0)
 				label += string.Format(" - lost in the last minute: US %1, USSR %2", lostUS, lostUSSR);
 			key = string.Format("fight%1_%2", Math.Round(target[0] / 250), Math.Round(target[2] / 250));
-			back = 110;
-			height = 95;
+			back = 60;
+			height = 45;
 			duration = 22;
 			m_vLastFight = target;
 		}
@@ -608,8 +608,8 @@ class ZCR_Director
 				if (lost > 0)
 					label += string.Format(" - %1 lost there in the last minute", lost);
 				key = "assault" + bestNode;
-				back = 120;
-				height = 110;
+				back = 70;
+				height = 55;
 				duration = 22;
 				m_vLastFight = target;
 			}

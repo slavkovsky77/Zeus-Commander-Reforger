@@ -340,8 +340,12 @@ class ZCR_Watch
 		}
 		vector eye = Vector(spot[0], ground + height, spot[2] - back);
 		float eyeGround = world.GetSurfaceY(eye[0], eye[2]);
-		if (eye[1] < eyeGround + 8)
-			eye[1] = eyeGround + 8;
+		// Above the ground under the camera: 8 m, 4 m for the close-ups (Martin: zoom the firefights more).
+		float clearance = 8;
+		if (height < 10)
+			clearance = 4;
+		if (eye[1] < eyeGround + clearance)
+			eye[1] = eyeGround + clearance;
 		vector look = Vector(spot[0], ground + 2, spot[2]) - eye;
 		float pitch = Math.Atan2(look[1], Math.Sqrt(look[0] * look[0] + look[2] * look[2])) * Math.RAD2DEG;
 		m_Camera.SetOrigin(eye);
