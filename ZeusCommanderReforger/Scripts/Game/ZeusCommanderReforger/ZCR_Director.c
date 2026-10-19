@@ -881,6 +881,13 @@ class ZCR_Director
 				m_sForce = "front";
 			NextShot(now);
 		}
+		else if (cmd == "point+" || cmd == "point-")
+		{
+			int pdir = 1;
+			if (cmd == "point-")
+				pdir = -1;
+			StepPoint(now, pdir);
+		}
 		else if (cmd == "group+" || cmd == "group-")
 		{
 			int dir = 1;
@@ -892,16 +899,66 @@ class ZCR_Director
 			Tap(now, pos);
 	}
 
-	// NEXT / PREV GROUP: the squads within 700 m of the camera, nearest first; follow the leader.
+	protected int m_iPoint = -1;
+
+	// NEXT / PREV POINT (Martin: "switch between points, so I can watch one point"): the bases in turn;
+	// the camera stays over the one shown (locked) until AUTO.
+	protected void StepPoint(int now, int dir)
+	{
+		array<int> nodes = {};
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			int at = 0;
+			while (at < nodes.Count() && nodes[at] < node)
+				at++;
+			nodes.InsertAt(node, at);
+		}
+		if (nodes.IsEmpty())
+			return;
+		int i = nodes.Find(m_iPoint);
+		if (i < 0)
+		{
+			i = 0;
+			if (dir < 0)
+				i = nodes.Count() - 1;
+		}
+		else
+			i = (i + dir + nodes.Count()) % nodes.Count();
+		m_iPoint = nodes[i];
+		vector at = ZCR_Strategist.s_mNodePos.Get(m_iPoint);
+		int us, ussr;
+		foreach (IEntity e : m_aMen)
+		{
+			if (!e || vector.DistanceXZ(e.GetOrigin(), at) > 300)
+				continue;
+			string side = ZCR_LossLog.SideOf(e);
+			if (side == "US")
+				us++;
+			else if (side == "USSR")
+				ussr++;
+		}
+		m_bHold = true;
+		m_bLocked = true;
+		m_iSpotUntil = 0;
+		string label = string.Format("LOCKED - POINT %1 (%2) - within 300 m: US %3, USSR %4", ZCR_Strategist.s_mNodeName.Get(m_iPoint),
+			ZCR_Strategist.s_mNodeOwner.Get(m_iPoint), us, ussr);
+		Show(at, 180, 150, null, label, true);
+		Print(string.Format("[ZCR][CAMUI] t=%1 point %2", now, ZCR_Strategist.s_mNodeName.Get(m_iPoint)), LogLevel.NORMAL);
+	}
+
+	// NEXT / PREV GROUP: every team on the map, the two sides in turn (Martin: "I can only switch between
+	// the US groups" - it took those within 700 m of the camera), each side nearest first; follow the leader.
 	protected void StepGroup(int now, int dir)
 	{
 		if (now - m_iGroupsAt > 40 || m_aGroupLeaders.IsEmpty() || !m_aGroupLeaders.Contains(m_ShownFollow))
 		{
 			m_iGroupsAt = now;
 			m_aGroupLeaders.Clear();
-			array<float> dist = {};
+			array<ref array<IEntity>> bySide = {};
 			foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
 			{
+				array<IEntity> leaders = {};
+				array<float> dist = {};
 				for (int s; state && s < state.GetSlotCount(); s++)
 				{
 					AICF_GroupSlot slot = state.GetSlot(s);
@@ -911,19 +968,26 @@ class ZCR_Director
 					if (!leader)
 						continue;
 					float d = vector.DistanceXZ(leader.GetOrigin(), m_vShown);
-					if (d > 700)
-						continue;
 					int at = 0;
 					while (at < dist.Count() && dist[at] < d)
 						at++;
 					dist.InsertAt(d, at);
-					m_aGroupLeaders.InsertAt(leader, at);
+					leaders.InsertAt(leader, at);
+				}
+				bySide.Insert(leaders);
+			}
+			for (int k; k < 40; k++)
+			{
+				foreach (array<IEntity> leaders : bySide)
+				{
+					if (k < leaders.Count())
+						m_aGroupLeaders.Insert(leaders[k]);
 				}
 			}
 		}
 		if (m_aGroupLeaders.IsEmpty())
 		{
-			Print("[ZCR][CAMUI] no squads within 700 m", LogLevel.NORMAL);
+			Print("[ZCR][CAMUI] no squads", LogLevel.NORMAL);
 			return;
 		}
 		int n = m_aGroupLeaders.Count();

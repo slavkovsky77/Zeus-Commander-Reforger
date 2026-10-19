@@ -145,6 +145,8 @@ class ZCR_WatchControls
 		Add("WIDER", "wider", 3, 1);
 		Add("OVERVIEW", "overview", 4, 0);
 		Add("AUTO ON", "auto", 4, 1);
+		Add("PREV POINT", "point-", 5, 0);
+		Add("NEXT POINT", "point+", 5, 1);
 		Labels();
 	}
 
