@@ -46,6 +46,7 @@ BUILDS = [
     (6, "motorize", "2026-10-19 10:30", "attack squads ride trucks (probes); storm priority as a setting"),
     (7, "soldier measures", "2026-10-19 12:29", "Arma 3's soldier measurements (cover, sitting ducks, stacking); careful storm by default; watch buttons"),
     (8, "drone doctrine", "2026-10-19 13:00", "drone warfare doctrine: prep fire and pressure, both sides fly drones, headless too; force and storm from what the side has seen"),
+    (9, "cover layer", "2026-10-19 14:31", "soldier layer: cover in a firefight for our strategist's side (Arma 3's coverFight); drones hunt seen enemy soldiers"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
 KEYS = ["cover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",

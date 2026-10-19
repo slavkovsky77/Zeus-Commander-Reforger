@@ -7,7 +7,8 @@
 // Not in a squad storming its objective (Arma 3: then everyone goes in). The move is the game's
 // own individual move at priority 58 + 40 = 98: above shooting a chosen target (90), below the
 // danger reactions; he fights from there, and rejoins his squad when it moves on.
-// Lab option -zcrCoverLayer (off by default until measured). Logs [ZCR][COVERMOVE] per tick.
+// On by default from r9 (probe: from cover 1.4-6.7% -> 11.6%, the attack as fast); -zcrNoCoverLayer
+// turns it off for an A/B. Logs [ZCR][COVERMOVE] per tick.
 class ZCR_CoverLayer
 {
 	protected static ref map<IEntity, int> s_mMovedAt = new map<IEntity, int>();
@@ -18,7 +19,7 @@ class ZCR_CoverLayer
 
 	static void Tick(FactionKey side, AICF_FactionState state)
 	{
-		if (!Replication.IsServer() || !state || !System.IsCLIParam("zcrCoverLayer"))
+		if (!Replication.IsServer() || !state || System.IsCLIParam("zcrNoCoverLayer"))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		int engaged, open, moved;
