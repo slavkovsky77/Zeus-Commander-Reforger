@@ -151,6 +151,7 @@ class ZCR_WatchControls
 		Add("NEXT POINT", "point+", 5, 1);
 		Add("BOTH SIDES", "side", 6, 0);
 		Add("TEAMS", "kind", 6, 1);
+		Add("FREE LOOK", "free", 7, 0);
 		Labels();
 	}
 
@@ -204,6 +205,13 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("BOTH SIDES");
 			}
+			else if (b.m_sCmd == "free")
+			{
+				if (ZCR_Watch.IsFree())
+					b.m_wText.SetText("FREE: ON");
+				else
+					b.m_wText.SetText("FREE LOOK");
+			}
 			else if (b.m_sCmd == "kind")
 			{
 				string kind = m_sKind;
@@ -246,6 +254,8 @@ class ZCR_WatchControls
 				c = new Color(0.18, 0.35, 0.75, 0.85);
 			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
 				c = new Color(0.7, 0.18, 0.15, 0.85);
+			else if (b.m_sCmd == "free" && ZCR_Watch.IsFree())
+				c = new Color(0.15, 0.55, 0.22, 0.8);
 			else if (b.m_sCmd == "kind" && m_sKind == "vehicles")
 				c = new Color(0.55, 0.42, 0.12, 0.85);
 			else if (b.m_sCmd == "kind" && m_sKind == "drones")
@@ -297,6 +307,13 @@ class ZCR_WatchControls
 					else
 						m_sFocus = "";
 					cmd = "side-" + m_sFocus;
+				}
+				// Free look: the camera is the watcher's (on this machine only; the director keeps going).
+				if (cmd == "free")
+				{
+					ZCR_Watch.SetFree(!ZCR_Watch.IsFree());
+					Labels();
+					return;
 				}
 				// What PREV / NEXT steps through (Martin: "switch between infantry groups, vehicles and
 				// drones - what if I want to follow drones"): TEAMS -> VEHICLES -> DRONES.

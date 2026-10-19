@@ -113,6 +113,92 @@ class ZCR_Watch
 	protected bool m_bFollowSeen;
 	protected float m_fNextNear;
 	protected ref array<IEntity> m_aNear = {};
+	// Free look: the camera is the watcher's - WASD, right mouse held to look, Shift faster, Q/E down/up.
+	protected bool m_bFree;
+	protected vector m_vFreePos;
+	protected float m_fYaw;
+	protected float m_fPitch = -30;
+	protected int m_iLastTick;
+	protected int m_iMouseX = -1;
+	protected int m_iMouseY = -1;
+
+	static void SetFree(bool on)
+	{
+		if (!s_Instance || !s_Instance.m_Camera)
+			return;
+		s_Instance.m_bFree = on;
+		if (on)
+		{
+			s_Instance.m_vFreePos = s_Instance.m_Camera.GetOrigin();
+			vector ypr = s_Instance.m_Camera.GetYawPitchRoll();
+			s_Instance.m_fYaw = ypr[0];
+			s_Instance.m_fPitch = ypr[1];
+			s_Instance.m_iLastTick = System.GetTickCount();
+			s_Instance.m_iMouseX = -1;
+			if (s_Instance.m_Caption)
+				s_Instance.m_Caption.SetText("FREE LOOK - W A S D to move, hold the right mouse button to look, Shift faster, Q / E down / up");
+		}
+		Print(string.Format("[ZCR][CAMUI] free look %1", on), LogLevel.NORMAL);
+	}
+
+	static bool IsFree()
+	{
+		return s_Instance && s_Instance.m_bFree;
+	}
+
+	protected static bool Down(KeyCode key)
+	{
+		return (Debug.KeyState(key) & 0x8000) != 0;
+	}
+
+	// Real time, not game time (at 3x the game's frame time is three times longer).
+	protected void FreeMove(BaseWorld world)
+	{
+		int tick = System.GetTickCount();
+		float dt = Math.Clamp((tick - m_iLastTick) / 1000.0, 0, 0.1);
+		m_iLastTick = tick;
+		int mx, my;
+		WidgetManager.GetMousePos(mx, my);
+		if (Debug.GetMouseState(MouseState.RIGHT) & Debug.MB_PRESSED_MASK)
+		{
+			if (m_iMouseX >= 0)
+			{
+				m_fYaw += (mx - m_iMouseX) * 0.15;
+				m_fPitch = Math.Clamp(m_fPitch - (my - m_iMouseY) * 0.15, -85, 85);
+			}
+		}
+		m_iMouseX = mx;
+		m_iMouseY = my;
+		float y = m_fYaw * Math.DEG2RAD;
+		float p = m_fPitch * Math.DEG2RAD;
+		vector forward = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
+		vector right = Vector(Math.Cos(y), 0, -Math.Sin(y));
+		vector move;
+		if (Down(KeyCode.KC_W))
+			move += forward;
+		if (Down(KeyCode.KC_S))
+			move -= forward;
+		if (Down(KeyCode.KC_D))
+			move += right;
+		if (Down(KeyCode.KC_A))
+			move -= right;
+		if (Down(KeyCode.KC_E))
+			move += Vector(0, 1, 0);
+		if (Down(KeyCode.KC_Q))
+			move -= Vector(0, 1, 0);
+		float speed = 25;
+		if (Down(KeyCode.KC_LSHIFT))
+			speed = 100;
+		m_vFreePos = m_vFreePos + move * speed * dt;
+		float ground = world.GetSurfaceY(m_vFreePos[0], m_vFreePos[2]);
+		if (m_vFreePos[1] < ground + 1.5)
+			m_vFreePos[1] = ground + 1.5;
+		m_Camera.SetOrigin(m_vFreePos);
+		m_Camera.SetYawPitchRoll(Vector(m_fYaw, m_fPitch, 0));
+		// Tags for the soldiers in front of the camera.
+		m_vSpot = m_vFreePos + Vector(Math.Sin(y), 0, Math.Cos(y)) * 50;
+		m_fToHeight = 50;
+	}
 
 	static bool IsOn()
 	{
@@ -140,7 +226,7 @@ class ZCR_Watch
 		if (!s_Instance)
 			return;
 		s_Instance.Aim(target, back, height, follow);
-		if (s_Instance.m_Caption)
+		if (s_Instance.m_Caption && !s_Instance.m_bFree)
 			s_Instance.m_Caption.SetText(label);
 		ZCR_WatchControls.OnLabel(label);
 		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
@@ -215,6 +301,12 @@ class ZCR_Watch
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
 		ZCR_WatchControls.Tick(m_fClock);
+		if (m_Camera && m_bFree)
+		{
+			FreeMove(world);
+			Draw(world);
+			return;
+		}
 		if (!m_Camera || !m_bHasShot)
 			return;
 		Place(world);

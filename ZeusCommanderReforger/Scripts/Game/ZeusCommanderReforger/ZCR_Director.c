@@ -922,6 +922,35 @@ class ZCR_Director
 	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
 	protected string m_sRideSide;
 	protected int m_iRideMen;
+	protected ref map<IEntity, AICF_GroupSlot> m_mLeaderSlot = new map<IEntity, AICF_GroupSlot>();
+	protected vector m_vTeamGoal;
+	protected string m_sTeamGoal;
+
+	// "ATTACK Farm - 450 m to go - riding", from AI Conflict's own order for the team.
+	protected string TeamGoal(AICF_GroupSlot slot, IEntity leader)
+	{
+		m_vTeamGoal = vector.Zero;
+		m_sTeamGoal = "";
+		if (!slot)
+			return "";
+		string role = typename.EnumToString(AICF_EGroupRole, slot.GetRole());
+		string text = role;
+		SCR_CampaignMilitaryBaseComponent target = slot.GetTargetBase();
+		if (target && target.GetOwner())
+		{
+			m_vTeamGoal = target.GetOwner().GetOrigin();
+			m_sTeamGoal = ZCR_Strategist.BaseName(target);
+			text += string.Format(" %1 - %2 m to go", m_sTeamGoal, Math.Round(vector.DistanceXZ(leader.GetOrigin(), m_vTeamGoal)));
+		}
+		string posture = slot.GetOperationalPosture();
+		if (posture == "INFANTRY_MUSTER")
+			text += " - gathering at base";
+		ChimeraCharacter c = ChimeraCharacter.Cast(leader);
+		if (c && c.IsInVehicle())
+			text += " - riding";
+		return text;
+	}
+
 
 	// A vehicle of the side in turn (or the focus side) with soldiers in it, moving over 4 m/s.
 	protected IEntity RidingVehicle()
@@ -1100,6 +1129,7 @@ class ZCR_Director
 					IEntity leader = AICF_GroupRuntime.ResolveAliveLeader(slot.GetGroup());
 					if (!leader)
 						continue;
+					m_mLeaderSlot.Set(leader, slot);
 					float d = vector.DistanceXZ(leader.GetOrigin(), m_vShown);
 					int at = 0;
 					while (at < dist.Count() && dist[at] < d)
@@ -1154,8 +1184,12 @@ class ZCR_Director
 			Show(leader.GetOrigin(), 30, 14, leader, string.Format("FOLLOWING VEHICLE %1 OF %2: %3 %4", i + 1, n, VehicleName(leader), Near(leader.GetOrigin())), true);
 			return;
 		}
-		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 team leader %4", i + 1, n,
-			ZCR_LossLog.SideOf(leader), Near(leader.GetOrigin())), true);
+		AICF_GroupSlot slot = m_mLeaderSlot.Get(leader);
+		int men = 1;
+		if (slot)
+			men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
+		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 team (%4 men) %5 - %6", i + 1, n,
+			ZCR_LossLog.SideOf(leader), men, Near(leader.GetOrigin()), TeamGoal(slot, leader)), true);
 	}
 
 	// A tap on the picture: the soldier or vehicle there is followed (AUTO off until another pick);
@@ -1262,6 +1296,9 @@ class ZCR_Director
 		// Bases, in their owner's colour.
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, string.Format("%1  %2", ZCR_Strategist.BaseName(base), ZCR_Logistics.Stock(base)));
+		// The followed team's goal.
+		if (m_vTeamGoal != vector.Zero && m_ShownFollow && m_mLeaderSlot.Contains(m_ShownFollow))
+			markers += Marker("G", m_vTeamGoal + Vector(0, 60, 0), Colour(ZCR_LossLog.SideOf(m_ShownFollow)), 1, "TEAM GOAL: " + m_sTeamGoal);
 		// Losses of the last 90 s, fading.
 		for (int i; i < ZCR_LossLog.s_aRecentPos.Count(); i++)
 		{
