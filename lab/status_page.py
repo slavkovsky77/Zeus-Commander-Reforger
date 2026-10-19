@@ -39,6 +39,11 @@ NEXT = [
     "Phone buttons for the watch mode, as on Arma 3 (next / previous shot, follow a group, map).",
 ]
 
+# Recordings worth watching first: video stem -> why.
+WATCH_FIRST = {
+    "2026-10-19_0417_w1-arland-none-v-llm-phased": "Gemini + the attack doctrine (USSR) wins 3-2 on bases: gathers at its main base, assaults Airport Base with two FPV teams in support and takes it at 12:15, then Farm at 22:16; USSR lost 5 soldiers, the US 14, FIA 70; 13 drone strikes, 8 kills.",
+}
+
 
 def rows(path: Path) -> list:
     if not path.exists():
@@ -93,7 +98,10 @@ def video_rows() -> list:
         except (IndexError, ValueError):
             score = ""
         video = md.with_suffix(".mp4") if md.with_suffix(".mp4").exists() else md.with_suffix(".mkv")
-        out.append((md.stem, info, score, moments[:4], str(video)))
+        key = [m for m in moments if any(k in m for k in ("CAPTURE", "COMMIT", "DRONES"))]
+        out.append((md.stem, info, score, (key or moments)[:6], str(video)))
+    # The pick first.
+    out.sort(key=lambda v: v[0] not in WATCH_FIRST)
     return out
 
 
@@ -137,7 +145,9 @@ def build() -> str:
     vid_html = []
     for stem, info, score, moments, path in vids[:14]:
         ms = "".join(f"<li>{html.escape(m)}</li>" for m in moments) or "<li class='muted'>no moments yet</li>"
-        vid_html.append(f"<div class='vid'><div class='vh'><b>{html.escape(stem)}</b><span>{html.escape(score)}</span></div>"
+        pick = (f"<p class='pick'><span class='chip good'>watch first</span> {html.escape(WATCH_FIRST[stem])}</p>"
+                if stem in WATCH_FIRST else "")
+        vid_html.append(f"<div class='vid'><div class='vh'><b>{html.escape(stem)}</b><span>{html.escape(score)}</span></div>{pick}"
                         f"<p class='muted'>{html.escape(info)}</p><ul>{ms}</ul><code>{html.escape(path)}</code></div>")
 
     now = datetime.now().strftime("%H:%M")
@@ -194,6 +204,7 @@ td.num {{ font-variant-numeric:tabular-nums; white-space:nowrap; }}
 .vid p {{ margin:2px 0; font-size:13px; }}
 .chip {{ display:inline-block; font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; padding:4px 7px; border-radius:2px; color:var(--chip-ink); white-space:nowrap; }}
 .risk {{ background:var(--unknown); }} .design {{ background:var(--accent); }} .bug {{ background:var(--hostile); }} .good {{ background:var(--neutral); }}
+.finding {{ background:var(--accent); }} .pick {{ margin:6px 0; }}
 .prob {{ display:grid; grid-template-columns:6.5rem 1fr; gap:6px 12px; padding-block:10px; border-bottom:1px solid var(--rule); }}
 .prob p {{ margin:2px 0 0; }}
 @media (max-width:560px) {{ .prob {{ grid-template-columns:1fr; }} }}
