@@ -1,10 +1,11 @@
 // Soldiers react to enemy FPV drones (Martin, 19 Oct: "infantry just walks exposed - they can be chill
 // with no danger, but with danger from drones they really should run like hell to cover"; Arma 3's
 // ZC_fnc_droneThreat). Every second, for every commanders' drone in the air: soldiers on foot of the
-// other sides within 150 m of it (an FPV is heard) react, each at most every 15 s -
+// other sides within 250 m of it (an FPV is heard; was 150) react, each at most every 15 s -
 //   - under a roof or tree canopy already: stay, crouched;
-//   - overhead cover (canopy, a building) within 30 m, the far side from the drone first: run there;
-//   - none: get down (prone).
+//   - overhead cover (canopy, a building) within 40 m, the far side from the drone first, each soldier
+//     his own spot 6 m from the others: run there;
+//   - none: spread out (15-25 m away from the drone, each his own way, 8 m apart), down when it comes again.
 // When a drone goes off, the survivors within 40 m scatter 20-35 m, each his own way, into overhead
 // cover where there is some - not standing round the bodies waiting for the next one (Arma 3 v50).
 // Both sides (the soldiers' own reflex, not a commander's choice); -zcrNoDroneReact turns it off.
@@ -31,7 +32,8 @@ class ZCR_DroneThreat
 	protected static int s_iNextLog;
 	protected static int s_iNextDisperse;
 	protected static ref map<IEntity, vector> s_mWas = new map<IEntity, vector>();
-	static const float REACT = 150;
+	static const float REACT = 250;      // an FPV is heard well before it arrives (was 150)
+	protected static ref map<IEntity, int> s_mSpreadAt = new map<IEntity, int>();
 	static const int COOLDOWN = 15;
 
 	static void Start()
@@ -46,6 +48,7 @@ class ZCR_DroneThreat
 	protected void Tick()
 	{
 		int now = ZCR_LossLog.Seconds();
+		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
 		map<string, int> covered = new map<string, int>();
 		map<string, int> running = new map<string, int>();
@@ -103,7 +106,7 @@ class ZCR_DroneThreat
 				if (now - s_mReactedAt.Get(c) < COOLDOWN && s_mReactedAt.Contains(c))
 					continue;
 				s_mReactedAt.Set(c, now);
-				React(c, dp, over, now);
+				React(c, dp, over, now, taken);
 			}
 		}
 		if (now >= s_iNextDisperse)
@@ -138,8 +141,8 @@ class ZCR_DroneThreat
 		return SCR_AIUtilityComponent.Cast(control.GetControlAIAgent().FindComponent(SCR_AIUtilityComponent));
 	}
 
-	// Under cover from above, or run to some, or get down.
-	protected static void React(ChimeraCharacter c, vector from, bool over, int now)
+	// Under cover from above, or run to some (each his own spot), or spread out, then get down.
+	protected static void React(ChimeraCharacter c, vector from, bool over, int now, array<vector> taken)
 	{
 		SCR_AIUtilityComponent utility = Utility(c);
 		if (!utility)
@@ -151,12 +154,43 @@ class ZCR_DroneThreat
 			return;
 		}
 		vector spot;
-		if (FindOverhead(c, from, 30, spot))
+		if (FindOverhead(c, from, 40, spot, vector.Zero, taken))
 		{
 			// Above the attack (90) and the cover layer (98): a drone overhead comes first.
+			taken.Insert(spot);
 			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
 			return;
+		}
+		// No cover near: spread out first - away from the drone, each his own way, 15-25 m, at least
+		// 8 m from the others - so one drone can't take the team; down when it comes again.
+		if (!s_mSpreadAt.Contains(c) || now - s_mSpreadAt.Get(c) > 40)
+		{
+			vector away = c.GetOrigin() - from;
+			away[1] = 0;
+			if (away.Length() < 1)
+				away = Vector(1, 0, 0);
+			away.Normalize();
+			for (int tries; tries < 6; tries++)
+			{
+				float r = Math.RandomFloat(-80, 80) * Math.DEG2RAD;
+				vector dir = Vector(away[0] * Math.Cos(r) - away[2] * Math.Sin(r), 0, away[0] * Math.Sin(r) + away[2] * Math.Cos(r));
+				vector run = c.GetOrigin() + dir * Math.RandomFloat(15, 25);
+				bool crowded;
+				foreach (vector q : taken)
+				{
+					if (vector.DistanceXZ(q, run) < 8)
+						crowded = true;
+				}
+				if (crowded)
+					continue;
+				run[1] = GetGame().GetWorld().GetSurfaceY(run[0], run[2]);
+				taken.Insert(run);
+				utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, run, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 2.0));
+				s_mRunningUntil.Set(c, now + 8);
+				s_mSpreadAt.Set(c, now);
+				return;
+			}
 		}
 		if (utility.m_CombatMoveState)
 			utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.PRONE);

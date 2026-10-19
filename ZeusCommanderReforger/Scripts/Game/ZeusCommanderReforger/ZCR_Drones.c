@@ -122,12 +122,14 @@ class ZCR_Drones
 	protected static ref map<SCR_AIGroup, int> s_mTeamLaunchedAt = new map<SCR_AIGroup, int>();
 	// A searching team's next points: the enemy's other bases near its objective, then its staging area.
 	protected static ref map<SCR_AIGroup, ref array<vector>> s_mTeamRoute = new map<SCR_AIGroup, ref array<vector>>();
+	protected static ref map<SCR_AIGroup, bool> s_mTeamSwept = new map<SCR_AIGroup, bool>();
 	// Which team each drone flies for (a team's group outlives its drones).
 	static ref map<IEntity, SCR_AIGroup> s_mDroneTeam = new map<IEntity, SCR_AIGroup>();
 
 	// Drones stuck in the air (Martin: "drones get stuck in the air and don't move"; Arma 3 note 53):
-	// a team hovering at its goal for 25 s with nothing to hit gets a new goal - the nearest enemy
-	// its side has seen in the last minute, within 1.2 km; with none, after 1.5 minutes its drones
+	// a team hovering at its goal for 15 s with nothing to hit gets a new goal - the nearest enemy
+	// its side has seen in the last minute, within 1.2 km; else the next point of its search route,
+	// else a sweep round the area (Martin: "they should always scan"); with none, after a minute its drones
 	// are called home (removed). The drone mod's group station follows the team's waypoint.
 	// Logs [ZCR][DRONES] ... retarget / home.
 	static void Tend(FactionKey side)
@@ -139,9 +141,9 @@ class ZCR_Drones
 			if (!team || s_aTeamSide[i] != side || !s_mTeamGoal.Contains(team))
 				continue;
 			int since = now - s_mTeamGoalAt.Get(team);
-			// 25 game seconds at the goal with nothing to hit (Martin watching: they hang in the air -
+			// 15 game seconds at the goal with nothing to hit (Martin watching: they hang in the air -
 			// at 2x the old minute was half a minute on screen).
-			if (since < 25)
+			if (since < 15)
 				continue;
 			vector goal = s_mTeamGoal.Get(team);
 			array<IEntity> hovering = {};
@@ -176,13 +178,30 @@ class ZCR_Drones
 					hovering.Count(), since, nextName, route.Count()), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1 found nobody - searching on over %2", s_mTeamNo.Get(team), nextName));
 			}
-			else if (since >= 90)
+			else if (!s_mTeamSwept.Contains(team))
+			{
+				// Nothing known, no route left: sweep a 250 m circle round here before going home - the
+				// drones' own eyes look as they go.
+				array<vector> sweep = {};
+				for (int q; q < 4; q++)
+				{
+					float a = q * 90 * Math.DEG2RAD;
+					sweep.Insert(goal + Vector(Math.Cos(a) * 250, 0, Math.Sin(a) * 250));
+				}
+				s_mTeamSwept.Set(team, true);
+				vector first = sweep[0];
+				sweep.RemoveOrdered(0);
+				s_mTeamRoute.Set(team, sweep);
+				SetGoal(team, first, now);
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 sweep hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
+			}
+			else if (since >= 60)
 			{
 				foreach (IEntity d : hovering)
 					SCR_EntityHelper.DeleteEntityAndChildren(d);
 				s_mTeamGoalAt.Set(team, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 home hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
-				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit for 1.5 min - called home", s_mTeamNo.Get(team)));
+				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit, area swept - called home", s_mTeamNo.Get(team)));
 			}
 		}
 	}

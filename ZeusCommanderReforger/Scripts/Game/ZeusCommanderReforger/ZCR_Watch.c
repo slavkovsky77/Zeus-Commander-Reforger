@@ -428,6 +428,40 @@ class ZCR_Watch
 			m_aNear.Clear();
 			world.QueryEntitiesBySphere(m_vSpot, 90, OnNear, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
 		}
+		// Soldiers in a vehicle: one tag over the vehicle - side, vehicle, how many aboard.
+		map<IEntity, int> aboard = new map<IEntity, int>();
+		map<IEntity, string> aboardSide = new map<IEntity, string>();
+		foreach (IEntity e : m_aNear)
+		{
+			if (!e)
+				continue;
+			IEntity root = e.GetRootParent();
+			if (root && root != e)
+			{
+				aboard.Set(root, aboard.Get(root) + 1);
+				aboardSide.Set(root, ZCR_LossLog.SideOf(e));
+			}
+		}
+		foreach (IEntity v, int n : aboard)
+		{
+			if (!v)
+				continue;
+			vector vs = workspace.ProjWorldToScreen(v.GetOrigin() + Vector(0, 3.5, 0), world);
+			if (vs[2] <= 0)
+				continue;
+			Widget vw = Pooled(used, true);
+			used++;
+			if (!vw)
+				return used;
+			vw.SetVisible(true);
+			TextWidget vt = TextWidget.Cast(vw);
+			string vside = aboardSide.Get(v);
+			vt.SetText(string.Format("%1 %2 (%3)", vside, VehicleName(v), n));
+			vt.SetColor(Tint(vside));
+			vt.SetExactFontSize(17);
+			FrameSlot.SetPos(vt, vs[0] - 60, vs[1] - 12);
+			FrameSlot.SetSize(vt, 300, 26);
+		}
 		foreach (IEntity e : m_aNear)
 		{
 			if (!e || e.GetRootParent() != e)
@@ -453,6 +487,20 @@ class ZCR_Watch
 			FrameSlot.SetSize(t, 200, 22);
 		}
 		return used;
+	}
+
+	// "M998", "UAZ452 transport" - from the vehicle's prefab name.
+	protected static string VehicleName(IEntity v)
+	{
+		if (!v || !v.GetPrefabData())
+			return "vehicle";
+		string name = v.GetPrefabData().GetPrefabName();
+		int slash = name.LastIndexOf("/");
+		if (slash >= 0)
+			name = name.Substring(slash + 1, name.Length() - slash - 1);
+		name.Replace(".et", "");
+		name.Replace("_", " ");
+		return name;
 	}
 
 	// "FPV" over every drone of the commanders' teams in the air, in its side's colour.
