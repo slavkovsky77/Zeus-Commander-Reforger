@@ -512,6 +512,15 @@ class ZCR_Drones
 		return bestNode;
 	}
 
+	// The drone team a drone flies for (its number in the side's launches), 0 if unknown.
+	static int TeamNo(IEntity drone)
+	{
+		SCR_AIGroup team;
+		if (!drone || !s_mDroneTeam.Find(drone, team) || !team)
+			return 0;
+		return s_mTeamNo.Get(team);
+	}
+
 	// For the watch panel: teams launched so far, and drones in the air now.
 	static int Launched(FactionKey side)
 	{

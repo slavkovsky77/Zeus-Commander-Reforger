@@ -535,7 +535,7 @@ class ZCR_Director
 			// A vehicle with soldiers in it, on the move (Martin: "I didn't notice any usage of cars").
 			follow = RidingVehicle();
 			target = follow.GetOrigin();
-			label = string.Format("%1 %2 WITH %3 ABOARD %4", m_sRideSide, VehicleName(follow), m_iRideMen, Near(target));
+			label = string.Format("%1 %2%3 WITH %4 ABOARD %5", m_sRideSide, VehicleName(follow), TeamTag(follow), m_iRideMen, Near(target));
 			key = "ride";
 			back = 25;
 			height = 9;
@@ -573,7 +573,7 @@ class ZCR_Director
 			{
 				follow = pool.GetRandomElement();
 				target = follow.GetOrigin();
-				label = string.Format("CLOSE-UP: %1 %2 %3", ZCR_LossLog.SideOf(follow), ZCR_LossLog.Role(follow), Near(target));
+				label = string.Format("CLOSE-UP: %1 %2%3 %4", ZCR_LossLog.SideOf(follow), ZCR_LossLog.Role(follow), TeamTag(follow), Near(target));
 				key = "close";
 				back = 14;
 				height = 7;
@@ -675,14 +675,14 @@ class ZCR_Director
 			}
 			IEntity root = mover.GetRootParent();
 			follow = mover;
-			string what = "soldier";
+			string what = ZCR_LossLog.Role(mover);
 			if (root && Vehicle.Cast(root))
 			{
 				follow = root;
 				what = ZCR_LossLog.ShortName(root);
 			}
 			target = follow.GetOrigin();
-			label = string.Format("%1 %2 on the move %3", ZCR_LossLog.SideOf(mover), what, Near(target));
+			label = string.Format("%1 %2%3 on the move %4", ZCR_LossLog.SideOf(mover), what, TeamTag(mover), Near(target));
 			key = "move";
 			back = 90;
 			height = 80;
@@ -966,7 +966,7 @@ class ZCR_Director
 				CharacterControllerComponent ctl = c.GetCharacterController();
 				if (ctl)
 					extra = string.Format(" stance=%1", typename.EnumToString(ECharacterStance, ctl.GetStance()));
-				extra += string.Format(" vehicle=%1 role=%2", c.IsInVehicle(), ZCR_LossLog.Role(f));
+				extra += string.Format(" vehicle=%1 role=%2 team=%3", c.IsInVehicle(), ZCR_LossLog.Role(f), TeamKey(f));
 				extra += ZCR_Sampler.DeathState(f, ZCR_CoverLayer.NearestEnemy(f));
 			}
 			else if (ZCR_Drones.s_aDrones.Contains(f))
@@ -996,6 +996,54 @@ class ZCR_Director
 		Print(string.Format("[ZCR][REPORT] n=%1 around US=%2 USSR=%3 known_enemies_US=%4 known_enemies_USSR=%5 drones_within_300=%6", n, men.Get("US"), men.Get("USSR"),
 			ZCR_Sampler.KnownEnemiesNear("US", at, 300), ZCR_Sampler.KnownEnemiesNear("USSR", at, 300), drones), LogLevel.NORMAL);
 		ZCR_Feed.Note("US", string.Format("REPORT %1 marked at %2", n, Clock(now)));
+	}
+
+	// "team A3" - AI Conflict's slot key of the soldier's team (Martin: "messages should contain IDs of
+	// units or groups so I can see it and report it to you"). A vehicle: the team of someone aboard.
+	protected string TeamKey(IEntity e)
+	{
+		if (!e)
+			return "";
+		IEntity who = e;
+		if (!ChimeraCharacter.Cast(e))
+		{
+			who = null;
+			foreach (IEntity m : m_aMen)
+			{
+				if (m && m.GetRootParent() == e)
+				{
+					who = m;
+					break;
+				}
+			}
+			if (!who)
+				return "";
+		}
+		AIControlComponent control = AIControlComponent.Cast(who.FindComponent(AIControlComponent));
+		if (!control || !control.GetControlAIAgent())
+			return "";
+		AIGroup group = control.GetControlAIAgent().GetParentGroup();
+		if (!group)
+			return "";
+		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
+		{
+			for (int s; state && s < state.GetSlotCount(); s++)
+			{
+				AICF_GroupSlot slot = state.GetSlot(s);
+				if (slot && slot.GetGroup() == group)
+					return "team " + slot.GetSlotKey();
+			}
+		}
+		return "";
+	}
+
+	// " (team A3)" or "".
+	protected string TeamTag(IEntity e)
+	{
+		string key = TeamKey(e);
+		if (key.IsEmpty())
+			return "";
+		return " (" + key + ")";
 	}
 
 	// "ATTACK Farm - 450 m to go - riding", from AI Conflict's own order for the team.
@@ -1248,20 +1296,23 @@ class ZCR_Director
 			string droneSide;
 			if (k >= 0)
 				droneSide = ZCR_Drones.s_aDroneSide[k];
-			Show(leader.GetOrigin(), 16, 6, leader, string.Format("FOLLOWING DRONE %1 OF %2: %3 FPV %4", i + 1, n, droneSide, Near(leader.GetOrigin())), true);
+			Show(leader.GetOrigin(), 16, 6, leader, string.Format("FOLLOWING DRONE %1 OF %2: %3 FPV of drone team %4 %5", i + 1, n, droneSide, ZCR_Drones.TeamNo(leader), Near(leader.GetOrigin())), true);
 			return;
 		}
 		if (m_sKind == "vehicles")
 		{
-			Show(leader.GetOrigin(), 30, 14, leader, string.Format("FOLLOWING VEHICLE %1 OF %2: %3 %4", i + 1, n, VehicleName(leader), Near(leader.GetOrigin())), true);
+			Show(leader.GetOrigin(), 30, 14, leader, string.Format("FOLLOWING VEHICLE %1 OF %2: %3 %4%5 %6", i + 1, n, ZCR_LossLog.SideOf(leader), VehicleName(leader), TeamTag(leader), Near(leader.GetOrigin())), true);
 			return;
 		}
 		AICF_GroupSlot slot = m_mLeaderSlot.Get(leader);
 		int men = 1;
 		if (slot)
 			men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
-		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 team (%4 men) %5 - %6", i + 1, n,
-			ZCR_LossLog.SideOf(leader), men, Near(leader.GetOrigin()), TeamGoal(slot, leader)), true);
+		string key = "team";
+		if (slot)
+			key = "team " + slot.GetSlotKey();
+		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 %4 (%5 men) %6 - %7", i + 1, n,
+			ZCR_LossLog.SideOf(leader), key, men, Near(leader.GetOrigin()), TeamGoal(slot, leader)), true);
 	}
 
 	// A tap on the picture: the soldier or vehicle there is followed (AUTO off until another pick);
@@ -1285,7 +1336,7 @@ class ZCR_Director
 		{
 			IEntity root = best.GetRootParent();
 			IEntity follow = best;
-			string what = ZCR_LossLog.Role(best);
+			string what = ZCR_LossLog.Role(best) + TeamTag(best);
 			if (root && Vehicle.Cast(root))
 			{
 				follow = root;
@@ -1318,7 +1369,7 @@ class ZCR_Director
 			}
 		}
 		if (best)
-			Show(best.GetOrigin(), 45, 32, best, string.Format("FOLLOWING %1 %2 %3 (the one followed fell)", m_sFollowSide, ZCR_LossLog.Role(best), Near(best.GetOrigin())), false);
+			Show(best.GetOrigin(), 45, 32, best, string.Format("FOLLOWING %1 %2%3 %4 (the one followed fell)", m_sFollowSide, ZCR_LossLog.Role(best), TeamTag(best), Near(best.GetOrigin())), false);
 		else
 			Show(m_vFollowLast, 80, 60, null, "THE ONE FOLLOWED FELL " + Near(m_vFollowLast), false);
 	}
