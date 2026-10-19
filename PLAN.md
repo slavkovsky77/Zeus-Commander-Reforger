@@ -35,7 +35,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Drone warfare doctrine: heavy drone use (118) | Prep fire while gathering, pressure during the assault; both sides fly drones; drones cause 37-50% of losses (front: 70-96%).
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
 - [Fixed] Drones launched into the sea, then among their own soldiers (132, 137) | Never the sea; no clear spot, no team.
-- [Measure] Drones stop sometimes (142) | Count the drones that hover with no target, where and why.
+- [Measure] Drones stop sometimes, stuck in the air (142, 147) | Count the drones that hover with no target, where and why; then a new target (the nearest enemy seen) or call it back, as Arma 3 did.
 - [Todo] Drone operators or drone trucks at bases; destroy them and that position has no drones (143) | Arma 3 had an operator post you could kill. Drones only from physical launch sites.
 
 ## AI Conflict
@@ -56,5 +56,5 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Team size and spacing to the nearest friend (141) | Measure fireteams against the old squads.
 
 ## Lab
-- [Done] A plan and a page like Arma 3's (145) | This page.
+- [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
 - [Todo] Short scenario tests (129) | Squads already 600 m from the objective, to test soldier changes in minutes.

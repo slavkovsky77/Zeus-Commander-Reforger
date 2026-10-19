@@ -30,6 +30,47 @@ def parse(text: str) -> list:
     return themes
 
 
+NOTES = Path("D:/work/ac-lab/REVIEW_NOTES.md")
+FIRST_REFORGER_NOTE = 88
+BUG_WORDS = ("bug", "fell", "falling", "stuck", "stopped", "don't work", "crash", "can't connect", "broken", "desktop", "sucks", "lost")
+
+
+def review_notes() -> list:
+    """Martin's remarks and the lab's findings from REVIEW_NOTES.md (Reforger: note 88 on)."""
+    out = []
+    if not NOTES.exists():
+        return out
+    for line in NOTES.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\| (\d+) \| (.*?) \| (.*) \|\s*$", line)
+        if not m or int(m.group(1)) < FIRST_REFORGER_NOTE:
+            continue
+        n, text, status = int(m.group(1)), m.group(2), m.group(3)
+        tag = ""
+        t = re.match(r"^\((Reforger[^)]*)\) ?(.*)$", text)
+        if t:
+            tag, text = t.group(1), t.group(2)
+        word = status.split(" - ")[0].split(" (")[0].strip().lower()
+        chip = ("Done" if word.startswith(("done", "fixed", "built", "solved", "answered", "checked", "found and fixed"))
+                else "In progress" if word.startswith(("in progress", "working", "running", "first step", "changed", "promising"))
+                else "Todo" if word.startswith(("planned", "to measure", "todo", "to do", "noted"))
+                else "Found")
+        mine = any(k in tag for k in ("finding", "result", "bug", "for martin", "for the fpv"))
+        fixed = word.startswith(("fixed", "found and fixed"))
+        kind = ("bug" if "bug" in tag or (mine and fixed) or (not mine and any(w in text.lower() for w in BUG_WORDS))
+                else "finding" if mine else "wish")
+        out.append({"n": n, "text": text, "status": status, "chip": chip, "kind": kind})
+    return out
+
+
+def note_rows(items: list) -> str:
+    rows = []
+    for i in sorted(items, key=lambda x: -x["n"]):
+        detail = i["status"].split(" - ", 1)[1] if " - " in i["status"] else i["status"]
+        rows.append(f'<div class="prob"><span class="chip st {CHIP.get(i["chip"], "design")}">{E(i["chip"])}</span>'
+                    f'<h3>{E(i["text"])}</h3><p>{E(detail)}</p><p><span class="ev">review note {i["n"]}</span></p></div>')
+    return "".join(rows)
+
+
 def page(themes: list, engine_url: str, changelog_url: str) -> str:
     style = (HERE / "engine_style.css").read_text(encoding="utf-8")
     now = datetime.now()
@@ -37,7 +78,22 @@ def page(themes: list, engine_url: str, changelog_url: str) -> str:
     counts = {s: sum(1 for i in items if i["status"] == s) for s in ORDER}
     summary = " · ".join(f"{n} {s.lower()}" for s, n in counts.items() if n)
     nxt = [i for i in items if i["status"] in ("In progress", "Todo", "Measure")]
-    toc = "".join(f'<a href="#t{k}">{E(t)}</a>' for k, (t, _) in enumerate(themes))
+    toc = '<a href="#remarks">Your remarks</a><a href="#bugs">Bugs</a>' + "".join(f'<a href="#t{k}">{E(t)}</a>' for k, (t, _) in enumerate(themes))
+    nts = review_notes()
+    wishes = [i for i in nts if i["kind"] == "wish"]
+    bugs = [i for i in nts if i["kind"] == "bug"]
+    found = [i for i in nts if i["kind"] == "finding"]
+    open_w = sum(1 for i in wishes if i["chip"] != "Done")
+    open_b = sum(1 for i in bugs if i["chip"] != "Done")
+    remarks = (f'<h2 id="remarks">Your remarks <span class="ref">{len(wishes)} · {open_w} OPEN</span></h2>'
+               '<p>Everything you asked for or remarked on while watching, newest first, each with its review note and where it stands.</p>'
+               + note_rows(wishes)
+               + f'<h2 id="bugs">Bugs <span class="ref">{len(bugs)} · {open_b} OPEN</span></h2>'
+               '<p>What you saw going wrong and what the lab found broken - with the cause when it is known.</p>'
+               + note_rows(bugs)
+               + f'<h2 id="found">What the lab found <span class="ref">{len(found)}</span></h2>'
+               + note_rows(found)
+               + '<h2 id="themes">The plan by theme</h2><p>The same wishes grouped by theme, with what is being built for each.</p>')
     body = []
     for k, (title, its) in enumerate(themes):
         open_n = sum(1 for i in its if i["status"] not in ("Done", "Fixed"))
@@ -63,6 +119,7 @@ def page(themes: list, engine_url: str, changelog_url: str) -> str:
   <div class="verdict"><div><b>Where it stands</b>{E(summary)}</div><div><b>Being built now</b>{E("; ".join(i["wish"] for i in items if i["status"] == "In progress")[:240])}</div></div>
 </header>
 <nav class="toc" aria-label="Themes">{toc}<a href="#open">Open items</a></nav>
+{remarks}
 {''.join(body)}
 <h2 id="open">Open items <span class="ref">{len(nxt)}</span></h2>
 <ul class="next">{nxt_html}</ul>
