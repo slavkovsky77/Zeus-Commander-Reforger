@@ -163,7 +163,18 @@ class PhasedRules:
 
     def __init__(self, cfg: dict):
         import phased
-        self.p = phased.Phased(None, self.name)
+        picker = None
+        if cfg.get("first_target"):
+            # Lab A/B: the first objective fixed by name (e.g. "Moss Hill"), our rules after that.
+            first = {"name": cfg["first_target"], "used": False}
+
+            def picker(report, text):
+                if first["used"]:
+                    return None, "", ""
+                first["used"] = True
+                hit = next((b["id"] for b in report.get("bases", []) if b.get("name") == first["name"]), None)
+                return hit, "", f"first target fixed: {first['name']}"
+        self.p = phased.Phased(picker, self.name)
 
     def decide(self, report: dict, doctrine_text: str) -> tuple:
         return self.p.decide(report, doctrine_text)

@@ -128,12 +128,15 @@ def main() -> int:
     ap.add_argument("--config", default="")
     ap.add_argument("--port", type=int, default=0, help="override the config's port")
     ap.add_argument("--provider", default="", help="override the config's provider (e.g. doctrine)")
+    ap.add_argument("--first-target", default="", help="lab A/B: phased's first objective, by base name")
     a = ap.parse_args()
     cfg = load_config(a.config)
     if a.port:
         cfg["port"] = a.port
     if a.provider:
         cfg["provider"] = a.provider
+    if a.first_target:
+        cfg["first_target"] = a.first_target
     server = serve(cfg)
     print(f"bridge on http://127.0.0.1:{server.server_port} - strategist {cfg.get('provider', 'doctrine')}"
           f" {cfg.get('model', '')} (config {cfg['_path']})", flush=True)
