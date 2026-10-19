@@ -110,8 +110,14 @@ def serve(cfg: dict) -> ThreadingHTTPServer:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="")
+    ap.add_argument("--port", type=int, default=0, help="override the config's port")
+    ap.add_argument("--provider", default="", help="override the config's provider (e.g. doctrine)")
     a = ap.parse_args()
     cfg = load_config(a.config)
+    if a.port:
+        cfg["port"] = a.port
+    if a.provider:
+        cfg["provider"] = a.provider
     server = serve(cfg)
     print(f"bridge on http://127.0.0.1:{server.server_port} - strategist {cfg.get('provider', 'doctrine')}"
           f" {cfg.get('model', '')} (config {cfg['_path']})", flush=True)

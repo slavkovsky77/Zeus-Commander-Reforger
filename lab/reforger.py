@@ -55,6 +55,10 @@ def command(a, profile: Path) -> list:
                 "-zcrPlanSeconds", str(a.plan_seconds)]
         if a.bridge:
             cmd += ["-zcrBridge", a.bridge_url]
+        if a.watch:
+            cmd += ["-zcrWatchServer"]   # players get the whole map (they only watch)
+    elif a.watch:
+        cmd += ["-zcrWatch"]             # the director camera instead of the game's menus
     return cmd
 
 
@@ -74,6 +78,7 @@ def main() -> int:
     ap.add_argument("--bridge-url", default="http://127.0.0.1:8765")
     ap.add_argument("--client", action="store_true", help="the game on screen, joining the local server")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
+    ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
