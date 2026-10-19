@@ -7,6 +7,9 @@
 // gathering, pressure during the assault and storm) - a team every 90 s, up to 3 in the air
 // (-zcrDroneTempo / -zcrDroneMax). A side on AI Conflict alone gets a baseline too, so both sides
 // use drones: every 4 minutes, up to 2, at the base most of its attack squads are sent to.
+// The hunt (both sides): every other launch goes for the biggest group of enemy soldiers the side
+// has seen in the last minute (5 or more within 100 m, within 2.5 km of its bases) - drones hunt
+// the enemy's soldiers, not only the bases, so spacing and cover matter.
 // Uses the mod's Game Master teams by prefab only, so this addon still runs without the mod
 // (the prefab doesn't load and nothing happens).
 class ZCR_Drones
@@ -108,12 +111,27 @@ class ZCR_Drones
 		Launch(side, target, 240, 2, "baseline");
 	}
 
+	protected static ref map<FactionKey, int> s_mLaunches = new map<FactionKey, int>();
+
 	protected static void Launch(FactionKey side, int target, int tempo, int maxUp, string why)
 	{
 		vector goal;
 		if (!ZCR_Strategist.s_mNodePos.Find(target, goal))
 			return;
+		string goalName = ZCR_Strategist.s_mNodeName.Get(target);
 		int now = ZCR_LossLog.Seconds();
+		// The hunt: every other launch at the enemy soldiers seen in the field, when there are enough.
+		if (s_mLaunches.Get(side) % 2 == 1)
+		{
+			vector cluster;
+			int seen = ZCR_Sampler.KnownCluster(side, cluster);
+			if (seen >= 5 && NearestOwn(side, cluster) <= 2500)
+			{
+				goal = cluster;
+				goalName = string.Format("%1 enemy soldiers seen near %2", seen, ZCR_Strategist.s_mNodeName.Get(Nearest(cluster)));
+				why = "hunt";
+			}
+		}
 		int next;
 		if (s_mNextAt.Find(side, next) && now < next)
 			return;
@@ -124,7 +142,7 @@ class ZCR_Drones
 		float best = 1e9;
 		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
 		{
-			if (node == target || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
+			if ((why != "hunt" && node == target) || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
 				continue;
 			float d = vector.DistanceXZ(pos, goal);
 			if (d < best)
@@ -166,12 +184,24 @@ class ZCR_Drones
 		s_aTeamSide.Insert(side);
 		s_mCount.Set(side, n);
 		s_mNextAt.Set(side, now + tempo);
+		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);
 		string kind = "anti-infantry";
 		if (antiVehicle)
 			kind = "anti-vehicle";
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
-			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), ZCR_Strategist.s_mNodeName.Get(target), Math.Round(best), why), LogLevel.NORMAL);
+			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why), LogLevel.NORMAL);
 		Find(at, side);
+	}
+
+	protected static float NearestOwn(FactionKey side, vector at)
+	{
+		float best = 1e9;
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			if (ZCR_Strategist.s_mNodeOwner.Get(node) == side)
+				best = Math.Min(best, vector.DistanceXZ(pos, at));
+		}
+		return best;
 	}
 
 	protected static int Nearest(vector at)

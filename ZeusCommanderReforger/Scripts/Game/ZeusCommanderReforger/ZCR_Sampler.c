@@ -103,6 +103,46 @@ class ZCR_Sampler
 		return n;
 	}
 
+	// The biggest group of enemy soldiers of the main sides (not FIA) this side has seen in the last
+	// minute: where, and how many within 100 m of it - for the drones' hunt.
+	static int KnownCluster(string side, out vector where)
+	{
+		where = vector.Zero;
+		if (!s_Instance)
+			return 0;
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!s_Instance.m_mKnownPos.Find(side, pos) || !s_Instance.m_mKnownAt.Find(side, when))
+			return 0;
+		int now = ZCR_LossLog.Seconds();
+		array<vector> pts = {};
+		foreach (IEntity e, vector p : pos)
+		{
+			if (!e || now - when.Get(e) > 60)
+				continue;
+			string s = ZCR_LossLog.SideOf(e);
+			if (s != "US" && s != "USSR")
+				continue;
+			pts.Insert(p);
+		}
+		int best;
+		foreach (vector a : pts)
+		{
+			int n;
+			foreach (vector b : pts)
+			{
+				if (vector.DistanceXZ(a, b) <= 100)
+					n++;
+			}
+			if (n > best)
+			{
+				best = n;
+				where = a;
+			}
+		}
+		return best;
+	}
+
 	protected void Learn(string side, IEntity soldier, int now)
 	{
 		PerceptionComponent perception = PerceptionComponent.Cast(soldier.FindComponent(PerceptionComponent));
