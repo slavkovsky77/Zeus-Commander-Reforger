@@ -272,8 +272,12 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             meta["ended"] = "no game window"
             return meta
         if solo:
-            # The game re-applies its own window size while starting up (19 Oct: it ended a narrow
-            # 851x1341 window): maximise until it stays.
+            # The speed first: the Diag Menu is worked with Win held, and Windows takes Win+arrow as
+            # "snap the window" (19 Oct: it ended a narrow 851x1341 strip) - so maximise after it,
+            # until it stays.
+            if speed > 1:
+                keys.set_speed(hwnd, speed)
+                log(f"time multiplier {speed:g}x set")
             sw = user32.GetSystemMetrics(0)
             for _ in range(6):
                 keys.normal_maximised(hwnd)
@@ -281,9 +285,6 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
                 if user32.IsZoomed(hwnd) and client_rect(hwnd)[2] >= sw * 0.9:
                     break
             log(f"window {client_rect(hwnd)[2]}x{client_rect(hwnd)[3]}{' maximised' if user32.IsZoomed(hwnd) else ' NOT maximised'}")
-            if speed > 1:
-                keys.set_speed(hwnd, speed)
-                log(f"time multiplier {speed:g}x set")
         if keep_front:
             user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)
             user32.SetForegroundWindow(hwnd)
