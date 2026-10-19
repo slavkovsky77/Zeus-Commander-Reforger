@@ -24,7 +24,7 @@ from plan import bases_by_id, own_bases
 NEED = 25.0          # soldiers: two and a half full squads
 NEED_PER_FAIL = 10.0
 GATHER_RADIUS = 600
-ASSAULT_RADIUS = 700
+ASSAULT_RADIUS = 450   # at the objective - not counting the staging base nearby
 
 
 def _dist(a: dict, b: dict) -> float:
@@ -51,7 +51,8 @@ class Phased:
         """An objective we don't own and haven't failed at three times."""
         faction = report.get("faction")
         bases = bases_by_id(report)
-        ok = lambda b: b is not None and b in bases and b not in avoid and bases[b].get("owner") != faction
+        ok = lambda b: (b is not None and b in bases and b not in avoid and bases[b].get("owner") != faction
+                        and bases[b].get("attackable", True))
         raw = ""
         if self.picker:
             try:
@@ -77,7 +78,9 @@ class Phased:
         raw = ""
         hold = [b["id"] for b in own_bases(report) if b.get("threatened")]
         target = bases.get(st.get("target"))
-        # The objective is ours now: on to the next one.
+        # The objective is ours now (on to the next one), or out of reach of our radio network now.
+        if st["phase"] in ("gather", "assault") and target is not None and target.get("owner") != faction                 and not target.get("attackable", True):
+            st.update(phase="pick", since=t, taken=None)
         if st["phase"] in ("gather", "assault") and (target is None or target.get("owner") == faction):
             taken = st["phase"] == "assault" and target is not None
             st.update(phase="pick", since=t, taken=st.get("target") if taken else None)

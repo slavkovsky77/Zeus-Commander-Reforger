@@ -50,10 +50,18 @@ def validate(decision: dict, report: dict) -> tuple:
         return out
 
     main = ids(decision.get("main_effort"), "main_effort")
+    # AI Conflict attacks only bases its radio network reaches: a main effort elsewhere does nothing.
+    if any("attackable" in b for b in known.values()):
+        def usable(i):
+            return known[i].get("owner") == faction or bool(known[i].get("attackable"))
+        for i in [i for i in main if not usable(i)]:
+            problems.append(f"main_effort: base {i} can't be attacked yet (not reached by our radio network)")
+        main = [i for i in main if usable(i)]
     clean = {
         "intent": " ".join(str(decision.get("intent", "")).split())[:MAX_INTENT],
         "main_effort": main[0] if main else None,
-        "supporting": [i for i in ids(decision.get("supporting", []), "supporting") if i not in main][:2],
+        "supporting": [i for i in ids(decision.get("supporting", []), "supporting") if i not in main
+                       and (known[i].get("attackable", True) or known[i].get("owner") == faction)][:2],
         "hold": [],
         "avoid": ids(decision.get("avoid", []), "avoid"),
         "concentration": "heavy" if decision.get("concentration") == "heavy" else "normal",

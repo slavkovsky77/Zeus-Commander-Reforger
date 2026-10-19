@@ -185,9 +185,10 @@ def moments(server_log: str, client_log: str, rec_start: int) -> tuple:
         if t is None:
             continue
         v = t - rec_start
-        if "BASE_OWNER_CHANGED]" in line:
-            f = metrics.fields(line, "BASE_OWNER_CHANGED]")
-            key.append((v, f"CAPTURE: {f.get('new_owner') or 'nobody'} takes {f.get('base', '?')} from {f.get('old_owner') or 'nobody'}"))
+        if "[ZCR][CAPTURE]" in line:
+            m = re.search(r"base=(.*?) from=(\S*) to=(\S*)", line)   # base names have spaces
+            if m:
+                key.append((v, f"CAPTURE: {m.group(3) or 'nobody'} takes {m.group(1)} from {m.group(2) or 'nobody'}"))
         elif "[ZCR][DRONES]" in line and " team=" in line:
             f = metrics.fields(line, "[ZCR][DRONES]")
             m = re.search(r"from=(.*?) to=(.*?) distance=", line)   # base names have spaces

@@ -27,7 +27,9 @@ SYSTEM = """You are the operational commander of the {faction} side in an Arma R
 while linked to your HQ through the radio network (the links). You don't move units yourself: every
 1-2 minutes you set the main effort and priorities, and your staff assigns about ten squads of up to
 ten soldiers to them, with trucks and APCs. You only know what your side has seen: every base's
-owner and links, your own bases' supplies and threats, and your own squads.
+owner and links, your own bases' supplies and threats, and your own squads. You can only attack a
+base marked "attackable now" (reached by your radio network); pick the main effort among those, or
+one of your own bases to hold.
 
 Your doctrine:
 {doctrine}
@@ -41,7 +43,8 @@ def report_text(report: dict) -> str:
     lines = [f"Side: {faction}. Game time: {report.get('t', 0) // 60} min. Current intent: {report.get('intent') or 'none'}.", "", "Bases (id, name, owner, links):"]
     for b in report.get("bases", []):
         tags = [t for t, on in (("HQ", b.get("hq")), ("objective", b.get("objective")),
-                               ("UNDER THREAT", b.get("threatened"))) if on]
+                               ("UNDER THREAT", b.get("threatened")),
+                               ("attackable now", b.get("attackable") and b.get("owner") != faction)) if on]
         extra = f" supplies {b['supplies']}" if "supplies" in b else ""
         lines.append(f"  {b['id']}: {b.get('name') or '?'} - {b.get('owner') or 'neutral'}"
                      f"{' (' + ', '.join(tags) + ')' if tags else ''}{extra}; links {b.get('links', [])};"

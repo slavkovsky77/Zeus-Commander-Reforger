@@ -27,6 +27,7 @@ class ZCR_Strategist
 	protected int m_iMissed;
 	protected bool m_bWaiting;
 	protected ref RestCallback m_Callback;
+	protected AICF_TargetSelector m_Selector;
 
 	static ZCR_Strategist Get(FactionKey faction)
 	{
@@ -63,8 +64,9 @@ class ZCR_Strategist
 	}
 
 	// Called from AI Conflict's commander tick (every 15 s); runs a round when one is due.
-	void Tick(AICF_FactionState state, SCR_CampaignFaction faction, AICF_ObjectiveGraph graph)
+	void Tick(AICF_FactionState state, SCR_CampaignFaction faction, AICF_ObjectiveGraph graph, AICF_TargetSelector selector = null)
 	{
+		m_Selector = selector;
 		if (!Replication.IsServer() || !state || !faction || !graph)
 			return;
 		s_mStates.Set(m_sFaction, state);
@@ -152,6 +154,11 @@ class ZCR_Strategist
 
 	protected string BuildReport(AICF_FactionState state, SCR_CampaignFaction faction, AICF_ObjectiveGraph graph)
 	{
+		// The bases AI Conflict would send a squad to attack now (reached through our radio network):
+		// a main effort anywhere else is never acted on.
+		array<int> attackable = {};
+		if (m_Selector)
+			m_Selector.CollectAttackNodes(graph, faction, attackable);
 		string bases;
 		for (int i; i < graph.GetNodeCount(); i++)
 		{
@@ -173,9 +180,12 @@ class ZCR_Strategist
 			vector at = base.GetOwner().GetOrigin();
 			s_mNodePos.Set(node.GetId(), at);
 			s_mNodeName.Set(node.GetId(), BaseName(base));
+			string before;
+			if (s_mNodeOwner.Find(node.GetId(), before) && before != owner)
+				Print(string.Format("[ZCR][CAPTURE] t=%1 base=%2 from=%3 to=%4", ZCR_LossLog.Seconds(), BaseName(base), before, owner), LogLevel.NORMAL);
 			s_mNodeOwner.Set(node.GetId(), owner);
-			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8",
-				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]));
+			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8,\"attackable\":%9",
+				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]), attackable.Contains(node.GetId()));
 			if (ours)
 				entry += string.Format(",\"supplies\":%1,\"threatened\":%2", Num(base.GetSupplies()), base.IsBeingCaptured() || base.AreEnemiesPresent());
 			entry += "}";

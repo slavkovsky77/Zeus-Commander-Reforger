@@ -209,3 +209,27 @@ class PhasedTests(unittest.TestCase):
         p.decide(self.report(280))
         self.assertEqual(len(calls), 1)
         self.assertEqual(p.state["USSR"]["target"], 4)
+
+
+class AttackableTests(unittest.TestCase):
+    def report(self):
+        r = json.loads(json.dumps(REPORT))
+        for b in r["bases"]:
+            b["attackable"] = b["id"] == 2      # only Relay hill is reached by our radio network
+        return r
+
+    def test_only_attackable_targets(self):
+        r = self.report()
+        self.assertEqual([b["id"] for b in doctrine.reachable_targets(r)], [2])
+        self.assertEqual(doctrine.decide(r)["main_effort"], 2)
+
+    def test_unreachable_main_effort_is_dropped(self):
+        clean, problems = validate({"main_effort": 3, "supporting": [4, 2]}, self.report())
+        self.assertIsNone(clean["main_effort"])
+        self.assertEqual(clean["supporting"], [2])
+        self.assertTrue(any("radio" in p for p in problems))
+
+    def test_phased_picks_attackable(self):
+        import phased
+        d, _ = phased.Phased().decide(self.report())
+        self.assertIn(2, (d["main_effort"], *d["avoid"]))

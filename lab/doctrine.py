@@ -23,9 +23,12 @@ def _squad_centre(report: dict):
 
 
 def reachable_targets(report: dict) -> list:
-    """Bases we don't own that are linked (either way) to a base we do own."""
+    """Bases we can attack now: AI Conflict's own list (attackable - reached through our radio
+    network) when the report has it, else the bases linked to one of ours."""
     faction = report.get("faction")
     bases = report.get("bases", [])
+    if any("attackable" in b for b in bases):
+        return [b for b in bases if b.get("attackable") and b.get("owner") != faction]
     ours = {b["id"] for b in bases if b.get("owner") == faction}
     out = []
     for b in bases:
