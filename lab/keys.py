@@ -70,19 +70,10 @@ def front(hwnd) -> None:
     u = ctypes.windll.user32
     if u.IsIconic(hwnd):          # only un-minimise; never change its size or mode
         u.ShowWindow(hwnd, 9)
-    # Windows refuses SetForegroundWindow while another program has the keyboard (Martin typing in
-    # VS Code): the keys then went to that window and the game stayed at 1x (19 Oct 22:14). Attached
-    # to the foreground window's input for a moment, the game is brought to the front for real.
-    fg = u.GetForegroundWindow()
-    if fg and fg != hwnd:
-        me = ctypes.windll.kernel32.GetCurrentThreadId()
-        other = u.GetWindowThreadProcessId(fg, None)
-        u.AttachThreadInput(me, other, True)
-        u.BringWindowToTop(hwnd)
-        u.SetForegroundWindow(hwnd)
-        u.AttachThreadInput(me, other, False)
-    else:
-        u.SetForegroundWindow(hwnd)
+    # No input attaching to the foreground window: it shared the keyboard with Martin's typing
+    # ("keyboard is hijacked", 19 Oct 23:18). If the game doesn't come to the front, the speed
+    # doesn't take and the match runs at 1x.
+    u.SetForegroundWindow(hwnd)
     time.sleep(0.4)
 
 
