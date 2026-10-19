@@ -109,6 +109,8 @@ class ZCR_Watch
 	protected RplId m_FollowId;
 	protected bool m_bHasShot;
 	protected vector m_vSpot;
+	protected vector m_vFollowSeen;     // where the followed soldier or drone was last seen
+	protected bool m_bFollowSeen;
 	protected float m_fNextNear;
 	protected ref array<IEntity> m_aNear = {};
 
@@ -297,7 +299,11 @@ class ZCR_Watch
 			m_fToHeight = height;
 		}
 		m_bHasShot = true;
-		m_vFrom = m_vTo;
+		// Glide from where the camera looks now (a followed unit may be far from the shot's start).
+		m_vFrom = m_vSpot;
+		if (m_vSpot == vector.Zero)
+			m_vFrom = m_vTo;
+		m_bFollowSeen = false;
 		m_fFromBack = m_fToBack;
 		m_fFromHeight = m_fToHeight;
 		m_vTo = target;
@@ -324,7 +330,17 @@ class ZCR_Watch
 		vector target = m_vTo;
 		IEntity follow = Followed();
 		if (follow)
+		{
 			target = follow.GetOrigin();
+			m_vFollowSeen = target;
+			m_bFollowSeen = true;
+		}
+		else if (m_FollowId.IsValid() && m_bFollowSeen)
+		{
+			// What we followed is gone - a drone that hit: stay on the spot to see what happened
+			// (before, the camera went back to where the shot had started).
+			target = m_vFollowSeen;
+		}
 		vector spot = m_vFrom + (target - m_vFrom) * k;
 		m_vSpot = spot;
 		float back = m_fFromBack + (m_fToBack - m_fFromBack) * k;

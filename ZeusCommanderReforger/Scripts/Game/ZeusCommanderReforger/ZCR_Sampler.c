@@ -127,6 +127,17 @@ class ZCR_Sampler
 		return n;
 	}
 
+	// Whether this side's soldiers have seen 'e' in the last 'seconds'.
+	static bool Knows(string side, IEntity e, int seconds)
+	{
+		if (!s_Instance || !e)
+			return false;
+		map<IEntity, int> when;
+		if (!s_Instance.m_mKnownAt.Find(side, when) || !when.Contains(e))
+			return false;
+		return ZCR_LossLog.Seconds() - when.Get(e) <= seconds;
+	}
+
 	// The enemy (any, FIA too) this side has seen in the last minute nearest to 'at', within 'radius'.
 	static bool NearestKnown(string side, vector at, float radius, out vector where)
 	{

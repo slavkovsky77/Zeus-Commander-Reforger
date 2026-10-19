@@ -168,13 +168,20 @@ class ZCR_Director
 		// lasts while it flies, up to 2 minutes (one that hovers with nothing to hit is left then).
 		if (m_sLastKey == "drone" && m_FollowedDrone && now - m_iDroneShotAt < 120 && m_iShotEnd < now + 2)
 			m_iShotEnd = now + 2;
-		// The followed drone has hit: 4 s on the impact, then on.
-		if (m_sLastKey == "drone" && !m_FollowedDrone && m_iShotEnd > now)
+		// The followed drone has hit: the camera stays on the impact 8 game seconds - 4 at 2x (Martin:
+		// wait 2-3 s on the explosion to see what happened, it was too fast), then on.
+		if (m_sLastKey == "drone" && !m_FollowedDrone && m_iDroneShotAt > 0 && m_iShotEnd > 0)
 		{
 			if (m_iDroneGoneAt < 0)
+			{
 				m_iDroneGoneAt = now;
-			else if (now - m_iDroneGoneAt >= 4)
+				m_iShotEnd = now + 8;
+			}
+			else if (now - m_iDroneGoneAt >= 8)
+			{
 				m_iShotEnd = 0;
+				m_iDroneShotAt = 0;
+			}
 		}
 		// A tap on the picture holds the camera there for 30 s.
 		if (m_iSpotUntil > 0 && now >= m_iSpotUntil)
@@ -292,6 +299,8 @@ class ZCR_Director
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "PLAN") + br + "  " + ZCR_Feed.Col(ZCR_Feed.YELLOW, intent) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "NOW DOING") + br + ZCR_Feed.NowText(side) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "DRONES") + string.Format("  %1 teams sent, %2 in the air", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side)) + br;
+		if (ZCR_DroneSites.On())
+			text += "  sites: " + ZCR_DroneSites.Text(side) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "LATEST DECISIONS") + br + ZCR_Feed.Latest(side);
 		return text;
 	}

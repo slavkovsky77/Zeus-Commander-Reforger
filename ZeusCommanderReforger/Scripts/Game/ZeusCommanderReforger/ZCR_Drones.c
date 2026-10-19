@@ -207,23 +207,49 @@ class ZCR_Drones
 				why = "hunt";
 			}
 		}
+		// Counter-drone: every third launch at an enemy drone site this side has seen (ZCR_DroneSites).
+		if (ZCR_DroneSites.On() && s_mLaunches.Get(side) % 3 == 2)
+		{
+			vector site;
+			string siteName;
+			if (ZCR_DroneSites.KnownEnemySite(side, site, siteName))
+			{
+				goal = site;
+				goalName = "the enemy drone site at " + siteName;
+				why = "counter-drone";
+			}
+		}
 		int next;
 		if (s_mNextAt.Find(side, next) && now < next)
 			return;
 		if (Active(side) >= maxUp)
 			return;
-		// Our base nearest the objective.
 		vector from;
 		float best = 1e9;
-		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		if (ZCR_DroneSites.On())
 		{
-			if ((why != "hunt" && node == target) || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
-				continue;
-			float d = vector.DistanceXZ(pos, goal);
-			if (d < best)
+			// From the side's ready drone site nearest the objective - none ready, no drones.
+			string fromName;
+			if (!ZCR_DroneSites.LaunchFrom(side, goal, from, fromName))
 			{
-				best = d;
-				from = pos;
+				s_mNextAt.Set(side, now + 30);
+				return;
+			}
+			best = vector.DistanceXZ(from, goal);
+		}
+		else
+		{
+			// Our base nearest the objective.
+			foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+			{
+				if ((why != "hunt" && node == target) || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
+					continue;
+				float d = vector.DistanceXZ(pos, goal);
+				if (d < best)
+				{
+					best = d;
+					from = pos;
+				}
 			}
 		}
 		if (best > 4000)
@@ -285,7 +311,7 @@ class ZCR_Drones
 
 	// A launch spot near the base: 40-250 m from it, toward the goal first; open sky (nothing within
 	// 40 m above), nothing within 12 m around at 1-3 m height, level ground, not the sea. None: false.
-	protected static bool ClearSpot(vector base, vector goal, out vector spot)
+	static bool ClearSpot(vector base, vector goal, out vector spot)
 	{
 		BaseWorld world = GetGame().GetWorld();
 		vector toward = goal - base;

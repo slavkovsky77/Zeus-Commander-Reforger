@@ -9,6 +9,7 @@ class ZCR_Feed
 	protected static ref map<string, ref array<string>> s_mNow = new map<string, ref array<string>>();
 	protected static ref map<string, string> s_mPlanKey = new map<string, string>();
 	protected static ref map<string, string> s_mMainTarget = new map<string, string>();
+	static ref map<string, vector> s_mMainTargetPos = new map<string, vector>();   // where the side's main attack goes
 	static ref map<string, int> s_mCover = new map<string, int>();      // % in the game's cover (last sample)
 	static ref map<string, int> s_mStacked = new map<string, int>();    // % stacked in the field (last sample)
 	static ref map<string, int> s_mLostFire = new map<string, int>();   // soldiers lost to a killer
@@ -157,10 +158,11 @@ class ZCR_Feed
 			ChimeraCharacter lc = ChimeraCharacter.Cast(leader);
 			if (lc && lc.IsInVehicle())
 				riding.Set(key, riding.Get(key) + alive);
-			if (role == "ATTACK" && men.Get(key) > topMen)
+			if (role == "ATTACK" && men.Get(key) > topMen && slot.GetTargetBase() && slot.GetTargetBase().GetOwner())
 			{
 				topMen = men.Get(key);
 				top = where;
+				s_mMainTargetPos.Set(side, slot.GetTargetBase().GetOwner().GetOrigin());
 			}
 		}
 		array<string> lines = {};

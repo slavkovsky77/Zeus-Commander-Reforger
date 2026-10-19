@@ -11,6 +11,11 @@ modded class AICF_AICommander
 			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
 			ZCR_Drones.Tend(m_sFactionKey);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);
+			// Drone sites: the front is the plan's main effort, or AI Conflict's main target.
+			vector front = ZCR_Feed.s_mMainTargetPos.Get(m_sFactionKey);
+			if (!plan.IsEmpty() && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
+				front = ZCR_Strategist.s_mNodePos.Get(plan.GetMainEffort());
+			ZCR_DroneSites.Tick(m_sFactionKey, front);
 			if (matchController)
 			{
 				matchController.ZCR_CommitDefenders(m_Faction, m_FactionState, plan.GetCommit(), ZCR_UnderCapture());
