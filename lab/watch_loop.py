@@ -227,6 +227,7 @@ def match(n: int, map_name: str, strategist: str, minutes: float, keep_front: bo
     video = VIDEOS / f"{stamp}_{label}.mp4"
     mkv = video.with_suffix(".mkv")
     rec_start = None
+    meta["minutes"] = 0
     try:
         if not wait_for(sprof, server, "ROSTER_READY", 600):
             meta["ended"] = "server did not get ready"
@@ -270,8 +271,8 @@ def match(n: int, map_name: str, strategist: str, minutes: float, keep_front: bo
         kill(client)
         kill(server)
         kill_crash_reporters()
-    if meta["ended"]:
-        log(f"ended early: {meta['ended']}")
+        if meta["ended"]:
+            log(f"ended early: {meta['ended']}")
     server_log = read_log(sprof)
     m = metrics.measure(server_log.splitlines())
     (sprof / "metrics.json").write_text(json.dumps(m, indent=1), encoding="utf-8")
@@ -313,7 +314,7 @@ def main() -> int:
             map_name, strategist = rotation[n % len(rotation)]
             n += 1
             meta = match(n, map_name, strategist, min(a.minutes, max(5, (end - time.time()) / 60 - 3)), a.keep_front)
-            fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 3 else 0
+            fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
             if fails >= 3:
                 log("three matches in a row failed to start - stopping")
                 return 1

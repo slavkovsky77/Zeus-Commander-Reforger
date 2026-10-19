@@ -88,11 +88,27 @@ class ZCR_Director
 
 	protected void Scan()
 	{
-		BaseWorld world = GetGame().GetWorld();
-		vector mins, maxs;
-		world.GetBoundBox(mins, maxs);
+		// The soldiers of both AI Conflict armies, squad by squad (a whole-map sphere query
+		// returned nothing).
 		m_aScan.Clear();
-		world.QueryEntitiesBySphere((mins + maxs) * 0.5, vector.DistanceXZ(mins, maxs) * 0.5, OnFound, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
+		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
+		{
+			if (!state)
+				continue;
+			for (int s; s < state.GetSlotCount(); s++)
+			{
+				AICF_GroupSlot slot = state.GetSlot(s);
+				if (!slot || !slot.GetGroup())
+					continue;
+				array<AIAgent> agents = {};
+				slot.GetGroup().GetAgents(agents);
+				foreach (AIAgent agent : agents)
+				{
+					if (agent && Alive(agent.GetControlledEntity()))
+						m_aScan.Insert(agent.GetControlledEntity());
+				}
+			}
+		}
 		m_aMen.Clear();
 		m_aMoving.Clear();
 		map<IEntity, vector> seen = new map<IEntity, vector>();
@@ -459,7 +475,7 @@ class ZCR_Director
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)
 			gameMode.ZCR_SendShot(target, back, height, followId, label, duration);
-		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 label=%4", now, m_iShot, key, label), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 men=%4 moving=%5 fights=%6 label=%7", now, m_iShot, key, m_aMen.Count(), m_aMoving.Count(), centres.Count(), label), LogLevel.NORMAL);
 		SendOverlay(now);
 	}
 

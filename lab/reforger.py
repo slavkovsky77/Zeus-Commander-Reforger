@@ -49,7 +49,9 @@ def command(a, profile: Path) -> list:
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
-    cmd += ["-addonsDir", ",".join(roots), "-addons", addons, "-profile", str(profile), "-backendFreshSession"]
+    # -noThrow: the debug builds' assertions (e.g. a smoking animation's thread check in vanilla)
+    # don't stop the game with a dialog; they are still logged.
+    cmd += ["-addonsDir", ",".join(roots), "-addons", addons, "-profile", str(profile), "-backendFreshSession", "-noThrow"]
     if not a.client:
         cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000",
                 "-zcrPlanSeconds", str(a.plan_seconds)]

@@ -15,6 +15,8 @@ class ZCR_Strategist
 	// Every base of the objective graph by node id: where it is and its name (for the director).
 	static ref map<int, vector> s_mNodePos = new map<int, vector>();
 	static ref map<int, string> s_mNodeName = new map<int, string>();
+	// Each side's AI Conflict squads (for the director's list of soldiers).
+	static ref map<FactionKey, AICF_FactionState> s_mStates = new map<FactionKey, AICF_FactionState>();
 
 	protected FactionKey m_sFaction;
 	protected int m_iIntervalMs = 90000;
@@ -58,6 +60,7 @@ class ZCR_Strategist
 	{
 		if (!Replication.IsServer() || !state || !faction || !graph)
 			return;
+		s_mStates.Set(m_sFaction, state);
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
 			return;

@@ -84,16 +84,32 @@ def make_handler(strategist: Strategist):
             self.end_headers()
             self.wfile.write(body)
 
+        def _body(self) -> bytes:
+            """The request body: by content-length, or chunked (as the game may send it)."""
+            if self.headers.get("content-length"):
+                return self.rfile.read(int(self.headers["content-length"]))
+            if "chunked" in self.headers.get("transfer-encoding", "").lower():
+                data = b""
+                while True:
+                    size = int(self.rfile.readline().strip().split(b";")[0] or b"0", 16)
+                    if size == 0:
+                        self.rfile.readline()
+                        return data
+                    data += self.rfile.read(size)
+                    self.rfile.readline()
+            return b""
+
         def do_GET(self):
             self._send(200, f"ok provider={strategist.provider.name}\n") if self.path == "/health" else self._send(404, "no\n")
 
         def do_POST(self):
             if self.path.rstrip("/") != "/plan":
                 return self._send(404, "no\n")
-            n = int(self.headers.get("content-length", 0))
+            body = self._body()
             try:
-                report = json.loads(self.rfile.read(n).decode("utf-8"))
+                report = json.loads(body.decode("utf-8"))
             except (ValueError, UnicodeDecodeError) as e:
+                print(f"bad report ({len(body)} bytes, path {self.path}, headers {dict(self.headers)}): {body[:300]!r}", flush=True)
                 return self._send(400, f"error bad report: {e}\n")
             self._send(200, strategist.plan(report))
 
