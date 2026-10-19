@@ -118,6 +118,11 @@ class ZCR_Drones
 	protected static ref map<SCR_AIGroup, vector> s_mTeamGoal = new map<SCR_AIGroup, vector>();
 	protected static ref map<SCR_AIGroup, int> s_mTeamGoalAt = new map<SCR_AIGroup, int>();
 	protected static ref map<SCR_AIGroup, int> s_mTeamNo = new map<SCR_AIGroup, int>();
+	protected static ref map<SCR_AIGroup, int> s_mTeamLaunchedAt = new map<SCR_AIGroup, int>();
+	// A searching team's next points: the enemy's other bases near its objective, then its staging area.
+	protected static ref map<SCR_AIGroup, ref array<vector>> s_mTeamRoute = new map<SCR_AIGroup, ref array<vector>>();
+	// Which team each drone flies for (a team's group outlives its drones).
+	static ref map<IEntity, SCR_AIGroup> s_mDroneTeam = new map<IEntity, SCR_AIGroup>();
 
 	// Drones stuck in the air (Martin: "drones get stuck in the air and don't move"; Arma 3 note 53):
 	// a team hovering at its goal for 25 s with nothing to hit gets a new goal - the nearest enemy
@@ -157,6 +162,18 @@ class ZCR_Drones
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 retarget hovering=%4 after=%5 to=%6 %7 distance=%8", now, side, s_mTeamNo.Get(team),
 					hovering.Count(), since, Math.Round(enemy[0]), Math.Round(enemy[2]), Math.Round(vector.DistanceXZ(enemy, goal))), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1 had nothing to hit - on to enemies seen %2 m away", s_mTeamNo.Get(team), Math.Round(vector.DistanceXZ(enemy, goal))));
+			}
+			else if (s_mTeamRoute.Contains(team) && !s_mTeamRoute.Get(team).IsEmpty())
+			{
+				// A search: nothing here - on to the next point of its route.
+				array<vector> route = s_mTeamRoute.Get(team);
+				vector next = route[0];
+				route.RemoveOrdered(0);
+				SetGoal(team, next, now);
+				string nextName = ZCR_Strategist.s_mNodeName.Get(Nearest(next));
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 search on hovering=%4 after=%5 to=%6 left=%7", now, side, s_mTeamNo.Get(team),
+					hovering.Count(), since, nextName, route.Count()), LogLevel.NORMAL);
+				ZCR_Feed.Note(side, string.Format("drone team %1 found nobody - searching on over %2", s_mTeamNo.Get(team), nextName));
 			}
 			else if (since >= 90)
 			{
@@ -227,21 +244,29 @@ class ZCR_Drones
 		if (Active(side) >= maxUp)
 			return;
 		// Drones go where enemies are known (19 Oct, two armies: 61 of 84 drones flew to an enemy base
-		// nobody had been seen at and were lost hovering). An enemy-held base with nobody seen near it:
-		// the nearest enemy the side saw within 1.5 km instead, or no team. FIA's garrisons are always there.
+		// nobody had been seen at and were lost hovering): the nearest enemy the side saw within 1.5 km.
+		// None known: a search, not "no team" (Martin, 19 Oct: "0 drones in the sky at the end - modern
+		// combat should be heavy drone dependent"; the US flew no drone in a whole match, its soldiers
+		// at base never saw anyone). The team flies over the objective, then the enemy's other bases
+		// near it, then the enemy's staging area at its main base; the drones are their side's eyes
+		// (ZCR_Sampler) and Tend sends the team at what they find. FIA's garrisons are always there.
 		string holder = ZCR_Strategist.s_mNodeOwner.Get(target);
+		array<vector> route;
 		if (why != "hunt" && why != "counter-drone" && holder != "FIA" && ZCR_Sampler.KnownEnemiesNear(side, goal, 250) == 0)
 		{
 			vector seen;
-			if (!ZCR_Sampler.NearestKnown(side, goal, 1500, seen))
+			if (ZCR_Sampler.NearestKnown(side, goal, 1500, seen))
 			{
-				s_mNextAt.Set(side, now + 30);
-				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 nobody seen near %3 - no team", now, side, goalName), LogLevel.NORMAL);
-				return;
+				goal = seen;
+				goalName = string.Format("enemies seen near %1", ZCR_Strategist.s_mNodeName.Get(Nearest(seen)));
+				why = why + "-seen";
 			}
-			goal = seen;
-			goalName = string.Format("enemies seen near %1", ZCR_Strategist.s_mNodeName.Get(Nearest(seen)));
-			why = why + "-seen";
+			else
+			{
+				route = SearchRoute(side, target, goal);
+				goalName = goalName + " (search)";
+				why = why + "-search";
+			}
 		}
 		vector from;
 		float best = 1e9;
@@ -315,6 +340,9 @@ class ZCR_Drones
 		s_mTeamGoal.Set(team, goal);
 		s_mTeamGoalAt.Set(team, now);
 		s_mTeamNo.Set(team, n);
+		s_mTeamLaunchedAt.Set(team, now);
+		if (route)
+			s_mTeamRoute.Set(team, route);
 		s_mCount.Set(side, n);
 		s_mNextAt.Set(side, now + tempo);
 		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);
@@ -324,7 +352,45 @@ class ZCR_Drones
 		ZCR_Feed.Note(side, string.Format("drone team %1 (%2) to %3", n, kind, goalName));
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
 			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why), LogLevel.NORMAL);
-		Find(at, side);
+		Find(at, side, team);
+	}
+
+	// A search route after the objective: the enemy's other bases within 1.5 km of it, nearest first
+	// (two), then the enemy's main base - its staging area, where its recruits muster - within 2.5 km.
+	protected static array<vector> SearchRoute(FactionKey side, int target, vector goal)
+	{
+		array<vector> route = {};
+		array<float> dist = {};
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
+			if (node == target || owner == side || owner.IsEmpty())
+				continue;
+			float d = vector.DistanceXZ(pos, goal);
+			if (d > 1500)
+				continue;
+			int at = 0;
+			while (at < dist.Count() && dist[at] < d)
+				at++;
+			dist.InsertAt(d, at);
+			route.InsertAt(pos, at);
+		}
+		while (route.Count() > 2)
+			route.Remove(route.Count() - 1);
+		SCR_CampaignFaction enemy = SCR_CampaignFaction.Cast(GetGame().GetFactionManager().GetFactionByKey(ZCR_Strategist.s_mNodeOwner.Get(target)));
+		if (enemy && enemy.GetMainBase() && enemy.GetMainBase().GetOwner())
+		{
+			vector staging = enemy.GetMainBase().GetOwner().GetOrigin();
+			bool have = vector.DistanceXZ(staging, goal) < 100;
+			foreach (vector p : route)
+			{
+				if (vector.DistanceXZ(p, staging) < 100)
+					have = true;
+			}
+			if (!have && vector.DistanceXZ(staging, goal) <= 2500)
+				route.Insert(staging);
+		}
+		return route;
 	}
 
 	protected static ref TraceParam s_Trace;
@@ -445,10 +511,20 @@ class ZCR_Drones
 
 	protected static int Active(FactionKey side)
 	{
+		// Teams with a drone still flying, or just launched (their drones not found yet). A team whose
+		// drones are all down is done - its group stays behind and held a launch slot.
+		int now = ZCR_LossLog.Seconds();
+		array<SCR_AIGroup> flying = {};
+		foreach (IEntity d : s_aDrones)
+		{
+			SCR_AIGroup t;
+			if (d && s_mDroneTeam.Find(d, t) && t && !flying.Contains(t))
+				flying.Insert(t);
+		}
 		int n;
 		for (int i = s_aTeams.Count() - 1; i >= 0; i--)
 		{
-			if (!s_aTeams[i])
+			if (!s_aTeams[i] || (!flying.Contains(s_aTeams[i]) && now - s_mTeamLaunchedAt.Get(s_aTeams[i]) > 60))
 			{
 				s_aTeams.Remove(i);
 				s_aTeamSide.Remove(i);
@@ -462,11 +538,12 @@ class ZCR_Drones
 
 	protected static ref array<ref ZCR_DroneFinder> s_aFinders = {};
 
-	protected static void Find(vector at, string side)
+	protected static void Find(vector at, string side, SCR_AIGroup team)
 	{
 		ZCR_DroneFinder finder = new ZCR_DroneFinder();
 		finder.m_vAt = at;
 		finder.m_sSide = side;
+		finder.m_Team = team;
 		s_aFinders.Insert(finder);
 		GetGame().GetCallqueue().CallLater(finder.Run, 1500, false);
 	}
@@ -478,6 +555,7 @@ class ZCR_DroneFinder
 {
 	vector m_vAt;
 	string m_sSide;
+	SCR_AIGroup m_Team;
 	ref array<IEntity> m_aFound = {};
 
 	bool Add(IEntity e)
@@ -498,8 +576,11 @@ class ZCR_DroneFinder
 			name.ToLower();
 			if (name.Contains("fpv") || name.Contains("drone"))
 			{
+				if (ZCR_Drones.s_aDrones.Contains(e))
+					continue;
 				ZCR_Drones.s_aDrones.Insert(e);
 				ZCR_Drones.s_aDroneSide.Insert(m_sSide);
+				ZCR_Drones.s_mDroneTeam.Set(e, m_Team);
 				n++;
 			}
 		}

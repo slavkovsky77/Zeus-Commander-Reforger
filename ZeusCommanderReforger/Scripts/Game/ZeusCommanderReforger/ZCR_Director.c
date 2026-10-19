@@ -1183,6 +1183,8 @@ class ZCR_Director
 				+ string.Format(" (by fire %1, no killer - drones, blasts %2)", ZCR_Feed.s_mLostFire.Get(side), ZCR_Feed.s_mLostOther.Get(side));
 			if (ZCR_Feed.s_mCover.Contains(side))
 				bottom += string.Format(" - in cover %1%", ZCR_Feed.s_mCover.Get(side));
+			if (ZCR_Feed.s_mAtBase.Contains(side))
+				bottom += string.Format(" - at main base %1%", ZCR_Feed.s_mAtBase.Get(side));
 			if (ZCR_Feed.s_mStacked.Contains(side))
 				bottom += string.Format(" - stacked %1%", ZCR_Feed.s_mStacked.Get(side));
 		}

@@ -12,6 +12,7 @@ class ZCR_Feed
 	static ref map<string, vector> s_mMainTargetPos = new map<string, vector>();   // where the side's main attack goes
 	static ref map<string, int> s_mCover = new map<string, int>();      // % in the game's cover (last sample)
 	static ref map<string, int> s_mStacked = new map<string, int>();    // % stacked in the field (last sample)
+	static ref map<string, int> s_mAtBase = new map<string, int>();     // % within 200 m of the main base (last sample)
 	static ref map<string, int> s_mLostFire = new map<string, int>();   // soldiers lost to a killer
 	static ref map<string, int> s_mLostOther = new map<string, int>();  // lost with no killer (drones, explosions)
 

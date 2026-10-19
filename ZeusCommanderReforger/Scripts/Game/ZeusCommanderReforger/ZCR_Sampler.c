@@ -39,6 +39,9 @@ class ZCR_Sampler
 	protected ref map<string, ref map<IEntity, int>> m_mKnownAt = new map<string, ref map<IEntity, int>>();
 	protected int m_iNextMeasure;
 	protected ref TraceParam m_Trace;
+	protected ref TraceParam m_EyeTrace;
+	protected ref map<string, int> m_mSpotted = new map<string, int>();
+	protected static const float DRONE_EYES = 300;
 	protected ref array<IEntity> m_aExclude = {};
 	protected static const float MOVING_MPS = 0.83;      // 3 km/h, Arma 3's "moving"
 	protected static const float ENGAGED_RANGE = 300;
@@ -246,6 +249,73 @@ class ZCR_Sampler
 		}
 	}
 
+	// The drones are their side's eyes (modern recon-strike; Martin: "heavy drone dependent"): an
+	// enemy within 300 m of one of its drones in the air, in its line of sight (a roof or a tree canopy
+	// hides him), is known to the side like a soldier's sighting - for the drones' targets and the plan.
+	protected void SpotFromDrones(int now)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		for (int i; i < ZCR_Drones.s_aDrones.Count(); i++)
+		{
+			IEntity drone = ZCR_Drones.s_aDrones[i];
+			if (!drone)
+				continue;
+			string side = ZCR_Drones.s_aDroneSide[i];
+			vector dp = drone.GetOrigin();
+			if (dp[1] - world.GetSurfaceY(dp[0], dp[2]) < 5)
+				continue;
+			int traces;
+			foreach (IEntity e, ZCR_SoldierState st : m_mState)
+			{
+				if (traces >= 30)
+					break;
+				if (!e || !st || st.m_sSide == side || st.m_sSide.IsEmpty() || vector.DistanceXZ(st.m_vPos, dp) > DRONE_EYES)
+					continue;
+				if (Knows(side, e, 4))
+					continue;
+				traces++;
+				if (!Sees(dp, st.m_vEye, drone, e))
+					continue;
+				Remember(side, e, st.m_vPos, now);
+				m_mSpotted.Set(side, m_mSpotted.Get(side) + 1);
+			}
+		}
+	}
+
+	protected bool Sees(vector from, vector to, IEntity drone, IEntity target)
+	{
+		if (!m_EyeTrace)
+			m_EyeTrace = new TraceParam();
+		m_EyeTrace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		m_EyeTrace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage;
+		m_EyeTrace.Exclude = drone;
+		m_EyeTrace.Start = from;
+		m_EyeTrace.End = to;
+		float f = GetGame().GetWorld().TraceMove(m_EyeTrace, null);
+		if (f >= 0.98)
+			return true;
+		IEntity hit = m_EyeTrace.TraceEnt;
+		return hit && hit.GetRootParent() == target.GetRootParent();
+	}
+
+	protected void Remember(string side, IEntity e, vector p, int now)
+	{
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!m_mKnownPos.Find(side, pos))
+		{
+			pos = new map<IEntity, vector>();
+			m_mKnownPos.Set(side, pos);
+		}
+		if (!m_mKnownAt.Find(side, when))
+		{
+			when = new map<IEntity, int>();
+			m_mKnownAt.Set(side, when);
+		}
+		pos.Set(e, p);
+		when.Set(e, now);
+	}
+
 	protected void Forget(int now)
 	{
 		foreach (string side, map<IEntity, int> when : m_mKnownAt)
@@ -313,6 +383,7 @@ class ZCR_Sampler
 			}
 		}
 		m_mState = next;
+		SpotFromDrones(now);
 		if (now >= m_iNextMeasure)
 		{
 			m_iNextMeasure = now + 30;
@@ -323,6 +394,15 @@ class ZCR_Sampler
 	protected void Measure(int now)
 	{
 		array<string> sides = {"US", "USSR"};
+		// Drones up per side (Martin: "0 drones in the sky"), and the enemies their eyes found since the last.
+		if (System.IsCLIParam("zcrDrones"))
+		{
+			foreach (string ds : sides)
+			{
+				Print(string.Format("[ZCR][DRONEAIR] t=%1 side=%2 air=%3 spotted=%4", now, ds, ZCR_Drones.InAir(ds), m_mSpotted.Get(ds)), LogLevel.NORMAL);
+				m_mSpotted.Set(ds, 0);
+			}
+		}
 		foreach (string side : sides)
 		{
 			array<IEntity> men = {};
@@ -430,7 +510,9 @@ class ZCR_Sampler
 			}
 			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
 				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct)
-				+ string.Format(" team=%1 spacing=%2", Math.Round(team * 10) / 10.0, spacing), LogLevel.NORMAL);
+				+ string.Format(" team=%1 spacing=%2 at_main=%3", Math.Round(team * 10) / 10.0, spacing, Math.Round(100.0 * (men.Count() - field) / men.Count())), LogLevel.NORMAL);
+			// Soldiers at their main base (Martin: "they just chill on the bases, doing push-ups").
+			ZCR_Feed.s_mAtBase.Set(side, Math.Round(100.0 * (men.Count() - field) / men.Count()));
 			if (fieldPct >= 0)
 				ZCR_Feed.s_mStacked.Set(side, fieldPct);
 			if (engaged > 0)
