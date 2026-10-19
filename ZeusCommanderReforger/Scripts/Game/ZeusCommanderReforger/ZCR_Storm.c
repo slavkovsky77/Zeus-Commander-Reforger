@@ -8,6 +8,28 @@
 class ZCR_Storm
 {
 	protected static ref map<string, vector> s_mTarget;   // faction -> position of the base stormed
+	// Storms for the director's camera: what, where, when (-1000 once shown).
+	static ref array<string> s_aEventText = {};
+	static ref array<vector> s_aEventPos = {};
+	static ref array<int> s_aEventAt = {};
+
+	static void Event(string text, vector at)
+	{
+		s_aEventText.Insert(text);
+		s_aEventPos.Insert(at);
+		s_aEventAt.Insert(ZCR_LossLog.Seconds());
+	}
+
+	// A storm from the last 40 s not yet shown, or -1.
+	static int PendingEvent(int now)
+	{
+		for (int i = s_aEventAt.Count() - 1; i >= 0; i--)
+		{
+			if (now - s_aEventAt[i] <= 40)
+				return i;
+		}
+		return -1;
+	}
 
 	static float Priority()
 	{

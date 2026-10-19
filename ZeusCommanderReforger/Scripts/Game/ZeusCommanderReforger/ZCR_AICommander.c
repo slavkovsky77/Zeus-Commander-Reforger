@@ -68,5 +68,7 @@ modded class AICF_AICommander
 		Print(string.Format("[ZCR][STORM] t=%1 faction=%2 base=%3 squads=%4 men=%5 priority=%6 normal=%7",
 			ZCR_LossLog.Seconds(), m_sFactionKey, ZCR_Strategist.BaseName(base), squads, men, ZCR_Storm.Priority(),
 			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL), LogLevel.NORMAL);
+		ZCR_Storm.Event(string.Format("%1 STORMS %2 - %3 squads, %4 soldiers go in without stopping to fight at range",
+			m_sFactionKey, ZCR_Strategist.BaseName(base), squads, men), base.GetOwner().GetOrigin());
 	}
 }

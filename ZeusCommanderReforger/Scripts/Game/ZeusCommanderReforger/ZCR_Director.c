@@ -5,6 +5,7 @@
 //
 // Shots, about 18 s each, the busiest first:
 //   capture   a base changed hands in the last 40 s
+//   storm     a side storms a base (ZCR_Storm) - in the last 40 s
 //   plan      a commander changed its plan: its main effort, with the commander's intent
 //   fight     soldiers of both sides within ~300 m of each other; losses there count double
 //   close-up  after a fight shot: one soldier of that fight, followed, from 40 m
@@ -329,6 +330,18 @@ class ZCR_Director
 			back = 260;
 			height = 300;
 			m_aCaptureAt[capture] = -1000;
+		}
+		else if (ZCR_Storm.PendingEvent(now) >= 0)
+		{
+			// A storm: the climax of an assault - close, and close-ups follow it like a fight.
+			int storm = ZCR_Storm.PendingEvent(now);
+			target = ZCR_Storm.s_aEventPos[storm];
+			label = ZCR_Storm.s_aEventText[storm];
+			key = "assault-storm" + storm;
+			back = 220;
+			height = 170;
+			m_vLastFight = target;
+			ZCR_Storm.s_aEventAt[storm] = -1000;
 		}
 		else if (!planSide.IsEmpty())
 		{
