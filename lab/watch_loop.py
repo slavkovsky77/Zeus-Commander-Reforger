@@ -265,6 +265,10 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
     kill_crash_reporters()
     # Solo: the game hosts the match itself - one process, server and screen (the Diag Menu's time
     # multiplier works only there).
+    # The speed is set by the game itself from script (-zcrSpeed: the Diag Menu's engine values) - no
+    # key presses any more (they fought Martin's typing and twice crashed the game, 19 Oct).
+    if solo and speed > 1:
+        extra = (extra + f" -zcrSpeed {speed:g}").strip()
     server, sprof = start(opts(map_name, False, us, ussr, label, solo=solo, extra=extra), "solo" if solo else "server")
     client = ff = None
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
@@ -290,12 +294,8 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             return meta
         if solo:
             if speed > 1:
-                # Set once, then measured. Never again in the same game: a second try works a Diag Menu
-                # that is no longer fresh - it toggled random diagnostics and crashed the game (19 Oct
-                # 23:19, keys fighting Martin's typing). Not taken: the match runs at 1x.
-                keys.set_speed(hwnd, speed)
                 got = measured_speed(cprof)
-                log(f"time multiplier {speed:g}x {'set' if got >= speed * 0.67 else 'did NOT take'}, measured {got:.1f}x")
+                log(f"time multiplier {speed:g}x (set by the game) {'took' if got >= speed * 0.67 else 'did NOT take'}, measured {got:.1f}x")
             # The game opens in its own MAXIMIZED mode (reforger.window_settings); the speed is set
             # first (the Diag Menu is worked with Win held, and Windows takes Win+arrow as "snap the
             # window"), then the window maximised again in case it snapped.

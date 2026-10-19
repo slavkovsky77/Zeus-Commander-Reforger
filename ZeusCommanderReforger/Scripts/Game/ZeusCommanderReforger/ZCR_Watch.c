@@ -240,6 +240,36 @@ class ZCR_Watch
 		}
 		if (s_Instance)
 			s_Instance.Tick(timeslice);
+		SetSpeed();
+	}
+
+	// -zcrSpeed=3: the game's time multiplier set from script - the Diag Menu's Cheats > "DTime
+	// multiplier" switch (engine ID 375) and value (376), found 19 Oct 23:21 in a game where the key
+	// presses had set it (2.88 there). No more ~200 key presses at the start of a match: they fought
+	// Martin's typing, landed in other menus and twice crashed the game. Diagnostic build, solo only.
+	// Re-applied every 5 s (cheap) in case the game resets it; logs [ZCR][SPEED] once.
+	protected static float s_fNextSpeed;
+	protected static bool s_bSpeedLogged;
+
+	protected static void SetSpeed()
+	{
+		string value;
+		if (!System.GetCLIParam("zcrSpeed", value) || value.IsEmpty())
+			return;
+		float now = System.GetTickCount() / 1000.0;
+		if (now < s_fNextSpeed)
+			return;
+		s_fNextSpeed = now + 5;
+		float speed = Math.Clamp(value.ToFloat(), 0.1, 10);
+		if (DiagMenu.GetEngineValue(375) != 1)
+			DiagMenu.SetEngineValue(375, 1);
+		if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(376) - speed) > 0.01)
+			DiagMenu.SetEngineRangeValue(376, speed);
+		if (!s_bSpeedLogged && GetGame().GetWorld())
+		{
+			s_bSpeedLogged = true;
+			Print(string.Format("[ZCR][SPEED] multiplier=%1 switch=%2 value=%3", speed, DiagMenu.GetEngineValue(375), DiagMenu.GetEngineRangeValue(376)), LogLevel.NORMAL);
+		}
 	}
 
 	static void OnShot(vector target, float back, float height, RplId follow, string label)
