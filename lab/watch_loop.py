@@ -290,15 +290,12 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             return meta
         if solo:
             if speed > 1:
-                # Set, then measured: the keys can go astray (another window in front - a match ran
-                # at 1x, 19 Oct 22:14); under 2/3 of the speed, set again once.
+                # Set once, then measured. Never again in the same game: a second try works a Diag Menu
+                # that is no longer fresh - it toggled random diagnostics and crashed the game (19 Oct
+                # 23:19, keys fighting Martin's typing). Not taken: the match runs at 1x.
                 keys.set_speed(hwnd, speed)
                 got = measured_speed(cprof)
-                if got < speed * 0.67:
-                    log(f"time multiplier {speed:g}x did not take (measured {got:.1f}x) - setting it again")
-                    keys.set_speed(hwnd, speed)
-                    got = measured_speed(cprof)
-                log(f"time multiplier {speed:g}x set, measured {got:.1f}x")
+                log(f"time multiplier {speed:g}x {'set' if got >= speed * 0.67 else 'did NOT take'}, measured {got:.1f}x")
             # The game opens in its own MAXIMIZED mode (reforger.window_settings); the speed is set
             # first (the Diag Menu is worked with Win held, and Windows takes Win+arrow as "snap the
             # window"), then the window maximised again in case it snapped.
