@@ -290,6 +290,30 @@ class PhasedTests(unittest.TestCase):
         self.assertEqual(p.state["watched:USSR"]["since"], 600)   # its assault, not reset by the other match
         self.assertEqual(p.state["headless:USSR"]["since"], 100)
 
+    def test_far_objective_is_not_bled_out_or_stalled_while_marching(self):
+        import phased
+        p = phased.Phased()
+
+        def far(t, arrived=False):
+            r = self.report(t)
+            for b in r["bases"]:
+                if b["id"] == 1:
+                    b["x"] -= 1000                       # the staging base 1.8 km from Town
+            for s_ in r["squads"]:
+                if "x" in s_ and not arrived:
+                    s_["x"] -= 1000                      # gathered there, then marching
+            return r
+        p.decide(far(100))                               # gathered: assault Town at once
+        self.assertEqual(p.state["USSR"]["phase"], "assault")
+        p.decide(far(590))                               # 8 min marching, nobody within 900 m yet
+        self.assertEqual(p.state["USSR"]["phase"], "assault")
+        self.assertNotIn(3, p.state["USSR"]["fails"])
+        p.decide(far(890, arrived=True))                 # arrived (within 900 m)
+        p.decide(far(1190, arrived=True))                # 5 min there, nobody on it: not yet stalled
+        self.assertNotIn(3, p.state["USSR"]["fails"])
+        p.decide(far(1500, arrived=True))                # 10 min there, nobody on it: called off
+        self.assertEqual(p.state["USSR"]["fails"].get(3), 1)
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

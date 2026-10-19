@@ -31,6 +31,7 @@ GATHER_RADIUS = 600
 ASSAULT_RADIUS = 900   # squads sent to the objective, on their way in (force_at)
 ASSAULT_MAX = 600      # s without a capture: called off, another objective...
 ASSAULT_MAX_ON_IT = 900   # ...unless we hold ground on it (ON_IT soldiers within 250 m): until then
+ASSAULT_MAX_TOTAL = 1200  # (those count from when the force got there; this from the assault order)
 ON_IT = 10.0
 COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
 STORM_AFTER = 240      # s into the assault, with STORM_FORCE of the need sent there: storm it
@@ -44,6 +45,18 @@ def _dist(a: dict, b: dict) -> float:
 def force_near(report: dict, at: dict, radius: float) -> float:
     return float(sum(s.get("alive", 0) for s in report.get("squads", [])
                      if "x" in s and math.hypot(s["x"] - at["x"], s["z"] - at["z"]) <= radius))
+
+
+def force_sent(report: dict, target: dict) -> float:
+    """Every soldier AI Conflict has sent to the objective, wherever they are (on Everon the next
+    objective can be 1.4 km away), plus anyone within 250 m of it."""
+    total = 0.0
+    for s in report.get("squads", []):
+        if "x" not in s:
+            continue
+        if s.get("target") == target["id"] or math.hypot(s["x"] - target["x"], s["z"] - target["z"]) <= 250:
+            total += s.get("alive", 0)
+    return total
 
 
 def capture_point(base: dict) -> dict:
@@ -153,9 +166,17 @@ class Phased:
         # nobody on the objective - with soldiers on it, a capture takes 5-10 min more, so 15 min;
         # never while the base is being seized.
         on_it = force_near(report, capture_point(target), 150 if "cx" in target else 250) >= ON_IT
+        # The stall clock runs from when the force got there, not from the order: a far objective
+        # (Everon: 1.4 km) takes minutes of marching first.
+        arrived = st.get("arrived")
+        if (not arrived or arrived[0] != st["since"]) and near >= 0.35 * need:
+            arrived = (st["since"], t)
+            st["arrived"] = arrived
+        there = t - arrived[1] if arrived and arrived[0] == st["since"] else 0
         stalled = not target.get("seizing") and (
-            elapsed >= ASSAULT_MAX_ON_IT or (elapsed >= ASSAULT_MAX and not on_it))
-        if (elapsed >= 360 and near < 0.35 * need) or stalled:
+            elapsed >= ASSAULT_MAX_TOTAL or there >= ASSAULT_MAX_ON_IT or (there >= ASSAULT_MAX and not on_it))
+        bled = elapsed >= 360 and force_sent(report, target) < 0.35 * need
+        if bled or stalled:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
             st.update(phase="pick" if stalled else "gather", since=t, need=need + NEED_PER_FAIL)
             if st["phase"] == "pick":
