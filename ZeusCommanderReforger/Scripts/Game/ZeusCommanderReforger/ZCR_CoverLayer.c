@@ -58,6 +58,9 @@ class ZCR_CoverLayer
 			IEntity leader = AICF_GroupRuntime.ResolveAliveLeader(slot.GetGroup());
 			array<AIAgent> agents = {};
 			slot.GetGroup().GetAgents(agents);
+			// Close to the enemy and still advancing: the squad bounds (ZCR_Bound), not cover-to-cover alone.
+			if (ZCR_Bound.Tick(slot, side, leader, agents, now))
+				continue;
 			foreach (AIAgent agent : agents)
 			{
 				ChimeraCharacter c;
@@ -167,7 +170,7 @@ class ZCR_CoverLayer
 		return utility && utility.m_CombatMoveState && utility.m_CombatMoveState.m_bInCover;
 	}
 
-	protected static vector EyeOf(IEntity e)
+	static vector EyeOf(IEntity e)
 	{
 		ChimeraCharacter c = ChimeraCharacter.Cast(e);
 		if (c)
@@ -175,7 +178,7 @@ class ZCR_CoverLayer
 		return e.GetOrigin() + Vector(0, 1.5, 0);
 	}
 
-	protected static IEntity NearestEnemy(IEntity soldier)
+	static IEntity NearestEnemy(IEntity soldier)
 	{
 		PerceptionComponent perception = PerceptionComponent.Cast(soldier.FindComponent(PerceptionComponent));
 		if (!perception)
@@ -236,6 +239,38 @@ class ZCR_CoverLayer
 		return false;
 	}
 
+	// A spot within 20 m of 'center' with cover toward the threat, on the navmesh, nearest first (the
+	// bounding's next cover).
+	static bool CoverAround(ChimeraCharacter c, AIAgent agent, vector center, vector threat, IEntity enemy, out vector spot)
+	{
+		AIPathfindingComponent pathfinding = AIPathfindingComponent.Cast(agent.FindComponent(AIPathfindingComponent));
+		BaseWorld world = GetGame().GetWorld();
+		array<float> dists = {0, 5, 10, 15, 20};
+		for (int k; k < dists.Count(); k++)
+		{
+			int n = 1;
+			if (dists[k] > 0)
+				n = 8;
+			for (int i; i < n; i++)
+			{
+				float r = i * 45 * Math.DEG2RAD;
+				vector p = center + Vector(Math.Cos(r), 0, Math.Sin(r)) * dists[k];
+				p[1] = world.GetSurfaceY(p[0], p[2]);
+				vector nav = p;
+				if (pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav))
+					continue;
+				if (vector.DistanceXZ(nav, p) > 2)
+					continue;
+				if (Covered(nav + Vector(0, 1.0, 0), threat, c, enemy))
+				{
+					spot = nav;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	protected static bool Covered(vector eye, vector threat, IEntity self, IEntity other)
 	{
 		vector dir = threat - eye;
@@ -281,6 +316,9 @@ modded class SCR_AICombatMoveLogic_Attack
 	protected override float ResolveStoppedWaitTime(bool inCover, EAIThreatState threat, EWeaponType weaponType)
 	{
 		float wait = super.ResolveStoppedWaitTime(inCover, threat, weaponType);
+		// Bounding: the half that covers stays where it is and shoots while the other half moves.
+		if (ZCR_Bound.Holds(m_MyEntity))
+			return 1000;
 		if (inCover && ZCR_CoverLayer.Holds(m_MyEntity))
 			return Math.Max(wait, ZCR_CoverLayer.HOLD_IN_COVER);
 		return wait;

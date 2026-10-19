@@ -361,6 +361,16 @@ def main() -> int:
                 log(f"rotation now {override.read_text(encoding='utf-8').strip()}")
         map_name, us, ussr = rotation[n % len(rotation)]
         n += 1
+        # The speed can change between matches too: .runtime/watch_speed.txt (solo only).
+        speed_file = ROOT / ".runtime" / "watch_speed.txt"
+        if a.solo and speed_file.exists():
+            try:
+                new_speed = float(speed_file.read_text(encoding="utf-8").strip())
+                if new_speed != a.speed and 1 <= new_speed <= 8:
+                    a.speed = new_speed
+                    log(f"speed now {a.speed:g}x")
+            except ValueError:
+                pass
         wall = (a.speed if a.solo else 1)
         meta = match(n, map_name, us, ussr, min(a.minutes, max(5, ((end - time.time()) / 60 - 3) * wall)), a.keep_front, a.solo, a.speed)
         fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
