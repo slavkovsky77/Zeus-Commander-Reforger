@@ -25,15 +25,15 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 
 # Kept by hand as the night goes: what is open, what is next.
 PROBLEMS = [
-    ("risk", "Few matches yet", "Each matchup has had one or two 30-minute matches. One match decides little; read the margins as a first look."),
+    ("risk", "Few matches yet", "Each matchup gets one or two 30-minute matches tonight. One match decides little; read the margins as a first look, with the control row as the size of chance."),
     ("risk", "Early game is quiet", "AI Conflict's squads start with one soldier and fill up at barracks, so the first 10-15 minutes are mostly marching and fights against FIA garrisons."),
-    ("design", "The doctrine only steers targets", "Our rules and the LLM set each side's main effort and how much force goes there. The attack phases from Arma 3 (staging, prep fire, siege, storm) are not ported yet."),
-    ("design", "Watched matches differ a little", "The camera's observer loads FIA garrisons where it looks, so measurements come from the headless matches only."),
+    ("risk", "Drone strikes kill about one in three", "First drone test: 2 teams, 8 detonations on soldiers, 3 deaths; two soldiers were struck twice. A note for the FPV AI Drones chat (review note 98)."),
+    ("design", "Watched matches differ a little", "The camera's observer loads FIA garrisons where it looks, and only watched matches have drones - the measurements come from the headless matches."),
 ]
 NEXT = [
-    "Port the Arma 3 attack doctrine into the commander seam: gather out of reach, prep, assault, siege when too weak, storm.",
-    "Drone teams through Martin's FPV AI Drones: the strategist calls them on its main effort.",
+    "Drones in the measured matches too, once the doctrine's own numbers are in: does the commander do better with them?",
     "More matches per matchup, and Everon next to Arland.",
+    "The rest of the Arma 3 doctrine: prep fire before the assault (mortars, drones), siege when too weak, storm when few defenders are left.",
     "Phone buttons for the watch mode, as on Arma 3 (next / previous shot, follow a group, map).",
 ]
 
@@ -237,7 +237,16 @@ flowchart LR
   D["Director on the server<br/>fights, plans, captures, close-ups"]:::ours --> W["Game on screen<br/>camera, overlay, caption"]:::ours
   W --> V["Video + moments list"]:::ours
 </pre>
-<p>On screen: the bases in their owner's colour, each side's main effort as a trail of growing squares (as on Arma 3), losses in side colours, a caption for every shot and a panel with both commanders' intent. Every match is in the same clear midday, so they compare fairly.</p>
+<p>On screen: the bases in their owner's colour, each side's main effort as a trail of growing squares (as on Arma 3), losses in side colours, soldier tags in close views, a caption for every shot and a panel with both commanders' intent. A strategist side in a watched match also sends FPV drone teams (Martin's FPV AI Drones) to its objective, and the camera follows a drone until it hits. Every match is in the same clear midday, so they compare fairly.</p>
+<h3>The strategists</h3>
+<div class="table-wrap"><table>
+<tr><th>Name</th><th>Picks the objective</th><th>How it fights for it</th></tr>
+<tr><td>AI Conflict alone</td><td>AI Conflict's own score</td><td>Squads assigned one by one</td></tr>
+<tr><td>rules: targets only</td><td>Our rules: the best reachable base</td><td>Priority and force demand on it</td></tr>
+<tr><td>Gemini: targets only</td><td>Gemini, every 90 s</td><td>Priority and force demand on it</td></tr>
+<tr><td>rules + attack doctrine</td><td>Our rules, when a new objective is due</td><td>The Arma 3 doctrine: gather at our nearest base, assault in force, fall back when bled out, keep the momentum after a capture</td></tr>
+<tr><td>Gemini + attack doctrine</td><td>Gemini, only when a new objective is due</td><td>The same doctrine</td></tr>
+</table></div>
 
 <h2>Open problems</h2>
 {problems}
