@@ -131,6 +131,7 @@ class ZCR_Watch
 		s_Instance.Aim(target, back, height, follow);
 		if (s_Instance.m_Caption)
 			s_Instance.m_Caption.SetText(label);
+		ZCR_WatchControls.OnLabel(label);
 		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
 	}
 
@@ -178,13 +179,25 @@ class ZCR_Watch
 		if (m_fClock >= m_fNextMenuCheck)
 		{
 			m_fNextMenuCheck = m_fClock + 1;
-			if (GetGame().GetMenuManager())
-				GetGame().GetMenuManager().CloseAllMenus();
+			// Conflict's deploy and welcome screens closed - all menus but the controls' hidden one.
+			MenuManager menus = GetGame().GetMenuManager();
+			if (menus)
+			{
+				for (int guard; guard < 8; guard++)
+				{
+					MenuBase top = menus.GetTopMenu();
+					if (!top || ZCR_WatchControls.IsHost(top))
+						break;
+					menus.CloseMenu(top);
+				}
+				ZCR_WatchControls.KeepHost(menus);
+			}
 			if (!m_Camera)
 				Create(world);
 			if (m_Camera && GetGame().GetCameraManager().CurrentCamera() != m_Camera)
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
+		ZCR_WatchControls.Tick(m_fClock);
 		if (!m_Camera || !m_bHasShot)
 			return;
 		Place(world);
@@ -238,6 +251,7 @@ class ZCR_Watch
 			m_Caption.SetFont(FONT_BOLD);
 		if (m_Panel)
 			m_Panel.SetFont(FONT);
+		ZCR_WatchControls.Create();
 	}
 
 	protected void Aim(vector target, float back, float height, RplId follow)

@@ -43,6 +43,27 @@ class ZCR_Director
 	// Where each soldier was at the last scan: who is on the move.
 	protected ref map<IEntity, vector> m_mLastPos = new map<IEntity, vector>();
 	protected ref array<IEntity> m_aMoving = {};
+	// The watcher's controls (phone buttons, as on Arma 3 - ac-lab lab/director.sqf): LOCK or a
+	// picked unit holds the camera (AUTO off), CLOSER / WIDER zoom every shot, PREV SHOT goes back.
+	protected bool m_bHold;
+	protected bool m_bLocked;
+	protected float m_fZoom = 1;
+	protected string m_sForce;
+	protected int m_iSpotUntil;
+	protected vector m_vShown;
+	protected float m_fShownBack;
+	protected float m_fShownHeight;
+	protected IEntity m_ShownFollow;
+	protected string m_sShownLabel;
+	protected vector m_vFollowLast;
+	protected string m_sFollowSide;
+	protected ref array<vector> m_aHistTarget = {};
+	protected ref array<float> m_aHistBack = {};
+	protected ref array<float> m_aHistHeight = {};
+	protected ref array<IEntity> m_aHistFollow = {};
+	protected ref array<string> m_aHistLabel = {};
+	protected ref array<IEntity> m_aGroupLeaders = {};
+	protected int m_iGroupsAt = -1000;
 
 	static void AddWatcher(int playerId)
 	{
@@ -136,7 +157,7 @@ class ZCR_Director
 		int now = ZCR_LossLog.Seconds();
 		WatchCaptures(now);
 		// FPV teams hit 8-20 s after launch - too quick for the shot rhythm: cut to them at once.
-		if (ZCR_Drones.s_iFoundAt > m_iDroneCutAt && LiveDrone())
+		if (!m_bHold && ZCR_Drones.s_iFoundAt > m_iDroneCutAt && LiveDrone())
 		{
 			m_iDroneCutAt = ZCR_Drones.s_iFoundAt;
 			m_bDroneNow = true;
@@ -150,7 +171,22 @@ class ZCR_Director
 			else if (now - m_iDroneGoneAt >= 4)
 				m_iShotEnd = 0;
 		}
-		if (now >= m_iShotEnd)
+		// A tap on the picture holds the camera there for 30 s.
+		if (m_iSpotUntil > 0 && now >= m_iSpotUntil)
+		{
+			m_iSpotUntil = 0;
+			if (!m_bLocked)
+			{
+				m_bHold = false;
+				m_iShotEnd = 0;
+			}
+		}
+		// A picked unit that falls: the nearest of his side nearby takes over (Arma 3: his squad).
+		if (m_bHold && m_ShownFollow && ChimeraCharacter.Cast(m_ShownFollow) && !Alive(m_ShownFollow))
+			FollowNearest(now);
+		if (m_ShownFollow)
+			m_vFollowLast = m_ShownFollow.GetOrigin();
+		if (!m_bHold && now >= m_iShotEnd)
 			NextShot(now);
 		if (now >= m_iNextOverlay)
 		{
@@ -293,6 +329,8 @@ class ZCR_Director
 
 	protected void NextShot(int now)
 	{
+		string force = m_sForce;   // "action": the best fight now; "front": the hot zone
+		m_sForce = "";
 		m_iShot++;
 		Scan();
 		vector target;
@@ -341,7 +379,7 @@ class ZCR_Director
 			}
 		}
 
-		if (capture >= 0)
+		if (force.IsEmpty() && capture >= 0)
 		{
 			target = m_aCapturePos[capture];
 			label = m_aCaptureText[capture];
@@ -350,7 +388,7 @@ class ZCR_Director
 			height = 300;
 			m_aCaptureAt[capture] = -1000;
 		}
-		else if (ZCR_Storm.PendingEvent(now) >= 0)
+		else if (force.IsEmpty() && ZCR_Storm.PendingEvent(now) >= 0)
 		{
 			// A storm: the climax of an assault - close, and close-ups follow it like a fight.
 			int storm = ZCR_Storm.PendingEvent(now);
@@ -362,7 +400,7 @@ class ZCR_Director
 			m_vLastFight = target;
 			ZCR_Storm.s_aEventAt[storm] = -1000;
 		}
-		else if (!planSide.IsEmpty())
+		else if (force.IsEmpty() && !planSide.IsEmpty())
 		{
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(planSide);
 			m_mPlanShown.Set(planSide, plan.GetMainEffort());
@@ -372,7 +410,7 @@ class ZCR_Director
 			back = 500;
 			height = 600;
 		}
-		else if ((m_bDroneNow || m_iShot % 3 == 1) && LiveDrone())
+		else if (force.IsEmpty() && (m_bDroneNow || m_iShot % 3 == 1) && LiveDrone())
 		{
 			// An FPV drone on its way: followed until it hits (Martin on Arma 3: "I didn't see the
 			// finish of the FPV attack").
@@ -384,7 +422,7 @@ class ZCR_Director
 			height = 30;
 			duration = 30;
 		}
-		else if (m_bLastWasFight && best >= 0)
+		else if (force.IsEmpty() && m_bLastWasFight && best >= 0)
 		{
 			// Close-up in the fight just shown, alternating the side.
 			array<IEntity> pool = {};
@@ -415,7 +453,7 @@ class ZCR_Director
 				duration = 14;
 			}
 		}
-		bool hotTurn = m_iShot % 5 == 0;
+		bool hotTurn = force == "front" || (force.IsEmpty() && m_iShot % 5 == 0);
 		if (key.IsEmpty() && !hotTurn && best >= 0)
 		{
 			target = centres[best];
@@ -523,7 +561,7 @@ class ZCR_Director
 			height = 80;
 			duration = 16;
 		}
-		if (key.IsEmpty() && m_sLastKey == "hot")
+		if (key.IsEmpty() && force != "front" && m_sLastKey == "hot")
 		{
 			// The hot zone again: one side's objective instead, the sides in turn (Arma 3's
 			// objective shot) - the quiet first minutes otherwise show the same view over and over.
@@ -605,6 +643,40 @@ class ZCR_Director
 		if (key == "drone")
 			m_FollowedDrone = follow;
 
+		Show(target, back, height, follow, label, true);
+		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 men=%4 moving=%5 fights=%6 label=%7", now, m_iShot, key, m_aMen.Count(), m_aMoving.Count(), centres.Count(), label), LogLevel.NORMAL);
+		SendOverlay(now);
+	}
+
+	// Fly the watchers' cameras to a shot (zoomed as they asked) and move their observers there.
+	protected void Show(vector target, float back, float height, IEntity follow, string label, bool remember)
+	{
+		m_vShown = target;
+		m_fShownBack = back;
+		m_fShownHeight = height;
+		m_ShownFollow = follow;
+		m_sShownLabel = label;
+		if (follow)
+		{
+			m_vFollowLast = follow.GetOrigin();
+			m_sFollowSide = ZCR_LossLog.SideOf(follow);
+		}
+		if (remember)
+		{
+			m_aHistTarget.Insert(target);
+			m_aHistBack.Insert(back);
+			m_aHistHeight.Insert(height);
+			m_aHistFollow.Insert(follow);
+			m_aHistLabel.Insert(label);
+			if (m_aHistTarget.Count() > 30)
+			{
+				m_aHistTarget.RemoveOrdered(0);
+				m_aHistBack.RemoveOrdered(0);
+				m_aHistHeight.RemoveOrdered(0);
+				m_aHistFollow.RemoveOrdered(0);
+				m_aHistLabel.RemoveOrdered(0);
+			}
+		}
 		RplId followId = RplId.Invalid();
 		if (follow)
 		{
@@ -621,11 +693,203 @@ class ZCR_Director
 			if (observers)
 				observers.InsertObserverMP(controller.GetRplIdentity(), target[0], target[2], null);
 		}
+		string shown = label;
+		if (m_bLocked)
+			shown = "LOCKED - " + label;
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)
-			gameMode.ZCR_SendShot(target, back, height, followId, label, duration);
-		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 men=%4 moving=%5 fights=%6 label=%7", now, m_iShot, key, m_aMen.Count(), m_aMoving.Count(), centres.Count(), label), LogLevel.NORMAL);
-		SendOverlay(now);
+			gameMode.ZCR_SendShot(target, back * m_fZoom, height * m_fZoom, followId, shown, 18);
+		SendOverlay(ZCR_LossLog.Seconds());
+	}
+
+	// A watcher's button or tap (ZCR_WatchControls on his game, through his player controller).
+	static void Command(int playerId, string cmd, vector pos)
+	{
+		if (s_Instance && s_Instance.m_aWatchers.Contains(playerId))
+			s_Instance.DoCommand(cmd, pos);
+	}
+
+	protected void DoCommand(string cmd, vector pos)
+	{
+		int now = ZCR_LossLog.Seconds();
+		Print(string.Format("[ZCR][CAMUI] t=%1 cmd=%2 x=%3 z=%4", now, cmd, Math.Round(pos[0]), Math.Round(pos[2])), LogLevel.NORMAL);
+		if (cmd == "next")
+		{
+			m_iSpotUntil = 0;
+			NextShot(now);
+		}
+		else if (cmd == "prev")
+		{
+			// The scene before: its unit if still alive, else its place.
+			if (m_aHistTarget.Count() < 2)
+				return;
+			int last = m_aHistTarget.Count() - 1;
+			m_aHistTarget.Remove(last);
+			m_aHistBack.Remove(last);
+			m_aHistHeight.Remove(last);
+			m_aHistFollow.Remove(last);
+			m_aHistLabel.Remove(last);
+			last--;
+			IEntity f = m_aHistFollow[last];
+			if (f && ChimeraCharacter.Cast(f) && !Alive(f))
+				f = null;
+			m_bHold = true;
+			m_iShotEnd = now + 18;
+			Show(m_aHistTarget[last], m_aHistBack[last], m_aHistHeight[last], f, "BACK: " + m_aHistLabel[last], false);
+		}
+		else if (cmd == "lock")
+		{
+			m_bLocked = !m_bLocked;
+			m_bHold = m_bLocked;
+			if (!m_bHold)
+				m_iShotEnd = 0;
+			else
+				Show(m_vShown, m_fShownBack, m_fShownHeight, m_ShownFollow, m_sShownLabel, false);
+		}
+		else if (cmd == "auto")
+		{
+			m_bLocked = false;
+			m_bHold = false;
+			m_fZoom = 1;
+			m_iSpotUntil = 0;
+			m_iShotEnd = 0;
+		}
+		else if (cmd == "closer" || cmd == "wider")
+		{
+			if (cmd == "closer")
+				m_fZoom = Math.Max(0.3, m_fZoom * 0.6);
+			else
+				m_fZoom = Math.Min(3, m_fZoom * 1.65);
+			Show(m_vShown, m_fShownBack, m_fShownHeight, m_ShownFollow, m_sShownLabel, false);
+		}
+		else if (cmd == "action" || cmd == "overview")
+		{
+			m_iSpotUntil = 0;
+			m_sForce = "action";
+			if (cmd == "overview")
+				m_sForce = "front";
+			NextShot(now);
+		}
+		else if (cmd == "group+" || cmd == "group-")
+		{
+			int dir = 1;
+			if (cmd == "group-")
+				dir = -1;
+			StepGroup(now, dir);
+		}
+		else if (cmd == "tap")
+			Tap(now, pos);
+	}
+
+	// NEXT / PREV GROUP: the squads within 700 m of the camera, nearest first; follow the leader.
+	protected void StepGroup(int now, int dir)
+	{
+		if (now - m_iGroupsAt > 40 || m_aGroupLeaders.IsEmpty() || !m_aGroupLeaders.Contains(m_ShownFollow))
+		{
+			m_iGroupsAt = now;
+			m_aGroupLeaders.Clear();
+			array<float> dist = {};
+			foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
+			{
+				for (int s; state && s < state.GetSlotCount(); s++)
+				{
+					AICF_GroupSlot slot = state.GetSlot(s);
+					if (!slot || !slot.GetGroup())
+						continue;
+					IEntity leader = AICF_GroupRuntime.ResolveAliveLeader(slot.GetGroup());
+					if (!leader)
+						continue;
+					float d = vector.DistanceXZ(leader.GetOrigin(), m_vShown);
+					if (d > 700)
+						continue;
+					int at = 0;
+					while (at < dist.Count() && dist[at] < d)
+						at++;
+					dist.InsertAt(d, at);
+					m_aGroupLeaders.InsertAt(leader, at);
+				}
+			}
+		}
+		if (m_aGroupLeaders.IsEmpty())
+		{
+			Print("[ZCR][CAMUI] no squads within 700 m", LogLevel.NORMAL);
+			return;
+		}
+		int n = m_aGroupLeaders.Count();
+		int i = m_aGroupLeaders.Find(m_ShownFollow);
+		if (i < 0)
+		{
+			i = 0;
+			if (dir < 0)
+				i = n - 1;
+		}
+		else
+			i = (i + dir + n) % n;
+		IEntity leader = m_aGroupLeaders[i];
+		m_bHold = true;
+		m_bLocked = true;
+		m_iSpotUntil = 0;
+		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING GROUP %1 OF %2: %3 squad leader %4", i + 1, n,
+			ZCR_LossLog.SideOf(leader), Near(leader.GetOrigin())), true);
+	}
+
+	// A tap on the picture: the soldier or vehicle there is followed (AUTO off until another pick);
+	// anywhere else the camera flies there for 30 s.
+	protected void Tap(int now, vector pos)
+	{
+		IEntity best;
+		float bestDistance = 40;
+		foreach (IEntity e : m_aMen)
+		{
+			if (!e || !Alive(e))
+				continue;
+			float d = vector.DistanceXZ(e.GetOrigin(), pos);
+			if (d < bestDistance)
+			{
+				bestDistance = d;
+				best = e;
+			}
+		}
+		if (best)
+		{
+			IEntity root = best.GetRootParent();
+			IEntity follow = best;
+			string what = ZCR_LossLog.ShortName(best);
+			if (root && Vehicle.Cast(root))
+			{
+				follow = root;
+				what = ZCR_LossLog.ShortName(root);
+			}
+			m_bHold = true;
+			m_bLocked = true;
+			m_iSpotUntil = 0;
+			Show(follow.GetOrigin(), 45, 32, follow, string.Format("FOLLOWING %1 %2 %3", ZCR_LossLog.SideOf(best), what, Near(follow.GetOrigin())), true);
+			return;
+		}
+		m_bHold = true;
+		m_iSpotUntil = now + 30;
+		Show(pos, 160, 140, null, "HERE " + Near(pos), true);
+	}
+
+	protected void FollowNearest(int now)
+	{
+		IEntity best;
+		float bestDistance = 150;
+		foreach (IEntity e : m_aMen)
+		{
+			if (!e || !Alive(e) || ZCR_LossLog.SideOf(e) != m_sFollowSide)
+				continue;
+			float d = vector.DistanceXZ(e.GetOrigin(), m_vFollowLast);
+			if (d < bestDistance)
+			{
+				bestDistance = d;
+				best = e;
+			}
+		}
+		if (best)
+			Show(best.GetOrigin(), 45, 32, best, string.Format("FOLLOWING %1 %2 %3 (the one followed fell)", m_sFollowSide, ZCR_LossLog.ShortName(best), Near(best.GetOrigin())), false);
+		else
+			Show(m_vFollowLast, 80, 60, null, "THE ONE FOLLOWED FELL " + Near(m_vFollowLast), false);
 	}
 
 	protected string m_sDroneSide;
