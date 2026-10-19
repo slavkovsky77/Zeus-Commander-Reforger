@@ -91,6 +91,13 @@ def set_speed(hwnd, speed: float) -> None:
     multiplier" (7th) on, then its value (8th) from 1 in steps of 0.01. Only where the game hosts the
     match (solo); measured 2.0x at a steady 60 fps (19 Oct)."""
     front(hwnd)
+    # Windows takes Win+arrow as "snap the window": with ~200 presses the game window was thrown
+    # between the screen halves (Martin, 19 Oct). Window snapping is off while the menu is worked,
+    # and put back as it was (read back, retried) - also if this fails half way.
+    u = ctypes.windll.user32
+    was = ctypes.c_int()
+    u.SystemParametersInfoW(0x0082, 0, ctypes.byref(was), 0)          # SPI_GETWINARRANGING
+    u.SystemParametersInfoW(0x0083, 0, None, 0x2)                       # SPI_SETWINARRANGING off
     for k in ("lwin", "lalt"):
         key(k, False)
         time.sleep(0.05)
@@ -102,6 +109,13 @@ def set_speed(hwnd, speed: float) -> None:
         for k in ("lalt", "lwin"):
             key(k, True)
             time.sleep(0.05)
+        for _ in range(3):
+            u.SystemParametersInfoW(0x0083, 1 if was.value else 0, ctypes.c_void_p(1) if was.value else None, 0x2)
+            now = ctypes.c_int()
+            u.SystemParametersInfoW(0x0082, 0, ctypes.byref(now), 0)
+            if now.value == was.value:
+                break
+            time.sleep(0.2)
 
 
 def shot(hwnd, out: str) -> None:
