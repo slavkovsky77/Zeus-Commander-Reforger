@@ -15,6 +15,8 @@
 //       covered (something solid within 3 m toward the killer; "-" with no killer), roof, foot,
 //       cover= (ground/building/tree/vehicle/object/none toward the killer), above= (roof/canopy/none).
 // Unlike Arma 3's check, the ground counts as cover too (a crest between him and the enemy).
+// Also each side's knowledge (Arma 3: "the AI never cheats on what it knows"): every enemy one of
+// its soldiers has seen, with where he was last seen, for 60 s - KnownEnemiesNear for the report.
 // Server only; started by the first commander tick.
 class ZCR_SoldierState
 {
@@ -31,6 +33,9 @@ class ZCR_Sampler
 {
 	protected static ref ZCR_Sampler s_Instance;
 	protected ref map<IEntity, ref ZCR_SoldierState> m_mState = new map<IEntity, ref ZCR_SoldierState>();
+	// side -> enemy -> where and when last seen
+	protected ref map<string, ref map<IEntity, vector>> m_mKnownPos = new map<string, ref map<IEntity, vector>>();
+	protected ref map<string, ref map<IEntity, int>> m_mKnownAt = new map<string, ref map<IEntity, int>>();
 	protected int m_iNextMeasure;
 	protected ref TraceParam m_Trace;
 	protected ref array<IEntity> m_aExclude = {};
@@ -74,9 +79,82 @@ class ZCR_Sampler
 			above == "roof", !st.m_bInVehicle, cover, above);
 	}
 
+	// Enemies this side has seen within the last 60 s within 'radius' of 'at' (alive).
+	static int KnownEnemiesNear(string side, vector at, float radius)
+	{
+		if (!s_Instance)
+			return -1;
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!s_Instance.m_mKnownPos.Find(side, pos) || !s_Instance.m_mKnownAt.Find(side, when))
+			return 0;
+		int now = ZCR_LossLog.Seconds();
+		int n;
+		foreach (IEntity e, vector p : pos)
+		{
+			if (!e || now - when.Get(e) > 60)
+				continue;
+			ChimeraCharacter c = ChimeraCharacter.Cast(e);
+			if (c && c.GetCharacterController() && c.GetCharacterController().GetLifeState() == ECharacterLifeState.DEAD)
+				continue;
+			if (vector.DistanceXZ(p, at) <= radius)
+				n++;
+		}
+		return n;
+	}
+
+	protected void Learn(string side, IEntity soldier, int now)
+	{
+		PerceptionComponent perception = PerceptionComponent.Cast(soldier.FindComponent(PerceptionComponent));
+		if (!perception)
+			return;
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!m_mKnownPos.Find(side, pos))
+		{
+			pos = new map<IEntity, vector>();
+			m_mKnownPos.Set(side, pos);
+		}
+		if (!m_mKnownAt.Find(side, when))
+		{
+			when = new map<IEntity, int>();
+			m_mKnownAt.Set(side, when);
+		}
+		array<BaseTarget> targets = {};
+		perception.GetTargetsList(targets, ETargetCategory.ENEMY);
+		foreach (BaseTarget target : targets)
+		{
+			if (!target || !target.GetTargetEntity() || target.GetTimeSinceSeen() > 30)
+				continue;
+			pos.Set(target.GetTargetEntity(), target.GetLastSeenPosition());
+			when.Set(target.GetTargetEntity(), now);
+		}
+	}
+
+	protected void Forget(int now)
+	{
+		foreach (string side, map<IEntity, int> when : m_mKnownAt)
+		{
+			map<IEntity, vector> pos = m_mKnownPos.Get(side);
+			array<IEntity> old = {};
+			foreach (IEntity e, int t : when)
+			{
+				if (!e || now - t > 60)
+					old.Insert(e);
+			}
+			foreach (IEntity e : old)
+			{
+				when.Remove(e);
+				if (pos)
+					pos.Remove(e);
+			}
+		}
+	}
+
 	void Sample()
 	{
 		int now = ZCR_LossLog.Seconds();
+		Forget(now);
 		map<IEntity, ref ZCR_SoldierState> next = new map<IEntity, ref ZCR_SoldierState>();
 		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
 		{
@@ -115,6 +193,7 @@ class ZCR_Sampler
 					st.m_bInVehicle = c.IsInVehicle();
 					st.m_sSide = faction;
 					next.Set(c, st);
+					Learn(faction, c, now);
 				}
 			}
 		}

@@ -336,6 +336,23 @@ class PhasedTests(unittest.TestCase):
         clean, _ = validate({"main_effort": 3, "drones": [1, 3]}, self.report(190))
         self.assertEqual(clean["drones"], [3])           # never our own base
 
+    def test_need_follows_known_defenders_and_storm_when_few_left(self):
+        import phased
+        p = phased.Phased()
+        r = self.report(100, weak=True)
+        next(b for b in r["bases"] if b["id"] == 3)["enemies"] = 14
+        p.decide(r)
+        self.assertEqual(p.state["USSR"]["need"], 32)    # 2 x 14 + 4
+        r = self.report(190)
+        r["squads"][0].update(x=2550, z=1450)
+        r["squads"][1].update(x=2560, z=1460)            # our soldiers at Town
+        r["squads"][0]["alive"] = r["squads"][1]["alive"] = 12
+        town = next(b for b in r["bases"] if b["id"] == 3)
+        town["enemies"] = 2                             # and they see 2 defenders left
+        p.state["USSR"].update(phase="assault", since=150, need=32)
+        d, _ = p.decide(r)                               # 40 s into the assault: storm now
+        self.assertEqual(d["storm"], 3)
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

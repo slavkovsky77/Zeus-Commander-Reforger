@@ -199,6 +199,14 @@ class ZCR_Strategist
 				entry += string.Format(",\"cx\":%1,\"cz\":%2", Num(cp[0]), Num(cp[2]));
 			}
 			entry += string.Format(",\"seizing\":%1", base.IsBeingCaptured());
+			// What our soldiers have seen there in the last minute (never what we can't know).
+			if (!ours)
+			{
+				vector cp = at;
+				if (!points.IsEmpty() && points[0] && points[0].GetOwner())
+					cp = points[0].GetOwner().GetOrigin();
+				entry += string.Format(",\"enemies\":%1", ZCR_Sampler.KnownEnemiesNear(m_sFaction, cp, 150));
+			}
 			entry += "}";
 			if (!bases.IsEmpty())
 				bases += ",";

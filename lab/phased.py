@@ -15,6 +15,10 @@ Phases per side (kept between rounds; a new match resets them):
            sent to it after 6 min): back to gather, with a bigger need. No capture after 10 min
            (Arma 3: an assault that stops gaining is called off): the objective counts a failure
            and another one is picked - untried objectives first
+What a side knows (Arma 3: the AI never cheats): the report gives each base the enemies our soldiers
+have seen there in the last minute. The force needed is twice the known defenders plus 4 (at least
+25 soldiers), and the storm comes once our soldiers are close enough to see inside and 2 or fewer
+defenders are known there - or after 4 minutes of assault, as before.
 Our own threatened bases are always held. In the assault, while none of them is threatened, two of
 AI Conflict's DEFEND squads join it (commit): Arma 3's doctrine keeps a minimal garrison. After 4 min
 of the assault with the force there, it storms: the squads sent there go in without stopping to
@@ -146,13 +150,15 @@ class Phased:
                         "hold": hold[:3], "avoid": [], "concentration": "normal"}, raw
             target = bases[tid]
             stage = staging_base(report, target)
-            need = NEED + NEED_PER_FAIL * st["fails"].get(tid, 0)
+            need = max(NEED + NEED_PER_FAIL * st["fails"].get(tid, 0), 2.0 * target.get("enemies", 0) + 4)
             st.update(target=tid, stage=stage["id"] if stage else None, need=need, since=t, llm_intent=intent)
             # Momentum: the force that just took a base is still together near the new objective.
             here = force_near(report, target, 1500)
             st["phase"] = "assault" if st.get("taken") is not None and here >= 0.6 * need else "gather"
         target = bases[st["target"]]
         stage = bases.get(st.get("stage"))
+        # Arma 3: an attack needs twice the enemy known around the objective, plus 4.
+        st["need"] = max(st["need"], 2.0 * target.get("enemies", 0) + 4)
         need = st["need"]
         elapsed = t - st["since"]
         name = target.get("name") or f"base {target['id']}"
@@ -196,7 +202,11 @@ class Phased:
         own = own_bases(report)
         seized = any(b.get("seizing") for b in own) if any("seizing" in b for b in own) else bool(hold)
         commit = 0 if seized else COMMIT
-        storm = elapsed >= STORM_AFTER and near >= STORM_FORCE * need
+        # Storm (Arma 3): when 2 or fewer defenders are left that our soldiers near it can see, or
+        # after 4 minutes of assault - either way with the force there.
+        close = force_near(report, capture_point(target), 250) >= 5
+        few_left = close and "enemies" in target and target["enemies"] <= 2
+        storm = near >= STORM_FORCE * need and (few_left or elapsed >= STORM_AFTER)
         verb = "Storming" if storm else "Assault on"
         lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
