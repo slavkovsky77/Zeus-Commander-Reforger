@@ -28,8 +28,9 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 SUMMARY = [
     "The loop runs: a watched, recorded match and a headless head-to-head side by side, all night; every change goes in at the next match boundary.",
     "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
-    "Storm works: Moss Hill fell in all three matches with storm, at 15-20 min; without it, it fell at 26-29 min or not at all. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville; and in the first headless storm match the USSR doctrine won 3-2 too (Moss Hill at 16.7, Arleville at 27.3 min), where before storm it took nothing in two headless matches. It costs soldiers: 30-45 lost a match instead of 15-20.",
-    "Everon too: the doctrine with storm won 4-1 (three bases taken, 13 soldiers lost) where the same matchup ended 2-2 before storm.",
+    "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville; and in the first headless storm match the USSR doctrine won 3-2 too (Moss Hill at 16.7, Arleville at 27.3 min), where before storm it took nothing in two headless matches. It costs soldiers: 30-45 lost a match instead of 15-20.",
+    "Everon too: the doctrine with storm won 4-1 (three bases taken, 13 soldiers lost) where the same matchup ended 2-2 before storm - but see the bug below for its second half.",
+    "Bug found and fixed (07:27): the watched and the headless match share one strategist bridge, and the doctrine kept its memory per side only - two matches with the same strategist on the same side reset each other. Affected: headless llm-phased v none (05:22) and phased v none (06:54), watched US llm-phased (05:16, the first 9 min of 05:44) and the second half of the Everon 4-1 (06:42). Now memory is per match and side.",
     "Watch first: the picks at the top of the videos, newest first. The camera now cuts to FPV drone runs at launch and to every storm.",
 ]
 
@@ -50,7 +51,7 @@ NEXT = [
 
 # Recordings worth watching first: video stem -> why.
 WATCH_FIRST = {
-    "2026-10-19_0642_w2-everon-phased-v-none": "Everon, the attack doctrine with storm (US) wins 4-1: two defender squads join, storm on Tiller's Find at 10:49 - taken 90 s later - then Villeneuve at 19:20 and Gravette at 22:51; the US lost 13. 13 drone runs on camera. The same matchup before storm: 2-2.",
+    "2026-10-19_0642_w2-everon-phased-v-none": "Everon, the attack doctrine with storm (US) wins 4-1: two defender squads join, storm on Tiller's Find at 10:49 - taken 90 s later - then Villeneuve at 19:20 and Gravette at 22:51; the US lost 13. 13 drone runs on camera. From about 12:00 its doctrine's memory was disturbed by the headless match (bug, fixed).",
     "2026-10-19_0614_w1-arland-none-v-llm-phased": "The whole doctrine (USSR, Gemini + attack doctrine) wins 3-2: gathers, commits two defender squads, STORMS Moss Hill at 9:03 and takes it at 14:48, commits again, storms Arleville at 19:33 and takes it at 25:19; the camera cuts to the drone runs. Costly: USSR lost 30, the US 11, FIA 82.",
     "2026-10-19_0417_w1-arland-none-v-llm-phased": "Gemini + the attack doctrine (USSR) wins 3-2 on bases: gathers at its main base, assaults Airport Base with two FPV teams in support and takes it at 12:15, then Farm at 22:16; USSR lost 5 soldiers, the US 14, FIA 70; 13 drone strikes, 8 kills.",
     "2026-10-19_0544_w3-arland-llm-phased-v-none": "The new storm (US, Gemini + doctrine): two defender squads join at 10:47 and 12:02, the US storms Moss Hill at 13:32 and takes it at 19:33 - the match before, without storm, needed until 26:02; then it storms Arleville. 2-2; FIA lost 66, the US 20.",
