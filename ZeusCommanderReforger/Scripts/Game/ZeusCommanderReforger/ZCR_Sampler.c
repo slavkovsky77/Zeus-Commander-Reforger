@@ -26,6 +26,7 @@ class ZCR_SoldierState
 	int m_iAt;
 	int m_iStance;
 	bool m_bMoving;
+	float m_fSpeed;        // m/s since the last sample
 	bool m_bInVehicle;
 	string m_sSide;
 }
@@ -370,7 +371,8 @@ class ZCR_Sampler
 						st.m_iAt = now;
 					}
 					float dt = Math.Max(1, now - st.m_iAt);
-					st.m_bMoving = vector.DistanceXZ(st.m_vPos, c.GetOrigin()) / dt > MOVING_MPS;
+					st.m_fSpeed = vector.DistanceXZ(st.m_vPos, c.GetOrigin()) / dt;
+					st.m_bMoving = st.m_fSpeed > MOVING_MPS;
 					st.m_vPos = c.GetOrigin();
 					st.m_iAt = now;
 					st.m_vEye = c.EyePosition();
@@ -524,9 +526,23 @@ class ZCR_Sampler
 				nearestField.Sort();
 				spacing = Math.Round(nearestField[nearestField.Count() / 2]);
 			}
+			// Pace on the move (Martin: "I see Soviet guys walking in the open"): the median speed of
+			// soldiers on foot moving over 3 km/h - a walk is ~1.7 m/s, a jog ~3.5 (10 = 1 m/s).
+			array<float> paces = {};
+			foreach (IEntity pe, ZCR_SoldierState ps : m_mState)
+			{
+				if (pe && ps && ps.m_sSide == side && !ps.m_bInVehicle && ps.m_bMoving && ps.m_fSpeed < 8)
+					paces.Insert(ps.m_fSpeed);
+			}
+			int pace = -1;
+			if (!paces.IsEmpty())
+			{
+				paces.Sort();
+				pace = Math.Round(10 * paces[paces.Count() / 2]);
+			}
 			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
 				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct)
-				+ string.Format(" team=%1 spacing=%2 at_main=%3", Math.Round(team * 10) / 10.0, spacing, Math.Round(100.0 * (men.Count() - field) / men.Count())), LogLevel.NORMAL);
+				+ string.Format(" team=%1 spacing=%2 at_main=%3 pace=%4", Math.Round(team * 10) / 10.0, spacing, Math.Round(100.0 * (men.Count() - field) / men.Count()), pace), LogLevel.NORMAL);
 			// Soldiers at their main base (Martin: "they just chill on the bases, doing push-ups").
 			ZCR_Feed.s_mAtBase.Set(side, Math.Round(100.0 * (men.Count() - field) / men.Count()));
 			if (fieldPct >= 0)
