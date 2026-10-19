@@ -36,6 +36,7 @@ def measure(lines) -> dict:
     by = defaultdict(Counter)          # side -> {killer kind: n}
     friendly = 0
     captures = Counter()
+    no_fia_split = False
     plans = Counter()
     misses = 0
     snapshots = 0
@@ -58,8 +59,11 @@ def measure(lines) -> dict:
             t_end = max(t_end, int(f.get("t", 0) or 0))
         elif "BASE_OWNER_CHANGED]" in line:
             f = fields(line, "BASE_OWNER_CHANGED]")
-            if f.get("new_owner"):
+            # Not the two-army scenario's split at the start (-zcrNoFIA hands FIA's bases out at t=15).
+            if f.get("new_owner") and not (f.get("old_owner") == "FIA" and no_fia_split):
                 captures[f["new_owner"]] += 1
+        elif "CLI Params:" in line and "-zcrNoFIA" in line:
+            no_fia_split = True
         elif "[ZCR][PLAN]" in line:
             plans[fields(line, "[ZCR][PLAN]").get("source", "?")] += 1
         elif "[ZCR][BRIDGE_MISS]" in line:
