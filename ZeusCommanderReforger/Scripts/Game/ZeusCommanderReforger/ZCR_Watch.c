@@ -115,7 +115,6 @@ class ZCR_Watch
 	protected ref array<IEntity> m_aNear = {};
 	// Free look: the camera is the watcher's - WASD, right mouse held to look, Shift faster, Q/E down/up.
 	protected bool m_bFree;
-	protected bool m_bScanned;
 	protected float m_fOrbitYaw;          // the watcher's turn round the shot (right mouse), 0 = from the south
 	protected float m_fOrbitLift = 1;     // and up or down (height factor)
 	protected int m_iOrbitX = -1;
@@ -315,24 +314,6 @@ class ZCR_Watch
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
 		ZCR_WatchControls.Tick(m_fClock);
-		// -zcrDiagScan: once, 100 s in (after the lab set the speed with keys), the engine's Diag Menu
-		// values that read like a time multiplier - to find the ID of "DTime multiplier" and set the
-		// speed from script instead of ~200 key presses (they went astray while Martin typed).
-		if (!m_bScanned && m_fClock > 100 && System.IsCLIParam("zcrDiagScan"))
-		{
-			m_bScanned = true;
-			int found;
-			for (int id; id < 20000; id++)
-			{
-				float r = DiagMenu.GetEngineRangeValue(id);
-				if (r > 1.05 && r < 25)
-				{
-					Print(string.Format("[ZCR][DIAGSCAN] id=%1 range=%2 value=%3 prev_value=%4", id, r, DiagMenu.GetEngineValue(id), DiagMenu.GetEngineValue(id - 1)), LogLevel.NORMAL);
-					found++;
-				}
-			}
-			Print(string.Format("[ZCR][DIAGSCAN] done found=%1 timescale=%2", found, world.GetTimeScale()), LogLevel.NORMAL);
-		}
 		if (m_Camera && m_bFree)
 		{
 			FreeMove(world);
