@@ -115,6 +115,7 @@ class ZCR_Watch
 	protected ref array<IEntity> m_aNear = {};
 	// Free look: the camera is the watcher's - WASD, right mouse held to look, Shift faster, Q/E down/up.
 	protected bool m_bFree;
+	protected bool m_bScanned;
 	protected vector m_vFreePos;
 	protected float m_fYaw;
 	protected float m_fPitch = -30;
