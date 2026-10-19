@@ -58,6 +58,7 @@ BUILDS = [
     (11, "walk and ride", "2026-10-19 15:25", "Arma 3's walk and ride measures (squads report whether they ride), engine measures; recordings of the game window only"),
     (12, "covered dismount", "2026-10-19 15:40", "light vehicles first; our side's vehicles stop 200-400 m short where the objective can't see them; solo 2x watched matches"),
     (13, "fireteams, side panels, bounding", "2026-10-19 16:58", "AI Conflict changed: 20 fireteams of 5 per side in a wedge; Arma 3's side panels; bounding on; drone shot to the hit; covered dismount on long rides"),
+    (14, "two armies, drone sites", "2026-10-19 17:56", "watched matches: two armies only (no FIA); drones only from drone sites (truck + operators); stuck drones retargeted"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
 KEYS = ["team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",

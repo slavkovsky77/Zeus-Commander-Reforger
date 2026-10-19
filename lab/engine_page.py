@@ -23,13 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The self-improving loop at double speed: the watched match is hosted by the game itself at 2x (the Diag Menu's time multiplier), recorded from the game window; a headless head-to-head beside it at 1x. Drones on both sides.",
+    "Running now": "The watched loop at 2x (1.5x on Everon), two armies only (no FIA), fireteams of 5, drone trucks with operators, Arma 3's side panels; a headless head-to-head beside it at 1x.",
     "Today's result": "Working with the game's own cover (r10) gave the best headless match so far: 4-2 in bases, exchange 1.36, soldiers in the game's cover 40% of the time (AI Conflict alone 24-27%). Reforger runs at 2x in solo; drones now show on screen.",
-    "Being built next": "Covered dismount on light vehicles (drive to a point the objective can't see, then clear it on foot), the cover layer working with the game's cover, then spacing.",
+    "Being built next": "Measuring fireteams, bounding and drone sites in the two-army matches; drone sites moving forward with the front; riding to the attack more often.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r14", "Two armies only, drone trucks",
+     "Your test scenario: -zcrNoFIA splits FIA's bases between the two sides at the start, so the front is in the middle from the first minute; the base game's ambient FIA patrols (which spawn near any player, the camera too) are blocked. Drones launch only from drone sites - a drone truck with a 2-man operator team, at the main base and later a forward base; destroy the truck or both operators and that base has no drones (the main site is rebuilt after 5 min); a side that has seen an enemy site sends every third team at it."),
+    ("good", "r13", "Fireteams of 5, changed in AI Conflict itself",
+     "AI Conflict now runs 20 teams of 5 per side (12 attack, 8 defend) in a wedge instead of 10 squads of 10 in single file - the same 100 soldiers. First measures: 2.3 soldiers per team on average (teams fill one by one), 7.5 m to the nearest friend in the field (a squad in single file sat at 3-5 m). The doctrine commits 4 defender teams."),
+    ("good", "r13", "Bounding on by default",
+     "Refined Arma 3 bounding (two halves, one covers while the other moves 35-60 m; only with the enemy 60-350 m away and 4+ men): the probe lost 5 instead of 14, exchange 3.4, two bases taken."),
+    ("good", "watch", "Arma 3's side panels, closer on fights, drones to the end",
+     "BLUFOR left, OPFOR right, in Arma 3's colours: who commands, plan, what its teams do now, drones and drone sites, the latest decisions (captures green, losses red, plans and storms yellow); score, game time and speed on top; losses, cover and stacking along the bottom. Fights from 60 m, close-ups over the shoulder; a drone is followed until it hits and the camera stays on the explosion; stuck drones get a new target after 25 s."),
+    ("bug", "r13", "A cut situation report",
+     "With 20 fireteams on Everon's 39 bases the report passed 8191 characters, where string.Format stops - the bridge couldn't read it and the doctrine never planned (watched Everon 17:13). Now joined, not formatted."),
     ("good", "r10", "Best headless match so far",
      "First headless match with the cover layer working with the game's own cover: the USSR doctrine took Moss Hill at 10.7 min, then Arleville and Signal Hill - 4-2 in bases, exchange 1.36, 14 lost. Our soldiers sat in the game's own cover 40.5% of the time (AI Conflict alone 24-27%); drones caused 50% of all losses, ours killed 78, 2 lost to theirs. Arma 3's stricter measure (something solid within 3 m toward the enemy) still reads 9.5% - the game's cover includes leaning out to shoot."),
     ("good", "watch", "Drones on screen, the picture fills the window",
@@ -163,6 +173,19 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (14, "two armies, drone sites", "19 Oct, from 17:56",
+     ["-zcrNoFIA test scenario: FIA's bases split between the sides at the start; FIA ambient patrols blocked; the watched matches run it.",
+      "Drone sites: drone truck + 2 operators at the main base and a forward base; launches only from a ready site; lost when the truck or both operators are destroyed; counter-drone strikes at enemy sites a side has seen.",
+      "Stuck drones retargeted after 25 s at the goal, home after 90 s; the camera stays on a drone's impact 4 s."],
+     "Martin: for testing just two factions, no FIA; drone operators or drone trucks you can destroy; drones stuck in the air; I don't see the explosion.",
+     "First two-army probe (before the patrol fix): no capture in 20 min, USSR stormed at 18.5 min; teams 2.3 soldiers, 7.5 m apart; our drones killed 33, none lost to theirs."),
+    (13, "fireteams, side panels, bounding", "19 Oct, from 16:58",
+     ["AI Conflict changed (branch zcr): 20 fireteams of 5 per side in a wedge instead of 10 squads of 10 in a column.",
+      "Arma 3's side panels in its colours; firefights from 60 m, close-ups over the shoulder; drones followed to the hit.",
+      "Bounding on by default; team size and spacing measured; the doctrine commits 4 defender teams.",
+      "The situation report joined instead of formatted (it was cut at 8191 characters on Everon)."],
+     "Martin: groups of 2-5, never single file down a road; BLUFOR left, OPFOR right like Arma 3, coloured; zoom in on fights; rework AI Conflict itself.",
+     "Bounding probe: 5 lost instead of 14, exchange 3.4. Headless US Gemini doctrine with fireteams 3-2."),
     (12, "covered dismount, light vehicles, drones on screen", "19 Oct, from 15:40",
      ["Motorized squads get AI Conflict's light vehicles first (US M998, USSR UAZ-452), trucks only when the squad doesn't fit (-zcrMotorizeTruck for trucks).",
       "Covered dismount for our side: everyone out at the first spot on the drive 180-450 m short of the objective that it can't see (third design; routing to a hidden point sent trucks the long way round).",
