@@ -24,6 +24,7 @@ class ZCR_DroneSite
 class ZCR_DroneSites
 {
 	static ref array<ref ZCR_DroneSite> s_aSites = {};
+	protected static ref map<string, int> s_mForwardTriedAt = new map<string, int>();
 	static const int FIRST_READY = 60;
 	static const int SETUP = 120;
 	static const int REBUILD = 300;
@@ -115,8 +116,12 @@ class ZCR_DroneSites
 				at = pos;
 			}
 		}
-		if (at != vector.Zero)
+		// A failed try (no clear ground there) is retried after 2 minutes, not every tick.
+		if (at != vector.Zero && (!s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 120))
+		{
+			s_mForwardTriedAt.Set(side, now);
 			Create(side, at, front, false, now + SETUP);
+		}
 	}
 
 	protected static bool Destroyed(ZCR_DroneSite s)

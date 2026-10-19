@@ -226,6 +226,23 @@ class ZCR_Drones
 			return;
 		if (Active(side) >= maxUp)
 			return;
+		// Drones go where enemies are known (19 Oct, two armies: 61 of 84 drones flew to an enemy base
+		// nobody had been seen at and were lost hovering). An enemy-held base with nobody seen near it:
+		// the nearest enemy the side saw within 1.5 km instead, or no team. FIA's garrisons are always there.
+		string holder = ZCR_Strategist.s_mNodeOwner.Get(target);
+		if (why != "hunt" && why != "counter-drone" && holder != "FIA" && ZCR_Sampler.KnownEnemiesNear(side, goal, 250) == 0)
+		{
+			vector seen;
+			if (!ZCR_Sampler.NearestKnown(side, goal, 1500, seen))
+			{
+				s_mNextAt.Set(side, now + 30);
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 nobody seen near %3 - no team", now, side, goalName), LogLevel.NORMAL);
+				return;
+			}
+			goal = seen;
+			goalName = string.Format("enemies seen near %1", ZCR_Strategist.s_mNodeName.Get(Nearest(seen)));
+			why = why + "-seen";
+		}
 		vector from;
 		float best = 1e9;
 		if (ZCR_DroneSites.On())
