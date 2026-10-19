@@ -42,6 +42,7 @@ NEXT = [
 # Recordings worth watching first: video stem -> why.
 WATCH_FIRST = {
     "2026-10-19_0417_w1-arland-none-v-llm-phased": "Gemini + the attack doctrine (USSR) wins 3-2 on bases: gathers at its main base, assaults Airport Base with two FPV teams in support and takes it at 12:15, then Farm at 22:16; USSR lost 5 soldiers, the US 14, FIA 70; 13 drone strikes, 8 kills.",
+    "2026-10-19_0544_w3-arland-llm-phased-v-none": "The new storm (US, Gemini + doctrine): two defender squads join at 10:47 and 12:02, the US storms Moss Hill at 13:32 and takes it at 19:33 - the match before, without storm, needed until 26:02; then it storms Arleville. 2-2; FIA lost 66, the US 20.",
     "2026-10-19_0446_w1-everon-phased-v-none": "Everon, the attack doctrine (US): two defender squads join the attack at 11:45 and 12:45, two FPV teams go in on Régina; the attack stalls 150 m out, is called off, and Camurac falls at 26:01. 2-2 on bases; FIA lost 43, the US 6.",
 }
 
