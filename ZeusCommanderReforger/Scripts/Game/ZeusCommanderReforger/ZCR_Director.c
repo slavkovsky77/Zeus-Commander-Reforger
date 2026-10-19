@@ -186,6 +186,10 @@ class ZCR_Director
 			{
 				bestDistance = d;
 				best = ZCR_Strategist.s_mNodeName.Get(node);
+				// Whose: both sides' main bases have the same name on Everon.
+				string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
+				if (!owner.IsEmpty())
+					best += " (" + owner + ")";
 			}
 		}
 		if (best.IsEmpty())
@@ -486,6 +490,34 @@ class ZCR_Director
 			back = 90;
 			height = 80;
 			duration = 16;
+		}
+		if (key.IsEmpty() && m_sLastKey == "hot")
+		{
+			// The hot zone again: one side's objective instead, the sides in turn (Arma 3's
+			// objective shot) - the quiet first minutes otherwise show the same view over and over.
+			string side = "US";
+			if (m_iShot % 2 == 0)
+				side = "USSR";
+			for (int k = 0; k < 2 && key.IsEmpty(); k++)
+			{
+				ZCR_StrategicPlan sidePlan = ZCR_StrategicPlan.Get(side);
+				int node = sidePlan.GetMainEffort();
+				if (node >= 0 && ZCR_Strategist.s_mNodePos.Contains(node))
+				{
+					target = ZCR_Strategist.s_mNodePos.Get(node);
+					string intent = sidePlan.GetIntent();
+					if (intent.Length() > 100)
+						intent = intent.Substring(0, 100) + "...";
+					label = string.Format("%1 OBJECTIVE: %2 (%3) - %4", side, ZCR_Strategist.s_mNodeName.Get(node), ZCR_Strategist.s_mNodeOwner.Get(node), intent);
+					key = "objective" + side;
+					back = 350;
+					height = 260;
+				}
+				if (side == "US")
+					side = "USSR";
+				else
+					side = "US";
+			}
 		}
 		if (key.IsEmpty())
 		{
