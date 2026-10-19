@@ -59,6 +59,8 @@ def start(o: Namespace, tag: str):
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     profile = ROOT / ".runtime" / "runs" / f"{o.label}-{tag}-{stamp}"
     profile.mkdir(parents=True)
+    if o.client or o.solo:
+        reforger.window_settings(profile / "profile")
     cmd = reforger.command(o, profile)
     out = open(profile / "stdout.log", "w", encoding="utf-8", errors="replace")
     proc = subprocess.Popen(cmd, cwd=str(Path(cmd[0]).parent), stdout=out, stderr=subprocess.STDOUT)
@@ -272,18 +274,15 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             meta["ended"] = "no game window"
             return meta
         if solo:
-            # The speed first: the Diag Menu is worked with Win held, and Windows takes Win+arrow as
-            # "snap the window" (19 Oct: it ended a narrow 851x1341 strip) - so maximise after it,
-            # until it stays.
             if speed > 1:
                 keys.set_speed(hwnd, speed)
                 log(f"time multiplier {speed:g}x set")
-            sw = user32.GetSystemMetrics(0)
-            for _ in range(6):
-                keys.normal_maximised(hwnd)
+            # The game opens in its own MAXIMIZED mode (reforger.window_settings); the speed is set
+            # first (the Diag Menu is worked with Win held, and Windows takes Win+arrow as "snap the
+            # window"), then the window maximised again in case it snapped.
+            if not user32.IsZoomed(hwnd):
+                user32.ShowWindow(hwnd, 3)
                 time.sleep(3)
-                if user32.IsZoomed(hwnd) and client_rect(hwnd)[2] >= sw * 0.9:
-                    break
             log(f"window {client_rect(hwnd)[2]}x{client_rect(hwnd)[3]}{' maximised' if user32.IsZoomed(hwnd) else ' NOT maximised'}")
         if keep_front:
             user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)

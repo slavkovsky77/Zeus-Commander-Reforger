@@ -84,6 +84,22 @@ def command(a, profile: Path) -> list:
     return cmd
 
 
+def window_settings(profile: Path) -> None:
+    """The game on screen opens in the game's own MAXIMIZED mode - a normal window with borders at the
+    screen's resolution (Martin: windowed, full resolution). Resizing the window from outside left
+    the picture at the default 1280x720 in a corner; the game sizes it right only from its settings."""
+    docs = Path.home() / "Documents" / "My Games" / "ArmaReforger" / "profile" / ".save"
+    users = sorted(docs.glob("app1874880_user*")) if docs.exists() else []
+    name = users[0].name if users else "app1874880_user0"
+    import ctypes
+    w, h = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+    d = profile / ".save" / name / "settings"
+    d.mkdir(parents=True, exist_ok=True)
+    lines = ["EngineUserSettings {", " VideoUserSettings VideoUserSettings {", '  MaxFps "60"', "  WindowMode MAXIMIZED",
+             f"  ScreenWidth {w}", f"  ScreenHeight {h}", "  ResolutionScale 1", "  WindowPosX 0", "  WindowPosY 0", " }", "}", ""]
+    (d / "ReforgerEngineSettings.conf").write_text(chr(10).join(lines), encoding="utf-8")
+
+
 def console_log(profile: Path):
     logs = sorted(profile.glob("logs/*/console.log"), key=lambda p: p.stat().st_mtime)
     return logs[-1] if logs else None
@@ -118,6 +134,8 @@ def main() -> int:
         print(f"missing {exe} - install it first (Steam: Library > Tools > Arma Reforger Server)")
         return 1
     profile.mkdir(parents=True)
+    if a.client or getattr(a, "solo", False):
+        window_settings(profile / "profile")
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
     if a.client:
