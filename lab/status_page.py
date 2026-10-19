@@ -25,17 +25,17 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 
 # Kept by hand as the night goes: what is open, what is next.
 PROBLEMS = [
-    ("risk", "Few matches yet", "Each matchup gets one or two 30-minute matches tonight. One match decides little; read the margins as a first look, with the control row as the size of chance."),
-    ("risk", "Early game is quiet", "AI Conflict's squads start with one soldier and fill up at barracks, so the first 10-15 minutes are mostly marching and fights against FIA garrisons."),
-    ("risk", "Drone strikes kill about one in three", "First drone test: 2 teams, 8 detonations on soldiers, 3 deaths; two soldiers were struck twice. A note for the FPV AI Drones chat (review note 98)."),
-    ("finding", "Assaults trickle in", "Phased USSR on Arland 'assaulted' Airport Base for 25 minutes without taking it: only 2-3 squads ever went (FIA lost 18, USSR 19 there). AI Conflict refills squads one at a time and sends each as it is ready, and its 4 DEFEND squads never attack. The doctrine's count also took in the home garrison (main base 430 m away) - fixed. Being tested: the doctrine commits 2 DEFEND squads to the assault while nothing of ours is being captured."),
-    ("risk", "Captures are rare", "0-2 bases change hands in a 30-minute match, the first at about 16 minutes - the score barely moves, so losses and time to the first capture matter as much."),
-    ("design", "Watched matches differ a little", "The camera's observer loads FIA garrisons where it looks, and only watched matches have drones - the measurements come from the headless matches."),
+    ("finding", "Squads stop 300-600 m short", "AI Conflict walks squads to an objective in 220 m steps, and a Reforger group under fire stops to fight at each step: on Moss Hill 40-65 USSR soldiers held 270-600 m out for 23 minutes. Fix (from 05:45): the doctrine STORMS after 4 minutes of assault - the attack orders get a player-order priority, like a Game Master's forced move. Probe: the nearest squad went 446 -> 88 m in 6 minutes and the USSR took Moss Hill at 16.7 minutes - the first USSR capture headless tonight; costly (FIA 35, USSR 28 lost around it)."),
+    ("finding", "Assaults trickled in", "AI Conflict refills squads one at a time and its 4 DEFEND squads never attack. Fix (from 04:52): the doctrine COMMITS 2 defender squads to the assault while nothing of ours is being captured; seen in every doctrine match since (6-9 men each), released after a capture or a threat."),
+    ("risk", "Captures are rare", "0-2 bases change hands in a 30-minute match, the first at about 15 minutes; headless control (no strategist) ends US 2 - USSR 1 every time. A base that changes that is a real signal."),
+    ("risk", "Watched and headless matches differ", "FIA garrisons spawn only near an observer - in watched matches the camera is one - and only watched matches have FPV drones (5 teams, 8-21 FIA kills a match). Measurements come from the headless matches."),
+    ("risk", "Drone strikes kill about one in three", "13-16 strikes a watched match, 8-21 kills; two soldiers struck twice survived in the first test. A note for the FPV AI Drones chat (review note 98)."),
 ]
 NEXT = [
-    "Drones in the measured matches too, once the doctrine's own numbers are in: does the commander do better with them?",
+    "Measure storm in the headless matches (none v phased from 06:24, phased v none from 06:55): first capture time and the USSR's Moss Hill.",
+    "Siege when too weak (Arma 3): hold at the staging base and bring drones and mortars on the objective before storming.",
+    "Drones in the measured matches too: does the commander do better with them?",
     "More matches per matchup, and Everon next to Arland.",
-    "The rest of the Arma 3 doctrine: prep fire before the assault (mortars, drones), siege when too weak, storm when few defenders are left.",
     "Phone buttons for the watch mode, as on Arma 3 (next / previous shot, follow a group, map).",
 ]
 
