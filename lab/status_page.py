@@ -28,10 +28,35 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 SUMMARY = [
     "The loop runs: a watched, recorded match and a headless head-to-head side by side, all night; every change goes in at the next match boundary.",
     "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
-    "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. Headless, the USSR doctrine lost 1-2 twice before storm and won 3-2 and 2-1 with it (rules, then Gemini). It costs soldiers: 30-45 lost a match instead of 15-20 when it storms a hill.",
+    "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. Headless, the USSR doctrine lost 1-2 twice before storm and won 3-2 and 2-1 with it (rules, then Gemini). On the US side (Arland's stronger side) no gain yet: 2-2 with storm, where AI Conflict's own US wins 2-1 in three controls of four. It costs soldiers: 30-45 lost a match instead of 15-20 when it storms a hill.",
     "Everon too: the doctrine with storm won 4-1 (three bases taken, 13 soldiers lost) where the same matchup ended 2-2 before storm - but see the bug below for its second half.",
     "Bug found and fixed (07:27): the watched and the headless match share one strategist bridge, and the doctrine kept its memory per side only - two matches with the same strategist on the same side reset each other. Affected: headless llm-phased v none (05:22) and phased v none (06:54), watched US llm-phased (05:16, the first 9 min of 05:44) and the second half of the Everon 4-1 (06:42). Now memory is per match and side.",
     "Watch first: the picks at the top of the videos, newest first. The camera now cuts to FPV drone runs at launch and to every storm.",
+]
+
+# Every match tonight, by hand: (start, where, map, doctrine side and strategist, doctrine then,
+# memory bug?, bases US-USSR at the end, the doctrine side's captures).
+NIGHT = [
+    ("03:20", "headless", "Arland", "control: AI Conflict on both sides", "", "", "2-1", "-"),
+    ("03:51", "headless", "Arland", "USSR rules", "gather", "", "2-1", "none"),
+    ("04:21", "headless", "Arland", "US rules", "gather", "", "2-1", "Airport Base 15.5 min"),
+    ("04:52", "headless", "Arland", "USSR Gemini", "gather + commit", "", "2-1", "none (Moss Hill 23 min, never closer than 270 m)"),
+    ("05:22", "headless", "Arland", "US Gemini", "gather + commit", "yes", "2-1", "Airport Base 18 min"),
+    ("05:53", "headless", "Arland", "control", "", "", "2-2", "-"),
+    ("06:24", "headless", "Arland", "USSR rules", "+ storm", "", "2-3", "Moss Hill 16.7, Arleville 27.3 min"),
+    ("06:54", "headless", "Arland", "US rules", "+ storm", "yes", "2-2", "Moss Hill 29 min"),
+    ("07:25", "headless", "Arland", "USSR Gemini", "+ storm", "", "1-2", "Airport Base 15.7 min"),
+    ("07:55", "headless", "Arland", "US Gemini", "+ storm", "", "2-2", "Airport Base 10.7 min"),
+    ("08:26", "headless", "Arland", "control", "", "", "2-1", "-"),
+    ("04:17", "watched", "Arland", "USSR Gemini", "gather, drones", "", "2-3", "Airport Base 12:15, Farm 22:16"),
+    ("04:46", "watched", "Everon", "US rules", "+ commit, drones", "", "2-2", "Camurac 26:01"),
+    ("05:15", "watched", "Arland", "US Gemini", "+ commit, drones", "yes", "2-2", "Moss Hill 26:02"),
+    ("05:44", "watched", "Arland", "US Gemini", "+ storm, drones", "first 9 min", "2-2", "Moss Hill 19:33"),
+    ("06:14", "watched", "Arland", "USSR Gemini", "+ storm, drones", "", "2-3", "Moss Hill 14:48, Arleville 25:19"),
+    ("06:42", "watched", "Everon", "US rules", "+ storm, drones", "second half", "4-1", "Tiller's Find, Villeneuve, Gravette"),
+    ("07:12", "watched", "Arland", "US Gemini", "+ storm, drones", "", "2-2", "Moss Hill 17:19"),
+    ("07:41", "watched", "Everon", "USSR rules", "+ storm, drones", "", "3-2", "Old Wood 13:59"),
+    ("08:11", "watched", "Arland", "USSR Gemini", "+ storm, drones", "", "2-2", "Airport Base 17:47"),
 ]
 
 PROBLEMS = [
@@ -179,7 +204,8 @@ def build() -> str:
         now=now, n_batch=len(done), n_videos=len(vids), watch_n=running_watch, verdict_best=html.escape(verdict_best),
         chart=bar_chart(chart, ""), table="".join(table) or "<tr><td colspan='9' class='muted'>Waiting for the first 30-minute match.</td></tr>",
         videos="".join(vid_html) or "<p class='muted'>The first recording is on its way.</p>", problems=probs, next=nxt, log=log,
-        summary="".join(f"<li>{html.escape(x)}</li>" for x in SUMMARY))
+        summary="".join(f"<li>{html.escape(x)}</li>" for x in SUMMARY),
+        results="".join("<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in r) + "</tr>" for r in NIGHT))
 
 
 TEMPLATE = """<title>Reforger Commander Lab</title>
@@ -242,6 +268,13 @@ pre.mermaid {{ background:var(--surface); border:1px solid var(--rule); padding:
 
 <h2>The night in short</h2>
 <ul class="summary">{summary}</ul>
+
+<h2>Results tonight</h2>
+<p>Every match, in order. "Bug" marks the matches whose doctrine memory was disturbed by the other match (fixed 07:27). Watched times are video times. Headless controls (AI Conflict on both sides) end US 2 - USSR 1 three times out of four: Arland favours the US.</p>
+<div class="table-wrap"><table>
+<tr><th>Start</th><th>Match</th><th>Map</th><th>Doctrine side</th><th>Doctrine</th><th>Bug</th><th>Bases US-USSR</th><th>Doctrine side took</th></tr>
+{results}
+</table></div>
 
 <h2>Does the strategist help?</h2>
 <p>Bases held at the end of a 30-minute match by the side with the strategist, minus the other side's. Each strategist plays both US and USSR, so a side's map advantage cancels out. The control row is AI Conflict against itself: how far apart two equal sides land by chance.</p>
