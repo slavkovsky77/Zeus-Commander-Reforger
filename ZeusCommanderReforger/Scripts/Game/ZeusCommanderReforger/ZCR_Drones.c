@@ -224,11 +224,16 @@ class ZCR_Drones
 					return p;
 			}
 		}
-		return base + toward * 60;
+		// Nothing clear: the base itself (on land) rather than a guess that may be in the water.
+		return base;
 	}
 
 	protected static bool Clear(BaseWorld world, vector p)
 	{
+		// Not in the water: the sea is level too (19 Oct, Arland: 60 US drones launched into the
+		// harbour beside its main base and were lost).
+		if (world.IsOcean() && p[1] < world.GetOceanBaseHeight() + 1.0)
+			return false;
 		if (!s_Trace)
 			s_Trace = new TraceParam();
 		s_Trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;

@@ -301,7 +301,7 @@ def measure_run(run: Path, log: Path):
     # never recruits - such a match says nothing about the strategist.
     row["recruits"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={side} " in l)
     row["recruits_other"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={other} " in l)
-    if m["minutes"] >= 20 and (row["recruits"] == 0 or row["recruits_other"] == 0):
+    if m["minutes"] >= 20 and (row["recruits"] < 20 or row["recruits_other"] < 20):
         return None
 
     # Approach: the nearest squad sent to the first objective, 6 min after the assault order.

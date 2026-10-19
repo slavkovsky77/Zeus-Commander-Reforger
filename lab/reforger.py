@@ -59,7 +59,10 @@ def command(a, profile: Path) -> list:
     # don't stop the game with a dialog; they are still logged.
     cmd += ["-addonsDir", ",".join(roots), "-addons", addons, "-profile", str(profile), "-backendFreshSession", "-noThrow"]
     if not a.client:
-        cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000",
+        # -aicfConstructionAttempts 512 (AI Conflict's maximum, default 256): Arland's harbour main base
+        # is cramped (water, access corridors) and its side's barracks search ran out of budget - that
+        # side never recruited (19 Oct 13:27 US, 15:36 USSR).
+        cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000", "-aicfConstructionAttempts", "512",
                 "-zcrPlanSeconds", str(a.plan_seconds), "-zcrLabWeather"]
         if a.bridge:
             cmd += ["-zcrBridge", a.bridge_url]
