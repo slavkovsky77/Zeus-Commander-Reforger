@@ -59,11 +59,12 @@ BUILDS = [
     (12, "covered dismount", "2026-10-19 15:40", "light vehicles first; our side's vehicles stop 200-400 m short where the objective can't see them; solo 2x watched matches"),
     (13, "fireteams, side panels, bounding", "2026-10-19 16:58", "AI Conflict changed: 20 fireteams of 5 per side in a wedge; Arma 3's side panels; bounding on; drone shot to the hit; covered dismount on long rides"),
     (14, "two armies, drone sites", "2026-10-19 17:56", "watched matches: two armies only (no FIA); drones only from drone sites (truck + operators); stuck drones retargeted"),
+    (15, "drone reaction", "2026-10-19 20:40", "soldiers (both sides) run to overhead cover or get down when an enemy drone is within 150 m; scatter after a hit; watched at 3x"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
             ("everon-watched-2a", "Everon watched, two armies")]
-KEYS = ["loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -153,6 +154,56 @@ def approach_metrics(snaps: list, side: str) -> dict:
         return {}
     return {"walk": round(statistics.median(d for _, d in done)), "rode": round(100 * sum(r for r, _ in done) / len(done), 1),
             "arrivals": len(done)}
+
+
+def drone_exposure(lines: list, detonations: list) -> dict:
+    """How soldiers (both sides) behave when drones come (Martin: "with danger from drones they should
+    run like hell to cover - measure it, in detail"): of the soldiers within 150 m of an enemy drone,
+    % under a roof or canopy, % running to cover, % prone ([ZCR][DRONETHREAT], from r15); of the
+    soldiers drones killed (no killer, within 5 s of a detonation), % caught in the open (nothing
+    overhead) and % standing up; of the soldiers in the field, % with nothing overhead ([ZCR][CROWD])."""
+    out = {}
+    near = cov = run = pr = 0
+    for l in lines:
+        if "[ZCR][DRONETHREAT]" in l and " near=" in l:
+            f = metrics.fields(l, "[ZCR][DRONETHREAT]")
+            n = int(f.get("near", 0))
+            near += n
+            cov += n * int(f.get("covered", 0))
+            run += n * int(f.get("reacting", 0))
+            pr += n * int(f.get("prone", 0))
+    if near:
+        out["drone_near_covered"] = round(cov / near, 1)
+        out["drone_near_running"] = round(run / near, 1)
+        out["drone_near_prone"] = round(pr / near, 1)
+    victims = open_ = standing = 0
+    for l in lines:
+        if "[ZCR][LOSS]" not in l or " above=" not in l:
+            continue
+        f = metrics.fields(l, "[ZCR][LOSS]")
+        if f.get("kind") != "man" or f.get("killer_kind", "none") != "none":
+            continue
+        c = metrics.clock(l)
+        if c is None or not any(0 <= c - d <= 5 for d in detonations):
+            continue
+        victims += 1
+        if f.get("above") == "none":
+            open_ += 1
+        if f.get("stance") == "STAND":
+            standing += 1
+    if victims:
+        out["drone_victims_open"] = round(100 * open_ / victims, 1)
+        out["drone_victims_standing"] = round(100 * standing / victims, 1)
+    fields_, above = [], []
+    for l in lines:
+        if "[ZCR][CROWD]" in l and "field_above=" in l:
+            f = metrics.fields(l, "[ZCR][CROWD]")
+            if f.get("field_above", "-1") != "-1" and int(f.get("field", 0)) > 0:
+                fields_.append(int(f["field"]))
+                above.append(int(f["field_above"]))
+    if fields_:
+        out["field_open"] = round(100 - sum(a * n for a, n in zip(above, fields_)) / sum(fields_), 1)
+    return out
 
 
 def engine_metrics(lines: list) -> dict:
@@ -315,6 +366,7 @@ def measure_run(run: Path, log: Path):
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
     row.update(soldier_metrics(lines, side))
     row.update(engine_metrics(lines))
+    row.update(drone_exposure(lines, det))
     # AI Conflict start-up failure seen once (19 Oct 13:27): a side's barracks never built, so it
     # never recruits - such a match says nothing about the strategist.
     row["recruits"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={side} " in l)
@@ -405,6 +457,14 @@ def html(agg: dict, rows: list) -> str:
         ser("cover"), unit="%", ymax=60, target=(40, "target 40%"), better="higher")
     add("In the game's own cover", "Of the same soldiers, how many are at one of the game's own cover points (in cover, exposed to shoot or hidden) - what its attack logic counts as cover. From r10.",
         ser("incover"), unit="%", ymax=60, better="higher")
+    add("Under cover when a drone comes", "Of the soldiers (both sides) within 150 m of an enemy drone in the air, how many are under a roof or tree canopy. Measured every 10 s from r15, when soldiers started reacting to drones.",
+        ser("drone_near_covered"), unit="%", ymax=100, better="higher")
+    add("Running for cover from a drone", "Of the same soldiers, how many are running to overhead cover at that moment (and how many lie prone: see the table). From r15.",
+        ser("drone_near_running"), unit="%", ymax=100, better="higher")
+    add("Drone victims caught in the open", "Of the soldiers drones killed (no killer, within 5 s of a detonation), how many had nothing overhead - no roof, no tree crown. From r7's death records.",
+        ser("drone_victims_open"), unit="%", ymax=100, better="lower")
+    add("In the open in the field", "Of the soldiers on foot in the field (over 200 m from their main base), how many have nothing overhead - what a drone sees. From r7.",
+        ser("field_open"), unit="%", ymax=100, better="lower")
     add("Sitting ducks", "Of the soldiers lost on foot, how many were standing or lying still in the open: not covered toward the killer, no roof, not moving. From r6.",
         ser("ducks"), unit="%", ymax=100, target=(50, "limit 50%"), better="lower")
     add("Team size", "Soldiers on foot per group, on average (Martin: groups of 2-5 like Arma 3's fireteams; AI Conflict's squads were 10, fireteams of 5 from r13).",
