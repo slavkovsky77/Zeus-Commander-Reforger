@@ -15,6 +15,7 @@ class ZCR_Drones
 	// The drones of each team, for the camera director: [team index] -> drones found after launch.
 	static ref array<IEntity> s_aDrones = {};
 	static ref array<string> s_aDroneSide = {};
+	static int s_iFoundAt = -1;   // when the last team's drones were found in the air (the director cuts to them)
 
 	protected static const ResourceName WAYPOINT = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et";
 
@@ -180,6 +181,8 @@ class ZCR_DroneFinder
 				n++;
 			}
 		}
+		if (n > 0)
+			ZCR_Drones.s_iFoundAt = ZCR_LossLog.Seconds();
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 drones_found=%3 entities_near=%4", ZCR_LossLog.Seconds(), m_sSide, n, m_aFound.Count()), LogLevel.NORMAL);
 	}
 }

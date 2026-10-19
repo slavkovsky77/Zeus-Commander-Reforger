@@ -23,6 +23,10 @@ class ZCR_Director
 	protected ref array<int> m_aWatchers = {};
 	protected int m_iShot;
 	protected int m_iShotEnd;
+	protected int m_iDroneCutAt = -1;   // the drone launch the camera last cut to
+	protected bool m_bDroneNow;
+	protected IEntity m_FollowedDrone;
+	protected int m_iDroneGoneAt = -1;
 	protected int m_iNextOverlay;
 	protected string m_sLastKey;
 	protected int m_iRepeats;
@@ -131,6 +135,21 @@ class ZCR_Director
 	{
 		int now = ZCR_LossLog.Seconds();
 		WatchCaptures(now);
+		// FPV teams hit 8-20 s after launch - too quick for the shot rhythm: cut to them at once.
+		if (ZCR_Drones.s_iFoundAt > m_iDroneCutAt && LiveDrone())
+		{
+			m_iDroneCutAt = ZCR_Drones.s_iFoundAt;
+			m_bDroneNow = true;
+			m_iShotEnd = 0;
+		}
+		// The followed drone has hit: 4 s on the impact, then on.
+		if (m_sLastKey == "drone" && !m_FollowedDrone && m_iShotEnd > now)
+		{
+			if (m_iDroneGoneAt < 0)
+				m_iDroneGoneAt = now;
+			else if (now - m_iDroneGoneAt >= 4)
+				m_iShotEnd = 0;
+		}
 		if (now >= m_iShotEnd)
 			NextShot(now);
 		if (now >= m_iNextOverlay)
@@ -353,7 +372,7 @@ class ZCR_Director
 			back = 500;
 			height = 600;
 		}
-		else if (m_iShot % 3 == 1 && LiveDrone())
+		else if ((m_bDroneNow || m_iShot % 3 == 1) && LiveDrone())
 		{
 			// An FPV drone on its way: followed until it hits (Martin on Arma 3: "I didn't see the
 			// finish of the FPV attack").
@@ -363,7 +382,7 @@ class ZCR_Director
 			key = "drone";
 			back = 45;
 			height = 30;
-			duration = 45;
+			duration = 30;
 		}
 		else if (m_bLastWasFight && best >= 0)
 		{
@@ -580,6 +599,11 @@ class ZCR_Director
 			m_iRepeats = 0;
 		m_sLastKey = key;
 		m_iShotEnd = now + duration;
+		m_bDroneNow = false;
+		m_FollowedDrone = null;
+		m_iDroneGoneAt = -1;
+		if (key == "drone")
+			m_FollowedDrone = follow;
 
 		RplId followId = RplId.Invalid();
 		if (follow)
