@@ -63,7 +63,7 @@ BUILDS = [
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
             ("everon-watched-2a", "Everon watched, two armies")]
-KEYS = ["team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -297,6 +297,9 @@ def measure_run(run: Path, log: Path):
             causes["direct"] += 1
     total = sum(lost.values())
     row["exchange"] = round(kills / max(lost[side], 1), 2)
+    # Loss ratio: the other army's soldiers lost per own soldier lost - drones' kills too (they have no
+    # killer in the game's death event), FIA left out. The two-army scenario's main score.
+    row["loss_ratio"] = round(lost[other] / max(lost[side], 1), 2) if lost[other] or lost[side] else None
     row["intensity"] = round(total / m["minutes"] * 20, 1)
     for k in ("drone", "direct", "unknown"):
         row[f"cause_{k}"] = round(100 * causes[k] / total, 1) if total else None
@@ -429,6 +432,8 @@ def html(agg: dict, rows: list) -> str:
         ser("fight_m"), unit=" m")
     add("Server frame rate", "Engine: the server's median frames per second during the match (logged every minute). The AI thinks and moves less smoothly when it drops; 3-4 servers and the watched game share one PC.",
         ser("fps"), unit=" fps", target=(30, "30 fps"), better="higher")
+    add("Loss ratio", "Soldiers of the other army lost per soldier the side with our strategist lost - drone kills included (they have no killer in the game's death event), FIA left out. The two-army scenario's main score.",
+        ser("loss_ratio"), target=(1, "even"), better="higher")
     add("Exchange", "Soldiers the side with our strategist killed (FIA and enemy) per soldier it lost.", ser("exchange"), target=(1, "even trade"), better="higher")
     add("Does the fight happen", "Soldiers lost per 20 game minutes, everyone.", ser("intensity"))
     add("Stuck squads", "AI Conflict's stuck reports for the squads of the side with our strategist, per 20 game minutes.", ser("stuck"), better="lower")
