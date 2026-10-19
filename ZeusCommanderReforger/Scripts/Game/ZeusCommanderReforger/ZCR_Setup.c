@@ -53,5 +53,44 @@ class ZCR_Setup
 			base.SetFaction(side);
 			Print(string.Format("[ZCR][SETUP] t=%1 no_fia base=%2 to=%3", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base), side.GetFactionKey()), LogLevel.NORMAL);
 		}
+		// FIA soldiers already out (ambient patrols spawned near the camera before this): removed.
+		array<AIAgent> agents = {};
+		GetGame().GetAIWorld().GetAIAgents(agents);
+		int removed;
+		foreach (AIAgent agent : agents)
+		{
+			IEntity e;
+			if (agent)
+				e = agent.GetControlledEntity();
+			if (e && ChimeraCharacter.Cast(e) && ZCR_LossLog.SideOf(e) == "FIA")
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(e);
+				removed++;
+			}
+		}
+		Print(string.Format("[ZCR][SETUP] t=%1 no_fia removed_fia_soldiers=%2", ZCR_LossLog.Seconds(), removed), LogLevel.NORMAL);
+	}
+}
+
+// -zcrNoFIA: the base game's ambient FIA patrols (spawned near any player - the watch camera too)
+// don't spawn (Martin: "why do I still see green guys?" - 85 FIA lost in the first two-army match).
+modded class SCR_AmbientPatrolSpawnPointComponent
+{
+	override void SpawnPatrol()
+	{
+		if (System.IsCLIParam("zcrNoFIA"))
+		{
+			SCR_FactionAffiliationComponent comp = SCR_FactionAffiliationComponent.Cast(GetOwner().FindComponent(SCR_FactionAffiliationComponent));
+			Faction f;
+			if (comp)
+			{
+				f = comp.GetAffiliatedFaction();
+				if (!f)
+					f = comp.GetDefaultAffiliatedFaction();
+			}
+			if (!f || f.GetFactionKey() == "FIA")
+				return;
+		}
+		super.SpawnPatrol();
 	}
 }
