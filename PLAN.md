@@ -23,7 +23,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Soldiers
 - [In progress] They walk across open fields like nothing is happening (125) | The game's own attack leaves cover after 5 s and closes to 15 m; kills happen at 22-38 m. r10 holds the game's cover 20 s.
 - [In progress] Fight from cover like Arma 3 (30-40%) (113, 124, 133) | In the game's own cover 40% (AI Conflict alone 24-27%); Arma 3's stricter measure 9.5%.
-- [In progress] Fireteams of 2-5, never single file down a road (135, 141) | AI Conflict changed: 20 teams of 5 per side, wedge formation; first matches running.
+- [In progress] Fireteams of 2-5, never single file down a road (135, 141, 159) | AI Conflict changed: 20 teams of 5 per side, wedge formation. Two-army probe: stacking 4.1% (Arma 3's limit 10%, first time under it), 3.6 soldiers a team, 8 m to the nearest friend.
 - [In progress] Bounding: one half covers, the other moves (134, 146) | Refined (60-350 m from the enemy, 4+ men): USSR lost 5 instead of 14, exchange 3.4, two bases. On by default from 19 Oct 17:20; measured in every match.
 - [Todo] Spacing against drones (118) | Teams apart from each other near the enemy.
 
@@ -55,7 +55,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Ground cover told apart from other cover; overhead cover against drones (114) | Ground, building, tree, vehicle, object; roof or canopy.
 - [Done] How far the infantry walks, riding to the attack (127) | 270-890 m on foot; nobody rode yet.
 - [Done] How the engine behaves: fighting distance, server fps (127) | 22-38 m; watched Everon servers had run at 12-18 fps.
-- [Todo] Team size and spacing to the nearest friend (141) | Measure fireteams against the old squads.
+- [Done] Team size and spacing to the nearest friend (141) | Charted from r13: 2.1-3.6 soldiers per team, 6-8 m apart (squads in single file: 3-5 m).
 
 ## Lab
 - [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
