@@ -30,6 +30,10 @@ VERDICT = {
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r9", "A soldier layer: cover in a firefight",
+     "Arma 3's fn_coverFight on Reforger, for our strategist's side: a soldier who knows an enemy within 400 m and has nothing solid toward it moves to the nearest covered spot within 25 m (the game's own individual move; not the squad leader, not in a storm). Probe: 90% of the soldiers in contact stood in the open; fighting from cover rose to 11.6% from 1.4-6.7%, and the attack took Moss Hill and Arleville as before. Arma 3 reached 30-40%: prone where there is no cover and staying in cover come next."),
+    ("design", "r9", "Drones hunt enemy soldiers",
+     "Every other launch goes for the biggest group of enemy soldiers a side has seen (5+ within 100 m). It hasn't fired yet: both armies mostly fight FIA garrisons and seldom see each other, so drones hit FIA."),
     ("good", "r8", "Drones wear them down, a short storm finishes",
      "First headless match with the drone doctrine: the USSR took Airport Base at 13.7 min and Farm at 21 min, each 75 s after the storm order (before drones, 5-12 min), and was storming a third base at the end - 3-2, the USSR lost 16. Drones caused 49% of all losses (front band 70-96%). On screen, Everon: Old Wood 3 min after the storm, the US lost 4."),
     ("design", "r8", "Drone warfare doctrine",
@@ -135,13 +139,19 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (9, "cover layer", "19 Oct, from 14:31",
+     ["Soldier layer (Arma 3's coverFight): soldiers in contact without cover move to the nearest covered spot within 25 m - our strategist's side, on by default.",
+      "Drones hunt the enemy soldiers a side has seen (every other launch).",
+      "Matches where a side never recruited (an AI Conflict start-up failure) are left out of the charts."],
+     "Martin: get as close as Arma 3 - there soldiers took cover; heavy drone use.",
+     "Probe: fighting from cover 11.6% (without 1.4-6.7%), Moss Hill and Arleville taken as before."),
     (8, "drone doctrine", "19 Oct, from 13:00",
      ["Drone warfare doctrine: the plan names drone targets - prep fire while gathering, pressure during assault and storm; a team every 90 s, up to 3 up.",
       "Both sides fly drones (AI Conflict's side a baseline: every 4 min, up to 2); headless matches load the drone mods.",
       "Each side's knowledge (enemies its soldiers saw in the last minute); the force needed is 2x the known defenders + 4; storm when 2 or fewer are left in sight.",
       "Watch buttons tested on screen; captions name the soldier's role."],
      "Martin: modern combat realistic style - heavy drone use by the bot, a drone warfare doctrine; get as close as Arma 3.",
-     "First headless drone match: USSR doctrine 3-2 - Airport Base at 13.7 min and Farm at 21 min, each 75 s after the storm order; USSR lost 16; drones caused 49% of all losses (15 USSR teams, 7 US, 55 strikes). Watched Everon: Old Wood 3 min after the storm, the US lost 4, drones 51% of losses."),
+     "Headless with drones: USSR doctrine 3-2, US doctrine 3-3 with two bases each 3-4 min after the storm, USSR Gemini 2-2; watched Everon: USSR Gemini 3-1 (Villeneuve 3 min after the storm, 6 lost). First headless drone match: USSR doctrine 3-2 - Airport Base at 13.7 min and Farm at 21 min, each 75 s after the storm order; USSR lost 16; drones caused 49% of all losses (15 USSR teams, 7 US, 55 strikes). Watched Everon: Old Wood 3 min after the storm, the US lost 4, drones 51% of losses."),
     (7, "soldier measures, watch buttons", "19 Oct, from 12:29",
      ["Arma 3's soldier measurements (ZCR_Sampler): fighting from cover, sitting ducks, stacking in the field; which cover (ground, building, tree, vehicle, object; roof or canopy overhead).",
       "Careful storm (priority 25) by default.",
