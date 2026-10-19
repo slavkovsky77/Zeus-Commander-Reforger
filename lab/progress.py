@@ -65,7 +65,13 @@ def soldier_metrics(lines: list, side: str) -> dict:
             eng += n
             cov += n * int(f.get("covered", 0))
         elif "[ZCR][CROWD]" in l and f"side={side} " in l:
-            stacked.append(int(metrics.fields(l, "[ZCR][CROWD]").get("stacked", 0)))
+            f = metrics.fields(l, "[ZCR][CROWD]")
+            # In the field (over 200 m from the main base, where recruits gather) when logged.
+            if "field_stacked" in f:
+                if f["field_stacked"] != "-1":
+                    stacked.append(int(f["field_stacked"]))
+            else:
+                stacked.append(int(f.get("stacked", 0)))
         elif "[ZCR][LOSS]" in l and " stance=" in l:
             f = metrics.fields(l, "[ZCR][LOSS]")
             if f.get("side") != side or f.get("kind") != "man" or f.get("foot") != "1":
@@ -283,7 +289,7 @@ def html(agg: dict, rows: list) -> str:
         ser("cover"), unit="%", ymax=60, target=(40, "target 40%"), better="higher")
     add("Sitting ducks", "Of the soldiers lost on foot, how many were standing or lying still in the open: not covered toward the killer, no roof, not moving. From r6.",
         ser("ducks"), unit="%", ymax=100, target=(50, "limit 50%"), better="lower")
-    add("Stacking", "Soldiers on foot bunched up with 6 or more friends within 25 m. From r6.",
+    add("Stacking", "Soldiers on foot in the field (over 200 m from their main base, where AI Conflict gathers its recruits) bunched up with 6 or more friends within 25 m. From r6.",
         ser("stacked"), unit="%", target=(10, "limit 10%"), better="lower")
     base_margin_ussr = control_baseline(rows, "margin")
     add("Bases won", "Bases held at the end, the side with our strategist minus the side on AI Conflict alone. On Arland the US seat starts stronger: in the controls (AI Conflict on both sides) the USSR ends "

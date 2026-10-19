@@ -1,7 +1,9 @@
 // The Arma 3 lab's soldier measurements (Zeus Commander's fn_recorder) for Reforger's US and USSR
 // soldiers, with the same definitions so the two engine pages compare:
-//   [ZCR][CROWD] t= side= men= near= stacked=          every 30 s: soldiers on foot, the average
-//       number of friends within 25 m, and the % with 6 or more (stacked)
+//   [ZCR][CROWD] t= side= men= near= stacked= field= field_stacked=   every 30 s: soldiers on foot,
+//       the average number of friends within 25 m, the % with 6 or more (stacked); and the same for
+//       the soldiers in the field - over 200 m from their own main base, where AI Conflict gathers
+//       its recruits one by one
 //   [ZCR][EXPOSURE] t= side= engaged= covered= prone=  every 30 s: of the soldiers on foot who know
 //       an enemy within 300 m, the % with something solid within 3 m toward the nearest one, or a
 //       roof overhead (covered), and the % lying down
@@ -131,6 +133,9 @@ class ZCR_Sampler
 				continue;
 			int near;
 			int stacked;
+			int field;
+			int fieldStacked;
+			vector home = MainBase(side);
 			int engaged;
 			int covered;
 			int prone;
@@ -145,6 +150,12 @@ class ZCR_Sampler
 				near += friends;
 				if (friends >= STACKED_FRIENDS)
 					stacked++;
+				if (home == vector.Zero || vector.DistanceXZ(e.GetOrigin(), home) > 200)
+				{
+					field++;
+					if (friends >= STACKED_FRIENDS)
+						fieldStacked++;
+				}
 				IEntity enemy = NearestEnemy(e);
 				if (!enemy)
 					continue;
@@ -159,12 +170,26 @@ class ZCR_Sampler
 				if (st.m_iStance == ECharacterStance.PRONE)
 					prone++;
 			}
-			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5", now, side, men.Count(),
-				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count())), LogLevel.NORMAL);
+			int fieldPct = -1;
+			if (field > 0)
+				fieldPct = Math.Round(100.0 * fieldStacked / field);
+			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7", now, side, men.Count(),
+				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct), LogLevel.NORMAL);
 			if (engaged > 0)
 				Print(string.Format("[ZCR][EXPOSURE] t=%1 side=%2 engaged=%3 covered=%4 prone=%5", now, side, engaged,
 					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged)), LogLevel.NORMAL);
 		}
+	}
+
+	protected vector MainBase(string side)
+	{
+		FactionManager fm = GetGame().GetFactionManager();
+		if (!fm)
+			return vector.Zero;
+		SCR_CampaignFaction faction = SCR_CampaignFaction.Cast(fm.GetFactionByKey(side));
+		if (!faction || !faction.GetMainBase() || !faction.GetMainBase().GetOwner())
+			return vector.Zero;
+		return faction.GetMainBase().GetOwner().GetOrigin();
 	}
 
 	// The nearest enemy this soldier knows of within 300 m (his own perception).
