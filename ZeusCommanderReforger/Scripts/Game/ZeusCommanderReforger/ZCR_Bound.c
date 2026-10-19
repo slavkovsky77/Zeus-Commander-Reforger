@@ -7,6 +7,9 @@
 // 15 s, the halves swap. Nobody crosses open ground while nobody covers him. Not while storming (then
 // everyone goes in). Also spreads the squad: two halves 35-60 m apart instead of one bunch.
 // -zcrBound turns it on (A/B first). Logs [ZCR][BOUND] per swap.
+// First probe (19 Oct): USSR lost 46 (14 without), exchange 0.43 - squads bounded with the enemy 14 m
+// away (halves sent 35-60 m on, past him) and down to 2 men. Now only with the enemy 60-350 m away and
+// 4 or more men, and no bound ends nearer than 30 m to him; closer, the cover layer fights.
 class ZCR_BoundState
 {
 	int m_iHalf = 1;
@@ -20,6 +23,8 @@ class ZCR_Bound
 	protected static ref map<SCR_AIGroup, ref ZCR_BoundState> s_mState = new map<SCR_AIGroup, ref ZCR_BoundState>();
 	protected static ref map<IEntity, int> s_mHolding = new map<IEntity, int>();
 	static const float RANGE = 350;
+	static const float CLOSE = 60;
+	static const int MIN_MEN = 4;
 	static const int SWAP = 15;
 
 	static bool On()
@@ -70,7 +75,10 @@ class ZCR_Bound
 		}
 		vector dest = Objective(base);
 		IEntity enemy = ZCR_CoverLayer.NearestEnemy(leader);
-		if (vector.DistanceXZ(leader.GetOrigin(), dest) < 40 || !enemy || vector.DistanceXZ(enemy.GetOrigin(), leader.GetOrigin()) > RANGE)
+		float enemyAt = 1e9;
+		if (enemy)
+			enemyAt = vector.DistanceXZ(enemy.GetOrigin(), leader.GetOrigin());
+		if (vector.DistanceXZ(leader.GetOrigin(), dest) < 40 || enemyAt > RANGE || enemyAt < CLOSE)
 		{
 			End(group, agents);
 			return false;
@@ -90,7 +98,7 @@ class ZCR_Bound
 			men.Insert(man);
 			theirs.Insert(agent);
 		}
-		if (men.Count() < 2)
+		if (men.Count() < MIN_MEN)
 		{
 			End(group, agents);
 			return false;
@@ -128,7 +136,12 @@ class ZCR_Bound
 				if (left <= 5)
 					continue;
 				to.Normalize();
-				vector aim = from + to * Math.Min(35 + Math.RandomFloat(0, 25), left);
+				float step = Math.Min(35 + Math.RandomFloat(0, 25), left);
+				// Never nearer than 30 m to the enemy.
+				step = Math.Min(step, vector.DistanceXZ(from, enemy.GetOrigin()) - 30);
+				if (step < 10)
+					continue;
+				vector aim = from + to * step;
 				aim[1] = GetGame().GetWorld().GetSurfaceY(aim[0], aim[2]);
 				vector spot = aim;
 				if (ZCR_CoverLayer.CoverAround(mover, theirs[j], aim, threat, enemy, spot))
