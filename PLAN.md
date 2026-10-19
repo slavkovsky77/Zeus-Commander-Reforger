@@ -33,7 +33,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
-- [Done] Drone warfare doctrine: heavy drone use (118) | Prep fire while gathering, pressure during the assault; both sides fly drones; drones cause 37-50% of losses (front: 70-96%).
+- [Done] Drone warfare doctrine: heavy drone use (118, 158, 160) | Prep fire while gathering, pressure during the assault; both sides fly drones. Two armies only: drones cause 60-79% of losses (front band 70-96%); drones go where enemies are known. A faster tempo gave nothing (the sites and teams in the air limit it).
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
 - [Fixed] Drones launched into the sea, then among their own soldiers (132, 137) | Never the sea; no clear spot, no team.
 - [In progress] Drones stop sometimes, stuck in the air (142, 147) | Measured: most lost drones hovered at their goal with nothing to hit (up to 18 a match). From 17:45: a team hovering a minute goes on to the nearest enemy its side saw; none for 2.5 min, it's called home.
