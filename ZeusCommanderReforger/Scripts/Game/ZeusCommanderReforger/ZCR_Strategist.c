@@ -13,6 +13,7 @@ class ZCR_Strategist
 {
 	protected static ref map<FactionKey, ref ZCR_Strategist> s_mStrategists;
 	// Every base of the objective graph by node id: where it is and its name (for the director).
+	protected static string s_sMatchId;
 	static ref map<int, vector> s_mNodePos = new map<int, vector>();
 	static ref map<int, string> s_mNodeName = new map<int, string>();
 	static ref map<int, string> s_mNodeOwner = new map<int, string>();
@@ -231,8 +232,12 @@ class ZCR_Strategist
 		}
 
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFaction);
-		return string.Format("{\"faction\":\"%1\",\"t\":%2,\"round\":%3,\"plan_revision\":%4,\"intent\":\"%5\",\"bases\":[%6],\"squads\":[%7]}",
-			m_sFaction, ZCR_LossLog.Seconds(), m_iRound, plan.GetRevision(), Clean(plan.GetIntent()), bases, squads);
+		// This server's match: one bridge serves the watched and the headless match at once, and
+		// a strategist with memory (phased) keeps it per match and side.
+		if (s_sMatchId.IsEmpty())
+			s_sMatchId = string.Format("%1-%2", System.GetUnixTime(), Math.RandomInt(0, 1000000));
+		return string.Format("{\"match\":\"%8\",\"faction\":\"%1\",\"t\":%2,\"round\":%3,\"plan_revision\":%4,\"intent\":\"%5\",\"bases\":[%6],\"squads\":[%7]}",
+			m_sFaction, ZCR_LossLog.Seconds(), m_iRound, plan.GetRevision(), Clean(plan.GetIntent()), bases, squads, s_sMatchId);
 	}
 
 	protected void SaveReport(string report)

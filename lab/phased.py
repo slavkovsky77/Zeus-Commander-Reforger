@@ -75,7 +75,7 @@ class Phased:
     def __init__(self, picker=None, name: str = "phased"):
         self.name = name
         self.picker = picker          # (report, doctrine_text) -> (base id or None, intent, raw)
-        self.state = {}               # faction -> dict
+        self.state = {}               # side ("match:faction" when the report names its match) -> dict
 
     def _pick(self, report: dict, text: str, avoid: set):
         """An objective we don't own and haven't failed at three times."""
@@ -99,10 +99,12 @@ class Phased:
     def decide(self, report: dict, doctrine_text: str = "") -> tuple:
         faction = report.get("faction")
         t = report.get("t", 0)
-        st = self.state.get(faction)
+        # One bridge serves the watched and the headless match at once: memory per match and side.
+        key = f"{report['match']}:{faction}" if report.get("match") else faction
+        st = self.state.get(key)
         if st is None or t < st.get("last_t", 0):
             st = {"phase": "pick", "fails": {}, "since": t}
-            self.state[faction] = st
+            self.state[key] = st
         st["last_t"] = t
         bases = bases_by_id(report)
         raw = ""

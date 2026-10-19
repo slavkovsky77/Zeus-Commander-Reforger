@@ -277,6 +277,19 @@ class PhasedTests(unittest.TestCase):
         d, _ = p.decide(r)
         self.assertEqual(d["commit"], 0)                 # being captured: defenders go back
 
+    def test_two_matches_at_once_keep_their_own_memory(self):
+        import phased
+        p = phased.Phased()
+        a = lambda t: dict(self.report(t), match="watched")
+        b = lambda t: dict(self.report(t), match="headless")
+        p.decide(a(600))
+        p.decide(a(690))                                 # watched: assault on Town since 600
+        p.decide(b(100))                                 # headless starts, earlier in its match
+        d, _ = p.decide(a(780))
+        self.assertEqual(p.state["watched:USSR"]["phase"], "assault")
+        self.assertEqual(p.state["watched:USSR"]["since"], 600)   # its assault, not reset by the other match
+        self.assertEqual(p.state["headless:USSR"]["since"], 100)
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()
