@@ -167,7 +167,8 @@ def probe_rows() -> list:
         side, base = m.group(1), m.group(2)
         cli = re.search(r"-zcrStormPriority (\d+)", text)
         r = probe_report.report(run, base, side)
-        rows.append({"run": run.name, "base": base, "priority": int(cli.group(1)) if cli else 1000,
+        sm = progress.soldier_metrics(text.splitlines(), side)
+        rows.append({"cover": sm.get("cover"), "ducks": sm.get("ducks"), "run": run.name, "base": base, "priority": int(cli.group(1)) if cli else 1000,
                      "motorize": "motorize=1" in text, "storm": r["storm"], "taken": r["taken"],
                      "lost_near": r["lost_near"].get(side, 0), "fia_near": r["lost_near"].get("FIA", 0),
                      "lost": r["lost"].get(side, 0)})
@@ -188,7 +189,8 @@ def engine(changelog_url: str) -> str:
         f"<tr><td>{E(p['run'][6:-16])}</td><td>{E(p['base'])}</td><td class='num'>{p['priority']}</td><td>{'yes' if p['motorize'] else ''}</td>"
         f"<td class='num'>{'' if p['storm'] is None else round(p['storm'] / 60, 1)}</td>"
         f"<td class='num'>{'not taken' if p['taken'] is None else round((p['taken'] - p['storm']) / 60, 1) if p['storm'] else round(p['taken'] / 60, 1)}</td>"
-        f"<td class='num'>{p['lost_near']}</td><td class='num'>{p['fia_near']}</td><td class='num'>{p['lost']}</td></tr>"
+        f"<td class='num'>{p['lost_near']}</td><td class='num'>{p['fia_near']}</td><td class='num'>{p['lost']}</td>"
+        f"<td class='num'>{'' if p['cover'] is None else str(p['cover']) + '%'}</td><td class='num'>{'' if p['ducks'] is None else str(p['ducks']) + '%'}</td></tr>"
         for p in probes)
     phases = "".join(f'<div class="phase"><div class="tag">{i + 1}<small>{E(n)}</small></div><div><p>{E(t)}</p></div></div>'
                      for i, (n, t) in enumerate(PHASES))
@@ -220,12 +222,12 @@ def engine(changelog_url: str) -> str:
 <div class="findings">{cards}</div>
 
 <h2 id="progress">Progress <span class="ref">MEASURED PER BUILD</span></h2>
-<p>Every chart is read from the match logs: the side with our strategist against the side on AI Conflict alone. Not measured yet, unlike Arma 3: fighting from cover, sitting ducks, stacking (they need an in-game sampler).</p>
+<p>Every chart is read from the match logs: the side with our strategist against the side on AI Conflict alone. The first three are the Arma 3 page's soldier measurements with the same definitions (in-game sampler from r6, so they start with the next matches).</p>
 {charts}
 
 <h2 id="probes">Probes <span class="ref">A/B, HEADLESS</span></h2>
 <p>Short headless matches to test one change: the USSR on our rules doctrine, the US on AI Conflict alone, plans every 30 s. Times in minutes; "taken" counts from the storm order. Losses within 500 m of the objective, and in the whole match.</p>
-<div class="table-wrap"><table><tr><th>Probe</th><th>Objective</th><th>Storm priority</th><th>Trucks</th><th>Storm at</th><th>Taken after</th><th>Own lost there</th><th>FIA lost there</th><th>Own lost</th></tr>{ptable}</table></div>
+<div class="table-wrap"><table><tr><th>Probe</th><th>Objective</th><th>Storm priority</th><th>Trucks</th><th>Storm at</th><th>Taken after</th><th>Own lost there</th><th>FIA lost there</th><th>Own lost</th><th>In cover</th><th>Sitting ducks</th></tr>{ptable}</table></div>
 
 <h2 id="how">How a match runs</h2>
 <p>AI Conflict runs Reforger's Conflict mode with AI on both sides: each side has 10 squads that refill at the main base from supplies, and FIA garrisons hold the bases in between. A base counts once it is linked to the HQ by radio. Our addon sits on AI Conflict's commander: every 15 s on its tick, and every 90 s a situation report goes to the strategist bridge (Python), which answers with a plan.</p>

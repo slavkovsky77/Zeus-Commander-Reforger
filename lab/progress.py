@@ -46,9 +46,42 @@ BUILDS = [
     (6, "motorize", "2026-10-19 10:30", "attack squads ride trucks (probes); storm priority as a setting"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
-KEYS = ["margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["cover", "ducks", "stacked", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
+
+
+def soldier_metrics(lines: list, side: str) -> dict:
+    """Arma 3's soldier measurements (ZCR_Sampler, from r6): fighting from cover, sitting ducks,
+    stacking - for one side's soldiers."""
+    out = {}
+    eng = cov = 0
+    stacked = []
+    deaths = ducks = 0
+    for l in lines:
+        if "[ZCR][EXPOSURE]" in l and f"side={side} " in l:
+            f = metrics.fields(l, "[ZCR][EXPOSURE]")
+            n = int(f.get("engaged", 0))
+            eng += n
+            cov += n * int(f.get("covered", 0))
+        elif "[ZCR][CROWD]" in l and f"side={side} " in l:
+            stacked.append(int(metrics.fields(l, "[ZCR][CROWD]").get("stacked", 0)))
+        elif "[ZCR][LOSS]" in l and " stance=" in l:
+            f = metrics.fields(l, "[ZCR][LOSS]")
+            if f.get("side") != side or f.get("kind") != "man" or f.get("foot") != "1":
+                continue
+            deaths += 1
+            # A sitting duck: not covered toward his killer, not under a roof, not moving.
+            if f.get("covered") != "1" and f.get("roof") != "1" and f.get("moving") != "1":
+                ducks += 1
+    if eng:
+        out["cover"] = round(cov / eng, 1)
+    if stacked:
+        out["stacked"] = round(statistics.mean(stacked), 1)
+    if deaths:
+        out["ducks"] = round(100 * ducks / deaths, 1)
+        out["deaths_sampled"] = deaths
+    return out
 
 
 def build_of(started: datetime) -> int:
@@ -173,6 +206,7 @@ def measure_run(run: Path, log: Path):
     row["drone_strikes"] = m["drone_strikes"] if kind == "watched" else None
     row["drone_kills"] = sum(m["drone_kills"].values()) if kind == "watched" else None
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
+    row.update(soldier_metrics(lines, side))
 
     # Approach: the nearest squad sent to the first objective, 6 min after the assault order.
     row["close6"] = None
@@ -245,6 +279,12 @@ def html(agg: dict, rows: list) -> str:
         charts.append(f'<figure class="pfig"><figcaption><b>{title}</b> {why}</figcaption>'
                       + line_chart(title, used, series, notes={b: notes[b] for b in used}, prefix="r", **kw) + "</figure>")
 
+    add("Fighting from cover", "Of the soldiers (with our strategist) who know an enemy within 300 m, how many have something solid within 3 m toward the nearest one, or a roof. Same measure as Arma 3, ground counts as cover. From r6.",
+        ser("cover"), unit="%", ymax=60, target=(40, "target 40%"), better="higher")
+    add("Sitting ducks", "Of the soldiers lost on foot, how many were standing or lying still in the open: not covered toward the killer, no roof, not moving. From r6.",
+        ser("ducks"), unit="%", ymax=100, target=(50, "limit 50%"), better="lower")
+    add("Stacking", "Soldiers on foot bunched up with 6 or more friends within 25 m. From r6.",
+        ser("stacked"), unit="%", target=(10, "limit 10%"), better="lower")
     base_margin_ussr = control_baseline(rows, "margin")
     add("Bases won", "Bases held at the end, the side with our strategist minus the side on AI Conflict alone. On Arland the US seat starts stronger: in the controls (AI Conflict on both sides) the USSR ends "
         f"{base_margin_ussr:+} on average." if base_margin_ussr is not None else "Bases held at the end, our side minus AI Conflict's.",
