@@ -12,8 +12,9 @@ Phases per side (kept between rounds; a new match resets them):
            it after 5 min, or whatever is there after 10 min
   assault  the objective is the main effort with a heavy demand. Taken: the next objective, and
            straight on if the force is still there (momentum). Bled out (under 35% of the need
-           within 700 m after 12 min) or 20 min without a capture: back off, the objective counts
-           a failure and costs more next time
+           within 450 m after 6 min): back to gather, with a bigger need. No capture after 10 min
+           (Arma 3: an assault that stops gaining is called off): the objective counts a failure
+           and another one is picked - untried objectives first
 Our own threatened bases are always held.
 """
 import math
@@ -25,6 +26,7 @@ NEED = 25.0          # soldiers: two and a half full squads
 NEED_PER_FAIL = 10.0
 GATHER_RADIUS = 600
 ASSAULT_RADIUS = 450   # at the objective - not counting the staging base nearby
+ASSAULT_MAX = 600      # s without a capture: called off, another objective
 
 
 def _dist(a: dict, b: dict) -> float:
@@ -85,8 +87,11 @@ class Phased:
             taken = st["phase"] == "assault" and target is not None
             st.update(phase="pick", since=t, taken=st.get("target") if taken else None)
         if st["phase"] == "pick":
-            recent = {b for b, n in st["fails"].items() if n >= 3}
-            tid, intent, raw = self._pick(report, doctrine_text, recent)
+            tried = {b for b, n in st["fails"].items() if n >= 1}
+            tid, intent, raw = self._pick(report, doctrine_text, tried)
+            if tid is None and tried:
+                # Nothing untried within reach: the failed ones again, the least failed first.
+                tid, intent, raw = self._pick(report, doctrine_text, {b for b, n in st["fails"].items() if n >= 3})
             if tid is None or tid not in bases:
                 return {"intent": f"{faction}: nothing within reach - hold", "main_effort": None, "supporting": [],
                         "hold": hold[:3], "avoid": [], "concentration": "normal"}, raw
@@ -114,9 +119,9 @@ class Phased:
                         "avoid": [target["id"]], "concentration": "heavy"}, raw
         # Assault.
         near = force_near(report, target, ASSAULT_RADIUS)
-        if (elapsed >= 720 and near < 0.35 * need) or elapsed >= 1200:
+        if (elapsed >= 360 and near < 0.35 * need) or elapsed >= ASSAULT_MAX:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
-            st.update(phase="gather" if elapsed < 1200 else "pick", since=t, need=need + NEED_PER_FAIL)
+            st.update(phase="gather" if elapsed < ASSAULT_MAX else "pick", since=t, need=need + NEED_PER_FAIL)
             if st["phase"] == "pick":
                 return self.decide(report, doctrine_text)
             return {"intent": f"The attack on {name} bled out - falling back to gather more", "main_effort": stage["id"] if stage else None,

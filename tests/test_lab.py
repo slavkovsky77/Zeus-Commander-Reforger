@@ -179,12 +179,21 @@ class PhasedTests(unittest.TestCase):
         p = phased.Phased()
         p.decide(self.report(100))
         p.decide(self.report(190))                       # assault Town
-        r = self.report(190 + 800)
+        r = self.report(190 + 400)
         for s in r["squads"]:
             s["alive"] = 1                               # the attack bled out
         d, _ = p.decide(r)
         self.assertEqual(d["main_effort"], 1)            # back to the Farm
         self.assertEqual(p.state["USSR"]["fails"][3], 1)
+
+    def test_stalled_assault_picks_another_objective(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        p.decide(self.report(190))                       # assault Town, plenty of force
+        d, _ = p.decide(self.report(190 + 620))          # 10 min, Town still US: called off
+        self.assertEqual(p.state["USSR"]["fails"][3], 1)
+        self.assertNotEqual(p.state["USSR"]["target"], 3)   # an untried objective now
 
     def test_new_match_resets(self):
         import phased
