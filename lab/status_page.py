@@ -42,6 +42,8 @@ PROBLEMS = [
     ("risk", "Drone strikes kill about one in three", "13-16 strikes a watched match, 8-21 kills; two soldiers struck twice survived in the first test. A note for the FPV AI Drones chat (review note 98)."),
 ]
 NEXT = [
+    "The follow-on after a capture: squads sent to the next base 1-1.3 km on sat 1 km out for 7-18 minutes (AI Conflict holds them at the base just taken, then walks them in 220 m steps and refuses them vehicles as infantry). The doctrine could switch them to motorized for the march - the same AI Conflict call the commit uses.",
+    "Storm: careful or reckless? Martin to decide (review note 106) - priority 100 v 1000, and when to storm.",
     "Measure storm in the headless matches (none v phased from 06:24, phased v none from 06:55): first capture time and the USSR's Moss Hill.",
     "Siege when too weak (Arma 3): hold at the staging base and bring drones and mortars on the objective before storming.",
     "Drones in the measured matches too: does the commander do better with them?",
