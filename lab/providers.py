@@ -171,9 +171,11 @@ class PhasedRules:
             def picker(report, text):
                 if first["used"]:
                     return None, "", ""
+                hit = next((b for b in report.get("bases", []) if b.get("name") == first["name"]), None)
+                if hit is None or not hit.get("attackable", True):
+                    return None, "", f"first target {first['name']} not within reach yet"
                 first["used"] = True
-                hit = next((b["id"] for b in report.get("bases", []) if b.get("name") == first["name"]), None)
-                return hit, "", f"first target fixed: {first['name']}"
+                return hit["id"], "", f"first target fixed: {first['name']}"
         self.p = phased.Phased(picker, self.name)
 
     def decide(self, report: dict, doctrine_text: str) -> tuple:
