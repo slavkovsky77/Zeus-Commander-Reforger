@@ -24,15 +24,25 @@ ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
     "Running now": "The self-improving loop at double speed: the watched match is hosted by the game itself at 2x (the Diag Menu's time multiplier), recorded from the game window; a headless head-to-head beside it at 1x. Drones on both sides.",
-    "Today's result": "Reforger can run faster after all - 2.0x measured at a steady 60 fps, drones fine. Soldiers still fight from cover only 5-13% (Arma 3: 30-40%): the game's own attack leaves cover after 5 s and closes to 15 m.",
+    "Today's result": "Working with the game's own cover (r10) gave the best headless match so far: 4-2 in bases, exchange 1.36, soldiers in the game's cover 40% of the time (AI Conflict alone 24-27%). Reforger runs at 2x in solo; drones now show on screen.",
     "Being built next": "Covered dismount on light vehicles (drive to a point the objective can't see, then clear it on foot), the cover layer working with the game's cover, then spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r10", "Best headless match so far",
+     "First headless match with the cover layer working with the game's own cover: the USSR doctrine took Moss Hill at 10.7 min, then Arleville and Signal Hill - 4-2 in bases, exchange 1.36, 14 lost. Our soldiers sat in the game's own cover 40.5% of the time (AI Conflict alone 24-27%); drones caused 50% of all losses, ours killed 78, 2 lost to theirs. Arma 3's stricter measure (something solid within 3 m toward the enemy) still reads 9.5% - the game's cover includes leaning out to shoot."),
+    ("good", "watch", "Drones on screen, the picture fills the window",
+     "Every drone in the air carries an 'FPV US / FPV USSR' tag, and the drone shot follows 16 m behind at the drone's height (before, it looked at the ground 30 m below from 45 m away - the drone was off the picture). The solo game opens in its own maximised window mode at the screen's resolution; resizing it from outside had left the picture at 1280x720 in a corner."),
+    ("risk", "r12", "Covered dismount: third try",
+     "Routing the vehicle to a hidden road point beside the objective sent the trucks the long way round, away from it. Now the squad rides AI Conflict's own route and gets out at the first spot 180-450 m short that the objective can't see. Probe running."),
+    ("bug", "drones", "Two harbour bugs on Arland",
+     "Arland's harbour main base: the drone launch spot search took the flat sea for level ground (60 drones lost in the water), and my first fix fell back to the base's own centre - the drones then went off among the side's own soldiers (57 lost in one probe). Now: never the sea, searched out to 250 m, no clear spot - no team. AI Conflict's barracks search there also ran out of budget (that side never recruited): lab servers now give it its maximum."),
+    ("risk", "bound", "Bounding: not yet",
+     "Arma 3's bounding (two halves, one covers while the other moves 35-60 m) made the first probe worse: 46 lost instead of 14 - squads bounded with the enemy 14 m away and down to 2 men. Refined to 60-350 m from the enemy and 4+ men; off by default."),
     ("good", "speed", "Reforger runs at 2x - like Arma 3's watched games",
      "The game's diagnostic build has a Diag Menu (hold Win+Alt) with Cheats > \"DTime multiplier\" (0.01-20x): each frame advances the game that much further. Measured: 30 game seconds in 15.0 real seconds, 60 fps steady, drones 16 of 16 hits. It works only where the game hosts the match itself (solo), not on a dedicated server - the same rule as Arma 3's setAccTime. The watch loop now runs solo at 2x, set automatically by key presses, in a normal maximised window; the headless matches stay at 1x beside it. (Earlier today I said it wasn't possible: I had searched the game for 'time scale', not 'DTime'.)"),
-    ("design", "r12", "Covered dismount on light vehicles",
+    ("design", "r12", "Covered dismount on light vehicles (first design)",
      "Your direction: modern combat is driving to a point with cover, dismounting there, then clearing the position. AI Conflict drives a motorized squad to the road nearest the objective and lets it out 150 m short, in the open. For our side the vehicle now stops 200-400 m short at the nearest road point the objective can't see (a crest, a treeline or buildings in between), and the squad goes on on foot. Motorized squads get light vehicles first (US M998, USSR UAZ-452; trucks only when the squad doesn't fit) - there are no motorcycles in the vanilla game. Probe running."),
     ("good", "r11", "How far the infantry walks, riding to the attack",
      "Arma 3's two measures, from the squads' reports (each now says whether its leader rides): today attacking squads walk 270-710 m on foot to their objective (median per match; Arma 3's target 300 m), and none rode."),
@@ -153,11 +163,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
-    (12, "covered dismount, light vehicles", "19 Oct, from 15:50",
+    (12, "covered dismount, light vehicles, drones on screen", "19 Oct, from 15:40",
      ["Motorized squads get AI Conflict's light vehicles first (US M998, USSR UAZ-452), trucks only when the squad doesn't fit (-zcrMotorizeTruck for trucks).",
-      "Covered dismount for our side: the vehicle stops 200-400 m short at the nearest road point the objective can't see, and everyone gets out there (ZCR_Dismount)."],
-     "Martin: NPCs should use motorcycles and small cars, not only APCs - modern combat is driving to a point with cover, then clearing the position.",
-     "Probe running."),
+      "Covered dismount for our side: everyone out at the first spot on the drive 180-450 m short of the objective that it can't see (third design; routing to a hidden point sent trucks the long way round).",
+      "Drones on screen: an FPV tag on every drone, the drone shot at the drone's height. The solo game opens in its own maximised mode.",
+      "Drone launch spots never in the sea; with no clear spot no team (a fallback to the base centre killed 57 own soldiers in one probe). AI Conflict's barracks search at its maximum (Arland's harbour base).",
+      "Bounding (Arma 3's fn_bound) as an A/B setting - first probe worse, refined, off by default."],
+     "Martin: NPCs should use motorcycles and small cars, not only APCs - modern combat is driving to a point with cover, then clearing the position; drones don't work; the screen doesn't show what's happening.",
+     "r10 build headless: 4-2, exchange 1.36, in the game's cover 40%. Watched at 2x: USSR+Gemini Moss Hill 2.8 min after the storm (+1), US doctrine Le Moule 1.2 min after it (+1); drones 28/36 and 31/44 hits. US doctrine headless 2-3 (Arleville storm failed). Dismount probe running."),
     (11, "walk and ride, engine measures, 2x", "19 Oct, from 15:25",
      ["Arma 3's 'how far the infantry walks' and 'riding to the attack' (squads report whether they ride); engine measures: fighting distance, server fps.",
       "Solo matches at 2x: the game hosts the match, the Diag Menu's time multiplier set by key presses; a normal maximised window.",
