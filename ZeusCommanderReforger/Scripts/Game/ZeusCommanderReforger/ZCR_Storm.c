@@ -31,8 +31,12 @@ class ZCR_Storm
 		return -1;
 	}
 
+	// -zcrStormPriority <n> for the lab (default: a player order's).
 	static float Priority()
 	{
+		string value;
+		if (System.GetCLIParam("zcrStormPriority", value) && !value.IsEmpty())
+			return value.ToFloat();
 		return SCR_AIActionBase.PRIORITY_LEVEL_PLAYER;
 	}
 

@@ -67,6 +67,7 @@ def command(a, profile: Path) -> list:
                 cmd += [f"-zcrBridge{side.upper()}", url]
         if a.drones:
             cmd += ["-zcrDrones"]        # strategist sides send FPV teams to their objectives
+        cmd += (getattr(a, "extra", "") or "").split()   # lab settings, e.g. -zcrStormPriority 100
         if a.watch:
             cmd += ["-zcrWatchServer"]   # players get the whole map (they only watch)
     elif a.watch:
@@ -93,6 +94,7 @@ def main() -> int:
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")
     ap.add_argument("--ussr", default="", help="USSR strategist")
+    ap.add_argument("--extra", default="", help="more server parameters, e.g. '-zcrStormPriority 100'")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
