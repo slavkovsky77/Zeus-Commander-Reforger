@@ -217,10 +217,13 @@ class PhasedTests(unittest.TestCase):
         r = self.report(100)
         farm = next(b for b in r["bases"] if b["id"] == 1)
         farm["x"], farm["z"] = 2200, 1300                # staging base 447 m from Town
-        r["squads"] = [{"alive": 10, "x": 2200, "z": 1300}, {"alive": 8, "x": 2500, "z": 1450}]
+        r["squads"] = [{"alive": 10, "x": 2200, "z": 1300, "target": 1},   # the staging garrison
+                       {"alive": 8, "x": 2500, "z": 1450, "target": 3},    # at Town
+                       {"alive": 9, "x": 2000, "z": 1100, "target": 3},    # sent to Town, 640 m out
+                       {"alive": 7, "x": 2580, "z": 1480, "target": 4}]    # in Town, other orders
         town = next(b for b in r["bases"] if b["id"] == 3)
-        self.assertEqual(phased.force_at(r, town, 450), 8.0)
-        self.assertEqual(phased.force_near(r, town, 450), 18.0)
+        self.assertEqual(phased.force_at(r, town, 900), 24.0)
+        self.assertEqual(phased.force_near(r, town, 450), 25.0)
 
     def test_new_match_resets(self):
         import phased

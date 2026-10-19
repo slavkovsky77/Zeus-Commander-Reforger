@@ -12,7 +12,7 @@ Phases per side (kept between rounds; a new match resets them):
            it after 5 min, or whatever is there after 10 min
   assault  the objective is the main effort with a heavy demand. Taken: the next objective, and
            straight on if the force is still there (momentum). Bled out (under 35% of the need
-           within 450 m after 6 min): back to gather, with a bigger need. No capture after 10 min
+           sent to it after 6 min): back to gather, with a bigger need. No capture after 10 min
            (Arma 3: an assault that stops gaining is called off): the objective counts a failure
            and another one is picked - untried objectives first
 Our own threatened bases are always held. In the assault, while none of them is threatened, two of
@@ -26,7 +26,7 @@ from plan import bases_by_id, own_bases
 NEED = 25.0          # soldiers: two and a half full squads
 NEED_PER_FAIL = 10.0
 GATHER_RADIUS = 600
-ASSAULT_RADIUS = 450   # at the objective - not counting the staging base nearby
+ASSAULT_RADIUS = 900   # squads sent to the objective, on their way in (force_at)
 ASSAULT_MAX = 600      # s without a capture: called off, another objective
 COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
 
@@ -40,16 +40,17 @@ def force_near(report: dict, at: dict, radius: float) -> float:
                      if "x" in s and math.hypot(s["x"] - at["x"], s["z"] - at["z"]) <= radius))
 
 
-def force_at(report: dict, target: dict, radius: float) -> float:
-    """Soldiers at the objective: within the radius and nearer to it than to any of our bases, so
-    a staging base close by (Arland's USSR main base is 430 m from Airport Base) doesn't count."""
-    own = [b for b in own_bases(report) if b["id"] != target["id"]]
+def force_at(report: dict, target: dict, radius: float = 900) -> float:
+    """Soldiers attacking the objective: squads AI Conflict has sent there (their target) and within
+    the radius - it stages them 400-500 m out before going in - plus anyone within 250 m of it.
+    Squads at a staging base nearby with other orders don't count (Arland's USSR main base is
+    430 m from Airport Base)."""
     total = 0.0
     for s in report.get("squads", []):
         if "x" not in s:
             continue
         d = math.hypot(s["x"] - target["x"], s["z"] - target["z"])
-        if d <= radius and all(d < math.hypot(s["x"] - b["x"], s["z"] - b["z"]) for b in own):
+        if (s.get("target") == target["id"] and d <= radius) or d <= 250:
             total += s.get("alive", 0)
     return total
 
@@ -144,6 +145,6 @@ class Phased:
                     "supporting": [], "hold": hold[:3], "avoid": [target["id"]], "concentration": "heavy"}, raw
         intent = st.get("llm_intent") or ""
         commit = 0 if hold else COMMIT
-        lead = f"Assault on {name} with {near:.0f} soldiers at it" + (f", {commit} defender squads committed" if commit else "")
+        lead = f"Assault on {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
                 "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit}, raw

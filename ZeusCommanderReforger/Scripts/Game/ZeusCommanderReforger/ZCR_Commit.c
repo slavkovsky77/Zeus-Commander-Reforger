@@ -8,7 +8,9 @@
 modded class AICF_MatchController
 {
 	protected static ref map<string, ref array<int>> s_mZCRCommitted;
+	protected static ref map<string, int> s_mZCRHoldUntil;
 	protected static const int ZCR_COMMIT_MIN_ALIVE = 6;
+	protected static const int ZCR_COMMIT_COOLDOWN = 180;   // s after a capture threat before committing again
 
 	void ZCR_CommitDefenders(SCR_CampaignFaction faction, AICF_FactionState state, int commit, bool underCapture)
 	{
@@ -23,7 +25,15 @@ modded class AICF_MatchController
 			committed = {};
 			s_mZCRCommitted.Set(key, committed);
 		}
+		// A base of ours being captured: everyone back, and no commit for a while - a capture
+		// flickering on and off would otherwise turn the squads round every tick.
+		if (!s_mZCRHoldUntil)
+			s_mZCRHoldUntil = new map<string, int>();
+		int now = ZCR_LossLog.Seconds();
 		if (underCapture)
+			s_mZCRHoldUntil.Set(key, now + ZCR_COMMIT_COOLDOWN);
+		int holdUntil;
+		if (s_mZCRHoldUntil.Find(key, holdUntil) && now < holdUntil)
 			commit = 0;
 		// Release: back to DEFEND, the last committed first.
 		while (committed.Count() > commit)
