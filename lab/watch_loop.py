@@ -199,6 +199,11 @@ def moments(server_log: str, client_log: str, rec_start: int) -> tuple:
             m = re.search(r"from=(.*?) to=(.*?) distance=", line)   # base names have spaces
             where = f"from {m.group(1)} to {m.group(2)}" if m else ""
             key.append((v, f"DRONES: {f.get('side')} {f.get('kind')} FPV team {where}"))
+        elif "[ZCR][STORM]" in line:
+            f = metrics.fields(line, "[ZCR][STORM]")
+            m = re.search(r"base=(.*?) squads=", line)   # base names have spaces
+            if m:
+                key.append((v, f"STORM: {f.get('faction')} storms {m.group(1)} - {f.get('squads')} squads, {f.get('men')} men go in"))
         elif "[ZCR][COMMIT]" in line:
             f = metrics.fields(line, "[ZCR][COMMIT]")
             what = "joins the attack" if f.get("role") == "ATTACK" else "goes back to defending"

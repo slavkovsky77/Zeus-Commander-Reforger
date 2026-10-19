@@ -99,7 +99,7 @@ def video_rows() -> list:
         except (IndexError, ValueError):
             score = ""
         video = md.with_suffix(".mp4") if md.with_suffix(".mp4").exists() else md.with_suffix(".mkv")
-        key = [m for m in moments if any(k in m for k in ("CAPTURE", "COMMIT", "DRONES"))]
+        key = [m for m in moments if any(k in m for k in ("CAPTURE", "STORM", "COMMIT", "DRONES"))]
         out.append((md.stem, info, score, (key or moments)[:6], str(video)))
     # The pick first.
     out.sort(key=lambda v: v[0] not in WATCH_FIRST)
