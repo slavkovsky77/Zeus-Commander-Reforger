@@ -188,6 +188,16 @@ class ZCR_Strategist
 				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]), attackable.Contains(node.GetId()));
 			if (ours)
 				entry += string.Format(",\"supplies\":%1,\"threatened\":%2", Num(base.GetSupplies()), base.IsBeingCaptured() || base.AreEnemiesPresent());
+			// Where AI Conflict sends attackers (the capture point, not always the base's own
+			// position) and whether someone is taking it now.
+			array<SCR_SeizingComponent> points = {};
+			base.GetCapturePoints(points);
+			if (!points.IsEmpty() && points[0] && points[0].GetOwner())
+			{
+				vector cp = points[0].GetOwner().GetOrigin();
+				entry += string.Format(",\"cx\":%1,\"cz\":%2", Num(cp[0]), Num(cp[2]));
+			}
+			entry += string.Format(",\"seizing\":%1", base.IsBeingCaptured());
 			entry += "}";
 			if (!bases.IsEmpty())
 				bases += ",";

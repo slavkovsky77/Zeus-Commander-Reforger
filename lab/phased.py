@@ -42,6 +42,11 @@ def force_near(report: dict, at: dict, radius: float) -> float:
                      if "x" in s and math.hypot(s["x"] - at["x"], s["z"] - at["z"]) <= radius))
 
 
+def capture_point(base: dict) -> dict:
+    """Where AI Conflict sends attackers: the base's capture point when the report has it."""
+    return {"x": base.get("cx", base["x"]), "z": base.get("cz", base["z"])}
+
+
 def force_at(report: dict, target: dict, radius: float = 900) -> float:
     """Soldiers attacking the objective: squads AI Conflict has sent there (their target) and within
     the radius - it stages them 400-500 m out before going in - plus anyone within 250 m of it.
@@ -139,9 +144,11 @@ class Phased:
         # Assault.
         near = force_at(report, target, ASSAULT_RADIUS)
         # Arma 3 calls an assault off when it stops gaining ground: here, no capture in 10 min and
-        # nobody on the objective - with soldiers on it, a capture takes 5-10 min more, so 15 min.
-        on_it = force_near(report, target, 250) >= ON_IT
-        stalled = elapsed >= ASSAULT_MAX_ON_IT or (elapsed >= ASSAULT_MAX and not on_it)
+        # nobody on the objective - with soldiers on it, a capture takes 5-10 min more, so 15 min;
+        # never while the base is being seized.
+        on_it = force_near(report, capture_point(target), 150 if "cx" in target else 250) >= ON_IT
+        stalled = not target.get("seizing") and (
+            elapsed >= ASSAULT_MAX_ON_IT or (elapsed >= ASSAULT_MAX and not on_it))
         if (elapsed >= 360 and near < 0.35 * need) or stalled:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
             st.update(phase="pick" if stalled else "gather", since=t, need=need + NEED_PER_FAIL)

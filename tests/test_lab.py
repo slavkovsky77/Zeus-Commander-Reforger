@@ -240,6 +240,17 @@ class PhasedTests(unittest.TestCase):
         p.decide(r)                                      # 15 min: called off all the same
         self.assertEqual(p.state["USSR"]["fails"][3], 1)
 
+    def test_assault_goes_on_while_seizing(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        p.decide(self.report(190))                       # assault Town
+        r = self.report(190 + 1000)
+        next(b for b in r["bases"] if b["id"] == 3)["seizing"] = 1
+        p.decide(r)                                      # 16 min, but Town is being taken
+        self.assertEqual(p.state["USSR"]["target"], 3)
+        self.assertNotIn(3, p.state["USSR"]["fails"])
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()
