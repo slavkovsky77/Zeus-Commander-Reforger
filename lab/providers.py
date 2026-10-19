@@ -151,7 +151,40 @@ class OpenRouter(_LLM):
         return r["choices"][0]["message"]["content"] or ""
 
 
-PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude, "openrouter": OpenRouter}
+class PhasedRules:
+    """Our rules pick the objective; the Arma 3 attack doctrine (gather, assault, fall back) runs
+    it (lab/phased.py)."""
+    name = "phased"
+
+    def __init__(self, cfg: dict):
+        import phased
+        self.p = phased.Phased(None, self.name)
+
+    def decide(self, report: dict, doctrine_text: str) -> tuple:
+        return self.p.decide(report, doctrine_text)
+
+
+class PhasedLLM:
+    """The model picks the objective (only when a new one is due), the doctrine fights for it."""
+    name = "llm-phased"
+
+    def __init__(self, cfg: dict):
+        import phased
+        inner = dict(cfg, provider=cfg.get("llm_provider", "openrouter"))
+        self.llm = PROVIDERS[inner["provider"]](inner)
+
+        def pick(report, text):
+            decision, raw = self.llm.decide(report, text)
+            return decision.get("main_effort"), str(decision.get("intent", ""))[:160], raw
+
+        self.p = phased.Phased(pick, self.name)
+
+    def decide(self, report: dict, doctrine_text: str) -> tuple:
+        return self.p.decide(report, doctrine_text)
+
+
+PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude, "openrouter": OpenRouter,
+             "phased": PhasedRules, "llm-phased": PhasedLLM}
 
 
 def make(cfg: dict):

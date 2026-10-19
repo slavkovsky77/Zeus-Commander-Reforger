@@ -148,3 +148,64 @@ class MetricsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PhasedTests(unittest.TestCase):
+    def report(self, t, weak=False, **changes):
+        r = json.loads(json.dumps(REPORT))
+        r["t"] = t
+        if weak:
+            r["squads"][0]["alive"] = 3                  # 20 near the Farm: not yet enough for Town
+        for bid, owner in changes.items():
+            for b in r["bases"]:
+                if b["id"] == int(bid[1:]):
+                    b["owner"] = owner
+        return r
+
+    def test_gather_then_assault_then_next(self):
+        import phased
+        p = phased.Phased()
+        d, _ = p.decide(self.report(100, weak=True))
+        self.assertEqual(d["main_effort"], 1)            # gather at the Farm, our base nearest Town
+        self.assertIn(3, d["avoid"])                     # nobody walks into Town alone
+        d, _ = p.decide(self.report(190))
+        self.assertEqual(d["main_effort"], 3)            # 27 soldiers near the Farm >= 25: assault Town
+        d, _ = p.decide(self.report(400, b3="USSR"))     # Town taken
+        self.assertNotEqual(d["main_effort"], 3)
+        self.assertIn(d["main_effort"], (2, 4, 5))
+
+    def test_bled_out_assault_falls_back(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        p.decide(self.report(190))                       # assault Town
+        r = self.report(190 + 800)
+        for s in r["squads"]:
+            s["alive"] = 1                               # the attack bled out
+        d, _ = p.decide(r)
+        self.assertEqual(d["main_effort"], 1)            # back to the Farm
+        self.assertEqual(p.state["USSR"]["fails"][3], 1)
+
+    def test_new_match_resets(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(500))
+        p.decide(self.report(600))
+        d, _ = p.decide(self.report(45, weak=True))      # t went back: a new match
+        self.assertEqual(p.state["USSR"]["phase"], "gather")
+        self.assertEqual(d["main_effort"], 1)
+
+    def test_llm_picks_only_when_due(self):
+        import phased
+        calls = []
+
+        def pick(report, text):
+            calls.append(report["t"])
+            return 4, "Take the crossroads", ""
+
+        p = phased.Phased(pick, "llm-phased")
+        p.decide(self.report(100))
+        p.decide(self.report(190))
+        p.decide(self.report(280))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(p.state["USSR"]["target"], 4)

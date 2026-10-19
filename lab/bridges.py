@@ -29,8 +29,8 @@ def ensure(names=("llm", "doctrine")) -> None:
         if alive(port):
             continue
         args = [sys.executable, "-u", str(HERE / "bridge.py"), "--port", str(port)]
-        if name == "doctrine":
-            args += ["--provider", "doctrine"]
+        if name != "llm":
+            args += ["--provider", name]
         log = open(ROOT / ".runtime" / f"bridge-{name}.log", "a", encoding="utf-8")
         subprocess.Popen(args, cwd=str(ROOT), stdout=log, stderr=subprocess.STDOUT,
                          creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)

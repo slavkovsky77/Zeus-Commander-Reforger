@@ -98,6 +98,14 @@ def main() -> int:
         running = still
         if time.time() < end - a.minutes * 60:
             while len(running) < a.parallel:
+                # The matchups can change between matches: .runtime/batch_matchups.txt overrides.
+                override = ROOT / ".runtime" / "batch_matchups.txt"
+                if override.exists():
+                    new = [tuple(m.split(":")) for m in override.read_text(encoding="utf-8").strip().split(",") if m.count(":") == 2]
+                    if new and new != queue:
+                        queue = new
+                        bridges.ensure(tuple({x for _, u, v in queue for x in (u, v) if x in reforger.BRIDGES}))
+                        log(f"matchups now {override.read_text(encoding='utf-8').strip()}")
                 map_name, us, ussr = queue[n % len(queue)]
                 port = 2120 + (n % 8)
                 n += 1

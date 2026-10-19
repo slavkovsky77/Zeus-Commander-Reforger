@@ -34,7 +34,7 @@ DRONE_DIRS = [r"D:\work\reforger-local-mods", r"E:\ArmaReforgerMods\addons"]
 DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
 CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
 # The strategist bridges (lab/bridge.py), shared by every match on this PC.
-BRIDGES = {"llm": 8765, "doctrine": 8766}
+BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768}
 MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
     "arland": ("AIConflictArland", "", "{BC2437E4861B4FD2}Missions/AICF_Conflict_Arland.conf", "Missions/AICF_Conflict_Arland.conf"),

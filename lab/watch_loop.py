@@ -304,6 +304,14 @@ def main() -> int:
     end = time.time() + a.hours * 3600
     n = fails = 0
     while time.time() < end:
+        # The rotation can change between matches: .runtime/watch_rotation.txt overrides.
+        override = ROOT / ".runtime" / "watch_rotation.txt"
+        if override.exists():
+            new = [tuple(x.split(":")) for x in override.read_text(encoding="utf-8").strip().split(",") if x.count(":") == 2]
+            if new and new != rotation:
+                rotation = new
+                bridges.ensure(tuple({x for _, u, v in rotation for x in (u, v) if x in BRIDGES}))
+                log(f"rotation now {override.read_text(encoding='utf-8').strip()}")
         map_name, us, ussr = rotation[n % len(rotation)]
         n += 1
         meta = match(n, map_name, us, ussr, min(a.minutes, max(5, (end - time.time()) / 60 - 3)), a.keep_front)

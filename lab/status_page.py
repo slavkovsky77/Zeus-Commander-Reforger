@@ -20,7 +20,8 @@ ROOT = HERE.parent
 RESULTS = ROOT / ".runtime" / "batch_results.jsonl"
 WATCHED = ROOT / ".runtime" / "watch_matches.jsonl"
 VIDEOS = ROOT / "videos"
-NAMES = {"none": "AI Conflict alone", "doctrine": "our rules doctrine", "llm": "Gemini 3.8 Flash"}
+NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": "Gemini: targets only",
+         "phased": "rules + attack doctrine", "llm-phased": "Gemini + attack doctrine"}
 
 # Kept by hand as the night goes: what is open, what is next.
 PROBLEMS = [
@@ -106,7 +107,7 @@ def build() -> str:
     done = [r for r in batch if r["metrics"].get("minutes", 0) >= 15]
     # Strategist margins (each matched against AI Conflict alone), and the none-v-none control.
     chart = []
-    for s in ("llm", "doctrine"):
+    for s in ("llm", "doctrine", "phased", "llm-phased"):
         ms = [m for m in (margin(r, s) for r in done) if m is not None]
         if ms:
             chart.append((NAMES[s], statistics.mean(ms), f"({len(ms)} matches)"))
@@ -143,7 +144,8 @@ def build() -> str:
                     for c, t, d in PROBLEMS)
     nxt = "".join(f"<li>{html.escape(n)}</li>" for n in NEXT)
     log = "".join(f"<tr><td class='num'>{t}</td><td><code>{h}</code></td><td>{html.escape(s)}</td></tr>" for h, t, s in git_log())
-    best = max(chart[:2], key=lambda x: x[1]) if chart[:2] else None
+    strat = [c for c in chart if not c[0].startswith("control")]
+    best = max(strat, key=lambda x: x[1]) if strat else None
     verdict_best = f"{best[0]}: {best[1]:+.1f} bases a match against AI Conflict alone" if best else "no finished head-to-head match yet"
     return TEMPLATE.format(
         now=now, n_batch=len(done), n_videos=len(vids), watch_n=running_watch, verdict_best=html.escape(verdict_best),
