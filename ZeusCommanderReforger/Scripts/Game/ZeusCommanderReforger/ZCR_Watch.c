@@ -80,6 +80,8 @@ class ZCR_Watch
 {
 	protected static ref ZCR_Watch s_Instance;
 	protected static bool s_bChecked;
+	protected static const ResourceName FONT = "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt";
+	protected static const ResourceName FONT_BOLD = "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt";
 
 	protected CameraBase m_Camera;
 	protected Widget m_Root;
@@ -227,8 +229,12 @@ class ZCR_Watch
 		FrameSlot.SetAnchorMin(m_Root, 0, 0);
 		FrameSlot.SetAnchorMax(m_Root, 1, 1);
 		FrameSlot.SetOffsets(m_Root, 0, 0, 0, 0);
-		m_Caption = NewText(0.18, 0.86, 0.82, 0.93, 24, 0.55);
-		m_Panel = NewText(0.005, 0.005, 0.5, 0.11, 17, 0.5);
+		m_Caption = NewText(0.15, 0.84, 0.85, 0.95, 24, 0.55);
+		m_Panel = NewText(0.005, 0.005, 0.55, 0.14, 17, 0.5);
+		if (m_Caption)
+			m_Caption.SetFont(FONT_BOLD);
+		if (m_Panel)
+			m_Panel.SetFont(FONT);
 	}
 
 	protected void Aim(vector target, float back, float height, RplId follow)
@@ -342,7 +348,10 @@ class ZCR_Watch
 		if (w)
 			w.RemoveFromHierarchy();
 		if (text)
+		{
 			w = NewWidget(WidgetType.TextWidgetTypeID, 1003, m_Root);
+			TextWidget.Cast(w).SetFont(FONT_BOLD);
+		}
 		else
 			w = NewWidget(WidgetType.ImageWidgetTypeID, 1003, m_Root);
 		FrameSlot.SetAnchorMin(w, 0, 0);

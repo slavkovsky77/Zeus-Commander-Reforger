@@ -35,6 +35,9 @@ class ZCR_Director
 	// The last scan: soldiers of the two main sides.
 	protected ref array<IEntity> m_aMen = {};
 	protected ref array<IEntity> m_aScan = {};
+	// Where each soldier was at the last scan: who is on the move.
+	protected ref map<IEntity, vector> m_mLastPos = new map<IEntity, vector>();
+	protected ref array<IEntity> m_aMoving = {};
 
 	static void AddWatcher(int playerId)
 	{
@@ -91,12 +94,20 @@ class ZCR_Director
 		m_aScan.Clear();
 		world.QueryEntitiesBySphere((mins + maxs) * 0.5, vector.DistanceXZ(mins, maxs) * 0.5, OnFound, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
 		m_aMen.Clear();
+		m_aMoving.Clear();
+		map<IEntity, vector> seen = new map<IEntity, vector>();
 		foreach (IEntity e : m_aScan)
 		{
 			string side = ZCR_LossLog.SideOf(e);
-			if (side == "US" || side == "USSR")
-				m_aMen.Insert(e);
+			if (side != "US" && side != "USSR")
+				continue;
+			m_aMen.Insert(e);
+			vector before;
+			if (m_mLastPos.Find(e, before) && vector.DistanceXZ(before, e.GetOrigin()) > 25)
+				m_aMoving.Insert(e);
+			seen.Set(e, e.GetOrigin());
 		}
+		m_mLastPos = seen;
 	}
 
 	protected void Tick()
@@ -352,6 +363,37 @@ class ZCR_Director
 			height = 230;
 			m_vLastFight = target;
 		}
+		if (key.IsEmpty() && !hotTurn && !m_aMoving.IsEmpty())
+		{
+			// Nobody fighting: follow someone on the move, alternating the side; in a vehicle, the
+			// vehicle (the Arma 3 director followed APCs carrying troops).
+			array<IEntity> movers = {};
+			string wanted = "US";
+			if (m_iShot % 2 == 0)
+				wanted = "USSR";
+			foreach (IEntity e : m_aMoving)
+			{
+				if (ZCR_LossLog.SideOf(e) == wanted)
+					movers.Insert(e);
+			}
+			if (movers.IsEmpty())
+				movers.Copy(m_aMoving);
+			IEntity mover = movers.GetRandomElement();
+			IEntity root = mover.GetRootParent();
+			follow = mover;
+			string what = "soldier";
+			if (root && Vehicle.Cast(root))
+			{
+				follow = root;
+				what = ZCR_LossLog.ShortName(root);
+			}
+			target = follow.GetOrigin();
+			label = string.Format("%1 %2 on the move %3", ZCR_LossLog.SideOf(mover), what, Near(target));
+			key = "move";
+			back = 90;
+			height = 80;
+			duration = 16;
+		}
 		if (key.IsEmpty())
 		{
 			// Hot zone: the main efforts and the fights, at most ~3 km across.
@@ -426,7 +468,7 @@ class ZCR_Director
 		map<string, int> held = new map<string, int>();
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 			held.Set(owner, held.Get(owner) + 1);
-		return string.Format("bases US %1 · USSR %2 · FIA %3", held.Get("US"), held.Get("USSR"), held.Get("FIA"));
+		return string.Format("bases US %1 | USSR %2 | FIA %3", held.Get("US"), held.Get("USSR"), held.Get("FIA"));
 	}
 
 	protected static string Marker(string kind, vector at, string colour, float size, string text)
@@ -486,11 +528,15 @@ class ZCR_Director
 		{
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
 			string intent = plan.GetIntent();
+			string source = plan.GetSource();
 			if (intent.IsEmpty())
-				intent = "AI Conflict's own commander";
-			panel += string.Format("%1 (%2): %3\n", side, plan.GetSource(), intent);
+			{
+				intent = "AI Conflict's own commander decides";
+				source = "AI Conflict";
+			}
+			panel += string.Format("%1 commander (%2): %3\n", side, source, intent);
 		}
-		panel += string.Format("%1 · lost in the last 2 min: US %2, USSR %3 · game time %4",
+		panel += string.Format("%1 | lost in the last 2 min: US %2, USSR %3 | game time %4",
 			Score(), LossesNear(vector.Zero, 1e9, now - 120, "US"), LossesNear(vector.Zero, 1e9, now - 120, "USSR"), Clock(now));
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)

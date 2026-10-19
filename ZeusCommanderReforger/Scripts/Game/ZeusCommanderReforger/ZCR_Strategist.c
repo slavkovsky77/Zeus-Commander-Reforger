@@ -46,6 +46,9 @@ class ZCR_Strategist
 			m_iIntervalMs = value.ToInt() * 1000;
 		if (System.GetCLIParam("zcrBridge", value))
 			m_sBridge = value;
+		// As the game's own uses: base address ending in "/", path without one.
+		if (!m_sBridge.IsEmpty() && !m_sBridge.EndsWith("/"))
+			m_sBridge += "/";
 		ZCR_LossLog.Register();
 		Print(string.Format("[ZCR][STRATEGIST] faction=%1 interval_s=%2 bridge=%3", m_sFaction, m_iIntervalMs / 1000, m_sBridge), LogLevel.NORMAL);
 	}
@@ -78,12 +81,14 @@ class ZCR_Strategist
 			OnNoAnswer("NO_CONTEXT");
 			return;
 		}
-		context.SetTimeout(30);
+		context.SetTimeout(40000);   // the game's own calls pass milliseconds
+		context.SetHeaders("Content-Type,application/json");
 		m_Callback = new RestCallback();
 		m_Callback.SetOnSuccess(OnAnswer);
 		m_Callback.SetOnError(OnError);
 		m_bWaiting = true;
-		context.POST(m_Callback, "/plan", report);
+		int sent = context.POST(m_Callback, "plan", report);
+		Print(string.Format("[ZCR][BRIDGE_SEND] faction=%1 round=%2 bytes=%3 result=%4", m_sFaction, m_iRound, report.Length(), sent), LogLevel.NORMAL);
 	}
 
 	protected static string Clean(string text)
@@ -234,7 +239,7 @@ class ZCR_Strategist
 	protected void OnError(RestCallback callback)
 	{
 		m_bWaiting = false;
-		OnNoAnswer(typename.EnumToString(ERestResult, callback.GetRestResult()));
+		OnNoAnswer(string.Format("%1 http=%2 data=%3", typename.EnumToString(ERestResult, callback.GetRestResult()), callback.GetHttpCode(), callback.GetData()));
 	}
 
 	protected void OnNoAnswer(string reason)
