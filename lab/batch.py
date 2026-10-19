@@ -31,14 +31,15 @@ DEFAULT = "everon:none:llm,everon:llm:none,everon:none:doctrine,everon:doctrine:
 
 
 class Run:
-    def __init__(self, map_name: str, us: str, ussr: str, port: int, minutes: float):
+    def __init__(self, map_name: str, us: str, ussr: str, port: int, minutes: float, scenario: str = ""):
+        """scenario: "" (Conflict with FIA) or "nofia" (two armies only, -zcrNoFIA)."""
         self.map, self.us, self.ussr, self.minutes = map_name, us, ussr, minutes
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.label = f"b-{map_name}-{us}-v-{ussr}"
+        self.label = f"b-{map_name}-{us}-v-{ussr}" + (f"-{scenario}" if scenario else "")
         self.profile = ROOT / ".runtime" / "runs" / f"{self.label}-{stamp}"
         self.profile.mkdir(parents=True)
         o = Namespace(map=map_name, port=port, client=False, drones=True, watch=False, plan_seconds=90,
-                      bridge=False, bridge_url="", us=us, ussr=ussr)
+                      bridge=False, bridge_url="", us=us, ussr=ussr, extra="-zcrNoFIA" if scenario == "nofia" else "")
         cmd = reforger.command(o, self.profile)
         self.commit = git_commit()
         self.proc = subprocess.Popen(cmd, cwd=str(Path(cmd[0]).parent),
@@ -83,8 +84,9 @@ def main() -> int:
     ap.add_argument("--parallel", type=int, default=1)
     ap.add_argument("--matchups", default=DEFAULT)
     a = ap.parse_args()
-    queue = [tuple(m.split(":")) for m in a.matchups.split(",") if m]
-    needed = {s for _, us, ussr in queue for s in (us, ussr) if s in reforger.BRIDGES}
+    # map:us:ussr or map:us:ussr:nofia (two armies only)
+    queue = [tuple((m.split(":") + [""])[:4]) for m in a.matchups.split(",") if m]
+    needed = {s for _, us, ussr, _ in queue for s in (us, ussr) if s in reforger.BRIDGES}
     bridges.ensure(tuple(needed))
     end = time.time() + a.hours * 3600
     running, n = [], 0
@@ -101,15 +103,15 @@ def main() -> int:
                 # The matchups can change between matches: .runtime/batch_matchups.txt overrides.
                 override = ROOT / ".runtime" / "batch_matchups.txt"
                 if override.exists():
-                    new = [tuple(m.split(":")) for m in override.read_text(encoding="utf-8").strip().split(",") if m.count(":") == 2]
+                    new = [tuple((m.split(":") + [""])[:4]) for m in override.read_text(encoding="utf-8").strip().split(",") if m.count(":") in (2, 3)]
                     if new and new != queue:
                         queue = new
-                        bridges.ensure(tuple({x for _, u, v in queue for x in (u, v) if x in reforger.BRIDGES}))
+                        bridges.ensure(tuple({x for _, u, v, _ in queue for x in (u, v) if x in reforger.BRIDGES}))
                         log(f"matchups now {override.read_text(encoding='utf-8').strip()}")
-                map_name, us, ussr = queue[n % len(queue)]
+                map_name, us, ussr, scenario = queue[n % len(queue)]
                 port = 2120 + (n % 8)
                 n += 1
-                running.append(Run(map_name, us, ussr, port, a.minutes))
+                running.append(Run(map_name, us, ussr, port, a.minutes, scenario))
                 time.sleep(20)   # stagger the loading
         elif not running:
             return 0

@@ -60,7 +60,9 @@ BUILDS = [
     (13, "fireteams, side panels, bounding", "2026-10-19 16:58", "AI Conflict changed: 20 fireteams of 5 per side in a wedge; Arma 3's side panels; bounding on; drone shot to the hit; covered dismount on long rides"),
     (14, "two armies, drone sites", "2026-10-19 17:56", "watched matches: two armies only (no FIA); drones only from drone sites (truck + operators); stuck drones retargeted"),
 ]
-FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
+FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
+            ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
+            ("everon-watched-2a", "Everon watched, two armies")]
 KEYS = ["team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
@@ -231,8 +233,10 @@ def measure_run(run: Path, log: Path):
     other = "US" if side == "USSR" else "USSR"
     mapname = "everon" if "everon" in run.name else "arland"
     kind = "watched" if re.match(r"w\d+-", run.name) else "probe" if run.name.startswith("probe-") else "headless"
+    # The two-army test scenario (-zcrNoFIA, from r14): its own lines - no FIA, a different game.
+    two_armies = any("CLI Params:" in l and "-zcrNoFIA" in l for l in lines[:400])
     row = {"run": run.name, "started": started.strftime("%Y-%m-%d %H:%M"), "build": build_of(started),
-           "map": mapname, "kind": kind, "family": f"{mapname}-{kind}" if sides else "control",
+           "map": mapname, "kind": kind, "family": (f"{mapname}-{kind}" + ("-2a" if two_armies else "")) if sides else "control",
            "side": side, "strategist": sides.get(side, "none"), "minutes": m["minutes"]}
     row["margin"] = score.get(side, 0) - score.get(other, 0)
     cli = next((l for l in lines if "CLI Params:" in l), "").split()
