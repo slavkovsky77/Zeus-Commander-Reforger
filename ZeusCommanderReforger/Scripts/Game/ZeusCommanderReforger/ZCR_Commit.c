@@ -70,6 +70,40 @@ modded class AICF_MatchController
 		}
 	}
 
+	// Arma 3's teams ride to the drop-off (review note 85): AI Conflict's own commander never gives
+	// infantry squads a vehicle (only a player can make a squad motorized), so a march of 1-1.3 km to
+	// the next objective took 7-18 minutes. With motorize on, the doctrine side's attack squads become
+	// truck squads the way a player's choice would make them; AI Conflict's vehicle system then
+	// brings a truck for routes over 400 m and drops them 150 m short. Off: back to infantry.
+	void ZCR_Motorize(SCR_CampaignFaction faction, AICF_FactionState state, bool motorize)
+	{
+		if (!Replication.IsServer() || !faction || !state)
+			return;
+		AICF_EGroupUnitType want = AICF_EGroupUnitType.INFANTRY;
+		if (motorize)
+			want = AICF_EGroupUnitType.MOTORIZED_TRUCK;
+		for (int i = 0; i < state.GetSlotCount(); i++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(i);
+			if (!slot || slot.GetRole() != AICF_EGroupRole.ATTACK || slot.GetUnitType() == want)
+				continue;
+			if (slot.GetState() == AICF_EGroupSlotState.SPAWNING)
+				continue;
+			if (!state.ApplyCommanderConfiguration(slot.GetSlotId(), slot.GetRole(), want, slot.GetDesiredSize()))
+				continue;
+			bool admission;
+			if (slot.IsCombatReady())
+			{
+				slot.TouchCommanderConfiguration();
+				if (motorize && m_VehicleCoordinator)
+					admission = m_VehicleCoordinator.RequestExplicitVehicleAdmission(slot, faction, "ZCR_MOTORIZE");
+			}
+			Print(string.Format("[ZCR][MOTORIZE] t=%1 faction=%2 slot=%3 type=%4 ready=%5 admission=%6",
+				ZCR_LossLog.Seconds(), faction.GetFactionKey(), slot.GetSlotId(), typename.EnumToString(AICF_EGroupUnitType, want),
+				slot.IsCombatReady(), admission), LogLevel.NORMAL);
+		}
+	}
+
 	protected bool ZCR_SetRole(SCR_CampaignFaction faction, AICF_FactionState state, AICF_GroupSlot slot, AICF_EGroupRole role, string reason)
 	{
 		if (!slot || slot.GetRole() == role)

@@ -5,6 +5,7 @@ A decision names bases by their graph id from the situation report (ZCR_Strategi
      "concentration": "normal" | "heavy", "commit": 0-2}
 commit: how many of AI Conflict's DEFEND squads join the attack while nothing threatens us.
 storm: a base (the main effort) the squads sent there go into without stopping to fight at range.
+motorize: our attack squads ride trucks to their objectives (AI Conflict gives infantry none).
 validate() drops anything the report doesn't support; to_lines() turns it into the plain lines the
 game reads (ZCR_Strategist.OnAnswer): a score bonus and a force demand per base, on top of AI
 Conflict's own commander. One full squad counts 10 in AI Conflict's units.
@@ -74,6 +75,7 @@ def validate(decision: dict, report: dict) -> tuple:
         clean["commit"] = max(0, min(MAX_COMMIT, int(decision.get("commit") or 0)))
     except (TypeError, ValueError):
         problems.append(f"commit: not a number: {decision.get('commit')!r}")
+    clean["motorize"] = bool(decision.get("motorize"))
     clean["storm"] = None
     if decision.get("storm") is not None:
         storm = ids(decision.get("storm"), "storm")
@@ -121,4 +123,6 @@ def to_lines(decision: dict, source: str) -> str:
         out.append(f"commit {int(decision['commit'])}")
     if decision.get("storm") is not None:
         out.append(f"storm {int(decision['storm'])}")
+    if decision.get("motorize"):
+        out.append("motorize 1")
     return "\n".join(out) + "\n"

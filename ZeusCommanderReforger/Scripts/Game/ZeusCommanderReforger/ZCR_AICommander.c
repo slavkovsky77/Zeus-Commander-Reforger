@@ -9,7 +9,12 @@ modded class AICF_AICommander
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);
 			if (matchController)
+			{
 				matchController.ZCR_CommitDefenders(m_Faction, m_FactionState, plan.GetCommit(), ZCR_UnderCapture());
+				// Only a side whose strategist has spoken: AI Conflict alone keeps its own squads.
+				if (!plan.IsEmpty())
+					matchController.ZCR_Motorize(m_Faction, m_FactionState, plan.GetMotorize());
+			}
 			ZCR_ApplyStorm(plan.GetStorm());
 		}
 		return super.Tick(matchController, reason);

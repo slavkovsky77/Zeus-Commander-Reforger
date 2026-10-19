@@ -8,6 +8,7 @@
 //   commit    how many of AI Conflict's DEFEND squads join the attack (0-2): Arma 3's doctrine keeps
 //             a minimal garrison while nothing threatens us (ZCR_CommitDefenders).
 //   storm     a base the squads sent there go into without stopping to fight at range (ZCR_Storm).
+//   motorize  the attack squads ride trucks to their objectives (ZCR_Motorize).
 // Server only. Every change is logged as [ZCR][PLAN] for the lab.
 class ZCR_StrategicPlan
 {
@@ -23,6 +24,7 @@ class ZCR_StrategicPlan
 	protected int m_iChangedAt;
 	protected int m_iCommit;
 	protected int m_iStorm = -1;
+	protected bool m_bMotorize;
 
 	static ZCR_StrategicPlan Get(FactionKey faction)
 	{
@@ -67,6 +69,16 @@ class ZCR_StrategicPlan
 	void SetCommit(int commit)
 	{
 		m_iCommit = Math.ClampInt(commit, 0, 2);
+	}
+
+	bool GetMotorize()
+	{
+		return m_bMotorize;
+	}
+
+	void SetMotorize(bool motorize)
+	{
+		m_bMotorize = motorize;
 	}
 
 	int GetStorm()
@@ -148,14 +160,15 @@ class ZCR_StrategicPlan
 				m_iMainEffort = node;
 			}
 		}
-		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 commit=%7 storm=%8 intent=%6",
-			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent, m_iCommit, m_iStorm), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 commit=%7 storm=%8 motorize=%9 intent=%6",
+			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent, m_iCommit, m_iStorm, m_bMotorize), LogLevel.NORMAL);
 	}
 
 	void Clear(string source)
 	{
 		m_iCommit = 0;
 		m_iStorm = -1;
+		m_bMotorize = false;
 		Apply(null, null, "", source);
 	}
 }

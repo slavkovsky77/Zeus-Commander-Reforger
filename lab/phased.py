@@ -85,8 +85,9 @@ def staging_base(report: dict, target: dict):
 
 
 class Phased:
-    def __init__(self, picker=None, name: str = "phased"):
+    def __init__(self, picker=None, name: str = "phased", motorize: bool = False):
         self.name = name
+        self.motorize = motorize      # attack squads ride trucks (lab A/B: bridge --motorize)
         self.picker = picker          # (report, doctrine_text) -> (base id or None, intent, raw)
         self.state = {}               # side ("match:faction" when the report names its match) -> dict
 
@@ -110,6 +111,11 @@ class Phased:
         return (target if ok(target) else None), "", raw
 
     def decide(self, report: dict, doctrine_text: str = "") -> tuple:
+        decision, raw = self._decide(report, doctrine_text)
+        decision["motorize"] = self.motorize
+        return decision, raw
+
+    def _decide(self, report: dict, doctrine_text: str = "") -> tuple:
         faction = report.get("faction")
         t = report.get("t", 0)
         # One bridge serves the watched and the headless match at once: memory per match and side.
@@ -180,7 +186,7 @@ class Phased:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
             st.update(phase="pick" if stalled else "gather", since=t, need=need + NEED_PER_FAIL)
             if st["phase"] == "pick":
-                return self.decide(report, doctrine_text)
+                return self._decide(report, doctrine_text)
             return {"intent": f"The attack on {name} bled out - falling back to gather more", "main_effort": stage["id"] if stage else None,
                     "supporting": [], "hold": hold[:3], "avoid": [target["id"]], "concentration": "heavy"}, raw
         intent = st.get("llm_intent") or ""

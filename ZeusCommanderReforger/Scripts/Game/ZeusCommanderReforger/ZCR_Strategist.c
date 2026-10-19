@@ -275,6 +275,7 @@ class ZCR_Strategist
 		string intent;
 		int commit;
 		int storm = -1;
+		bool motorize;
 		for (int i = 1; i < lines.Count(); i++)
 		{
 			string line = lines[i].Trim();
@@ -289,6 +290,8 @@ class ZCR_Strategist
 				commit = parts[1].ToInt();
 			if (parts.Count() == 2 && parts[0] == "storm")
 				storm = parts[1].ToInt();
+			if (parts.Count() == 2 && parts[0] == "motorize")
+				motorize = parts[1].ToInt() > 0;
 			if (parts.Count() != 3)
 				continue;
 			if (parts[0] == "priority")
@@ -300,6 +303,7 @@ class ZCR_Strategist
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFaction);
 		plan.SetCommit(commit);
 		plan.SetStorm(storm);
+		plan.SetMotorize(motorize);
 		plan.Apply(priority, demand, intent, source);
 		ZCR_Drones.OnPlan(m_sFaction, plan, source != "doctrine-fallback");
 	}

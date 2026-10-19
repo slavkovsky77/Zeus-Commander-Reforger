@@ -177,7 +177,7 @@ class PhasedRules:
                     return None, "", f"first target {first['name']} not within reach yet"
                 first["used"] = True
                 return hit["id"], "", f"first target fixed: {first['name']}"
-        self.p = phased.Phased(picker, self.name)
+        self.p = phased.Phased(picker, self.name, motorize=bool(cfg.get("motorize")))
 
     def decide(self, report: dict, doctrine_text: str) -> tuple:
         target = getattr(self, "_first", None)
@@ -205,7 +205,7 @@ class PhasedLLM:
             decision, raw = self.llm.decide(report, text)
             return decision.get("main_effort"), str(decision.get("intent", ""))[:160], raw
 
-        self.p = phased.Phased(pick, self.name)
+        self.p = phased.Phased(pick, self.name, motorize=bool(cfg.get("motorize")))
 
     def decide(self, report: dict, doctrine_text: str) -> tuple:
         return self.p.decide(report, doctrine_text)

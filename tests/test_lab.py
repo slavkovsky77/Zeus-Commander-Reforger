@@ -314,6 +314,16 @@ class PhasedTests(unittest.TestCase):
         p.decide(far(1500, arrived=True))                # 10 min there, nobody on it: called off
         self.assertEqual(p.state["USSR"]["fails"].get(3), 1)
 
+    def test_motorize_goes_through_every_decision(self):
+        import phased
+        p = phased.Phased(motorize=True)
+        d, _ = p.decide(self.report(100, weak=True))     # gathering
+        self.assertTrue(d["motorize"])
+        clean, _ = validate(d, self.report(100))
+        self.assertIn("motorize 1", to_lines(clean, "phased").splitlines())
+        d, _ = phased.Phased().decide(self.report(100))
+        self.assertFalse(d["motorize"])
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()
