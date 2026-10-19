@@ -48,6 +48,12 @@ class ZCR_Strategist
 			m_iIntervalMs = value.ToInt() * 1000;
 		if (System.GetCLIParam("zcrBridge", value))
 			m_sBridge = value;
+		// One side only, for head-to-head lab matches: -zcrBridgeUS=<url> / -zcrBridgeUSSR=<url>
+		// ("none" = this side runs on AI Conflict alone).
+		if (System.GetCLIParam("zcrBridge" + faction, value))
+			m_sBridge = value;
+		if (m_sBridge == "none")
+			m_sBridge = "";
 		// As the game's own uses: base address ending in "/", path without one.
 		if (!m_sBridge.IsEmpty() && !m_sBridge.EndsWith("/"))
 			m_sBridge += "/";
@@ -61,6 +67,7 @@ class ZCR_Strategist
 		if (!Replication.IsServer() || !state || !faction || !graph)
 			return;
 		s_mStates.Set(m_sFaction, state);
+		ZCR_LabWeather.Apply();
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
 			return;
@@ -76,6 +83,8 @@ class ZCR_Strategist
 			OnNoAnswer("BUSY");
 		string report = BuildReport(state, faction, graph);
 		SaveReport(report);
+		if (m_sFaction == "US")
+			LogScore(graph);
 		if (m_sBridge.IsEmpty())
 			return;
 		RestContext context = GetGame().GetRestApi().GetContext(m_sBridge);
@@ -92,6 +101,25 @@ class ZCR_Strategist
 		m_bWaiting = true;
 		int sent = context.POST(m_Callback, "plan", report);
 		Print(string.Format("[ZCR][BRIDGE_SEND] faction=%1 round=%2 bytes=%3 result=%4", m_sFaction, m_iRound, report.Length(), sent), LogLevel.NORMAL);
+	}
+
+	// The score for the lab: bases held per side (objectives counted apart), every round.
+	protected void LogScore(AICF_ObjectiveGraph graph)
+	{
+		map<string, int> bases = new map<string, int>();
+		map<string, int> objectives = new map<string, int>();
+		for (int i; i < graph.GetNodeCount(); i++)
+		{
+			AICF_ObjectiveNode node = graph.GetNode(i);
+			if (!node || !node.GetBase() || !node.GetBase().GetFaction())
+				continue;
+			string owner = node.GetBase().GetFaction().GetFactionKey();
+			bases.Set(owner, bases.Get(owner) + 1);
+			if (node.IsObjective())
+				objectives.Set(owner, objectives.Get(owner) + 1);
+		}
+		Print(string.Format("[ZCR][SCORE] t=%1 US=%2 USSR=%3 FIA=%4 US_obj=%5 USSR_obj=%6", ZCR_LossLog.Seconds(),
+			bases.Get("US"), bases.Get("USSR"), bases.Get("FIA"), objectives.Get("US"), objectives.Get("USSR")), LogLevel.NORMAL);
 	}
 
 	protected static string Clean(string text)

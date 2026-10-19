@@ -441,7 +441,7 @@ class ZCR_Director
 				lo = Vector(5000, 0, 5000);
 				hi = Vector(7000, 0, 7000);
 			}
-			float width = Math.Min(3000, Math.Max(900, Math.Max(hi[0] - lo[0], hi[2] - lo[2]) + 600));
+			float width = Math.Min(2200, Math.Max(800, Math.Max(hi[0] - lo[0], hi[2] - lo[2]) + 500));
 			target = (lo + hi) * 0.5;
 			back = width * 0.5;
 			height = width * 0.55;

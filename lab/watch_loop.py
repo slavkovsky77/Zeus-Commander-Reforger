@@ -33,7 +33,7 @@ import reforger  # noqa: E402
 
 VIDEOS = ROOT / "videos"
 PORT = 2110
-BRIDGES = {"llm": 8765, "doctrine": 8766}
+from reforger import BRIDGES  # noqa: E402
 user32 = ctypes.windll.user32
 ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
@@ -49,10 +49,9 @@ def git_commit() -> str:
     return r.stdout.strip() + ("+changes" if dirty else "")
 
 
-def opts(map_name: str, client: bool, strategist: str, label: str) -> Namespace:
+def opts(map_name: str, client: bool, us: str, ussr: str, label: str) -> Namespace:
     return Namespace(map=map_name, port=PORT, client=client, drones=False, watch=True, plan_seconds=90,
-                     bridge=strategist in BRIDGES, bridge_url=f"http://127.0.0.1:{BRIDGES.get(strategist, 0)}",
-                     label=label, minutes=0, dry_run=False)
+                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False)
 
 
 def start(o: Namespace, tag: str):
@@ -215,13 +214,13 @@ def write_index(path: Path, video: Path, meta: dict, m: dict, key: list, shots: 
 
 
 # --- one match -------------------------------------------------------------------------------------
-def match(n: int, map_name: str, strategist: str, minutes: float, keep_front: bool) -> dict:
-    label = f"w{n}-{map_name}-{strategist}"
-    meta = {"map": map_name, "strategist": strategist, "commit": git_commit(), "started": f"{datetime.now():%Y-%m-%d %H:%M}",
-            "minutes": minutes, "ended": ""}
-    log(f"match {n}: {map_name}, strategist {strategist}, {minutes} min, build {meta['commit']}")
+def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front: bool) -> dict:
+    label = f"w{n}-{map_name}-{us}-v-{ussr}"
+    meta = {"map": map_name, "us": us, "ussr": ussr, "strategist": f"US {us} v USSR {ussr}", "commit": git_commit(),
+            "started": f"{datetime.now():%Y-%m-%d %H:%M}", "minutes": minutes, "ended": ""}
+    log(f"match {n}: {map_name}, {meta['strategist']}, {minutes:.0f} min, build {meta['commit']}")
     kill_crash_reporters()
-    server, sprof = start(opts(map_name, False, strategist, label), "server")
+    server, sprof = start(opts(map_name, False, us, ussr, label), "server")
     client = ff = None
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     video = VIDEOS / f"{stamp}_{label}.mp4"
@@ -232,7 +231,7 @@ def match(n: int, map_name: str, strategist: str, minutes: float, keep_front: bo
         if not wait_for(sprof, server, "ROSTER_READY", 600):
             meta["ended"] = "server did not get ready"
             return meta
-        client, cprof = start(opts(map_name, True, strategist, label), "client")
+        client, cprof = start(opts(map_name, True, us, ussr, label), "client")
         if not wait_for(cprof, client, "[ZCR][CAM]", 300):
             meta["ended"] = "the game did not start the camera"
             return meta
@@ -295,33 +294,24 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--hours", type=float, default=7)
     ap.add_argument("--minutes", type=float, default=30, help="per match")
-    ap.add_argument("--rotation", default="everon:llm,everon:none,everon:doctrine")
+    ap.add_argument("--rotation", default="everon:none:llm,everon:llm:none,everon:none:doctrine",
+                    help="map:US strategist:USSR strategist, each none / doctrine / llm")
     ap.add_argument("--keep-front", action="store_true", help="keep the game on top (only when nobody uses the PC)")
     a = ap.parse_args()
     rotation = [tuple(x.split(":")) for x in a.rotation.split(",") if x]
-    bridges = []
-    for name, port in BRIDGES.items():
-        if any(s == name for _, s in rotation):
-            args = [sys.executable, "-u", str(HERE / "bridge.py"), "--port", str(port)]
-            if name == "doctrine":
-                args += ["--provider", "doctrine"]
-            bridges.append(subprocess.Popen(args, cwd=str(ROOT), stdout=open(ROOT / ".runtime" / f"bridge-{name}.log", "a"),
-                                            stderr=subprocess.STDOUT))
+    import bridges
+    bridges.ensure(tuple({s for _, us, ussr in rotation for s in (us, ussr) if s in BRIDGES}))
     end = time.time() + a.hours * 3600
     n = fails = 0
-    try:
-        while time.time() < end:
-            map_name, strategist = rotation[n % len(rotation)]
-            n += 1
-            meta = match(n, map_name, strategist, min(a.minutes, max(5, (end - time.time()) / 60 - 3)), a.keep_front)
-            fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
-            if fails >= 3:
-                log("three matches in a row failed to start - stopping")
-                return 1
-            time.sleep(10)
-    finally:
-        for b in bridges:
-            kill(b)
+    while time.time() < end:
+        map_name, us, ussr = rotation[n % len(rotation)]
+        n += 1
+        meta = match(n, map_name, us, ussr, min(a.minutes, max(5, (end - time.time()) / 60 - 3)), a.keep_front)
+        fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
+        if fails >= 3:
+            log("three matches in a row failed to start - stopping")
+            return 1
+        time.sleep(10)
     return 0
 
 

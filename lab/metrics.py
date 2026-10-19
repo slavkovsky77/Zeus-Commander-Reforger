@@ -28,6 +28,7 @@ def measure(lines) -> dict:
     misses = 0
     snapshots = 0
     t_end = 0
+    score = {}
     for line in lines:
         if "[ZCR][LOSS]" in line:
             f = fields(line, "[ZCR][LOSS]")
@@ -44,6 +45,10 @@ def measure(lines) -> dict:
             plans[fields(line, "[ZCR][PLAN]").get("source", "?")] += 1
         elif "[ZCR][BRIDGE_MISS]" in line:
             misses += 1
+        elif "[ZCR][SCORE]" in line:
+            f = fields(line, "[ZCR][SCORE]")
+            score = {k: int(v) for k, v in f.items() if v.lstrip("-").isdigit()}
+            t_end = max(t_end, score.get("t", 0))
         elif "[ZCR][SNAPSHOT]" in line:
             snapshots += 1
             t_end = max(t_end, int(fields(line, "[ZCR][SNAPSHOT]").get("t", 0) or 0))
@@ -56,6 +61,7 @@ def measure(lines) -> dict:
         "plans": dict(plans),
         "bridge_misses": misses,
         "snapshots": snapshots,
+        "score": score,   # bases held at the last round: US, USSR, FIA, objectives
     }
 
 

@@ -33,6 +33,8 @@ OUR_ADDON = "CA2CA4E14BB55417"
 DRONE_DIRS = [r"D:\work\reforger-local-mods", r"E:\ArmaReforgerMods\addons"]
 DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
 CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
+# The strategist bridges (lab/bridge.py), shared by every match on this PC.
+BRIDGES = {"llm": 8765, "doctrine": 8766}
 MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
     "arland": ("AIConflictArland", "", "{BC2437E4861B4FD2}Missions/AICF_Conflict_Arland.conf", "Missions/AICF_Conflict_Arland.conf"),
@@ -54,9 +56,15 @@ def command(a, profile: Path) -> list:
     cmd += ["-addonsDir", ",".join(roots), "-addons", addons, "-profile", str(profile), "-backendFreshSession", "-noThrow"]
     if not a.client:
         cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000",
-                "-zcrPlanSeconds", str(a.plan_seconds)]
+                "-zcrPlanSeconds", str(a.plan_seconds), "-zcrLabWeather"]
         if a.bridge:
             cmd += ["-zcrBridge", a.bridge_url]
+        # A strategist per side (head-to-head): none = AI Conflict alone, doctrine, llm.
+        for side in ("us", "ussr"):
+            name = getattr(a, side, "") or ""
+            if name:
+                url = f"http://127.0.0.1:{BRIDGES[name]}" if name in BRIDGES else "none"
+                cmd += [f"-zcrBridge{side.upper()}", url]
         if a.watch:
             cmd += ["-zcrWatchServer"]   # players get the whole map (they only watch)
     elif a.watch:
