@@ -185,7 +185,8 @@ class ZCR_Strategist
 			if (s_mNodeOwner.Find(node.GetId(), before) && before != owner)
 			{
 				Print(string.Format("[ZCR][CAPTURE] t=%1 base=%2 from=%3 to=%4", ZCR_LossLog.Seconds(), BaseName(base), before, owner), LogLevel.NORMAL);
-				ZCR_Director.Note(string.Format("%1 TAKES %2 from %3", owner, BaseName(base), before));
+				ZCR_Feed.Note(owner, string.Format("TOOK %1 from %2", BaseName(base), before));
+				ZCR_Feed.Note(before, string.Format("LOST %1 to %2", BaseName(base), owner));
 			}
 			s_mNodeOwner.Set(node.GetId(), owner);
 			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8,\"attackable\":%9",

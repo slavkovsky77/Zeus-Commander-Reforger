@@ -107,6 +107,8 @@ class ZCR_LossLog
 		string killerName = "none";
 		if (killer)
 			killerName = ShortName(killer);
+		if (ChimeraCharacter.Cast(victim))
+			ZCR_Feed.Lost(SideOf(victim), killer != null);
 		Print(string.Format("[ZCR][LOSS] t=%1 victim=%2 side=%3 kind=%4 killer_side=%5 killer_kind=%6 relation=%7 distance=%8 x=%9",
 			Seconds(), ShortName(victim), SideOf(victim), KindOf(victim), SideOf(killer), KindOf(killer),
 			typename.EnumToString(SCR_ECharacterDeathStatusRelations, data.GetVictimKillerRelation()), distance,

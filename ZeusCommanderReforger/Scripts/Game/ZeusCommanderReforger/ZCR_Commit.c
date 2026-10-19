@@ -128,6 +128,8 @@ modded class AICF_MatchController
 				if (want != AICF_EGroupUnitType.INFANTRY && m_VehicleCoordinator)
 					admission = m_VehicleCoordinator.RequestExplicitVehicleAdmission(slot, faction, "ZCR_MOTORIZE");
 			}
+			if (want != AICF_EGroupUnitType.INFANTRY && target)
+				ZCR_Feed.Note(faction.GetFactionKey(), string.Format("squad %1 gets a vehicle for %2", slot.GetSlotId(), ZCR_Strategist.BaseName(target)));
 			Print(string.Format("[ZCR][MOTORIZE] t=%1 faction=%2 slot=%3 type=%4 ready=%5 admission=%6",
 				ZCR_LossLog.Seconds(), faction.GetFactionKey(), slot.GetSlotId(), typename.EnumToString(AICF_EGroupUnitType, want),
 				slot.IsCombatReady(), admission), LogLevel.NORMAL);
@@ -148,6 +150,10 @@ modded class AICF_MatchController
 			m_OrderPlanner.ClearOrder(slot);
 			ordered = AssignFactionStrategicOrder(slot, faction, reason);
 		}
+		string what = "joins the attack";
+		if (role != AICF_EGroupRole.ATTACK)
+			what = "goes back to defending";
+		ZCR_Feed.Note(faction.GetFactionKey(), string.Format("defender squad %1 (%2 men) %3", slot.GetSlotId(), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), what));
 		Print(string.Format("[ZCR][COMMIT] t=%1 faction=%2 slot=%3 role=%4 alive=%5 ordered=%6 reason=%7",
 			ZCR_LossLog.Seconds(), faction.GetFactionKey(), slot.GetSlotId(), typename.EnumToString(AICF_EGroupRole, role),
 			AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), ordered, reason), LogLevel.NORMAL);

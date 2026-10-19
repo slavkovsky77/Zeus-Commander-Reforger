@@ -30,11 +30,11 @@ modded class SCR_BaseGameMode
 			ZCR_Watch.OnShot(target, back, height, follow, label);
 	}
 
-	void ZCR_SendOverlay(string panel, string markers)
+	void ZCR_SendOverlay(string top, string left, string right, string bottom, string markers)
 	{
-		Rpc(RpcDo_ZCROverlay, panel, markers);
+		Rpc(RpcDo_ZCROverlay, top, left, right, bottom, markers);
 		if (!System.IsConsoleApp())
-			ZCR_Watch.OnOverlay(panel, markers);
+			ZCR_Watch.OnOverlay(top, left, right, bottom, markers);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
@@ -44,9 +44,9 @@ modded class SCR_BaseGameMode
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
-	protected void RpcDo_ZCROverlay(string panel, string markers)
+	protected void RpcDo_ZCROverlay(string top, string left, string right, string bottom, string markers)
 	{
-		ZCR_Watch.OnOverlay(panel, markers);
+		ZCR_Watch.OnOverlay(top, left, right, bottom, markers);
 	}
 }
 
@@ -92,6 +92,9 @@ class ZCR_Watch
 	protected Widget m_Root;
 	protected TextWidget m_Caption;
 	protected TextWidget m_Panel;
+	protected TextWidget m_Left;
+	protected TextWidget m_Right;
+	protected TextWidget m_Bottom;
 	protected ref array<Widget> m_aPool = {};
 	protected ref array<ref ZCR_WatchMarker> m_aMarkers = {};
 	protected float m_fClock;
@@ -141,12 +144,18 @@ class ZCR_Watch
 		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
 	}
 
-	static void OnOverlay(string panel, string markers)
+	static void OnOverlay(string top, string left, string right, string bottom, string markers)
 	{
 		if (!s_Instance)
 			return;
 		if (s_Instance.m_Panel)
-			s_Instance.m_Panel.SetText(panel);
+			s_Instance.m_Panel.SetText(top);
+		if (s_Instance.m_Left)
+			s_Instance.m_Left.SetText(left);
+		if (s_Instance.m_Right)
+			s_Instance.m_Right.SetText(right);
+		if (s_Instance.m_Bottom)
+			s_Instance.m_Bottom.SetText(bottom);
 		s_Instance.ReadMarkers(markers);
 	}
 
@@ -215,7 +224,7 @@ class ZCR_Watch
 		return GetGame().GetWorkspace().CreateWidget(type, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), z, parent);
 	}
 
-	protected TextWidget NewText(float x0, float y0, float x1, float y1, int size, float shade)
+	protected TextWidget NewText(float x0, float y0, float x1, float y1, int size, float shade, Color tint = null)
 	{
 		ImageWidget back = ImageWidget.Cast(NewWidget(WidgetType.ImageWidgetTypeID, 1001, m_Root));
 		if (back)
@@ -223,7 +232,10 @@ class ZCR_Watch
 			FrameSlot.SetAnchorMin(back, x0, y0);
 			FrameSlot.SetAnchorMax(back, x1, y1);
 			FrameSlot.SetOffsets(back, 0, 0, 0, 0);
-			back.SetColor(new Color(0, 0, 0, shade));
+			if (tint)
+				back.SetColor(new Color(tint.R(), tint.G(), tint.B(), shade));
+			else
+				back.SetColor(new Color(0, 0, 0, shade));
 		}
 		TextWidget text = TextWidget.Cast(NewWidget(WidgetType.TextWidgetTypeID, 1002, m_Root));
 		if (text)
@@ -251,8 +263,19 @@ class ZCR_Watch
 		FrameSlot.SetAnchorMin(m_Root, 0, 0);
 		FrameSlot.SetAnchorMax(m_Root, 1, 1);
 		FrameSlot.SetOffsets(m_Root, 0, 0, 0, 0);
-		m_Caption = NewText(0.15, 0.84, 0.85, 0.95, 24, 0.55);
-		m_Panel = NewText(0.005, 0.005, 0.66, 0.215, 21, 0.6);
+		// Arma 3's layout: a panel per side - BLUFOR left, OPFOR right - the score along the top, the
+		// lab's measures along the bottom, the shot's caption above them.
+		m_Caption = NewText(0.26, 0.865, 0.74, 0.945, 22, 0.55);
+		m_Panel = NewText(0.26, 0.005, 0.74, 0.045, 20, 0.6);
+		m_Left = NewText(0.004, 0.005, 0.252, 0.555, 17, 0.72, new Color(0.04, 0.1, 0.26, 1));
+		m_Right = NewText(0.748, 0.005, 0.996, 0.555, 17, 0.72, new Color(0.26, 0.05, 0.05, 1));
+		m_Bottom = NewText(0.004, 0.953, 0.996, 0.995, 16, 0.6);
+		if (m_Left)
+			m_Left.SetFont(FONT);
+		if (m_Right)
+			m_Right.SetFont(FONT);
+		if (m_Bottom)
+			m_Bottom.SetFont(FONT);
 		if (m_Caption)
 			m_Caption.SetFont(FONT_BOLD);
 		if (m_Panel)

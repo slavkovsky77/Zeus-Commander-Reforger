@@ -8,6 +8,7 @@ modded class AICF_AICommander
 		{
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);
 			ZCR_Sampler.Start();
+			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);
 			if (matchController)
 			{
@@ -80,7 +81,7 @@ modded class AICF_AICommander
 		Print(string.Format("[ZCR][STORM] t=%1 faction=%2 base=%3 squads=%4 men=%5 priority=%6 normal=%7",
 			ZCR_LossLog.Seconds(), m_sFactionKey, ZCR_Strategist.BaseName(base), squads, men, ZCR_Storm.Priority(),
 			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL), LogLevel.NORMAL);
-		ZCR_Director.Note(string.Format("%1 STORMS %2 with %3 soldiers", m_sFactionKey, ZCR_Strategist.BaseName(base), men));
+		ZCR_Feed.Note(m_sFactionKey, string.Format("STORM on %1: %2 squads, %3 soldiers go in", ZCR_Strategist.BaseName(base), squads, men));
 		ZCR_Storm.Event(string.Format("%1 STORMS %2 - %3 squads, %4 soldiers go in without stopping to fight at range",
 			m_sFactionKey, ZCR_Strategist.BaseName(base), squads, men), base.GetOwner().GetOrigin());
 	}

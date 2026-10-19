@@ -232,6 +232,63 @@ class ZCR_Director
 			s_aNotes.Remove(3);
 	}
 
+	protected int m_iSpeedTick = -1;
+	protected int m_iSpeedT;
+
+	// " (2x)" when the game runs faster than the clock (the Diag Menu's time multiplier, solo).
+	protected string Speed(int now)
+	{
+		int tick = System.GetTickCount();
+		if (m_iSpeedTick < 0)
+		{
+			m_iSpeedTick = tick;
+			m_iSpeedT = now;
+			return "";
+		}
+		float real = (tick - m_iSpeedTick) / 1000.0;
+		if (real < 20)
+			return "";
+		float x = (now - m_iSpeedT) / real;
+		if (x < 1.2)
+			return "";
+		return string.Format("  (%1x speed)", Math.Round(x * 10) / 10);
+	}
+
+	// One side's panel: who commands, bases and soldiers, the plan, what its squads do now, drones,
+	// the latest decisions.
+	protected string SidePanel(string side, int now)
+	{
+		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
+		string source = plan.GetSource();
+		string intent = plan.GetIntent();
+		if (intent.IsEmpty())
+		{
+			source = "AI Conflict";
+			intent = "AI Conflict's own commander decides";
+		}
+		string name = "BLUFOR";
+		if (side == "USSR")
+			name = "OPFOR";
+		int held, men;
+		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
+		{
+			if (owner == side)
+				held++;
+		}
+		foreach (IEntity e : m_aMen)
+		{
+			if (e && ZCR_LossLog.SideOf(e) == side)
+				men++;
+		}
+		string text = string.Format("%1  %2  -  %3\n%4 bases  -  %5 soldiers  -  lost %6 in the last 2 min\n", side, name, Commander(source), held, men,
+			LossesNear(vector.Zero, 1e9, now - 120, side));
+		text += "PLAN\n" + intent + "\n";
+		text += "NOW DOING\n" + ZCR_Feed.NowText(side) + "\n";
+		text += string.Format("DRONES  %1 teams sent, %2 in the air\n", ZCR_Drones.Launched(side), ZCR_Drones.InAir(side));
+		text += "LATEST\n" + ZCR_Feed.Latest(side);
+		return text;
+	}
+
 	// Who is commanding, in plain words.
 	protected static string Commander(string source)
 	{
@@ -998,36 +1055,27 @@ class ZCR_Director
 			}
 			markers += Marker("G", goal + Vector(0, 70, 0), Colour(side), 1, side + " MAIN EFFORT");
 		}
-		// The panel (Martin: "not clear what is actually happening"): the score, each side's plan in
-		// plain words, drones, and the last events.
-		string panel = string.Format("%1   |   lost in the last 2 min: US %2, USSR %3   |   game time %4\n",
-			Score(), LossesNear(vector.Zero, 1e9, now - 120, "US"), LossesNear(vector.Zero, 1e9, now - 120, "USSR"), Clock(now));
-		foreach (string side : MAIN_SIDES)
+		// The panels (Martin: "left and right side for BLUFOR and OPFOR like in Arma 3, like live
+		// logs"): a slim top line with the score and time, the US (BLUFOR) on the left and the USSR
+		// (OPFOR) on the right - who commands, its plan, what its squads do now, drones, its latest
+		// decisions - and the lab's measures along the bottom.
+		string top = string.Format("%1     game time %2%3", Score(), Clock(now), Speed(now));
+		string left = SidePanel("US", now);
+		string right = SidePanel("USSR", now);
+		string bottom;
+		foreach (int i, string side : MAIN_SIDES)
 		{
-			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
-			string intent = plan.GetIntent();
-			string source = plan.GetSource();
-			if (intent.IsEmpty())
-			{
-				intent = "its own commander decides";
-				source = "AI Conflict";
-			}
-			panel += string.Format("%1 (%2): %3\n", side, Commander(source), intent);
-		}
-		panel += string.Format("Drones: US %1 teams sent, %2 in the air   |   USSR %3 teams sent, %4 in the air",
-			ZCR_Drones.Launched("US"), ZCR_Drones.InAir("US"), ZCR_Drones.Launched("USSR"), ZCR_Drones.InAir("USSR"));
-		if (!s_aNotes.IsEmpty())
-		{
-			panel += "\nLatest: ";
-			foreach (int i, string note : s_aNotes)
-			{
-				if (i > 0)
-					panel += "   -   ";
-				panel += note;
-			}
+			if (i > 0)
+				bottom += "        |        ";
+			bottom += string.Format("%1 lost %2 (by fire %3, no killer - drones, blasts %4)", side, ZCR_Feed.s_mLostFire.Get(side) + ZCR_Feed.s_mLostOther.Get(side),
+				ZCR_Feed.s_mLostFire.Get(side), ZCR_Feed.s_mLostOther.Get(side));
+			if (ZCR_Feed.s_mCover.Contains(side))
+				bottom += string.Format(" - in cover %1%", ZCR_Feed.s_mCover.Get(side));
+			if (ZCR_Feed.s_mStacked.Contains(side))
+				bottom += string.Format(" - stacked %1%", ZCR_Feed.s_mStacked.Get(side));
 		}
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)
-			gameMode.ZCR_SendOverlay(panel, markers);
+			gameMode.ZCR_SendOverlay(top, left, right, bottom, markers);
 	}
 }

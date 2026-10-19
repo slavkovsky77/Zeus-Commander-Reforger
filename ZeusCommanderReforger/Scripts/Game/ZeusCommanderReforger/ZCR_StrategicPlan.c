@@ -175,6 +175,7 @@ class ZCR_StrategicPlan
 				m_iMainEffort = node;
 			}
 		}
+		ZCR_Feed.Plan(m_sFaction, m_sIntent);
 		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 commit=%7 storm=%8 motorize=%9 intent=%6",
 			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent, m_iCommit, m_iStorm, m_bMotorize), LogLevel.NORMAL);
 	}

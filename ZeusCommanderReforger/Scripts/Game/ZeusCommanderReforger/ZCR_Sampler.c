@@ -348,6 +348,10 @@ class ZCR_Sampler
 			}
 			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
 				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct), LogLevel.NORMAL);
+			if (fieldPct >= 0)
+				ZCR_Feed.s_mStacked.Set(side, fieldPct);
+			if (engaged > 0)
+				ZCR_Feed.s_mCover.Set(side, Math.Round(100.0 * inGame / engaged));
 			if (engaged > 0)
 				Print(string.Format("[ZCR][EXPOSURE] t=%1 side=%2 engaged=%3 covered=%4 prone=%5 ground=%6 object=%7 above=%8", now, side, engaged,
 					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged), Math.Round(100.0 * byGround / engaged),

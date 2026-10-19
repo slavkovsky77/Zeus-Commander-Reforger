@@ -71,6 +71,7 @@ modded class AICF_VehicleTransitFlow
 				{
 					Print(string.Format("[ZCR][DISMOUNT] t=%1 faction=%2 out at=%3 %4 from_objective=%5", ZCR_LossLog.Seconds(),
 						trip.GetAssignment().GetFactionKey(), Math.Round(at[0]), Math.Round(at[2]), Math.Round(d)), LogLevel.NORMAL);
+					ZCR_Feed.Note(trip.GetAssignment().GetFactionKey(), string.Format("squad out of its vehicle %1 m short, out of the objective's sight", Math.Round(d)));
 					AbortOwnedActions(trip);
 					return AICF_TripOutcome.StartDismount("ZCR_COVERED_DISMOUNT", causationId);
 				}
