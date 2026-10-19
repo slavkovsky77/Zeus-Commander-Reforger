@@ -75,32 +75,57 @@ modded class AICF_MatchController
 	// the next objective took 7-18 minutes. With motorize on, the doctrine side's attack squads become
 	// truck squads the way a player's choice would make them; AI Conflict's vehicle system then
 	// brings a truck for routes over 400 m and drops them 150 m short. Off: back to infantry.
+	// Which objective a squad was given its vehicle for ("faction:slot" -> base).
+	protected ref map<string, SCR_CampaignMilitaryBaseComponent> m_mZcrRideFor = new map<string, SCR_CampaignMilitaryBaseComponent>();
+
+	// Motorize, for the long marches only: a squad still at its main base (within 250 m) whose
+	// objective is over 1 km away gets a vehicle (light first - Martin: "not only trucks and APCs";
+	// AI Conflict's light transport, the US M998, the USSR UAZ-452, its truck when the squad doesn't
+	// fit; -zcrMotorizeTruck for trucks only) and keeps it until its objective changes. Squads out in
+	// the field stay on foot: walking back to the vehicle spawn site timed out 10 trips of 12
+	// (19 Oct probe, SPAWN_SITE_APPROACH_TIMEOUT).
 	void ZCR_Motorize(SCR_CampaignFaction faction, AICF_FactionState state, bool motorize)
 	{
 		if (!Replication.IsServer() || !faction || !state)
 			return;
-		// Light vehicles (Martin: "not only trucks and APCs"): AI Conflict's light transport - the US
-		// M998, the USSR UAZ-452 - falling back to its truck when the squad doesn't fit;
-		// -zcrMotorizeTruck for trucks only.
-		AICF_EGroupUnitType want = AICF_EGroupUnitType.INFANTRY;
-		if (motorize && System.IsCLIParam("zcrMotorizeTruck"))
-			want = AICF_EGroupUnitType.MOTORIZED_TRUCK;
-		else if (motorize)
-			want = AICF_EGroupUnitType.MOTORIZED_LIGHT;
+		AICF_EGroupUnitType ride = AICF_EGroupUnitType.MOTORIZED_LIGHT;
+		if (System.IsCLIParam("zcrMotorizeTruck"))
+			ride = AICF_EGroupUnitType.MOTORIZED_TRUCK;
+		vector home;
+		if (faction.GetMainBase() && faction.GetMainBase().GetOwner())
+			home = faction.GetMainBase().GetOwner().GetOrigin();
 		for (int i = 0; i < state.GetSlotCount(); i++)
 		{
 			AICF_GroupSlot slot = state.GetSlot(i);
-			if (!slot || slot.GetRole() != AICF_EGroupRole.ATTACK || slot.GetUnitType() == want)
+			if (!slot || slot.GetRole() != AICF_EGroupRole.ATTACK)
 				continue;
 			if (slot.GetState() == AICF_EGroupSlotState.SPAWNING)
 				continue;
+			string key = faction.GetFactionKey() + ":" + slot.GetSlotId();
+			SCR_CampaignMilitaryBaseComponent target = slot.GetTargetBase();
+			AICF_EGroupUnitType want = AICF_EGroupUnitType.INFANTRY;
+			if (motorize && target && slot.GetUnitType() != AICF_EGroupUnitType.INFANTRY && m_mZcrRideFor.Get(key) == target)
+				continue;                                       // riding to this objective already
+			if (motorize && target && home != vector.Zero && target.GetOwner())
+			{
+				IEntity leader = AICF_GroupRuntime.ResolveAliveLeader(slot.GetGroup());
+				vector goal = target.GetOwner().GetOrigin();
+				if (leader && vector.DistanceXZ(leader.GetOrigin(), home) < 250 && vector.DistanceXZ(home, goal) > 1000)
+					want = ride;
+			}
+			if (slot.GetUnitType() == want)
+				continue;
 			if (!state.ApplyCommanderConfiguration(slot.GetSlotId(), slot.GetRole(), want, slot.GetDesiredSize()))
 				continue;
+			if (want != AICF_EGroupUnitType.INFANTRY)
+				m_mZcrRideFor.Set(key, target);
+			else
+				m_mZcrRideFor.Remove(key);
 			bool admission;
 			if (slot.IsCombatReady())
 			{
 				slot.TouchCommanderConfiguration();
-				if (motorize && m_VehicleCoordinator)
+				if (want != AICF_EGroupUnitType.INFANTRY && m_VehicleCoordinator)
 					admission = m_VehicleCoordinator.RequestExplicitVehicleAdmission(slot, faction, "ZCR_MOTORIZE");
 			}
 			Print(string.Format("[ZCR][MOTORIZE] t=%1 faction=%2 slot=%3 type=%4 ready=%5 admission=%6",
