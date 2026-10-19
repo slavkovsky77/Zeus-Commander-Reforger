@@ -508,7 +508,10 @@ class ZCR_Director
 					string intent = sidePlan.GetIntent();
 					if (intent.Length() > 100)
 						intent = intent.Substring(0, 100) + "...";
-					label = string.Format("%1 OBJECTIVE: %2 (%3) - %4", side, ZCR_Strategist.s_mNodeName.Get(node), ZCR_Strategist.s_mNodeOwner.Get(node), intent);
+					string what = "OBJECTIVE";
+					if (ZCR_Strategist.s_mNodeOwner.Get(node) == side)
+						what = "STAGING";   // gathering at its own base before the attack
+					label = string.Format("%1 %2: %3 (%4) - %5", side, what, ZCR_Strategist.s_mNodeName.Get(node), ZCR_Strategist.s_mNodeOwner.Get(node), intent);
 					key = "objective" + side;
 					back = 350;
 					height = 260;
