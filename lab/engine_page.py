@@ -23,13 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing on screen. Probes run headless in the background when testing.",
-    "Today's result": "A careful storm (priority 25) took Moss Hill as fast as a full storm and lost 15 soldiers instead of 39.",
-    "Being built next": "Careful storm as the default; trucks only for long marches; drones on both sides and measured.",
+    "Running now": "The self-improving loop: a watched, recorded match on screen (with drones) and a headless head-to-head beside it.",
+    "Today's result": "Arma 3's soldier measurements on Reforger: its AI fights from cover only 5-8% of the time (Arma 3 with our soldier layer: 30-40%), and an assault force bunches up (69-90% stacked).",
+    "Being built next": "The watch buttons from Arma 3 on screen; then a soldier layer for cover and spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r7", "Arma 3's soldier measurements",
+     "Same definitions as the Arma 3 page: fighting from cover (of the soldiers who know an enemy within 300 m, something solid within 3 m toward the nearest, or a roof), sitting ducks (deaths standing or lying still in the open), stacking (6+ friends within 25 m, counted in the field - AI Conflict gathers its recruits at the main base). First numbers: from cover 5-8%, sitting ducks 27-63%, the USSR assault force 69-90% stacked. These are the biggest gaps to Arma 3."),
+    ("design", "r7", "Which cover, and what hides from drones",
+     "Each covered soldier's cover is named: toward the enemy the ground (a crest), a building, a tree, a vehicle or another object; overhead a roof or tree canopy - what hides him from a drone, which a crest doesn't. Every death logs both, so we can see whether canopy saves soldiers from FPVs."),
+    ("design", "r7", "Watch buttons, as on Arma 3",
+     "For watching on the phone: PREV / NEXT SHOT, PREV / NEXT GROUP, LOCK, ACTION, CLOSER / WIDER, OVERVIEW, AUTO; a tap on a soldier or vehicle follows it, elsewhere the camera flies there for 30 s. The tap is read a moment late (the phone stream clicks before it moves, note 80)."),
+    ("risk", "r7", "Careful storm: mixed so far",
+     "Moss Hill probes: careful (25) took it once in two (15 and 32 lost); full (1000) three in three (28-46 lost). Careful is the default now and the headless matches will tell."),
     ("good", "r6", "A careful storm",
      "On Arma 3 you wanted soldiers who move cover to cover, and the storm made them run in. A storm order raises the "
      "priority of the attack orders, and Reforger's soldiers stop taking cover to follow them. At priority 25 the squad "
@@ -86,7 +94,8 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("design", "Careful or full storm?", "Your call. Careful (25) cost a third of the losses in one probe; one probe is not proof. I'd make careful the default and keep full storm for a last push.", "review note 106"),
+    ("risk", "Soldiers rarely in cover, and bunched", "Reforger's AI fights from cover 5-8% of the time (Arma 3 with our soldier layer 30-40%); an assault force is 69-90% stacked - FPV bait. Arma 3 fixed this with its soldier layer (cover-to-cover bounding, spacing).", "review note 113"),
+    ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default; the headless matches will tell.", "review note 106"),
     ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min: AI Conflict holds them at the base just taken, then walks them in 220 m steps.", "review note 109"),
     ("risk", "Trucks cost time", "Motorize for every attack squad made the first probe worse (no capture). Only for long marches, next.", "r6 probe"),
     ("risk", "Drones are one-sided and unmeasured", "Only the doctrine side gets drones, and only in watched matches. Both sides and headless runs needed before drones count in the results.", "review note 98"),
@@ -96,10 +105,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Careful storm (priority 25) as the default; a second Moss Hill probe and the headless matchups to confirm.",
+    "Test the watch buttons on screen and fix what the phone stream does to them.",
+    "A soldier layer like Arma 3's: cover-to-cover movement near the enemy and spacing in the assault force (measured by the new charts).",
+    "Careful v full storm in the headless matchups.",
     "Trucks only for long marches: motorize when the next objective is over 1 km away (Everon), measured as the follow-on time.",
     "Drones for both sides in watched matches, and the drone mods in headless matches: drones on v off.",
-    "In-game samplers for the Arma 3 charts we don't have yet: fighting from cover, sitting ducks, stacking.",
     "Phone buttons for the watch mode, as on Arma 3.",
 ]
 
@@ -117,6 +127,12 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (7, "soldier measures, watch buttons", "19 Oct, from 12:29",
+     ["Arma 3's soldier measurements (ZCR_Sampler): fighting from cover, sitting ducks, stacking in the field; which cover (ground, building, tree, vehicle, object; roof or canopy overhead).",
+      "Careful storm (priority 25) by default.",
+      "Watch buttons as on Arma 3: PREV/NEXT SHOT, PREV/NEXT GROUP, LOCK, ACTION, CLOSER/WIDER, OVERVIEW, AUTO, tap to follow or fly there."],
+     "Martin: on Arma 3 we measured sitting ducks and cover - good things to measure; in the age of drones, ground cover isn't cover; I'll watch on the phone, the buttons were great.",
+     "From cover 5-8%, sitting ducks 27-63%, the USSR assault force 69-90% stacked - the gaps to Arma 3 are at the soldier level."),
     (6, "motorize, careful storm", "19 Oct, from 10:30",
      ["Attack squads can ride trucks (motorize), through AI Conflict's own configuration path - its commander never gives infantry a vehicle.",
       "Storm priority as a setting (-zcrStormPriority); probes with a fixed first objective (bridge --first-target, lab/probe.py).",

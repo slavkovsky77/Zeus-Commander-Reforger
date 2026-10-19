@@ -44,6 +44,7 @@ BUILDS = [
     (4, "storm", "2026-10-19 05:53", "after 4 min of assault the squads go in at a player order's priority"),
     (5, "fixes", "2026-10-19 07:55", "doctrine memory per match (two matches shared it); far objectives no longer 'bled out'"),
     (6, "motorize", "2026-10-19 10:30", "attack squads ride trucks (probes); storm priority as a setting"),
+    (7, "soldier measures", "2026-10-19 12:29", "Arma 3's soldier measurements (cover, sitting ducks, stacking); careful storm by default; watch buttons"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
 KEYS = ["cover", "ducks", "stacked", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
