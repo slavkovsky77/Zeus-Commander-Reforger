@@ -167,7 +167,15 @@ class ZCR_Drones
 		}
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
-		vector at = ClearSpot(from, goal);
+		vector at;
+		if (!ClearSpot(from, goal, at))
+		{
+			// No clear spot: no team (19 Oct: launched at the harbour base's own centre, the drones
+			// killed 57 of the side's own soldiers there).
+			s_mNextAt.Set(side, now + tempo);
+			Print(string.Format("[ZCR][DRONES] t=%1 side=%2 no clear launch spot near %3 - no team", now, side, ZCR_Strategist.s_mNodeName.Get(Nearest(from))), LogLevel.NORMAL);
+			return;
+		}
 		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
 		params.Transform[3] = at;
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
@@ -199,9 +207,9 @@ class ZCR_Drones
 
 	protected static ref TraceParam s_Trace;
 
-	// A launch spot near the base: 40-120 m from it, toward the goal first; open sky (nothing within
-	// 40 m above), nothing within 12 m around at 1-3 m height, and level ground. Else 60 m off.
-	protected static vector ClearSpot(vector base, vector goal)
+	// A launch spot near the base: 40-250 m from it, toward the goal first; open sky (nothing within
+	// 40 m above), nothing within 12 m around at 1-3 m height, level ground, not the sea. None: false.
+	protected static bool ClearSpot(vector base, vector goal, out vector spot)
 	{
 		BaseWorld world = GetGame().GetWorld();
 		vector toward = goal - base;
@@ -210,7 +218,7 @@ class ZCR_Drones
 			toward.Normalize();
 		else
 			toward = Vector(1, 0, 0);
-		array<float> dists = {40, 60, 80, 100, 120};
+		array<float> dists = {40, 60, 80, 100, 120, 160, 200, 250};
 		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
 		foreach (float d : dists)
 		{
@@ -221,11 +229,13 @@ class ZCR_Drones
 				vector p = base + dir * d;
 				p[1] = world.GetSurfaceY(p[0], p[2]);
 				if (Clear(world, p))
-					return p;
+				{
+					spot = p;
+					return true;
+				}
 			}
 		}
-		// Nothing clear: the base itself (on land) rather than a guess that may be in the water.
-		return base;
+		return false;
 	}
 
 	protected static bool Clear(BaseWorld world, vector p)
