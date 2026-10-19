@@ -37,7 +37,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
 - [Fixed] Drones launched into the sea, then among their own soldiers (132, 137) | Never the sea; no clear spot, no team.
 - [In progress] Drones stop sometimes, stuck in the air (142, 147) | Measured: most lost drones hovered at their goal with nothing to hit (up to 18 a match). From 17:45: a team hovering a minute goes on to the nearest enemy its side saw; none for 2.5 min, it's called home.
-- [In progress] Drone operators or drone trucks at bases; destroy them and that position has no drones (143) | Drone sites: a drone truck with a 2-man operator team. One at the main base, a forward one at the own base nearest the front (ready in 2 min, at most 3). Truck destroyed or both operators dead: no drones from there; the main site is rebuilt after 5 min. Every third team goes for an enemy site the side has seen. Probe running.
+- [In progress] Drone operators or drone trucks at bases; destroy them and that position has no drones (143, 155, 157) | Drone sites: a drone truck with a 2-man operator team at the main base, a forward one near the front (ready in 2 min, at most 3); truck destroyed or both operators dead: no drones from there, the main site rebuilt after 5 min; every third team goes for an enemy site the side has seen. Probe: both sides launched all match, 59 of 64 drones hit. Forward sites and counter-drone strikes still to be seen (Everon).
 
 ## AI Conflict
 - [Fixed] The doctrine never planned on Everon with fireteams (151) | The situation report passed 8191 characters and was cut; now joined, not formatted.
