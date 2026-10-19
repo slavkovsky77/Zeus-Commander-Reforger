@@ -252,8 +252,11 @@ class ZCR_Strategist
 		// a strategist with memory (phased) keeps it per match and side.
 		if (s_sMatchId.IsEmpty())
 			s_sMatchId = string.Format("%1-%2", System.GetUnixTime(), Math.RandomInt(0, 1000000));
-		return string.Format("{\"match\":\"%8\",\"faction\":\"%1\",\"t\":%2,\"round\":%3,\"plan_revision\":%4,\"intent\":\"%5\",\"bases\":[%6],\"squads\":[%7]}",
-			m_sFaction, ZCR_LossLog.Seconds(), m_iRound, plan.GetRevision(), Clean(plan.GetIntent()), bases, squads, s_sMatchId);
+		// Joined, not formatted: string.Format stops at 8191 characters, and with 20 fireteams on Everon's
+		// 39 bases the report is longer - it was cut and the bridge couldn't read it (19 Oct 17:13).
+		string head = string.Format("{\"match\":\"%6\",\"faction\":\"%1\",\"t\":%2,\"round\":%3,\"plan_revision\":%4,\"intent\":\"%5\"",
+			m_sFaction, ZCR_LossLog.Seconds(), m_iRound, plan.GetRevision(), Clean(plan.GetIntent()), s_sMatchId);
+		return head + ",\"bases\":[" + bases + "],\"squads\":[" + squads + "]}";
 	}
 
 	protected void SaveReport(string report)
