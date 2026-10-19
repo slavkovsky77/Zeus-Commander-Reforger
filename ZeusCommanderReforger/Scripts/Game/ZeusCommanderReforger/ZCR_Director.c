@@ -446,7 +446,7 @@ class ZCR_Director
 			{
 				follow = pool.GetRandomElement();
 				target = follow.GetOrigin();
-				label = string.Format("CLOSE-UP: %1 %2 %3", ZCR_LossLog.SideOf(follow), ZCR_LossLog.ShortName(follow), Near(target));
+				label = string.Format("CLOSE-UP: %1 %2 %3", ZCR_LossLog.SideOf(follow), ZCR_LossLog.Role(follow), Near(target));
 				key = "close";
 				back = 38;
 				height = 30;
@@ -854,7 +854,7 @@ class ZCR_Director
 		{
 			IEntity root = best.GetRootParent();
 			IEntity follow = best;
-			string what = ZCR_LossLog.ShortName(best);
+			string what = ZCR_LossLog.Role(best);
 			if (root && Vehicle.Cast(root))
 			{
 				follow = root;
@@ -887,7 +887,7 @@ class ZCR_Director
 			}
 		}
 		if (best)
-			Show(best.GetOrigin(), 45, 32, best, string.Format("FOLLOWING %1 %2 %3 (the one followed fell)", m_sFollowSide, ZCR_LossLog.ShortName(best), Near(best.GetOrigin())), false);
+			Show(best.GetOrigin(), 45, 32, best, string.Format("FOLLOWING %1 %2 %3 (the one followed fell)", m_sFollowSide, ZCR_LossLog.Role(best), Near(best.GetOrigin())), false);
 		else
 			Show(m_vFollowLast, 80, 60, null, "THE ONE FOLLOWED FELL " + Near(m_vFollowLast), false);
 	}

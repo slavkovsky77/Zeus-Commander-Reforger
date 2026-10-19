@@ -52,6 +52,22 @@ class ZCR_LossLog
 	}
 
 	// The prefab's file name without folders and extension: "Character_US_Rifleman".
+	// For captions: "squad leader", "machine gunner"... from the prefab name; vehicles keep theirs.
+	static string Role(IEntity entity)
+	{
+		string name = ShortName(entity);
+		if (!ChimeraCharacter.Cast(entity))
+			return name;
+		array<string> keys = {"_SL", "_TL", "_MG", "_AMG", "_AR", "_GL", "_LAT", "_AT", "_Medic", "_RTO", "_Sniper", "_Marksman", "_Engineer", "_Officer", "_Crew", "_Rifleman", "_Partisan"};
+		array<string> roles = {"squad leader", "team leader", "machine gunner", "assistant gunner", "autorifleman", "grenadier", "AT rifleman", "AT specialist", "medic", "radio operator", "sniper", "marksman", "engineer", "officer", "crewman", "rifleman", "partisan"};
+		for (int i = 0; i < keys.Count(); i++)
+		{
+			if (name.Contains(keys[i]))
+				return roles[i];
+		}
+		return "soldier";
+	}
+
 	static string ShortName(IEntity entity)
 	{
 		if (!entity || !entity.GetPrefabData())
