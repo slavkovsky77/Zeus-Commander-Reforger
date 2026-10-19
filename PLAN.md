@@ -17,6 +17,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Make clear what is happening (125) | Plans in plain words, drones, latest events.
 - [Done] Director closer on fights, for a while (149, 150) | Fights 60 m out for 22 s, assaults 70 m, storms 80 m, close-ups over the shoulder (14 m behind, 4 m up) on a soldier in contact.
 - [Done] BLUFOR left, OPFOR right, like Arma 3's live logs (138) | Who commands, plan, now doing, drones, latest decisions; score and speed on top; losses, cover and stacking along the bottom.
+- [Done] Supply chain and logistics overview for debugging (191) | SUPPLIES in each side panel: stock, main base, change a minute, supply trucks on the road; each base's stock on its label.
 - [Done] Arma 3's colours: dark background, side colours, green captures (140) | Captures green, losses red, attacks and storms yellow.
 - [Done] Drones visible on screen (125, 136) | An FPV tag on every drone, the camera at the drone's height.
 
@@ -39,7 +40,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
 - [Fixed] Vehicles have no tags - who is in them? (187) | A tag over each vehicle: side, vehicle, how many aboard; the camera cuts to vehicles on the move.
-- [Todo] Build bunkers and defenses on points, used for cover (186) | What AI Conflict / Conflict can build, what it costs, a defend posture that occupies it.
+- [Todo] Build bunkers and defenses on points, used for cover; buildings for vehicles (186, 192) | AI Conflict's builders already build barracks, armory and vehicle depots with Conflict's building system; a fortification type (bunkers, sandbags, trenches) at points near the front is next, defenders posted in them.
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
