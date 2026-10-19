@@ -219,6 +219,12 @@ def measure_run(run: Path, log: Path):
     row["lost_to_drones"] = m["drone_kills"].get(side, 0) if has_drones else None
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
     row.update(soldier_metrics(lines, side))
+    # AI Conflict start-up failure seen once (19 Oct 13:27): a side's barracks never built, so it
+    # never recruits - such a match says nothing about the strategist.
+    row["recruits"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={side} " in l)
+    row["recruits_other"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={other} " in l)
+    if m["minutes"] >= 20 and (row["recruits"] == 0 or row["recruits_other"] == 0):
+        return None
 
     # Approach: the nearest squad sent to the first objective, 6 min after the assault order.
     row["close6"] = None
