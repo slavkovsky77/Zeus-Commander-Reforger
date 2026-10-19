@@ -28,6 +28,10 @@ SERVER_ROOT = STEAM / "Arma Reforger Server"
 GAME_ROOT = STEAM / "Arma Reforger"
 AICF = Path(r"D:\work\reforger-ai-conflict")
 OUR_ADDON = "CA2CA4E14BB55417"
+# Martin's FPV AI Drones for Reforger (local release copy, see D:\work\fpv-ai-reforger\docs\LOCAL_USE.md)
+# and Realistic Combat Drones, which it needs.
+DRONE_DIRS = [r"D:\work\reforger-local-mods", r"E:\ArmaReforgerMods\addons"]
+DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
 CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
 MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
@@ -39,12 +43,12 @@ READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 
 def command(a, profile: Path) -> list:
     project, extra, scenario, header = MAPS[a.map]
-    addons = ",".join(x for x in (CORE, extra, OUR_ADDON) if x)
+    addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "") if x)
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not a.client else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
-    roots = [str(AICF), str(ROOT), str((SERVER_ROOT if not a.client else GAME_ROOT) / "addons")]
+    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones else []) + [str((SERVER_ROOT if not a.client else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
-    cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf"] \
-        if not a.client else ["-client", f"127.0.0.1:{a.port}"]
+    cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
+            "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
     cmd += ["-addonsDir", ",".join(roots), "-addons", addons, "-profile", str(profile), "-backendFreshSession"]
     if not a.client:
         cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000",
@@ -69,6 +73,7 @@ def main() -> int:
     ap.add_argument("--bridge", action="store_true", help="send situation reports to the bridge (start lab/bridge.py first)")
     ap.add_argument("--bridge-url", default="http://127.0.0.1:8765")
     ap.add_argument("--client", action="store_true", help="the game on screen, joining the local server")
+    ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")

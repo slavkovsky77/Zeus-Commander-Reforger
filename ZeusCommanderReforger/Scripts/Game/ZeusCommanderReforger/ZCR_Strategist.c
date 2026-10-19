@@ -91,6 +91,20 @@ class ZCR_Strategist
 		return clean;
 	}
 
+	// A base's name for people and the model: the translated name ("Villeneuf"), else the key
+	// without its "#AR-...MapLocation_" prefix (a dedicated server may have no string tables).
+	static string BaseName(SCR_CampaignMilitaryBaseComponent base)
+	{
+		string key = base.GetBaseName();
+		string name = WidgetManager.Translate(key);
+		if (!name.IsEmpty() && !name.StartsWith("#"))
+			return name;
+		int cut = key.LastIndexOf("MapLocation_");
+		if (cut >= 0)
+			return key.Substring(cut + 12, key.Length() - cut - 12);
+		return key;
+	}
+
 	protected static string Num(float value)
 	{
 		return Math.Round(value).ToString();
@@ -118,7 +132,7 @@ class ZCR_Strategist
 			}
 			vector at = base.GetOwner().GetOrigin();
 			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8",
-				node.GetId(), Clean(base.GetBaseName()), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]));
+				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]));
 			if (ours)
 				entry += string.Format(",\"supplies\":%1,\"threatened\":%2", Num(base.GetSupplies()), base.IsBeingCaptured() || base.AreEnemiesPresent());
 			entry += "}";
