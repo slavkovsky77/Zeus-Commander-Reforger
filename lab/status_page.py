@@ -57,6 +57,7 @@ NIGHT = [
     ("07:12", "watched", "Arland", "US Gemini", "+ storm, drones", "", "2-2", "Moss Hill 17:19"),
     ("07:41", "watched", "Everon", "USSR rules", "+ storm, drones", "", "3-2", "Old Wood 13:59"),
     ("08:11", "watched", "Arland", "USSR Gemini", "+ storm, drones", "", "2-2", "Airport Base 17:47"),
+    ("08:40", "watched", "Everon", "US rules", "all fixes, drones (22 min)", "", "2-2", "Military Depot 13:49 (storm 10:34; US lost 3)"),
 ]
 
 PROBLEMS = [
