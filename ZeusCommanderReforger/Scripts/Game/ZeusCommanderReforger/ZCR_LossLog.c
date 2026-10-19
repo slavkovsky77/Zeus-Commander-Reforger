@@ -5,6 +5,10 @@
 class ZCR_LossLog
 {
 	protected static ref ZCR_LossLog s_Instance;
+	// The losses of the last minutes, for the camera director (server): where, when, whose.
+	static ref array<vector> s_aRecentPos = {};
+	static ref array<int> s_aRecentAt = {};
+	static ref array<string> s_aRecentSide = {};
 
 	static void Register()
 	{
@@ -72,6 +76,18 @@ class ZCR_LossLog
 		int distance = -1;
 		if (killer)
 			distance = Math.Round(vector.Distance(at, killer.GetOrigin()));
+		if (ChimeraCharacter.Cast(victim) || Vehicle.Cast(victim))
+		{
+			s_aRecentPos.Insert(at);
+			s_aRecentAt.Insert(Seconds());
+			s_aRecentSide.Insert(SideOf(victim));
+			if (s_aRecentPos.Count() > 400)
+			{
+				s_aRecentPos.RemoveOrdered(0);
+				s_aRecentAt.RemoveOrdered(0);
+				s_aRecentSide.RemoveOrdered(0);
+			}
+		}
 		Print(string.Format("[ZCR][LOSS] t=%1 victim=%2 side=%3 kind=%4 killer_side=%5 killer_kind=%6 relation=%7 distance=%8 x=%9",
 			Seconds(), ShortName(victim), SideOf(victim), KindOf(victim), SideOf(killer), KindOf(killer),
 			typename.EnumToString(SCR_ECharacterDeathStatusRelations, data.GetVictimKillerRelation()), distance,

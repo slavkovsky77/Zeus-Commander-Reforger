@@ -12,6 +12,9 @@
 class ZCR_Strategist
 {
 	protected static ref map<FactionKey, ref ZCR_Strategist> s_mStrategists;
+	// Every base of the objective graph by node id: where it is and its name (for the director).
+	static ref map<int, vector> s_mNodePos = new map<int, vector>();
+	static ref map<int, string> s_mNodeName = new map<int, string>();
 
 	protected FactionKey m_sFaction;
 	protected int m_iIntervalMs = 90000;
@@ -131,6 +134,8 @@ class ZCR_Strategist
 				links += next.ToString();
 			}
 			vector at = base.GetOwner().GetOrigin();
+			s_mNodePos.Set(node.GetId(), at);
+			s_mNodeName.Set(node.GetId(), BaseName(base));
 			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8",
 				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]));
 			if (ours)

@@ -16,6 +16,8 @@ class ZCR_StrategicPlan
 	protected string m_sIntent;
 	protected string m_sSource;
 	protected int m_iRevision;
+	protected int m_iMainEffort = -1;
+	protected int m_iChangedAt;
 
 	static ZCR_StrategicPlan Get(FactionKey faction)
 	{
@@ -62,6 +64,34 @@ class ZCR_StrategicPlan
 		return m_iRevision;
 	}
 
+	// The base with the highest priority (the main effort), -1 for none.
+	int GetMainEffort()
+	{
+		return m_iMainEffort;
+	}
+
+	string GetSource()
+	{
+		return m_sSource;
+	}
+
+	// Game seconds when the plan last changed.
+	int GetChangedAt()
+	{
+		return m_iChangedAt;
+	}
+
+	array<int> GetPriorityBases()
+	{
+		array<int> bases = {};
+		foreach (int node, float value : m_mPriority)
+		{
+			if (value > 0)
+				bases.Insert(node);
+		}
+		return bases;
+	}
+
 	// Replace the whole plan at once. source: "doctrine", "llm" or "lab".
 	void Apply(map<int, float> priority, map<int, float> demand, string intent, string source)
 	{
@@ -82,6 +112,17 @@ class ZCR_StrategicPlan
 		m_sIntent = intent;
 		m_sSource = source;
 		m_iRevision++;
+		m_iChangedAt = ZCR_LossLog.Seconds();
+		m_iMainEffort = -1;
+		float best = 0;
+		foreach (int node, float value : m_mPriority)
+		{
+			if (value > best)
+			{
+				best = value;
+				m_iMainEffort = node;
+			}
+		}
 		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 intent=%6",
 			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent), LogLevel.NORMAL);
 	}

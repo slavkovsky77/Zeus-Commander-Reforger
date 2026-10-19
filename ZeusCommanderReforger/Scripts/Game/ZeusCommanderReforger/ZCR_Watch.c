@@ -1,15 +1,13 @@
 // Watch mode: the game on screen as a camera over an AI-only match, as the Arma 3 lab's camera
-// director does (ac-lab lab/director.sqf). Started with -zcrWatch on the client; the lab server
-// runs with -zcrWatchServer so this player gets every unit on the map, not only those near him.
-// No side is picked: the game's menus are closed and our camera takes over.
-//
-// Every shot (about 20 s) it films the busiest spot: where soldiers of both sides are closest to
-// each other (a fight), else the biggest group on the move, and every 4th shot a high view over
-// the whole fighting area. RTS view: south of the spot, looking north and steeply down, gliding
-// 3 s from shot to shot. A caption says what is shown. Every shot is logged as [ZCR][CAM] so the
-// lab's recorder can list it in the video's moments.
+// director does (ac-lab lab/director.sqf). The game runs with -zcrWatch, the lab server with
+// -zcrWatchServer. The server's director (ZCR_Director) knows every unit and picks each shot; this
+// side flies the camera there (RTS view: south of the spot, looking north and steeply down,
+// gliding 3 s between shots, or following a soldier in a close-up) and draws what the director
+// sends: bases in their owner's colour, each side's main effort as a trail of growing squares,
+// losses in side colours, a caption for the shot and a panel with both commanders' intent.
+// No side is picked: Conflict's deploy and welcome screens stay closed.
 
-// Server: no distance streaming for players of a lab server (they only watch).
+// Server: watchers get every unit on the map and the director starts.
 modded class SCR_BaseGameMode
 {
 	override void OnPlayerConnected(int playerId)
@@ -18,10 +16,32 @@ modded class SCR_BaseGameMode
 		if (!Replication.IsServer() || !System.IsCLIParam("zcrWatchServer"))
 			return;
 		PlayerController controller = GetGame().GetPlayerManager().GetPlayerController(playerId);
-		if (!controller)
-			return;
-		RplComponent.EnableStreamingForConnection(controller.GetRplIdentity(), false);
-		Print(string.Format("[ZCR][WATCH] player=%1 streaming=off (sees the whole map)", playerId), LogLevel.NORMAL);
+		if (controller)
+			RplComponent.EnableStreamingForConnection(controller.GetRplIdentity(), false);
+		ZCR_Director.AddWatcher(playerId);
+		Print(string.Format("[ZCR][WATCH] player=%1 watches", playerId), LogLevel.NORMAL);
+	}
+
+	void ZCR_SendShot(vector target, float back, float height, RplId follow, string label, int seconds)
+	{
+		Rpc(RpcDo_ZCRShot, target, back, height, follow, label, seconds);
+	}
+
+	void ZCR_SendOverlay(string panel, string markers)
+	{
+		Rpc(RpcDo_ZCROverlay, panel, markers);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ZCRShot(vector target, float back, float height, RplId follow, string label, int seconds)
+	{
+		ZCR_Watch.OnShot(target, back, height, follow, label);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ZCROverlay(string panel, string markers)
+	{
+		ZCR_Watch.OnOverlay(panel, markers);
 	}
 }
 
@@ -37,7 +57,7 @@ modded class SCR_PlayerDeployMenuHandlerComponent
 	}
 }
 
-// Client: runs the director from the game's frame update.
+// Client: the camera and the overlay, from the game's frame update.
 modded class ArmaReforgerScripted
 {
 	override void OnUpdate(BaseWorld world, float timeslice)
@@ -47,26 +67,37 @@ modded class ArmaReforgerScripted
 	}
 }
 
+class ZCR_WatchMarker
+{
+	string m_sKind;
+	vector m_vPos;
+	ref Color m_Colour;
+	float m_fSize;
+	string m_sText;
+}
+
 class ZCR_Watch
 {
 	protected static ref ZCR_Watch s_Instance;
 	protected static bool s_bChecked;
 
 	protected CameraBase m_Camera;
+	protected Widget m_Root;
 	protected TextWidget m_Caption;
+	protected TextWidget m_Panel;
+	protected ref array<Widget> m_aPool = {};
+	protected ref array<ref ZCR_WatchMarker> m_aMarkers = {};
 	protected float m_fClock;
 	protected float m_fNextMenuCheck;
-	protected float m_fShotEnd;
-	protected int m_iShot;
 	protected vector m_vFrom;
 	protected vector m_vTo;
-	protected float m_fFromBack = 600;
-	protected float m_fFromHeight = 700;
-	protected float m_fToBack = 600;
-	protected float m_fToHeight = 700;
+	protected float m_fFromBack = 900;
+	protected float m_fFromHeight = 900;
+	protected float m_fToBack = 900;
+	protected float m_fToHeight = 900;
 	protected float m_fGlideStart;
-	protected IEntity m_Follow;
-	protected ref array<IEntity> m_aFound = {};
+	protected RplId m_FollowId;
+	protected bool m_bHasShot;
 
 	static bool IsOn()
 	{
@@ -81,10 +112,56 @@ class ZCR_Watch
 			if (Replication.IsServer() || !System.IsCLIParam("zcrWatch"))
 				return;
 			s_Instance = new ZCR_Watch();
+			s_Instance.m_FollowId = RplId.Invalid();
 			Print("[ZCR][WATCH] watch mode on", LogLevel.NORMAL);
 		}
 		if (s_Instance)
 			s_Instance.Tick(timeslice);
+	}
+
+	static void OnShot(vector target, float back, float height, RplId follow, string label)
+	{
+		if (!s_Instance)
+			return;
+		s_Instance.Aim(target, back, height, follow);
+		if (s_Instance.m_Caption)
+			s_Instance.m_Caption.SetText(label);
+		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
+	}
+
+	static void OnOverlay(string panel, string markers)
+	{
+		if (!s_Instance)
+			return;
+		if (s_Instance.m_Panel)
+			s_Instance.m_Panel.SetText(panel);
+		s_Instance.ReadMarkers(markers);
+	}
+
+	protected void ReadMarkers(string text)
+	{
+		m_aMarkers.Clear();
+		array<string> lines = {};
+		text.Split("\n", lines, true);
+		foreach (string line : lines)
+		{
+			array<string> f = {};
+			line.Split(";", f, false);
+			if (f.Count() < 7)
+				continue;
+			ZCR_WatchMarker m = new ZCR_WatchMarker();
+			m.m_sKind = f[0];
+			m.m_vPos = Vector(f[1].ToFloat(), f[2].ToFloat(), f[3].ToFloat());
+			array<string> c = {};
+			f[4].Split(" ", c, true);
+			if (c.Count() == 3)
+				m.m_Colour = new Color(c[0].ToFloat(), c[1].ToFloat(), c[2].ToFloat(), 1);
+			else
+				m.m_Colour = new Color(1, 1, 1, 1);
+			m.m_fSize = f[5].ToFloat();
+			m.m_sText = f[6];
+			m_aMarkers.Insert(m);
+		}
 	}
 
 	protected void Tick(float timeslice)
@@ -93,26 +170,50 @@ class ZCR_Watch
 		if (!world || !GetGame().GetCameraManager())
 			return;
 		m_fClock += timeslice;
-
-		// Once a second: no menus over the picture, our camera in use.
 		if (m_fClock >= m_fNextMenuCheck)
 		{
 			m_fNextMenuCheck = m_fClock + 1;
 			if (GetGame().GetMenuManager())
 				GetGame().GetMenuManager().CloseAllMenus();
 			if (!m_Camera)
-				CreateCamera(world);
+				Create(world);
 			if (m_Camera && GetGame().GetCameraManager().CurrentCamera() != m_Camera)
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
-		if (!m_Camera)
+		if (!m_Camera || !m_bHasShot)
 			return;
-		if (m_fClock >= m_fShotEnd || (m_Follow && !Alive(m_Follow)))
-			NextShot(world);
 		Place(world);
+		Draw(world);
 	}
 
-	protected void CreateCamera(BaseWorld world)
+	protected Widget NewWidget(WidgetType type, int z, Widget parent)
+	{
+		return GetGame().GetWorkspace().CreateWidget(type, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), z, parent);
+	}
+
+	protected TextWidget NewText(float x0, float y0, float x1, float y1, int size, float shade)
+	{
+		ImageWidget back = ImageWidget.Cast(NewWidget(WidgetType.ImageWidgetTypeID, 1001, m_Root));
+		if (back)
+		{
+			FrameSlot.SetAnchorMin(back, x0, y0);
+			FrameSlot.SetAnchorMax(back, x1, y1);
+			FrameSlot.SetOffsets(back, 0, 0, 0, 0);
+			back.SetColor(new Color(0, 0, 0, shade));
+		}
+		TextWidget text = TextWidget.Cast(NewWidget(WidgetType.TextWidgetTypeID, 1002, m_Root));
+		if (text)
+		{
+			FrameSlot.SetAnchorMin(text, x0 + 0.01, y0 + 0.008);
+			FrameSlot.SetAnchorMax(text, x1 - 0.01, y1);
+			FrameSlot.SetOffsets(text, 0, 0, 0, 0);
+			text.SetExactFontSize(size);
+			text.SetTextWrapping(true);
+		}
+		return text;
+	}
+
+	protected void Create(BaseWorld world)
 	{
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
@@ -121,225 +222,24 @@ class ZCR_Watch
 		if (!m_Camera)
 			return;
 		m_Camera.SetVerticalFOV(55);
-		m_Camera.SetFarPlane(6000);
-		Widget root = GetGame().GetWorkspace().CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), 1000);
-		FrameSlot.SetAnchorMin(root, 0, 0);
-		FrameSlot.SetAnchorMax(root, 1, 1);
-		FrameSlot.SetOffsets(root, 0, 0, 0, 0);
-		m_Caption = TextWidget.Cast(GetGame().GetWorkspace().CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), 1001, root));
-		if (m_Caption)
+		m_Camera.SetFarPlane(5000);
+		m_Root = NewWidget(WidgetType.FrameWidgetTypeID, 1000, null);
+		FrameSlot.SetAnchorMin(m_Root, 0, 0);
+		FrameSlot.SetAnchorMax(m_Root, 1, 1);
+		FrameSlot.SetOffsets(m_Root, 0, 0, 0, 0);
+		m_Caption = NewText(0.18, 0.86, 0.82, 0.93, 24, 0.55);
+		m_Panel = NewText(0.005, 0.005, 0.5, 0.11, 17, 0.5);
+	}
+
+	protected void Aim(vector target, float back, float height, RplId follow)
+	{
+		if (!m_bHasShot)
 		{
-			FrameSlot.SetAnchorMin(m_Caption, 0.2, 0.86);
-			FrameSlot.SetAnchorMax(m_Caption, 0.8, 0.95);
-			FrameSlot.SetOffsets(m_Caption, 0, 0, 0, 0);
-			m_Caption.SetExactFontSize(26);
-			m_Caption.SetTextWrapping(true);
+			m_vTo = target;
+			m_fToBack = back;
+			m_fToHeight = height;
 		}
-	}
-
-	protected static bool Alive(IEntity entity)
-	{
-		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
-		if (!character)
-			return false;
-		CharacterControllerComponent controller = character.GetCharacterController();
-		return controller && !controller.IsDead();
-	}
-
-	protected static string Side(IEntity entity)
-	{
-		FactionAffiliationComponent affiliation = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
-		if (!affiliation || !affiliation.GetAffiliatedFaction())
-			return "";
-		return affiliation.GetAffiliatedFaction().GetFactionKey();
-	}
-
-	protected bool OnFound(IEntity entity)
-	{
-		if (Alive(entity))
-			m_aFound.Insert(entity);
-		return true;
-	}
-
-	protected bool OnlyCharacters(IEntity entity)
-	{
-		return ChimeraCharacter.Cast(entity) != null;
-	}
-
-	// The nearest base's name, for the caption.
-	protected string Near(vector at)
-	{
-		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
-		if (!system)
-			return "";
-		array<SCR_MilitaryBaseComponent> bases = {};
-		system.GetBases(bases);
-		SCR_CampaignMilitaryBaseComponent best;
-		float bestDistance = 1e9;
-		foreach (SCR_MilitaryBaseComponent b : bases)
-		{
-			SCR_CampaignMilitaryBaseComponent campaignBase = SCR_CampaignMilitaryBaseComponent.Cast(b);
-			if (!campaignBase)
-				continue;
-			float d = vector.DistanceXZ(at, campaignBase.GetOwner().GetOrigin());
-			if (d < bestDistance)
-			{
-				bestDistance = d;
-				best = campaignBase;
-			}
-		}
-		if (!best)
-			return "";
-		string name = ZCR_Strategist.BaseName(best);
-		if (bestDistance < 400)
-			return "at " + name;
-		return "near " + name;
-	}
-
-	protected void NextShot(BaseWorld world)
-	{
-		m_iShot++;
-		m_Follow = null;
-		m_aFound.Clear();
-		vector mins, maxs;
-		world.GetBoundBox(mins, maxs);
-		vector centre = (mins + maxs) * 0.5;
-		float radius = vector.DistanceXZ(mins, maxs) * 0.5;
-		world.QueryEntitiesBySphere(centre, radius, OnFound, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
-		if (m_iShot <= 3 || m_iShot % 10 == 0)
-		{
-			map<string, int> sides = new map<string, int>();
-			foreach (IEntity f : m_aFound)
-				sides.Set(Side(f), sides.Get(Side(f)) + 1);
-			string bySide;
-			foreach (string k, int n : sides)
-				bySide += string.Format(" %1=%2", k, n);
-			Print(string.Format("[ZCR][WATCH_SCAN] shot=%1 found=%2 radius=%3 centre=%4%5", m_iShot, m_aFound.Count(), Math.Round(radius), centre, bySide), LogLevel.NORMAL);
-		}
-
-		// 250 m cells: soldiers per side.
-		map<string, ref array<IEntity>> cells = new map<string, ref array<IEntity>>();
-		vector sum;
-		int count;
-		vector lo = "1e9 0 1e9";
-		vector hi = "-1e9 0 -1e9";
-		foreach (IEntity e : m_aFound)
-		{
-			string side = Side(e);
-			if (side != "US" && side != "USSR")
-				continue;
-			vector p = e.GetOrigin();
-			sum += p;
-			count++;
-			lo[0] = Math.Min(lo[0], p[0]);
-			lo[2] = Math.Min(lo[2], p[2]);
-			hi[0] = Math.Max(hi[0], p[0]);
-			hi[2] = Math.Max(hi[2], p[2]);
-			string key = string.Format("%1_%2", Math.Floor(p[0] / 250), Math.Floor(p[2] / 250));
-			array<IEntity> cell;
-			if (!cells.Find(key, cell))
-			{
-				cell = {};
-				cells.Set(key, cell);
-			}
-			cell.Insert(e);
-		}
-		string label;
-		string kind;
-		if (count == 0)
-		{
-			kind = "overview";
-			label = "Waiting for the armies";
-			Aim(centre, 1500, 1800);
-		}
-		else
-		{
-			// A fight: the cell (with its neighbours) where the smaller side is largest.
-			string bestKey;
-			int bestScore;
-			vector bestAt;
-			int bestUS, bestUSSR;
-			foreach (string key, array<IEntity> cell : cells)
-			{
-				int us, ussr;
-				vector at;
-				foreach (IEntity e : cell)
-				{
-					at += e.GetOrigin();
-					if (Side(e) == "US")
-						us++;
-					else
-						ussr++;
-				}
-				// The neighbouring cells count too: sides 300 m apart are in a fight.
-				array<string> parts = {};
-				key.Split("_", parts, true);
-				int cx = parts[0].ToInt();
-				int cz = parts[1].ToInt();
-				int nUS = us;
-				int nUSSR = ussr;
-				for (int dx = -1; dx <= 1; dx++)
-				{
-					for (int dz = -1; dz <= 1; dz++)
-					{
-						if (dx == 0 && dz == 0)
-							continue;
-						array<IEntity> other;
-						if (!cells.Find(string.Format("%1_%2", cx + dx, cz + dz), other))
-							continue;
-						foreach (IEntity e : other)
-						{
-							if (Side(e) == "US")
-								nUS++;
-							else
-								nUSSR++;
-						}
-					}
-				}
-				int score = Math.Min(nUS, nUSSR);
-				if (score > bestScore)
-				{
-					bestScore = score;
-					bestKey = key;
-					bestAt = at / cell.Count();
-					bestUS = nUS;
-					bestUSSR = nUSSR;
-				}
-			}
-			if (m_iShot % 4 == 0 || bestScore == 0)
-			{
-				// The whole fighting area from high up (not too high: at most 4 km across).
-				float width = Math.Min(4000, Math.Max(800, Math.Max(hi[0] - lo[0], hi[2] - lo[2]) + 400));
-				kind = "overview";
-				label = string.Format("Overview - %1 soldiers on the map", count);
-				Aim((lo + hi) * 0.5, width * 0.55, width * 0.8);
-			}
-			else if (m_iShot % 4 == 2)
-			{
-				// Close-up: one soldier of the fight, followed.
-				array<IEntity> cell;
-				cells.Find(bestKey, cell);
-				m_Follow = cell.GetRandomElement();
-				kind = "close-up";
-				label = string.Format("Close-up: %1 soldier in the fight %2", Side(m_Follow), Near(m_Follow.GetOrigin()));
-				Aim(m_Follow.GetOrigin(), 45, 35);
-			}
-			else
-			{
-				kind = "fight";
-				label = string.Format("Fight %1 - US %2 v USSR %3 within 400 m", Near(bestAt), bestUS, bestUSSR);
-				Aim(bestAt, 220, 260);
-			}
-		}
-		m_fShotEnd = m_fClock + 20;
-		if (m_Caption)
-			m_Caption.SetText(label);
-		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 label=%4", ZCR_LossLog.Seconds(), m_iShot, kind, label), LogLevel.NORMAL);
-	}
-
-	// Next shot: glide from where the camera is to this spot, from back metres south, height up.
-	protected void Aim(vector target, float back, float height)
-	{
+		m_bHasShot = true;
 		m_vFrom = m_vTo;
 		m_fFromBack = m_fToBack;
 		m_fFromHeight = m_fToHeight;
@@ -347,12 +247,17 @@ class ZCR_Watch
 		m_fToBack = back;
 		m_fToHeight = height;
 		m_fGlideStart = m_fClock;
-		if (m_vFrom == vector.Zero)
-		{
-			m_vFrom = target;
-			m_fFromBack = back;
-			m_fFromHeight = height;
-		}
+		m_FollowId = follow;
+	}
+
+	protected IEntity Followed()
+	{
+		if (!m_FollowId.IsValid())
+			return null;
+		RplComponent rpl = RplComponent.Cast(Replication.FindItem(m_FollowId));
+		if (!rpl)
+			return null;
+		return rpl.GetEntity();
 	}
 
 	protected void Place(BaseWorld world)
@@ -360,19 +265,89 @@ class ZCR_Watch
 		float k = Math.Clamp((m_fClock - m_fGlideStart) / 3, 0, 1);
 		k = k * k * (3 - 2 * k);
 		vector target = m_vTo;
-		if (m_Follow && Alive(m_Follow))
-			target = m_Follow.GetOrigin();
+		IEntity follow = Followed();
+		if (follow)
+			target = follow.GetOrigin();
 		vector spot = m_vFrom + (target - m_vFrom) * k;
 		float back = m_fFromBack + (m_fToBack - m_fFromBack) * k;
 		float height = m_fFromHeight + (m_fToHeight - m_fFromHeight) * k;
 		float ground = world.GetSurfaceY(spot[0], spot[2]);
 		vector eye = Vector(spot[0], ground + height, spot[2] - back);
 		float eyeGround = world.GetSurfaceY(eye[0], eye[2]);
-		if (eye[1] < eyeGround + 10)
-			eye[1] = eyeGround + 10;
+		if (eye[1] < eyeGround + 8)
+			eye[1] = eyeGround + 8;
 		vector look = Vector(spot[0], ground + 2, spot[2]) - eye;
 		float pitch = Math.Atan2(look[1], Math.Sqrt(look[0] * look[0] + look[2] * look[2])) * Math.RAD2DEG;
 		m_Camera.SetOrigin(eye);
 		m_Camera.SetYawPitchRoll(Vector(0, pitch, 0));
+	}
+
+	// The overlay: each marker projected onto the screen every frame.
+	protected void Draw(BaseWorld world)
+	{
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		int used;
+		foreach (ZCR_WatchMarker m : m_aMarkers)
+		{
+			vector screen = workspace.ProjWorldToScreen(m.m_vPos, world);
+			if (screen[2] <= 0)
+				continue;
+			bool label = m.m_sKind == "B" || m.m_sKind == "G";
+			Widget w = Pooled(used, label);
+			used++;
+			if (!w)
+				break;
+			w.SetVisible(true);
+			if (label)
+			{
+				TextWidget t = TextWidget.Cast(w);
+				t.SetText(m.m_sText);
+				t.SetColor(m.m_Colour);
+				t.SetExactFontSize(18);
+				if (m.m_sKind == "G")
+					t.SetExactFontSize(22);
+				FrameSlot.SetPos(t, screen[0] - 60, screen[1] - 12);
+				FrameSlot.SetSize(t, 260, 30);
+			}
+			else
+			{
+				float px = 9;
+				if (m.m_sKind == "T")
+					px = 6 + 10 * m.m_fSize;
+				if (m.m_sKind == "L")
+					px = 12;
+				Color c = new Color(m.m_Colour.R(), m.m_Colour.G(), m.m_Colour.B(), 1);
+				if (m.m_sKind == "L")
+					c = new Color(m.m_Colour.R(), m.m_Colour.G(), m.m_Colour.B(), Math.Clamp(m.m_fSize, 0.25, 1));
+				w.SetColor(c);
+				FrameSlot.SetPos(w, screen[0] - px / 2, screen[1] - px / 2);
+				FrameSlot.SetSize(w, px, px);
+			}
+		}
+		for (int i = used; i < m_aPool.Count(); i++)
+			m_aPool[i].SetVisible(false);
+	}
+
+	// Widget number i of the pool, of the right type (text for labels, a square otherwise).
+	protected Widget Pooled(int i, bool text)
+	{
+		if (i >= 300)
+			return null;
+		while (m_aPool.Count() <= i)
+			m_aPool.Insert(null);
+		Widget w = m_aPool[i];
+		bool isText = TextWidget.Cast(w) != null;
+		if (w && isText == text)
+			return w;
+		if (w)
+			w.RemoveFromHierarchy();
+		if (text)
+			w = NewWidget(WidgetType.TextWidgetTypeID, 1003, m_Root);
+		else
+			w = NewWidget(WidgetType.ImageWidgetTypeID, 1003, m_Root);
+		FrameSlot.SetAnchorMin(w, 0, 0);
+		FrameSlot.SetAnchorMax(w, 0, 0);
+		m_aPool[i] = w;
+		return w;
 	}
 }
