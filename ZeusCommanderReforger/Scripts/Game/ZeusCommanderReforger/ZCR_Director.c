@@ -518,6 +518,17 @@ class ZCR_Director
 			height = 6;
 			duration = 30;
 		}
+		else if (force.IsEmpty() && m_iShot % 4 == 2 && RidingVehicle())
+		{
+			// A vehicle with soldiers in it, on the move (Martin: "I didn't notice any usage of cars").
+			follow = RidingVehicle();
+			target = follow.GetOrigin();
+			label = string.Format("%1 %2 WITH %3 ABOARD %4", m_sRideSide, VehicleName(follow), m_iRideMen, Near(target));
+			key = "ride";
+			back = 25;
+			height = 9;
+			duration = 20;
+		}
 		else if (force.IsEmpty() && m_bLastWasFight && best >= 0)
 		{
 			// Close-up in the fight just shown, alternating the side.
@@ -908,6 +919,41 @@ class ZCR_Director
 	protected int m_iPoint = -1;
 	protected string m_sFocus;          // SIDE button: "" both sides, "US" or "USSR" only
 	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
+	protected string m_sRideSide;
+	protected int m_iRideMen;
+
+	// A vehicle of the side in turn (or the focus side) with soldiers in it, moving over 4 m/s.
+	protected IEntity RidingVehicle()
+	{
+		string want = Turn("US", "USSR");
+		map<IEntity, int> aboard = new map<IEntity, int>();
+		foreach (IEntity e : m_aMen)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(e);
+			if (!c || !c.IsInVehicle() || ZCR_LossLog.SideOf(e) != want)
+				continue;
+			IEntity v = e.GetRootParent();
+			if (!v || v == e)
+				continue;
+			Physics phys = v.GetPhysics();
+			if (!phys || phys.GetVelocity().Length() < 4)
+				continue;
+			aboard.Set(v, aboard.Get(v) + 1);
+		}
+		IEntity best;
+		int most;
+		foreach (IEntity v, int n : aboard)
+		{
+			if (n > most)
+			{
+				most = n;
+				best = v;
+			}
+		}
+		m_sRideSide = want;
+		m_iRideMen = most;
+		return best;
+	}
 
 	// Vehicles with US or USSR soldiers in them, and drones in the air, nearest the camera first.
 	protected void Movers(array<IEntity> into)

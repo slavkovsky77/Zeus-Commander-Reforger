@@ -29,6 +29,8 @@ class ZCR_DroneThreat
 	protected static ref array<IEntity> s_aFound = {};
 	protected static ref TraceParam s_Trace;
 	protected static int s_iNextLog;
+	protected static int s_iNextDisperse;
+	protected static ref map<IEntity, vector> s_mWas = new map<IEntity, vector>();
 	static const float REACT = 150;
 	static const int COOLDOWN = 15;
 
@@ -103,6 +105,11 @@ class ZCR_DroneThreat
 				s_mReactedAt.Set(c, now);
 				React(c, dp, over, now);
 			}
+		}
+		if (now >= s_iNextDisperse)
+		{
+			s_iNextDisperse = now + 10;
+			Disperse(now);
 		}
 		if (now >= s_iNextLog)
 		{
@@ -186,9 +193,62 @@ class ZCR_DroneThreat
 			Print(string.Format("[ZCR][DRONETHREAT] t=%1 scatter=%2 at=%3 %4", now, n, Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 	}
 
+	// Nobody waits in the open at a base (Martin, 19 Oct 22:00: "enemy infantry chilling on the base
+	// while getting massacred by drones"; teams waiting there for a vehicle, a recruit or an order stood
+	// bunched in the field; then "infantry should not stay out in the open, hide in cover, ideally in
+	// buildings"). Every 10 s: a soldier on foot who hasn't moved 3 m in 10 s, anywhere, with no enemy
+	// known within 300 m (a fight is the game's own business - the cover layer holds it there) and
+	// nothing overhead goes to a spot under a roof or canopy within 40 m, at least 6 m from the others
+	// sent this round. Both sides. Logs [ZCR][DISPERSE] t= side= idle= open= moved=.
+	protected static void Disperse(int now)
+	{
+		map<IEntity, vector> was = s_mWas;
+		s_mWas = new map<IEntity, vector>();
+		array<AIAgent> agents = {};
+		GetGame().GetAIWorld().GetAIAgents(agents);
+		array<vector> taken = {};
+		map<string, int> idle = new map<string, int>();
+		map<string, int> open = new map<string, int>();
+		map<string, int> moved = new map<string, int>();
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+			ChimeraCharacter c = ChimeraCharacter.Cast(agent.GetControlledEntity());
+			if (!c || c.IsInVehicle())
+				continue;
+			string side = ZCR_LossLog.SideOf(c);
+			if (side != "US" && side != "USSR")
+				continue;
+			CharacterControllerComponent ctl = c.GetCharacterController();
+			if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE)
+				continue;
+			vector p = c.GetOrigin();
+			s_mWas.Set(c, p);
+			vector before;
+			if (!was.Find(c, before) || vector.DistanceXZ(before, p) > 3)
+				continue;
+			if (ZCR_Sampler.KnownEnemiesNear(side, p, 300) > 0)
+				continue;
+			idle.Set(side, idle.Get(side) + 1);
+			if (Overhead(c.EyePosition(), c))
+				continue;
+			open.Set(side, open.Get(side) + 1);
+			SCR_AIUtilityComponent utility = Utility(c);
+			vector spot;
+			if (!utility || !FindOverhead(c, p, 40, spot, vector.Zero, taken))
+				continue;
+			taken.Insert(spot);
+			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 10, null, 1.0));
+			moved.Set(side, moved.Get(side) + 1);
+		}
+		foreach (string side, int n : idle)
+			Print(string.Format("[ZCR][DISPERSE] t=%1 side=%2 idle=%3 open=%4 moved=%5", now, side, n, open.Get(side), moved.Get(side)), LogLevel.NORMAL);
+	}
+
 	// A spot within 'radius' (of 'center', default the soldier) under a roof or canopy, on the navmesh,
-	// nearest first and the far side from 'threat' first.
-	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero)
+	// nearest first and the far side from 'threat' first; none within 6 m of 'avoid'.
+	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero, array<vector> avoid = null)
 	{
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
 		AIPathfindingComponent pathfinding;
@@ -203,7 +263,7 @@ class ZCR_DroneThreat
 		if (away.Length() < 1)
 			away = Vector(1, 0, 0);
 		away.Normalize();
-		array<float> dists = {0, 6, 12, 18, 24, 30};
+		array<float> dists = {0, 6, 12, 18, 24, 30, 36};
 		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
 		foreach (float d : dists)
 		{
@@ -223,6 +283,17 @@ class ZCR_DroneThreat
 				if (pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav))
 					continue;
 				if (vector.DistanceXZ(nav, p) > 2)
+					continue;
+				bool crowded;
+				if (avoid)
+				{
+					foreach (vector q : avoid)
+					{
+						if (vector.DistanceXZ(q, nav) < 6)
+							crowded = true;
+					}
+				}
+				if (crowded)
 					continue;
 				spot = nav;
 				return true;

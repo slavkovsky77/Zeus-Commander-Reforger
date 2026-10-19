@@ -251,6 +251,7 @@ class ZCR_Drones
 		// at base never saw anyone). The team flies over the objective, then the enemy's other bases
 		// near it, then the enemy's staging area at its main base; the drones are their side's eyes
 		// (ZCR_Sampler) and Tend sends the team at what they find. FIA's garrisons are always there.
+		// (Not the enemy's main base: that camped its spawn.)
 		string holder = ZCR_Strategist.s_mNodeOwner.Get(target);
 		array<vector> route;
 		if (why != "hunt" && why != "counter-drone" && holder != "FIA" && ZCR_Sampler.KnownEnemiesNear(side, goal, 250) == 0)
@@ -357,7 +358,7 @@ class ZCR_Drones
 	}
 
 	// A search route after the objective: the enemy's other bases within 1.5 km of it, nearest first
-	// (two), then the enemy's main base - its staging area, where its recruits muster - within 2.5 km.
+	// (two) - never its main base.
 	protected static array<vector> SearchRoute(FactionKey side, int target, vector goal)
 	{
 		array<vector> route = {};
@@ -378,18 +379,17 @@ class ZCR_Drones
 		}
 		while (route.Count() > 2)
 			route.Remove(route.Count() - 1);
+		// Not the enemy's main base: searching there camped its spawn - new teams were hit as they
+		// appeared (Martin, 19 Oct 22:00: "enemy infantry chilling on the base while getting massacred").
 		SCR_CampaignFaction enemy = SCR_CampaignFaction.Cast(GetGame().GetFactionManager().GetFactionByKey(ZCR_Strategist.s_mNodeOwner.Get(target)));
 		if (enemy && enemy.GetMainBase() && enemy.GetMainBase().GetOwner())
 		{
-			vector staging = enemy.GetMainBase().GetOwner().GetOrigin();
-			bool have = vector.DistanceXZ(staging, goal) < 100;
-			foreach (vector p : route)
+			vector rear = enemy.GetMainBase().GetOwner().GetOrigin();
+			for (int r = route.Count() - 1; r >= 0; r--)
 			{
-				if (vector.DistanceXZ(p, staging) < 100)
-					have = true;
+				if (vector.DistanceXZ(route[r], rear) < 300)
+					route.RemoveOrdered(r);
 			}
-			if (!have && vector.DistanceXZ(staging, goal) <= 2500)
-				route.Insert(staging);
 		}
 		return route;
 	}

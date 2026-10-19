@@ -403,6 +403,22 @@ class ZCR_Sampler
 				m_mSpotted.Set(ds, 0);
 			}
 		}
+		// Soldiers riding: in a vehicle that moved over 3 km/h since the last sample (Martin: "no units use
+		// vehicles - how is this measured?" - the old count was teams that started boarding).
+		foreach (string rs : sides)
+		{
+			int riding;
+			int aboard;
+			foreach (IEntity e, ZCR_SoldierState st : m_mState)
+			{
+				if (!e || !st || st.m_sSide != rs || !st.m_bInVehicle)
+					continue;
+				aboard++;
+				if (st.m_bMoving)
+					riding++;
+			}
+			Print(string.Format("[ZCR][RIDING] t=%1 side=%2 riding=%3 aboard=%4", now, rs, riding, aboard), LogLevel.NORMAL);
+		}
 		foreach (string side : sides)
 		{
 			array<IEntity> men = {};

@@ -13,7 +13,8 @@ Checks per side (US, USSR):
   team     at minute 10, teams of 2.5 or more on average (soldiers per team out there)
   drones   a drone team launched at least every 4 minutes on average (after the first 2 minutes)
   sky      drones in the air in at least 60% of the 30-s samples after minute 3 (r16+)
-  rides    at least one team boarded a vehicle
+  rides    soldiers riding in a moving vehicle in at least 25% of the 30-s samples (r18+; before,
+           teams that started boarding - which said "fine" while Martin saw no car on screen)
   open     soldiers in the field with something overhead or beside them - shown, not checked yet
 """
 import json
@@ -52,6 +53,7 @@ def measure(run: Path) -> dict:
     launches = {s: [] for s in SIDES}
     noteam = {s: 0 for s in SIDES}
     boarded = {s: set() for s in SIDES}
+    riding = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
     last_t = 0
     for line in open(log, encoding="utf-8", errors="replace"):
@@ -71,6 +73,8 @@ def measure(run: Path) -> dict:
                 launches[side].append(t)
             elif "no team" in line:
                 noteam[side] += 1
+        elif "[ZCR][RIDING]" in line and side in SIDES:
+            riding[side].append(int(num(d.get("riding"), 0)))
         elif "BOARDING_PHASE_STARTED" in line and side in SIDES:
             boarded[side].add(d.get("slot"))
         elif "[ZCR][LOSS]" in line:
@@ -99,6 +103,8 @@ def measure(run: Path) -> dict:
             "noteam": noteam[s],
             "sky_pct": sky_pct,
             "rides": len(boarded[s]),
+            "riding_pct": round(100 * sum(1 for r in riding[s] if r > 0) / len(riding[s])) if riding[s] else None,
+            "riding_avg": round(sum(riding[s]) / len(riding[s]), 1) if riding[s] else None,
             "field_overhead": round(sum(field_cover) / len(field_cover)) if field_cover else None,
             "lost": lost[s],
         }
@@ -111,7 +117,9 @@ CHECKS = [
     ("team", lambda m: m["team10"] is not None and m["team10"] >= 2.5, lambda m: f"{m['team10']}"),
     ("drones", lambda m: m["drones_per4"] >= 1, lambda m: f"{m['drone_teams']} teams ({m['drones_per4']}/4min, {m['noteam']} refused)"),
     ("sky", lambda m: m["sky_pct"] is None or m["sky_pct"] >= 60, lambda m: "-" if m["sky_pct"] is None else f"{m['sky_pct']}%"),
-    ("rides", lambda m: m["rides"] >= 1, lambda m: f"{m['rides']}"),
+    ("rides", lambda m: m["riding_pct"] >= 25 if m["riding_pct"] is not None else m["rides"] >= 1,
+     lambda m: (f"riding in {m['riding_pct']}% of samples, {m['riding_avg']} on average" if m["riding_pct"] is not None
+                else f"{m['rides']} teams boarded (old measure)")),
 ]
 
 

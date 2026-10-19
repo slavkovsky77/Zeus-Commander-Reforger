@@ -60,6 +60,8 @@ BUILDS = [
     (13, "fireteams, side panels, bounding", "2026-10-19 16:58", "AI Conflict changed: 20 fireteams of 5 per side in a wedge; Arma 3's side panels; bounding on; drone shot to the hit; covered dismount on long rides"),
     (14, "two armies, drone sites", "2026-10-19 17:56", "watched matches: two armies only (no FIA); drones only from drone sites (truck + operators); stuck drones retargeted"),
     (15, "drone reaction", "2026-10-19 20:40", "soldiers (both sides) run to overhead cover or get down when an enemy drone is within 150 m; scatter after a hit; watched at 3x"),
+    (16, "teams out at once, drones search", "2026-10-19 21:28", "fireteams start with 3 of 5 and leave with 3 (they waited 10-20 min as one man); drones search when nothing is known and spot for their side"),
+    (17, "rides, covered steps", "2026-10-19 21:51", "infantry teams ride light vehicles on marches over 500 m (not one ride before), jog, end each march step in cover; AI Conflict's side flies drones every 2 min"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
