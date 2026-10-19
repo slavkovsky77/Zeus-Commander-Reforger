@@ -23,7 +23,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] They walk across open fields like nothing is happening (125) | The game's own attack leaves cover after 5 s and closes to 15 m; kills happen at 22-38 m. r10 holds the game's cover 20 s.
 - [In progress] Fight from cover like Arma 3 (30-40%) (113, 124, 133) | In the game's own cover 40% (AI Conflict alone 24-27%); Arma 3's stricter measure 9.5%.
 - [In progress] Fireteams of 2-5, never single file down a road (135, 141) | AI Conflict changed: 20 teams of 5 per side, wedge formation; first matches running.
-- [In progress] Bounding: one half covers, the other moves (134) | First probe worse (46 lost); refined to 60-350 m from the enemy, 4+ men; off by default.
+- [In progress] Bounding: one half covers, the other moves (134, 146) | Refined (60-350 m from the enemy, 4+ men): USSR lost 5 instead of 14, exchange 3.4, two bases. On by default from 19 Oct 17:20; measured in every match.
 - [Todo] Spacing against drones (118) | Teams apart from each other near the enemy.
 
 ## Vehicles

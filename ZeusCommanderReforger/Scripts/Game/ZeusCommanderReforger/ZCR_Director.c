@@ -27,6 +27,7 @@ class ZCR_Director
 	protected bool m_bDroneNow;
 	protected IEntity m_FollowedDrone;
 	protected int m_iDroneGoneAt = -1;
+	protected int m_iDroneShotAt;
 	protected int m_iNextOverlay;
 	protected string m_sLastKey;
 	protected int m_iRepeats;
@@ -163,6 +164,10 @@ class ZCR_Director
 			m_bDroneNow = true;
 			m_iShotEnd = 0;
 		}
+		// A drone followed to the end (Martin: "I could watch it until it reaches its target"): the shot
+		// lasts while it flies, up to 2 minutes (one that hovers with nothing to hit is left then).
+		if (m_sLastKey == "drone" && m_FollowedDrone && now - m_iDroneShotAt < 120 && m_iShotEnd < now + 2)
+			m_iShotEnd = now + 2;
 		// The followed drone has hit: 4 s on the impact, then on.
 		if (m_sLastKey == "drone" && !m_FollowedDrone && m_iShotEnd > now)
 		{
@@ -721,7 +726,10 @@ class ZCR_Director
 		m_FollowedDrone = null;
 		m_iDroneGoneAt = -1;
 		if (key == "drone")
+		{
 			m_FollowedDrone = follow;
+			m_iDroneShotAt = now;
+		}
 
 		Show(target, back, height, follow, label, true);
 		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 men=%4 moving=%5 fights=%6 label=%7", now, m_iShot, key, m_aMen.Count(), m_aMoving.Count(), centres.Count(), label), LogLevel.NORMAL);

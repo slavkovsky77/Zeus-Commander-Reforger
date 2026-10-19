@@ -6,7 +6,7 @@
 // threat (none: the aim point itself). When the movers are in (within 4 m of their spots) or after
 // 15 s, the halves swap. Nobody crosses open ground while nobody covers him. Not while storming (then
 // everyone goes in). Also spreads the squad: two halves 35-60 m apart instead of one bunch.
-// -zcrBound turns it on (A/B first). Logs [ZCR][BOUND] per swap.
+// On by default; -zcrNoBound turns it off. Logs [ZCR][BOUND] per swap.
 // First probe (19 Oct): USSR lost 46 (14 without), exchange 0.43 - squads bounded with the enemy 14 m
 // away (halves sent 35-60 m on, past him) and down to 2 men. Now only with the enemy 60-350 m away and
 // 4 or more men, and no bound ends nearer than 30 m to him; closer, the cover layer fights.
@@ -27,9 +27,11 @@ class ZCR_Bound
 	static const int MIN_MEN = 4;
 	static const int SWAP = 15;
 
+	// On by default from 19 Oct 17:20 (refined probe: USSR lost 5 instead of 14, exchange 3.4, Moss
+	// Hill and Arleville taken); -zcrNoBound turns it off for an A/B.
 	static bool On()
 	{
-		return System.IsCLIParam("zcrBound");
+		return !System.IsCLIParam("zcrNoBound");
 	}
 
 	// In the half that covers: the game's attack logic keeps him where he is.
