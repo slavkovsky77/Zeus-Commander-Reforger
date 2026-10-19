@@ -2,7 +2,7 @@
 
 A decision names bases by their graph id from the situation report (ZCR_Strategist.BuildReport):
     {"intent": "...", "main_effort": 12, "supporting": [7], "hold": [3], "avoid": [20],
-     "concentration": "normal" | "heavy", "commit": 0-2}
+     "concentration": "normal" | "heavy", "commit": 0-4}
 commit: how many of AI Conflict's DEFEND squads join the attack while nothing threatens us.
 storm: a base (the main effort) the squads sent there go into without stopping to fight at range.
 motorize: our attack squads ride trucks to their objectives (AI Conflict gives infantry none).
@@ -22,7 +22,7 @@ WEIGHTS = {
     "avoid": (-60.0, 0.0),
 }
 MAX_INTENT = 200
-MAX_COMMIT = 2
+MAX_COMMIT = 4                  # defender fireteams (of 8) that join the main effort
 
 
 def bases_by_id(report: dict) -> dict:

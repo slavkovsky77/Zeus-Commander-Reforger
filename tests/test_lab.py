@@ -206,11 +206,11 @@ class PhasedTests(unittest.TestCase):
         for b in r["bases"]:
             b["threatened"] = False
         d, _ = p.decide(r)
-        self.assertEqual(d["commit"], 2)                 # nothing threatened: two DEFEND squads join
+        self.assertEqual(d["commit"], phased.COMMIT)     # nothing threatened: four DEFEND teams join
         clean, _ = validate(d, r)
-        self.assertIn("commit 2", to_lines(clean, "phased").splitlines())
+        self.assertIn(f"commit {phased.COMMIT}", to_lines(clean, "phased").splitlines())
         clean, problems = validate({"main_effort": 3, "commit": 9}, r)
-        self.assertEqual(clean["commit"], 2)
+        self.assertEqual(clean["commit"], phased.COMMIT)
 
     def test_force_at_objective_skips_staging_garrison(self):
         import phased
@@ -272,7 +272,7 @@ class PhasedTests(unittest.TestCase):
         for b in r["bases"]:
             b["seizing"] = 0                             # the Farm is "threatened" but nobody takes it
         d, _ = p.decide(r)
-        self.assertEqual(d["commit"], 2)
+        self.assertEqual(d["commit"], phased.COMMIT)
         next(b for b in r["bases"] if b["id"] == 1)["seizing"] = 1
         d, _ = p.decide(r)
         self.assertEqual(d["commit"], 0)                 # being captured: defenders go back

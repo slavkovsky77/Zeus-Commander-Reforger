@@ -37,7 +37,8 @@ ASSAULT_MAX = 600      # s without a capture: called off, another objective...
 ASSAULT_MAX_ON_IT = 900   # ...unless we hold ground on it (ON_IT soldiers within 250 m): until then
 ASSAULT_MAX_TOTAL = 1200  # (those count from when the force got there; this from the assault order)
 ON_IT = 10.0
-COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
+COMMIT = 4             # DEFEND teams that join the assault while none of our bases is threatened
+                       # (fireteams of 5 from 19 Oct: 4 of 8 teams, as 2 of 4 squads of 10 before)
 STORM_AFTER = 240      # s into the assault, with STORM_FORCE of the need sent there: storm it
 STORM_FORCE = 0.6
 
@@ -208,7 +209,7 @@ class Phased:
         few_left = close and "enemies" in target and target["enemies"] <= 2
         storm = near >= STORM_FORCE * need and (few_left or elapsed >= STORM_AFTER)
         verb = "Storming" if storm else "Assault on"
-        lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
+        lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender teams committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
                 "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit,
                 "storm": target["id"] if storm else None, "drones": [target["id"]]}, raw

@@ -21,7 +21,7 @@ SCHEMA = """Answer with exactly one JSON object and nothing else:
  "hold": [<at most 3 of OUR base ids to hold firmly>],
  "avoid": [<base ids not to waste force on now>],
  "concentration": "normal" or "heavy",
- "commit": <0, 1 or 2: how many of your 4 defending squads join the main effort; they return to
+ "commit": <0 to 4: how many of your 8 defending fireteams (5 soldiers each) join the main effort; they return to
             defending by themselves when one of your bases is attacked>}"""
 
 SYSTEM = """You are the operational commander of the {faction} side in an Arma Reforger Conflict match
