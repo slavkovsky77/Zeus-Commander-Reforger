@@ -26,7 +26,7 @@ NAMES = {"none": "AI Conflict alone", "doctrine": "rules: targets only", "llm": 
 # Kept by hand as the night goes: what is open, what is next.
 # The night in short, kept by hand: what Martin should know first.
 SUMMARY = [
-    "The loop ran all night (02:40-09:27): 13 watched and recorded matches and 12 headless head-to-heads side by side; every change went in at the next match boundary. Both loops have stopped; the strategist bridges are still up.",
+    "The loop ran all night (03:19-09:27): 13 watched and recorded matches (17 GB of video) and 12 headless head-to-heads side by side; every change went in at the next match boundary. Both loops have stopped; the strategist bridges are still up.",
     "Three doctrine steps from Arma 3 now drive AI Conflict's squads: gather before the attack, COMMIT two defender squads to it, and STORM the objective once the force is there (new tonight - squads used to stall 300-600 m out under fire).",
     "Storm works: Moss Hill fell in all four matches with storm, at 15-20 min; without it the USSR doctrine never took it in 30 min, and AI Conflict alone took it once at 28.8 min. On screen the USSR won 3-2 with storm, taking Moss Hill and Arleville. Headless, the USSR doctrine lost 1-2 twice before storm; with it, 3-2, 2-1 and 3-2 (the last capture 50 s before the end). On the US side (Arland's stronger side) no gain yet: 2-2 with storm, where AI Conflict's own US wins 2-1 in three controls of four. It costs soldiers: 30-45 lost a match instead of 15-20 when it storms a hill.",
     "Everon too: the doctrine with storm won 4-1 (three bases taken, 13 soldiers lost) where the same matchup ended 2-2 before storm - but see the bug below for its second half.",
