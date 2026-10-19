@@ -7,8 +7,13 @@
 //   [ZCR][EXPOSURE] t= side= engaged= covered= prone=  every 30 s: of the soldiers on foot who know
 //       an enemy within 300 m, the % with something solid within 3 m toward the nearest one, or a
 //       roof overhead (covered), and the % lying down
+//       ... ground= object= above=: what the cover is - toward the enemy the ground (a crest) or an
+//       object (building, wall, rock, tree trunk, vehicle), and overhead a roof or tree canopy
+//       (hides him from a drone; a crest does not)
+//   ... field_above= on [ZCR][CROWD]: % of the soldiers in the field under a roof or canopy
 //   on each soldier's death, added to [ZCR][LOSS]: stance, moving (over 3 km/h in the last 5 s),
-//       covered (something solid within 3 m toward the killer; "-" with no killer), roof, foot.
+//       covered (something solid within 3 m toward the killer; "-" with no killer), roof, foot,
+//       cover= (ground/building/tree/vehicle/object/none toward the killer), above= (roof/canopy/none).
 // Unlike Arma 3's check, the ground counts as cover too (a crest between him and the enemy).
 // Server only; started by the first commander tick.
 class ZCR_SoldierState
@@ -53,17 +58,20 @@ class ZCR_Sampler
 		if (!s_Instance.m_mState.Find(victim, st) || !st)
 			return "";
 		string covered = "-";
+		string cover = "-";
 		if (killer && killer != victim)
 		{
 			vector to = killer.GetOrigin() + Vector(0, 1.5, 0);
 			ChimeraCharacter kc = ChimeraCharacter.Cast(killer);
 			if (kc)
 				to = kc.EyePosition();
-			covered = s_Instance.Blocked(st.m_vEye, to, victim, killer).ToString();
+			cover = s_Instance.CoverToward(st.m_vEye, to, victim, killer);
+			covered = (cover != "none").ToString();
 		}
-		return string.Format(" stance=%1 moving=%2 covered=%3 roof=%4 foot=%5",
+		string above = s_Instance.Above(st.m_vEye, victim);
+		return string.Format(" stance=%1 moving=%2 covered=%3 roof=%4 foot=%5 cover=%6 above=%7",
 			typename.EnumToString(ECharacterStance, st.m_iStance), st.m_bMoving, covered,
-			s_Instance.Roof(st.m_vEye, victim), !st.m_bInVehicle);
+			above == "roof", !st.m_bInVehicle, cover, above);
 	}
 
 	void Sample()
@@ -135,6 +143,10 @@ class ZCR_Sampler
 			int stacked;
 			int field;
 			int fieldStacked;
+			int fieldAbove;
+			int byGround;
+			int byObject;
+			int byAbove;
 			vector home = MainBase(side);
 			int engaged;
 			int covered;
@@ -150,11 +162,15 @@ class ZCR_Sampler
 				near += friends;
 				if (friends >= STACKED_FRIENDS)
 					stacked++;
+				ZCR_SoldierState me = m_mState.Get(e);
+				string over = Above(me.m_vEye, e);
 				if (home == vector.Zero || vector.DistanceXZ(e.GetOrigin(), home) > 200)
 				{
 					field++;
 					if (friends >= STACKED_FRIENDS)
 						fieldStacked++;
+					if (over != "none")
+						fieldAbove++;
 				}
 				IEntity enemy = NearestEnemy(e);
 				if (!enemy)
@@ -165,19 +181,31 @@ class ZCR_Sampler
 				ChimeraCharacter ec = ChimeraCharacter.Cast(enemy);
 				if (ec)
 					to = ec.EyePosition();
-				if (Blocked(st.m_vEye, to, e, enemy) || Roof(st.m_vEye, e))
+				string kind = CoverToward(st.m_vEye, to, e, enemy);
+				if (kind == "ground")
+					byGround++;
+				else if (kind != "none")
+					byObject++;
+				if (over != "none")
+					byAbove++;
+				if (kind != "none" || over == "roof")
 					covered++;
 				if (st.m_iStance == ECharacterStance.PRONE)
 					prone++;
 			}
 			int fieldPct = -1;
+			int fieldAbovePct = -1;
 			if (field > 0)
+			{
 				fieldPct = Math.Round(100.0 * fieldStacked / field);
-			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7", now, side, men.Count(),
-				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct), LogLevel.NORMAL);
+				fieldAbovePct = Math.Round(100.0 * fieldAbove / field);
+			}
+			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
+				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct), LogLevel.NORMAL);
 			if (engaged > 0)
-				Print(string.Format("[ZCR][EXPOSURE] t=%1 side=%2 engaged=%3 covered=%4 prone=%5", now, side, engaged,
-					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged)), LogLevel.NORMAL);
+				Print(string.Format("[ZCR][EXPOSURE] t=%1 side=%2 engaged=%3 covered=%4 prone=%5 ground=%6 object=%7 above=%8", now, side, engaged,
+					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged), Math.Round(100.0 * byGround / engaged),
+					Math.Round(100.0 * byObject / engaged), Math.Round(100.0 * byAbove / engaged)), LogLevel.NORMAL);
 		}
 	}
 
@@ -216,27 +244,55 @@ class ZCR_Sampler
 		return best;
 	}
 
-	// Something solid within 3 m of the eye on the line toward 'to' (fire geometry or ground).
-	protected bool Blocked(vector eye, vector to, IEntity self, IEntity other)
+	// What stands within 3 m of the eye on the line toward 'to' (fire geometry or ground):
+	// ground, building, tree, vehicle, object (walls, rocks, sandbags) or none.
+	protected string CoverToward(vector eye, vector to, IEntity self, IEntity other)
 	{
 		vector dir = to - eye;
 		if (dir.Length() < 0.5)
-			return false;
+			return "none";
 		dir.Normalize();
-		return Trace(eye, eye + dir * COVER_RANGE, self, other, TraceFlags.ENTS | TraceFlags.WORLD);
+		if (!Trace(eye, eye + dir * COVER_RANGE, self, other, TraceFlags.ENTS | TraceFlags.WORLD, EPhysicsLayerDefs.FireGeometry))
+			return "none";
+		return Kind(m_Trace.TraceEnt);
 	}
 
-	protected bool Roof(vector eye, IEntity self)
+	// What is over his head within 15 m on what blocks sight - a roof or tree canopy hides him
+	// from a drone: roof, canopy, object or none.
+	protected string Above(vector eye, IEntity self)
 	{
-		return Trace(eye + Vector(0, 0.3, 0), eye + Vector(0, ROOF_RANGE, 0), self, null, TraceFlags.ENTS);
+		int layers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage | EPhysicsLayerDefs.FireGeometry;
+		if (!Trace(eye + Vector(0, 0.3, 0), eye + Vector(0, ROOF_RANGE, 0), self, null, TraceFlags.ENTS, layers))
+			return "none";
+		string kind = Kind(m_Trace.TraceEnt);
+		if (kind == "building")
+			return "roof";
+		if (kind == "tree")
+			return "canopy";
+		return "object";
 	}
 
-	protected bool Trace(vector from, vector to, IEntity self, IEntity other, TraceFlags flags)
+	protected static string Kind(IEntity hit)
+	{
+		if (!hit || GenericTerrainEntity.Cast(hit))
+			return "ground";
+		IEntity root = hit.GetRootParent();
+		if (!root)
+			root = hit;
+		if (BaseTree.Cast(root) || BaseTree.Cast(hit))
+			return "tree";
+		if (BaseBuilding.Cast(root) || BaseBuilding.Cast(hit))
+			return "building";
+		if (Vehicle.Cast(root))
+			return "vehicle";
+		return "object";
+	}
+
+	protected bool Trace(vector from, vector to, IEntity self, IEntity other, TraceFlags flags, int layers)
 	{
 		if (!m_Trace)
 		{
 			m_Trace = new TraceParam();
-			m_Trace.TargetLayers = EPhysicsLayerDefs.FireGeometry;
 			m_Trace.ExcludeArray = m_aExclude;
 		}
 		m_aExclude.Clear();
@@ -252,9 +308,11 @@ class ZCR_Sampler
 			if (other.GetRootParent() && other.GetRootParent() != other)
 				m_aExclude.Insert(other.GetRootParent());
 		}
-		m_Trace.Flags = flags | TraceFlags.ANY_CONTACT;
+		m_Trace.TargetLayers = layers;
+		m_Trace.Flags = flags;
 		m_Trace.Start = from;
 		m_Trace.End = to;
+		m_Trace.TraceEnt = null;
 		return GetGame().GetWorld().TraceMove(m_Trace, null) < 1.0;
 	}
 }

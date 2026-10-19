@@ -2,8 +2,8 @@
 // under fire instead of trading shots at range. AI Conflict stages them 400-500 m out, and each
 // 220 m approach step ends when a Reforger group under fire stops to fight (Arland, Moss Hill:
 // 40-65 soldiers held 270-600 m out for 23 minutes). The strategist names the base (storm <id>);
-// the attack waypoints AI Conflict creates for it get a player-order priority level, like a Game
-// Master's forced move, and the squads already on their way are re-ordered once.
+// the attack waypoints AI Conflict creates for it get a higher priority level (careful by default,
+// see Priority), and the squads already on their way are re-ordered once.
 // Logs [ZCR][STORM] for the lab. Server only.
 class ZCR_Storm
 {
@@ -31,13 +31,19 @@ class ZCR_Storm
 		return -1;
 	}
 
-	// -zcrStormPriority <n> for the lab (default: a player order's).
+	// A careful storm by default: at 25 the squad's move (50 + 25) beats stopping to fight a spotted
+	// group (70), but a soldier's formation movement (30 + 25) still loses to taking a fire position
+	// (60) or shooting a chosen target (90) - they keep advancing and still use cover. Moss Hill
+	// probes: taken as fast as at 1000 (a player order's) with 15 soldiers lost instead of 39.
+	// -zcrStormPriority <n> for the lab.
+	static const float CAREFUL = 25;
+
 	static float Priority()
 	{
 		string value;
 		if (System.GetCLIParam("zcrStormPriority", value) && !value.IsEmpty())
 			return value.ToFloat();
-		return SCR_AIActionBase.PRIORITY_LEVEL_PLAYER;
+		return CAREFUL;
 	}
 
 	static bool IsStormed(string faction, SCR_CampaignMilitaryBaseComponent base)
