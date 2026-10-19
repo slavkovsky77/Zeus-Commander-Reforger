@@ -100,6 +100,9 @@ class ZCR_Watch
 	protected float m_fGlideStart;
 	protected RplId m_FollowId;
 	protected bool m_bHasShot;
+	protected vector m_vSpot;
+	protected float m_fNextNear;
+	protected ref array<IEntity> m_aNear = {};
 
 	static bool IsOn()
 	{
@@ -275,6 +278,7 @@ class ZCR_Watch
 		if (follow)
 			target = follow.GetOrigin();
 		vector spot = m_vFrom + (target - m_vFrom) * k;
+		m_vSpot = spot;
 		float back = m_fFromBack + (m_fToBack - m_fFromBack) * k;
 		float height = m_fFromHeight + (m_fToHeight - m_fFromHeight) * k;
 		float ground = world.GetSurfaceY(spot[0], spot[2]);
@@ -330,8 +334,72 @@ class ZCR_Watch
 				FrameSlot.SetSize(w, px, px);
 			}
 		}
+		used = DrawTags(world, workspace, used);
 		for (int i = used; i < m_aPool.Count(); i++)
 			m_aPool[i].SetVisible(false);
+	}
+
+	// Soldier tags in close views (Arma 3 director, remark 67): when the camera is low, every soldier
+	// within 90 m of the spot gets a small tag in his side's colour with his role.
+	protected int DrawTags(BaseWorld world, WorkspaceWidget workspace, int used)
+	{
+		if (m_fToHeight > 140 || m_fClock - m_fGlideStart < 2)
+			return used;
+		if (m_fClock >= m_fNextNear)
+		{
+			m_fNextNear = m_fClock + 0.5;
+			m_aNear.Clear();
+			world.QueryEntitiesBySphere(m_vSpot, 90, OnNear, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
+		}
+		foreach (IEntity e : m_aNear)
+		{
+			if (!e || e.GetRootParent() != e)
+				continue;
+			vector screen = workspace.ProjWorldToScreen(e.GetOrigin() + Vector(0, 2.3, 0), world);
+			if (screen[2] <= 0)
+				continue;
+			Widget w = Pooled(used, true);
+			used++;
+			if (!w)
+				break;
+			w.SetVisible(true);
+			TextWidget t = TextWidget.Cast(w);
+			string role = ZCR_LossLog.ShortName(e);
+			int cut = role.LastIndexOf("_");
+			if (cut >= 0)
+				role = role.Substring(cut + 1, role.Length() - cut - 1);
+			string side = ZCR_LossLog.SideOf(e);
+			t.SetText(side + " " + role);
+			t.SetColor(Tint(side));
+			t.SetExactFontSize(14);
+			FrameSlot.SetPos(t, screen[0] - 40, screen[1] - 10);
+			FrameSlot.SetSize(t, 200, 22);
+		}
+		return used;
+	}
+
+	protected bool OnNear(IEntity entity)
+	{
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character && character.GetCharacterController() && !character.GetCharacterController().IsDead())
+			m_aNear.Insert(entity);
+		return true;
+	}
+
+	protected bool OnlyCharacters(IEntity entity)
+	{
+		return ChimeraCharacter.Cast(entity) != null;
+	}
+
+	protected static Color Tint(string side)
+	{
+		if (side == "US")
+			return new Color(0.35, 0.62, 1, 1);
+		if (side == "USSR")
+			return new Color(1, 0.35, 0.3, 1);
+		if (side == "FIA")
+			return new Color(0.4, 0.85, 0.4, 1);
+		return new Color(0.9, 0.9, 0.9, 1);
 	}
 
 	// Widget number i of the pool, of the right type (text for labels, a square otherwise).
