@@ -79,9 +79,14 @@ modded class AICF_MatchController
 	{
 		if (!Replication.IsServer() || !faction || !state)
 			return;
+		// Light vehicles (Martin: "not only trucks and APCs"): AI Conflict's light transport - the US
+		// M998, the USSR UAZ-452 - falling back to its truck when the squad doesn't fit;
+		// -zcrMotorizeTruck for trucks only.
 		AICF_EGroupUnitType want = AICF_EGroupUnitType.INFANTRY;
-		if (motorize)
+		if (motorize && System.IsCLIParam("zcrMotorizeTruck"))
 			want = AICF_EGroupUnitType.MOTORIZED_TRUCK;
+		else if (motorize)
+			want = AICF_EGroupUnitType.MOTORIZED_LIGHT;
 		for (int i = 0; i < state.GetSlotCount(); i++)
 		{
 			AICF_GroupSlot slot = state.GetSlot(i);

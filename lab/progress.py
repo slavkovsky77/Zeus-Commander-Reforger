@@ -56,6 +56,7 @@ BUILDS = [
     (9, "cover layer", "2026-10-19 14:31", "soldier layer: cover in a firefight for our strategist's side (Arma 3's coverFight); drones hunt seen enemy soldiers"),
     (10, "cover with the game", "2026-10-19 15:05", "the soldier layer works with the game's own cover: holds it 20 s (the game: 5 s), asks its cover search, leaves soldiers in it alone"),
     (11, "walk and ride", "2026-10-19 15:25", "Arma 3's walk and ride measures (squads report whether they ride), engine measures; recordings of the game window only"),
+    (12, "covered dismount", "2026-10-19 15:40", "light vehicles first; our side's vehicles stop 200-400 m short where the objective can't see them; solo 2x watched matches"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
 KEYS = ["walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",

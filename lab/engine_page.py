@@ -23,13 +23,25 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The self-improving loop: a watched, recorded match on screen and a headless head-to-head beside it - both with drones on both sides (from r8).",
-    "Today's result": "Drone warfare doctrine: drones wear the defenders down and a careful storm takes the base 75 s later; drones cause about half the losses (front: 70-96%).",
-    "Being built next": "Drone warfare doctrine measured (drones' share of losses against the front band 70-96%); then a soldier layer for cover and spacing.",
+    "Running now": "The self-improving loop at double speed: the watched match is hosted by the game itself at 2x (the Diag Menu's time multiplier), recorded from the game window; a headless head-to-head beside it at 1x. Drones on both sides.",
+    "Today's result": "Reforger can run faster after all - 2.0x measured at a steady 60 fps, drones fine. Soldiers still fight from cover only 5-13% (Arma 3: 30-40%): the game's own attack leaves cover after 5 s and closes to 15 m.",
+    "Being built next": "Covered dismount on light vehicles (drive to a point the objective can't see, then clear it on foot), the cover layer working with the game's cover, then spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "speed", "Reforger runs at 2x - like Arma 3's watched games",
+     "The game's diagnostic build has a Diag Menu (hold Win+Alt) with Cheats > \"DTime multiplier\" (0.01-20x): each frame advances the game that much further. Measured: 30 game seconds in 15.0 real seconds, 60 fps steady, drones 16 of 16 hits. It works only where the game hosts the match itself (solo), not on a dedicated server - the same rule as Arma 3's setAccTime. The watch loop now runs solo at 2x, set automatically by key presses, in a normal maximised window; the headless matches stay at 1x beside it. (Earlier today I said it wasn't possible: I had searched the game for 'time scale', not 'DTime'.)"),
+    ("design", "r12", "Covered dismount on light vehicles",
+     "Your direction: modern combat is driving to a point with cover, dismounting there, then clearing the position. AI Conflict drives a motorized squad to the road nearest the objective and lets it out 150 m short, in the open. For our side the vehicle now stops 200-400 m short at the nearest road point the objective can't see (a crest, a treeline or buildings in between), and the squad goes on on foot. Motorized squads get light vehicles first (US M998, USSR UAZ-452; trucks only when the squad doesn't fit) - there are no motorcycles in the vanilla game. Probe running."),
+    ("good", "r11", "How far the infantry walks, riding to the attack",
+     "Arma 3's two measures, from the squads' reports (each now says whether its leader rides): today attacking squads walk 270-710 m on foot to their objective (median per match; Arma 3's target 300 m), and none rode."),
+    ("design", "r11", "How the engine actually behaves",
+     "New engine measures from every match: Reforger's AI kills at a median 22-38 m - close range: the game's attack logic walks a soldier on until he is 15 m from his target. Watched Everon matches ran their server at 12-18 fps (headless 49-60): the match on screen had the least computer to think with - now it runs solo on its own."),
+    ("risk", "r10", "Cover: work with the game, not against it",
+     "Second cover probe: from cover fell to 5.3%. Reading the game's own attack logic: a soldier in cover moves on after 5 s when not under fire, keeps closing to 15 m, and our stance request cancelled his move to cover. Now our layer leaves soldiers in or moving to the game's cover alone, makes them hold it 20 s (Arma 3's value), and asks the game's own cover search for soldiers in the open. The game's own in-cover share is charted too (US side, AI Conflict alone: 27%). The r10 probe didn't test it - our drones killed Moss Hill's garrison before our soldiers arrived."),
+    ("design", "watch", "A clearer panel, the game window only",
+     "The panel says what is happening in plain words: the score and game time, each side's commander (our doctrine, with Gemini, or AI Conflict alone) and its plan, drone teams sent and in the air, and the last three events (captures, storms, drone teams). Recordings now capture the game window only - before, they showed the desktop (VS Code, a browser, a notification) whenever you used the PC."),
     ("good", "r9", "A soldier layer: cover in a firefight",
      "Arma 3's fn_coverFight on Reforger, for our strategist's side: a soldier who knows an enemy within 400 m and has nothing solid toward it moves to the nearest covered spot within 25 m (the game's own individual move; not the squad leader, not in a storm). Probe: 90% of the soldiers in contact stood in the open; fighting from cover rose to 11.6% from 1.4-6.7%, and the attack took Moss Hill and Arleville as before. Arma 3 reached 30-40%: prone where there is no cover and staying in cover come next."),
     ("design", "r9", "Drones hunt enemy soldiers",
@@ -106,23 +118,23 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("risk", "Soldiers rarely in cover, and bunched", "Reforger's AI fights from cover 5-8% of the time (Arma 3 with our soldier layer 30-40%); an assault force is 69-90% stacked - FPV bait. Arma 3 fixed this with its soldier layer (cover-to-cover bounding, spacing).", "review note 113"),
+    ("risk", "Soldiers walk into the open", "Reforger's AI fights from cover 5-13% of the time (Arma 3 30-40%) and at 22-38 m: the game's attack leaves cover after 5 s and closes to 15 m. An assault force is 69-90% stacked - FPV bait. r10 holds cover 20 s; bounding and spacing next.", "review notes 113, 124, 125"),
+    ("risk", "Drones invisible on screen", "Drones do hit (Everon 14:54: 22 of 25 finished drones hit soldiers), but the director's drone shot showed an empty field - from the screen they seem not to work.", "review note 125"),
+    ("risk", "Infantry walks 270-710 m", "Nobody rides: AI Conflict never motorizes infantry by itself. Light vehicles with a covered dismount are in the r12 probe.", "review notes 127, 128"),
     ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default; the headless matches will tell.", "review note 106"),
     ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min: AI Conflict holds them at the base just taken, then walks them in 220 m steps.", "review note 109"),
-    ("risk", "Trucks cost time", "Motorize for every attack squad made the first probe worse (no capture). Only for long marches, next.", "r6 probe"),
-    ("risk", "Drones are one-sided and unmeasured", "Only the doctrine side gets drones, and only in watched matches. Both sides and headless runs needed before drones count in the results.", "review note 98"),
     ("risk", "Arland favours the US", "In the controls (AI Conflict on both sides) the US ends 2-1 three times out of four: read the USSR side's results against that.", "4 controls"),
     ("risk", "Few matches per build", "Each build has 1-4 matches per line, so single points jump. Captures are rare (0-3 a match).", ""),
     ("design", "FIA garrisons spawn near observers", "AI Conflict spawns FIA garrisons only where someone is near; in watched matches the camera is someone. Measure on headless matches.", ""),
 ]
 
 NEXT = [
-    "Test the watch buttons on screen and fix what the phone stream does to them.",
-    "A soldier layer like Arma 3's: cover-to-cover movement near the enemy and spacing in the assault force (measured by the new charts).",
-    "Careful v full storm in the headless matchups.",
-    "Trucks only for long marches: motorize when the next objective is over 1 km away (Everon), measured as the follow-on time.",
-    "Drones for both sides in watched matches, and the drone mods in headless matches: drones on v off.",
-    "Phone buttons for the watch mode, as on Arma 3.",
+    "Covered dismount probe (r12): light vehicles to a point the objective can't see, then on foot - walk and ride measured.",
+    "r10 cover measured in a match where our soldiers fight (the solo watched matches).",
+    "Bounding and spacing like Arma 3's soldier layer: one team covers while the other moves; no 6+ bunches near the enemy.",
+    "The director's drone shot: find the drone and follow it to the hit, so drones show on screen.",
+    "Motorize only for long marches (over 1 km), measured as the walk and the follow-on time.",
+    "Short scenario tests (squads already 600 m from the objective) for the soldier layer, so each change is tested in minutes.",
 ]
 
 FACTS = [
@@ -134,11 +146,29 @@ FACTS = [
     "AI Conflict's commander never gives infantry a vehicle; a squad made motorized (by a player, or our doctrine) gets one of 10 trucks per side for routes over 400 m, dropped 150 m short.",
     "FIA garrisons spawn only where an observer is near (a player or the camera).",
     "A drone kill has no killer in the game's death event: the lab credits a death with no killer within 5 s of an FPV detonation to the drone.",
-    "Matches run in real time (no speed-up); a 30-minute match takes 30 minutes. Up to four headless servers run side by side at 60 fps.",
+    "Speed: only the game's diagnostic build can run faster (Diag Menu > Cheats > DTime multiplier, 0.01-20x), and only where it hosts the match itself - a dedicated server can't (its diagnostic build lacks the setting). 2x measured at 60 fps. Headless servers run at 1x, up to four side by side.",
+    "Reforger's attack logic (SCR_AICombatMoveLogic_Attack): in cover a soldier waits 5 s (20 s under fire) before moving on, out of cover 3 s (6 s), and closes to 15 m (or his weapon's minimum + 5 m); it looks for cover within 30 m on each move.",
+    "AI Conflict's vehicles: light transport (US M998, USSR UAZ-452), armed light (M1025 M2, UAZ-469 PKM, BRDM-2) and trucks (M923, Ural); no motorcycles in the vanilla game. Dismount distance is a setting (-aicfVehicleDismountDistanceMeters, 30-500 m, default 150).",
 ]
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (12, "covered dismount, light vehicles", "19 Oct, from 15:50",
+     ["Motorized squads get AI Conflict's light vehicles first (US M998, USSR UAZ-452), trucks only when the squad doesn't fit (-zcrMotorizeTruck for trucks).",
+      "Covered dismount for our side: the vehicle stops 200-400 m short at the nearest road point the objective can't see, and everyone gets out there (ZCR_Dismount)."],
+     "Martin: NPCs should use motorcycles and small cars, not only APCs - modern combat is driving to a point with cover, then clearing the position.",
+     "Probe running."),
+    (11, "walk and ride, engine measures, 2x", "19 Oct, from 15:25",
+     ["Arma 3's 'how far the infantry walks' and 'riding to the attack' (squads report whether they ride); engine measures: fighting distance, server fps.",
+      "Solo matches at 2x: the game hosts the match, the Diag Menu's time multiplier set by key presses; a normal maximised window.",
+      "Recordings of the game window only; a clearer panel (score, plans in plain words, drones, last events)."],
+     "Martin: measure as on Arma 3, and how the engine really works; make the game faster by any means; the screen doesn't show what's happening.",
+     "2.0x measured at 60 fps; walk 270-710 m, rode 0%; kills at 22-38 m; watched Everon servers had run at 12-18 fps."),
+    (10, "cover with the game", "19 Oct, from 15:05",
+     ["The cover layer leaves soldiers in or moving to the game's own cover alone, holds that cover at least 20 s (the game: 5 s), and asks the game's own cover search for soldiers in the open.",
+      "The game's own in-cover share measured (incover=)."],
+     "Second cover probe: from cover fell 11.6% -> 5.3%; Martin: they walk across open fields like nothing is happening.",
+     "Not yet tested in a fight: in the probe our drones cleared the garrison before our soldiers arrived."),
     (9, "cover layer", "19 Oct, from 14:31",
      ["Soldier layer (Arma 3's coverFight): soldiers in contact without cover move to the nearest covered spot within 25 m - our strategist's side, on by default.",
       "Drones hunt the enemy soldiers a side has seen (every other launch).",
