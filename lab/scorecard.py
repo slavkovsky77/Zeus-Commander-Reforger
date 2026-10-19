@@ -15,6 +15,9 @@ Checks per side (US, USSR):
   sky      drones in the air in at least 60% of the 30-s samples after minute 3 (r16+)
   rides    soldiers riding in a moving vehicle in at least 25% of the 30-s samples (r18+; before,
            teams that started boarding - which said "fine" while Martin saw no car on screen)
+  panic    near an enemy drone (250 m) at least 60% under cover, running for it or prone, on average
+           (Martin: "infantry has to be very careful when there is a drone")
+  down     of the soldiers drones killed, at most 50% standing (none was prone before r19)
   open     soldiers in the field with something overhead or beside them - shown, not checked yet
 """
 import json
@@ -54,6 +57,8 @@ def measure(run: Path) -> dict:
     noteam = {s: 0 for s in SIDES}
     boarded = {s: set() for s in SIDES}
     riding = {s: [] for s in SIDES}
+    threat = {s: [] for s in SIDES}
+    drone_dead = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
     last_t = 0
     for line in open(log, encoding="utf-8", errors="replace"):
@@ -73,6 +78,9 @@ def measure(run: Path) -> dict:
                 launches[side].append(t)
             elif "no team" in line:
                 noteam[side] += 1
+        elif "[ZCR][DRONETHREAT]" in line and side in SIDES and " near=" in line:
+            safe = num(d.get("covered"), 0) + num(d.get("reacting"), 0) + num(d.get("prone"), 0)
+            threat[side].append(min(100, safe))
         elif "[ZCR][RIDING]" in line and side in SIDES:
             riding[side].append(int(num(d.get("riding"), 0)))
         elif "BOARDING_PHASE_STARTED" in line and side in SIDES:
@@ -81,6 +89,8 @@ def measure(run: Path) -> dict:
             v = d.get("victim_side") or d.get("side")
             if v in SIDES:
                 lost[v] += 1
+                if d.get("kind") == "man" and d.get("killer_kind") in ("none", "") and d.get("stance"):
+                    drone_dead[v].append(d.get("stance"))
     out = {"run": run.name, "minutes": round(last_t / 60, 1), "sides": {}}
     for s in SIDES:
         rows = crowd[s]
@@ -106,6 +116,9 @@ def measure(run: Path) -> dict:
             "riding_pct": round(100 * sum(1 for r in riding[s] if r > 0) / len(riding[s])) if riding[s] else None,
             "riding_avg": round(sum(riding[s]) / len(riding[s]), 1) if riding[s] else None,
             "field_overhead": round(sum(field_cover) / len(field_cover)) if field_cover else None,
+            "panic_pct": round(sum(threat[s]) / len(threat[s])) if threat[s] else None,
+            "drone_dead_standing": round(100 * drone_dead[s].count("STAND") / len(drone_dead[s])) if drone_dead[s] else None,
+            "drone_dead_prone": round(100 * drone_dead[s].count("PRONE") / len(drone_dead[s])) if drone_dead[s] else None,
             "lost": lost[s],
         }
     return out
@@ -117,6 +130,10 @@ CHECKS = [
     ("team", lambda m: m["team10"] is not None and m["team10"] >= 2.5, lambda m: f"{m['team10']}"),
     ("drones", lambda m: m["drones_per4"] >= 1, lambda m: f"{m['drone_teams']} teams ({m['drones_per4']}/4min, {m['noteam']} refused)"),
     ("sky", lambda m: m["sky_pct"] is None or m["sky_pct"] >= 60, lambda m: "-" if m["sky_pct"] is None else f"{m['sky_pct']}%"),
+    ("panic", lambda m: m.get("panic_pct") is None or m["panic_pct"] >= 60,
+     lambda m: "-" if m.get("panic_pct") is None else f"{m['panic_pct']}% safe near drones"),
+    ("down", lambda m: m.get("drone_dead_standing") is None or m["drone_dead_standing"] <= 50,
+     lambda m: "-" if m.get("drone_dead_standing") is None else f"drone victims {m['drone_dead_standing']}% standing, {m['drone_dead_prone']}% prone"),
     ("rides", lambda m: m["riding_pct"] >= 25 if m["riding_pct"] is not None else m["rides"] >= 1,
      lambda m: (f"riding in {m['riding_pct']}% of samples, {m['riding_avg']} on average" if m["riding_pct"] is not None
                 else f"{m['rides']} teams boarded (old measure)")),
