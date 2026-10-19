@@ -251,6 +251,19 @@ class PhasedTests(unittest.TestCase):
         self.assertEqual(p.state["USSR"]["target"], 3)
         self.assertNotIn(3, p.state["USSR"]["fails"])
 
+    def test_storm_after_four_minutes_with_the_force_there(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        d, _ = p.decide(self.report(190))                # assault Town
+        self.assertIsNone(d["storm"])
+        d, _ = p.decide(self.report(190 + 250))          # 17 soldiers sent to Town >= 0.6 x 25
+        self.assertEqual(d["storm"], 3)
+        clean, _ = validate(d, self.report(440))
+        self.assertIn("storm 3", to_lines(clean, "phased").splitlines())
+        clean, problems = validate({"main_effort": 3, "storm": 4}, self.report(440))
+        self.assertIsNone(clean["storm"])                # only the main effort is stormed
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

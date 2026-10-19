@@ -16,7 +16,9 @@ Phases per side (kept between rounds; a new match resets them):
            (Arma 3: an assault that stops gaining is called off): the objective counts a failure
            and another one is picked - untried objectives first
 Our own threatened bases are always held. In the assault, while none of them is threatened, two of
-AI Conflict's DEFEND squads join it (commit): Arma 3's doctrine keeps a minimal garrison.
+AI Conflict's DEFEND squads join it (commit): Arma 3's doctrine keeps a minimal garrison. After 4 min
+of the assault with the force there, it storms: the squads sent there go in without stopping to
+fight at range (Reforger groups under fire otherwise hold 300-600 m out).
 """
 import math
 
@@ -31,6 +33,8 @@ ASSAULT_MAX = 600      # s without a capture: called off, another objective...
 ASSAULT_MAX_ON_IT = 900   # ...unless we hold ground on it (ON_IT soldiers within 250 m): until then
 ON_IT = 10.0
 COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
+STORM_AFTER = 240      # s into the assault, with STORM_FORCE of the need sent there: storm it
+STORM_FORCE = 0.6
 
 
 def _dist(a: dict, b: dict) -> float:
@@ -158,6 +162,9 @@ class Phased:
                     "supporting": [], "hold": hold[:3], "avoid": [target["id"]], "concentration": "heavy"}, raw
         intent = st.get("llm_intent") or ""
         commit = 0 if hold else COMMIT
-        lead = f"Assault on {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
+        storm = elapsed >= STORM_AFTER and near >= STORM_FORCE * need
+        verb = "Storming" if storm else "Assault on"
+        lead = f"{verb} {name} with {near:.0f} soldiers on it" + (f", {commit} defender squads committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
-                "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit}, raw
+                "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit,
+                "storm": target["id"] if storm else None}, raw

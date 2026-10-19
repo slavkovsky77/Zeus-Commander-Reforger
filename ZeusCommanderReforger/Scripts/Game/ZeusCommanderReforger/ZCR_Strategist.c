@@ -269,6 +269,7 @@ class ZCR_Strategist
 		map<int, float> demand = new map<int, float>();
 		string intent;
 		int commit;
+		int storm = -1;
 		for (int i = 1; i < lines.Count(); i++)
 		{
 			string line = lines[i].Trim();
@@ -281,6 +282,8 @@ class ZCR_Strategist
 			line.Split(" ", parts, true);
 			if (parts.Count() == 2 && parts[0] == "commit")
 				commit = parts[1].ToInt();
+			if (parts.Count() == 2 && parts[0] == "storm")
+				storm = parts[1].ToInt();
 			if (parts.Count() != 3)
 				continue;
 			if (parts[0] == "priority")
@@ -291,6 +294,7 @@ class ZCR_Strategist
 		m_iMissed = 0;
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFaction);
 		plan.SetCommit(commit);
+		plan.SetStorm(storm);
 		plan.Apply(priority, demand, intent, source);
 		ZCR_Drones.OnPlan(m_sFaction, plan, source != "doctrine-fallback");
 	}
