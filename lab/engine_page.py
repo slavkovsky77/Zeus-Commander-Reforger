@@ -23,13 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The watched loop at 3x on Arland, two armies, now our doctrine against our doctrine (rules and Gemini), with AI Conflict alone as every fourth match - the side check; the headless batch the same at 1x.",
-    "Today's result": "A regression found at 21:30: since 18:40 the watched matches had teams of one man waiting 10-20 minutes at base, 0-3 drone teams a match and not one ride all day - and the measures hid it. Fixed in our own AI Conflict (r16-r18): teams of 3 out at 1.8 min, drones up 50-100% of the time, soldiers riding in 58-83% of samples, idle soldiers in cover, panic when a drone is heard.",
-    "Being built next": "Buildings first for cover, fortifications the bot builds, a wider formation; the scorecard on every match, watched first.",
+    "Running now": "Paused while Martin plays: his remarks from 22:30-00:10 are being built first. The watched loop then runs our doctrine against our doctrine at 3x (set by the game itself now), AI Conflict alone every fourth match as the check; the headless batch the same.",
+    "Tonight's result": "The regression the measures hid (teams of one at base, no drones, no rides) fixed in our own AI Conflict: every screen check passes in the latest headless match, 83-92% in the watched ones. What Martin still sees: soldiers reckless - gunfire kills at 1-4 m in doctrine v doctrine matches, nobody prone under drones, no supply trucks, few defenses.",
+    "Being built next": "Soldiers hold 60 m from a seen enemy and lie prone under drones (r19, to verify); supply trucks running again; fortifications the builders put up; an engineering and goals overview; /good and /bad reports.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("bug", "found", "Reckless soldiers, measured",
+     "Martin, 23:35: 'investigate reckless soldiers'. Of 99 dead in the 23:22 match, 78% to drones, 22% to gunfire - none lying prone (64% standing, 12% crouching), half with nothing overhead; gunfire kills at a median of 6 m (1-4 m in the doctrine v doctrine matches). Two causes in the game's own AI: its attack closes on a seen enemy until 15 m, and the drone reaction's 'get down' was undone by the attack logic the next moment. r19: soldiers hold 60 m from an enemy seen in the last 15 s (except within 150 m of an enemy base, which has to be cleared), and prone is held for 15 s by the game's own stance setting."),
+    ("good", "r19", "Speed set by the game itself",
+     "The 3x came from ~200 key presses in the Diag Menu at each match start: they fought Martin's typing ('keyboard is hijacked'), landed in other menus when the menu list differed, and a retry and then a scan of unknown menu IDs crashed the game three times. A scan before one crash found the setting's engine IDs (switch 375, value 376): the game now sets 3x from script - no keys, measured 2.8x."),
+    ("good", "r19", "Watching: free look, orbit, REPORT, IDs",
+     "FREE LOOK (WASD, Q/E, Shift - the game's own camera input) and an orbit round any shot, both turning only with the right mouse button held; REPORT writes what the camera shows to the log; captions carry IDs - 'USSR team A3', 'drone team 4' - and a followed team shows its goal ('ATTACK Farm - 450 m to go - riding') with a TEAM GOAL marker; each side's panel shows its SUPPLIES (stock, change a minute, trucks on the road)."),
+    ("bug", "r19", "No supply trucks: dispatch was manual",
+     "AI Conflict's latest version made supply transport a player's map order only (automatic_dispatch=0): with AI on both sides no truck ever moved. Our fork runs the automatic scheduler again for the AI sides (player orders keep priority)."),
     ("bug", "found", "The regression the measures hid",
      "Martin, 21:40: no cars, no use of cover, no drones, sitting ducks - how didn't you notice? Three gaps: builds were judged on the headless batch, not the watched matches (drone teams 4-9 there, 0-3 in the watched ones); the measures skipped what the screen shows (cover only for soldiers in a fight, stacking only away from the base, whole-match averages hid 10-20 idle minutes); nothing flagged a regression - '0 rides' and '40 drone launches refused' sat in every log. Now lab/scorecard.py checks every match against fixed limits: first team out by 3 min, at most 40% at the main base at 10 min, teams of 2.5+, a drone team every 4 min, drones up 60% of the time, soldiers riding in 25% of samples. The 21:00 match fails 11 of 12; r18 passes nearly all."),
     ("good", "r16", "Teams out at once",
@@ -152,23 +160,23 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("risk", "Formation spacing", "One drone can still take a whole team on the march: the wedge's spacing is in the game's formation config, not reachable from script; the panic spreads them only once a drone is heard.", "review note 183"),
-    ("design", "Fortifications", "Martin wants the bot to build bunkers and defenses on points, used for cover: what AI Conflict and Conflict can build is to be looked at.", "review note 186"),
-    ("risk", "Soldiers walk into the open", "Reforger's AI fights from cover 5-13% of the time (Arma 3 30-40%) and at 22-38 m: the game's attack leaves cover after 5 s and closes to 15 m. An assault force is 69-90% stacked - FPV bait. r10 holds cover 20 s; bounding and spacing next.", "review notes 113, 124, 125"),
-    ("risk", "Drones invisible on screen", "Drones do hit (Everon 14:54: 22 of 25 finished drones hit soldiers), but the director's drone shot showed an empty field - from the screen they seem not to work.", "review note 125"),
-    ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default; the headless matches will tell.", "review note 106"),
-    ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min: AI Conflict holds them at the base just taken, then walks them in 220 m steps.", "review note 109"),
-    ("risk", "Arland favours the US", "In the controls (AI Conflict on both sides) the US ends 2-1 three times out of four: read the USSR side's results against that.", "4 controls"),
-    ("risk", "Few matches per build", "Each build has 1-4 matches per line, so single points jump. Captures are rare (0-3 a match).", ""),
-    ("design", "FIA garrisons spawn near observers", "AI Conflict spawns FIA garrisons only where someone is near; in watched matches the camera is someone. Measure on headless matches.", ""),
+    ("risk", "Reckless soldiers", "Gunfire kills at 1-6 m; nobody prone under drones (0% of the dead); half the drone victims with nothing overhead. r19 holds 60 m from a seen enemy and keeps prone under drones - to verify in the next matches.", "Martin 23:30-23:35"),
+    ("risk", "Stacked under a drone", "A team still ends up at one tree with an enemy drone overhead; cover spots now keep 6 m from every soldier already there (r19), and the formation's spacing itself is in the game's formation config, not reachable from script yet.", "review notes 183, 196"),
+    ("risk", "Crossing open fields where cover was available", "March steps end in the best cover within 60 m, but the path between them is the shortest one - straight across a field; a route through cover is not built yet.", "review note 174"),
+    ("bug", "No supply trucks", "AI Conflict's dispatch was manual-only; the automatic scheduler is back in the fork (r19) - not yet seen in a match.", "Martin 00:00"),
+    ("design", "Defenses and engineering goals", "The builders put up barracks, armories and vehicle depots only. Fortifications (bunkers, sandbags - TRAIT_FORTIFICATION compositions in the faction catalog) as a new building type, and an overview of each side's goals and engineering, are next.", "review notes 186, 192, 197"),
+    ("risk", "Speed on Everon and with more soldiers", "3x measured 2.2-3.0x on Arland; more soldiers and vehicles lower the frame rate, and Everon only reaches ~1.5x.", ""),
+    ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default.", "review note 106"),
+    ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min.", "review note 109"),
+    ("risk", "Few matches per build", "Each build has 1-4 matches per line, so single points jump.", ""),
 ]
 
 NEXT = [
-    "The scorecard on every match, watched first; a regression in any check stops the line.",
-    "Buildings first when soldiers look for cover; fortifications the bot builds on its points.",
-    "A wider formation (our own formation config) so one drone can't take a team.",
-    "Skills for what Martin repeats: the lab loops, scoring a match with frames, logging a remark, the pages.",
-    "Short scenario tests (teams already 600 m from the objective) for the soldier layer.",
+    "Verify r19 on the screen and the scorecard: soldiers prone under drones, fights at 60 m, supply trucks on the road.",
+    "Fortifications as a building type in our AI Conflict: bunkers and sandbags at points near the front, defenders posted in them.",
+    "A goals overview per side: main effort, bases to hold, supplies needed, what the engineers build.",
+    "/good and /bad reports with the log and a frame of the moment; scorecard checks for the drone panic (prone, covered, running).",
+    "Routes through cover between march steps; a wider formation.",
 ]
 
 FACTS = [
@@ -188,6 +196,15 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (19, "doctrine v doctrine, held prone, standoff, script speed", "19-20 Oct, from 23:35",
+     ["Speed set by the game itself (the Diag Menu's engine values) - no key presses at match start.",
+      "Soldiers hold 60 m from an enemy seen in the last 15 s (the game's attack closed to 15 m), except within 150 m of an enemy base.",
+      "Prone under a drone held 15 s by the game's stance setting; cover spots 6 m from every soldier already there.",
+      "Supply trucks: AI Conflict's automatic scheduler back (it had become manual-only).",
+      "Free look and orbit with the right mouse button, REPORT, IDs in captions (team A3, drone team 4), team goals, supplies in the panels.",
+      "Charts: what the screen shows (scorecard), pace, dead lying prone; doctrine v doctrine matches as their own line."],
+     "Martin: those keys don't work on free look / the mouse rotates always; keyboard hijacked, Arma crashed; investigate reckless soldiers; no supplies transported by trucks; IDs in the messages; good and bad reports.",
+     "Script speed: measured 2.8x with no keys. The rest to be measured when the matches resume."),
     (18, "cover, panic, scan, rides you can see", "19 Oct, from 22:05",
      ["Idle soldiers anywhere go under a roof or canopy within 40 m, 6 m apart.",
       "Drone panic from 250 m: each to his own covered spot, or spread out 15-25 m, then down.",

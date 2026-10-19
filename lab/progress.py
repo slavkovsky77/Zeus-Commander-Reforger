@@ -63,11 +63,12 @@ BUILDS = [
     (16, "teams out at once, drones search", "2026-10-19 21:28", "fireteams start with 3 of 5 and leave with 3 (they waited 10-20 min as one man); drones search when nothing is known and spot for their side"),
     (17, "rides, covered steps", "2026-10-19 21:51", "infantry teams ride light vehicles on marches over 500 m (not one ride before), jog, end each march step in cover; AI Conflict's side flies drones every 2 min"),
     (18, "cover, panic, scan", "2026-10-19 22:05", "idle soldiers to cover anywhere, drone panic from 250 m, drones sweep instead of hovering, rides from 300 m, 16 vehicles per side"),
+    (19, "doctrine v doctrine, held prone, standoff", "2026-10-19 23:35", "both sides our doctrine; speed set by the game itself; prone held by the game's stance setting; soldiers hold 60 m from a seen enemy; supply trucks run again; free look, orbit, REPORT, IDs in captions"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
             ("everon-watched-2a", "Everon watched, two armies")]
-KEYS = ["drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -281,16 +282,17 @@ def measure_run(run: Path, log: Path):
         return None
     started = datetime.strptime("".join(STAMP.search(run.name).groups()), "%Y%m%d%H%M%S")
     sides = strategist_sides(lines)
-    if len(sides) == 2:
-        return None                      # both sides ours: not a head-to-head against AI Conflict
-    side = next(iter(sides), "USSR")     # control: measured as the USSR seat
+    # Both sides ours (doctrine v doctrine, from 19 Oct 22:26): their own line ("-dd"), measured as the
+    # US seat - not a head-to-head against AI Conflict, so its margin isn't one.
+    both = len(sides) == 2
+    side = "US" if both else next(iter(sides), "USSR")     # control: measured as the USSR seat
     other = "US" if side == "USSR" else "USSR"
     mapname = "everon" if "everon" in run.name else "arland"
     kind = "watched" if re.match(r"w\d+-", run.name) else "probe" if run.name.startswith("probe-") else "headless"
     # The two-army test scenario (-zcrNoFIA, from r14): its own lines - no FIA, a different game.
     two_armies = any("CLI Params:" in l and "-zcrNoFIA" in l for l in lines[:400])
     row = {"run": run.name, "started": started.strftime("%Y-%m-%d %H:%M"), "build": build_of(started),
-           "map": mapname, "kind": kind, "family": (f"{mapname}-{kind}" + ("-2a" if two_armies else "")) if sides else "control",
+           "map": mapname, "kind": kind, "family": (f"{mapname}-{kind}" + ("-2a" if two_armies else "") + ("-dd" if both else "")) if sides else "control",
            "side": side, "strategist": sides.get(side, "none"), "minutes": m["minutes"]}
     row["margin"] = score.get(side, 0) - score.get(other, 0)
     cli = next((l for l in lines if "CLI Params:" in l), "").split()
@@ -407,7 +409,36 @@ def measure_run(run: Path, log: Path):
             except ValueError:
                 pass
         row.update(approach_metrics(snaps, side))
+    row.update(screen_metrics(run, lines))
     return row
+
+
+def screen_metrics(run: Path, lines: list) -> dict:
+    """What the screen shows (lab/scorecard.py, 19 Oct): the checks passed and their numbers, both sides
+    averaged (doctrine against doctrine); pace on the move; how many of the dead were lying prone."""
+    out = {}
+    try:
+        import scorecard
+        card = scorecard.measure(run)
+        sides = [card["sides"][s] for s in ("US", "USSR") if s in card.get("sides", {})]
+        checks = [ok(m) for m in sides for _, ok, _ in scorecard.CHECKS]
+        if checks:
+            out["sc_pass"] = round(100 * sum(checks) / len(checks))
+
+        def avg(key):
+            vals = [m[key] for m in sides if m.get(key) is not None]
+            return round(sum(vals) / len(vals), 1) if vals else None
+        out.update({"sc_out": avg("out_min"), "sc_atbase": avg("atbase10"), "sc_drones": avg("drones_per4"),
+                    "sc_sky": avg("sky_pct"), "sc_riding": avg("riding_pct")})
+    except Exception as e:   # the page must not stop on one match
+        print(f"scorecard {run.name}: {e}", file=sys.stderr)
+    paces = [int(m.group(1)) for m in (re.search(r" pace=(\d+)", l) for l in lines if "[ZCR][CROWD]" in l) if m]
+    if paces:
+        out["pace"] = round(sum(paces) / len(paces) / 10, 1)
+    stances = [m.group(1) for m in (re.search(r"kind=man .*stance=([A-Z]+)", l) for l in lines if "[ZCR][LOSS]" in l) if m]
+    if stances:
+        out["deaths_prone"] = round(100 * stances.count("PRONE") / len(stances))
+    return out
 
 
 def rows_all() -> list:
@@ -456,6 +487,18 @@ def html(agg: dict, rows: list) -> str:
         charts.append(f'<figure class="pfig"><figcaption><b>{title}</b> {why}</figcaption>'
                       + line_chart(title, used, series, notes={b: notes[b] for b in used}, prefix="r", **kw) + "</figure>")
 
+    add("What the screen shows: checks passed", "lab/scorecard.py on every match, both sides: first team out by 3 min, at most 40% at the main base at 10 min, teams of 2.5+, a drone team every 4 min, drones up 60% of the time, soldiers riding 25% of the time. From 19 Oct 21:40, when Martin found the regression the other measures hid.",
+        ser("sc_pass"), unit="%", ymax=100, target=(100, "all"), better="higher")
+    add("First team out of the base", "Minutes until a soldier of either side is over 200 m from his main base (both sides averaged). AI Conflict's teams of one man waited 10-20 minutes before r16.",
+        ser("sc_out"), unit=" min", target=(3, "3 min"), better="lower")
+    add("At the main base at minute 10", "Of each side's soldiers, % within 200 m of the main base at 10 minutes (Martin: \"chilling at the base doing push-ups\").",
+        ser("sc_atbase"), unit="%", ymax=100, target=(40, "40%"), better="lower")
+    add("Drone teams per 4 minutes", "Drone teams launched per side per 4 minutes after the first two (Martin: \"heavy drone dependent\"); 0-0.5 from 18:40 until r16.",
+        ser("sc_drones"), target=(1, "1"), better="higher")
+    add("Drones up", "% of the 30-s samples with a side's drones in the air (from r16).", ser("sc_sky"), unit="%", ymax=100, target=(60, "60%"), better="higher")
+    add("Soldiers riding", "% of the 30-s samples with a side's soldiers in a moving vehicle (from r18; no ride at all before r17).", ser("sc_riding"), unit="%", ymax=100, target=(25, "25%"), better="higher")
+    add("Pace on the move", "Median speed of soldiers on foot moving over 3 km/h - a walk is ~1.7 m/s, a jog ~3.5 (Martin: \"they just walk to the points\").", ser("pace"), unit=" m/s", better="higher")
+    add("Dead lying prone", "Of the soldiers lost on foot, % lying prone when killed - 0% in the 23:22 match: the drone reaction's \"get down\" was undone at once (fixed r19).", ser("deaths_prone"), unit="%", ymax=100, better="higher")
     add("Fighting from cover", "Of the soldiers (with our strategist) who know an enemy within 300 m, how many have something solid within 3 m toward the nearest one, or a roof. Same measure as Arma 3, ground counts as cover. From r6.",
         ser("cover"), unit="%", ymax=60, target=(40, "target 40%"), better="higher")
     add("In the game's own cover", "Of the same soldiers, how many are at one of the game's own cover points (in cover, exposed to shoot or hidden) - what its attack logic counts as cover. From r10.",
