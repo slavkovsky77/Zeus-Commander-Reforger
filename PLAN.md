@@ -7,7 +7,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Watching and speed
 - [Done] Run the game faster by any means (117, 123, 129) | The diagnostic build's Diag Menu > Cheats > DTime multiplier, only where the game hosts the match (solo): 2.0x measured at 60 fps. The watched loop sets it every match.
 - [Done] Watch in a normal window with borders at full resolution (130) | The game opens in its own maximised mode from its settings file.
-- [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116) | Under the BLUFOR panel.
+- [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116, 170) | Under the BLUFOR panel; groups of both sides in turn; PREV/NEXT POINT to watch one base.
 - [Done] Recordings show only the game, never the desktop (126) | Windows Graphics Capture of the game window.
 - [Done] Always sped up (144, 164) | Watched matches at 3x on Arland; headless servers can't (1x, several side by side).
 - [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
