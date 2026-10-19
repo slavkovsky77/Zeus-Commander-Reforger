@@ -11,9 +11,21 @@
 // open he lies down) - both through the game's own combat-move stance request.
 // On by default from r9 (probe: from cover 1.4-6.7% -> 11.6%, the attack as fast); -zcrNoCoverLayer
 // turns it off for an A/B. Logs [ZCR][COVERMOVE] per tick.
+// r10 - work with the game's own cover system instead of against it (second probe: 11.6% -> 5.3%):
+//   - a soldier in the game's own cover, or on his way to it, is left alone (before, one exposed to
+//     shoot over his cover could be sent away from it, and our stance request cancelled his move);
+//   - in the game's attack he holds his cover at least 20 s before moving on (the game: 5 s; Arma 3:
+//     20 s) - modded SCR_AICombatMoveLogic_Attack below;
+//   - a soldier in the open in the game's attack asks the game's own cover search for cover within
+//     25 m (a cover point the game knows how to fight from, so he holds it); others as before.
+//   [ZCR][COVERMOVE] adds native= (in or moving to the game's cover), asked= (sent to it), and the
+//   outcome of the previous tick's asks: found= / nocover=.
 class ZCR_CoverLayer
 {
 	protected static ref map<IEntity, int> s_mMovedAt = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mHold = new map<IEntity, int>();
+	protected static ref map<IEntity, ref SCR_AICombatMoveRequest_Move> s_mAsked = new map<IEntity, ref SCR_AICombatMoveRequest_Move>();
+	static const float HOLD_IN_COVER = 20;
 	protected static ref TraceParam s_Trace;
 	protected static ref array<IEntity> s_aExclude = {};
 	protected static const float LEVEL = 40;
@@ -24,7 +36,18 @@ class ZCR_CoverLayer
 		if (!Replication.IsServer() || !state || System.IsCLIParam("zcrNoCoverLayer"))
 			return;
 		int now = ZCR_LossLog.Seconds();
-		int engaged, open, moved, prone;
+		int engaged, open, moved, prone, inGame, asked, found, nocover;
+		// How the last asks went.
+		foreach (IEntity asker, SCR_AICombatMoveRequest_Move last : s_mAsked)
+		{
+			if (!last || last.m_eState == SCR_EAICombatMoveRequestState.EXECUTING)
+				continue;
+			if (last.m_eState == SCR_EAICombatMoveRequestState.SUCCESS)
+				found++;
+			else if (last.m_eFailReason == SCR_EAICombatMoveRequestFailReason.COVER_NOT_FOUND)
+				nocover++;
+		}
+		s_mAsked.Clear();
 		for (int s; s < state.GetSlotCount(); s++)
 		{
 			AICF_GroupSlot slot = state.GetSlot(s);
@@ -49,6 +72,17 @@ class ZCR_CoverLayer
 				if (!enemy)
 					continue;
 				engaged++;
+				SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(agent.FindComponent(SCR_AIUtilityComponent));
+				if (!utility)
+					continue;
+				s_mHold.Set(c, now);
+				// In the game's own cover, or on his way to it: leave him be.
+				SCR_AICombatMoveState cm = utility.m_CombatMoveState;
+				if (cm && (cm.m_bInCover || cm.IsMovingToCover()))
+				{
+					inGame++;
+					continue;
+				}
 				vector eye = c.EyePosition();
 				vector threat = EyeOf(enemy);
 				if (Covered(eye, threat, c, enemy) || Roof(eye, c))
@@ -56,9 +90,16 @@ class ZCR_CoverLayer
 				open++;
 				if (now - s_mMovedAt.Get(c) < 20)
 					continue;
-				SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(agent.FindComponent(SCR_AIUtilityComponent));
-				if (!utility)
+				// In the game's attack: its own cover search, within 25 m.
+				if (cm && SCR_AIAttackBehavior.Cast(utility.GetCurrentAction()) && !cm.IsExecutingRequest())
+				{
+					SCR_AICombatMoveRequest_Move rq = CoverRequest(c, threat);
+					cm.ApplyNewRequest(rq);
+					s_mAsked.Set(c, rq);
+					s_mMovedAt.Set(c, now);
+					asked++;
 					continue;
+				}
 				vector spot;
 				if (!FindCover(c, agent, threat, enemy, spot))
 				{
@@ -79,7 +120,51 @@ class ZCR_CoverLayer
 			}
 		}
 		if (engaged > 0)
-			Print(string.Format("[ZCR][COVERMOVE] t=%1 side=%2 engaged=%3 open=%4 moved=%5 prone=%6", now, side, engaged, open, moved, prone), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][COVERMOVE] t=%1 side=%2 engaged=%3 open=%4 moved=%5 prone=%6 native=%7 asked=%8", now, side, engaged, open, moved, prone, inGame, asked)
+				+ string.Format(" found=%1 nocover=%2", found, nocover), LogLevel.NORMAL);
+	}
+
+	// A soldier of a side with our strategist, in a fight in the last 20 s and not storming: he holds
+	// the game's cover longer (modded SCR_AICombatMoveLogic_Attack).
+	static bool Holds(IEntity soldier)
+	{
+		if (!soldier || !s_mHold.Contains(soldier))
+			return false;
+		return ZCR_LossLog.Seconds() - s_mHold.Get(soldier) <= 20;
+	}
+
+	// The game's own combat move to cover near him (like its "leave useless cover" request): cover
+	// within 25 m of where he is, from which he can see the enemy, crouched; fails if there is none.
+	protected static SCR_AICombatMoveRequest_Move CoverRequest(ChimeraCharacter c, vector threat)
+	{
+		SCR_AICombatMoveRequest_Move rq = new SCR_AICombatMoveRequest_Move();
+		rq.m_eReason = SCR_EAICombatMoveReason.STANDARD;
+		rq.m_vTargetPos = threat;
+		rq.m_vMovePos = c.GetOrigin();
+		rq.m_bTryFindCover = true;
+		rq.m_bUseCoverSearchDirectivity = false;
+		rq.m_bCheckCoverVisibility = true;
+		rq.m_bFailIfNoCover = true;
+		rq.m_eStanceMoving = ECharacterStance.CROUCH;
+		rq.m_eStanceEnd = ECharacterStance.CROUCH;
+		rq.m_eMovementType = EMovementType.RUN;
+		rq.m_eDirection = SCR_EAICombatMoveDirection.ANYWHERE;
+		rq.m_fCoverSearchSectorHalfAngleRad = -1.0;
+		rq.m_bAimAtTarget = SCR_AICombatMoveUtils.IsAimingAndMovementPossible(rq.m_eStanceMoving, rq.m_eMovementType);
+		rq.m_bAimAtTargetEnd = true;
+		rq.m_fCoverSearchDistMin = 0;
+		rq.m_fCoverSearchDistMax = 25;
+		return rq;
+	}
+
+	// Of the soldiers on foot, whether he is in the game's own cover (for [ZCR][EXPOSURE]).
+	static bool InGameCover(IEntity soldier)
+	{
+		AIControlComponent control = AIControlComponent.Cast(soldier.FindComponent(AIControlComponent));
+		if (!control || !control.GetControlAIAgent())
+			return false;
+		SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(control.GetControlAIAgent().FindComponent(SCR_AIUtilityComponent));
+		return utility && utility.m_CombatMoveState && utility.m_CombatMoveState.m_bInCover;
 	}
 
 	protected static vector EyeOf(IEntity e)
@@ -186,5 +271,18 @@ class ZCR_CoverLayer
 		s_Trace.Start = from;
 		s_Trace.End = to;
 		return GetGame().GetWorld().TraceMove(s_Trace, null) < 1.0;
+	}
+}
+
+// The game's attack moves a soldier on after 5 s in cover when he isn't under fire (20 s when he is);
+// ours hold it at least 20 s (Arma 3's cover layer), so they fight from it.
+modded class SCR_AICombatMoveLogic_Attack
+{
+	protected override float ResolveStoppedWaitTime(bool inCover, EAIThreatState threat, EWeaponType weaponType)
+	{
+		float wait = super.ResolveStoppedWaitTime(inCover, threat, weaponType);
+		if (inCover && ZCR_CoverLayer.Holds(m_MyEntity))
+			return Math.Max(wait, ZCR_CoverLayer.HOLD_IN_COVER);
+		return wait;
 	}
 }

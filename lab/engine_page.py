@@ -209,7 +209,7 @@ def probe_rows() -> list:
         cli = re.search(r"-zcrStormPriority (\d+)", text)
         r = probe_report.report(run, base, side)
         sm = progress.soldier_metrics(text.splitlines(), side)
-        rows.append({"cover": sm.get("cover"), "ducks": sm.get("ducks"), "run": run.name, "base": base, "priority": int(cli.group(1)) if cli else 1000,
+        rows.append({"cover": sm.get("cover"), "incover": sm.get("incover"), "ducks": sm.get("ducks"), "run": run.name, "base": base, "priority": int(cli.group(1)) if cli else 1000,
                      "motorize": "motorize=1" in text, "storm": r["storm"], "taken": r["taken"],
                      "lost_near": r["lost_near"].get(side, 0), "fia_near": r["lost_near"].get("FIA", 0),
                      "lost": r["lost"].get(side, 0)})

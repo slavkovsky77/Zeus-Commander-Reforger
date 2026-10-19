@@ -47,9 +47,10 @@ BUILDS = [
     (7, "soldier measures", "2026-10-19 12:29", "Arma 3's soldier measurements (cover, sitting ducks, stacking); careful storm by default; watch buttons"),
     (8, "drone doctrine", "2026-10-19 13:00", "drone warfare doctrine: prep fire and pressure, both sides fly drones, headless too; force and storm from what the side has seen"),
     (9, "cover layer", "2026-10-19 14:31", "soldier layer: cover in a firefight for our strategist's side (Arma 3's coverFight); drones hunt seen enemy soldiers"),
+    (10, "cover with the game", "2026-10-19 15:05", "the soldier layer works with the game's own cover: holds it 20 s (the game: 5 s), asks its cover search, leaves soldiers in it alone"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
-KEYS = ["cover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -59,6 +60,7 @@ def soldier_metrics(lines: list, side: str) -> dict:
     stacking - for one side's soldiers."""
     out = {}
     eng = cov = 0
+    eng_g = inc = 0
     stacked = []
     deaths = ducks = 0
     for l in lines:
@@ -67,6 +69,9 @@ def soldier_metrics(lines: list, side: str) -> dict:
             n = int(f.get("engaged", 0))
             eng += n
             cov += n * int(f.get("covered", 0))
+            if "incover" in f:
+                eng_g += n
+                inc += n * int(f["incover"])
         elif "[ZCR][CROWD]" in l and f"side={side} " in l:
             f = metrics.fields(l, "[ZCR][CROWD]")
             # In the field (over 200 m from the main base, where recruits gather) when logged.
@@ -85,6 +90,8 @@ def soldier_metrics(lines: list, side: str) -> dict:
                 ducks += 1
     if eng:
         out["cover"] = round(cov / eng, 1)
+    if eng_g:
+        out["incover"] = round(inc / eng_g, 1)
     if stacked:
         out["stacked"] = round(statistics.mean(stacked), 1)
     if deaths:
@@ -300,6 +307,8 @@ def html(agg: dict, rows: list) -> str:
 
     add("Fighting from cover", "Of the soldiers (with our strategist) who know an enemy within 300 m, how many have something solid within 3 m toward the nearest one, or a roof. Same measure as Arma 3, ground counts as cover. From r6.",
         ser("cover"), unit="%", ymax=60, target=(40, "target 40%"), better="higher")
+    add("In the game's own cover", "Of the same soldiers, how many are at one of the game's own cover points (in cover, exposed to shoot or hidden) - what its attack logic counts as cover. From r10.",
+        ser("incover"), unit="%", ymax=60, better="higher")
     add("Sitting ducks", "Of the soldiers lost on foot, how many were standing or lying still in the open: not covered toward the killer, no roof, not moving. From r6.",
         ser("ducks"), unit="%", ymax=100, target=(50, "limit 50%"), better="lower")
     add("Stacking", "Soldiers on foot in the field (over 200 m from their main base, where AI Conflict gathers its recruits) bunched up with 6 or more friends within 25 m. From r6.",

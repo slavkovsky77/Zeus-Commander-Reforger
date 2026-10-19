@@ -10,6 +10,7 @@
 //       ... ground= object= above=: what the cover is - toward the enemy the ground (a crest) or an
 //       object (building, wall, rock, tree trunk, vehicle), and overhead a roof or tree canopy
 //       (hides him from a drone; a crest does not)
+//       ... incover=: % in the game's own cover (its cover points: in it, exposed to shoot or hidden; r10)
 //   ... field_above= on [ZCR][CROWD]: % of the soldiers in the field under a roof or canopy
 //   on each soldier's death, added to [ZCR][LOSS]: stance, moving (over 3 km/h in the last 5 s),
 //       covered (something solid within 3 m toward the killer; "-" with no killer), roof, foot,
@@ -293,6 +294,7 @@ class ZCR_Sampler
 			int engaged;
 			int covered;
 			int prone;
+			int inGame;
 			foreach (IEntity e : men)
 			{
 				int friends;
@@ -334,6 +336,8 @@ class ZCR_Sampler
 					covered++;
 				if (st.m_iStance == ECharacterStance.PRONE)
 					prone++;
+				if (ZCR_CoverLayer.InGameCover(e))
+					inGame++;
 			}
 			int fieldPct = -1;
 			int fieldAbovePct = -1;
@@ -347,7 +351,7 @@ class ZCR_Sampler
 			if (engaged > 0)
 				Print(string.Format("[ZCR][EXPOSURE] t=%1 side=%2 engaged=%3 covered=%4 prone=%5 ground=%6 object=%7 above=%8", now, side, engaged,
 					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged), Math.Round(100.0 * byGround / engaged),
-					Math.Round(100.0 * byObject / engaged), Math.Round(100.0 * byAbove / engaged)), LogLevel.NORMAL);
+					Math.Round(100.0 * byObject / engaged), Math.Round(100.0 * byAbove / engaged)) + string.Format(" incover=%1", Math.Round(100.0 * inGame / engaged)), LogLevel.NORMAL);
 		}
 	}
 
