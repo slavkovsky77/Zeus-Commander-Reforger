@@ -267,8 +267,9 @@ class ZCR_Drones
 		}
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
-		vector at;
-		if (!ClearSpot(from, goal, at))
+		vector at = from;
+		// From a drone site: its own launch spot, chosen when it was set up. Else a clear spot near the base.
+		if (!ZCR_DroneSites.On() && !ClearSpot(from, goal, at))
 		{
 			// No clear spot: no team (19 Oct: launched at the harbour base's own centre, the drones
 			// killed 57 of the side's own soldiers there).

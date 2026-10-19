@@ -12,6 +12,7 @@ class ZCR_DroneSite
 	string m_sSide;
 	string m_sName;
 	vector m_vPos;
+	vector m_vLaunch;       // where its teams start: clear ground chosen once, 40+ m from the truck
 	bool m_bMain;
 	SCR_AIGroup m_Operators;
 	IEntity m_Truck;
@@ -144,6 +145,15 @@ class ZCR_DroneSites
 			return false;
 		}
 		spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
+		// The launch spot, chosen once (a search at every launch failed at the harbour base and,
+		// later in the match, by the truck - 19 Oct probe).
+		vector launch;
+		if (!ZCR_Drones.ClearSpot(spot, away, launch))
+		{
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 no clear launch spot near %3", ZCR_LossLog.Seconds(), side, Name(base)), LogLevel.NORMAL);
+			return false;
+		}
+		launch[1] = GetGame().GetWorld().GetSurfaceY(launch[0], launch[2]);
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = spot;
@@ -157,6 +167,7 @@ class ZCR_DroneSites
 		if (main)
 			s.m_sName = "Main Operating Base";        // the base list may not be in yet at the start
 		s.m_vPos = spot;
+		s.m_vLaunch = launch;
 		s.m_bMain = main;
 		s.m_iReadyAt = readyAt;
 		s.m_Truck = GetGame().SpawnEntityPrefab(truckRes, GetGame().GetWorld(), params);
@@ -199,7 +210,7 @@ class ZCR_DroneSites
 			if (d < best)
 			{
 				best = d;
-				from = s.m_vPos;
+				from = s.m_vLaunch;
 				name = s.m_sName;
 				found = true;
 			}
