@@ -924,6 +924,8 @@ class ZCR_Director
 				dir = -1;
 			StepGroup(now, dir);
 		}
+		else if (cmd == "report")
+			Report(now);
 		else if (cmd == "tap")
 			Tap(now, pos);
 	}
@@ -936,6 +938,65 @@ class ZCR_Director
 	protected ref map<IEntity, AICF_GroupSlot> m_mLeaderSlot = new map<IEntity, AICF_GroupSlot>();
 	protected vector m_vTeamGoal;
 	protected string m_sTeamGoal;
+
+	// REPORT (Martin: "when I report an issue, mark the timestamp and the unit I'm looking at, so you
+	// have the logs and don't guess"): what the camera shows now, written to the log as [ZCR][REPORT]
+	// lines - the shot, the followed unit (side, role, stance, moving, cover, overhead, in a vehicle),
+	// its team's goal, enemies its side knows near it, drones in the air near it, soldiers around.
+	// lab/report.py gathers these with the log around them and a frame from the recording.
+	protected int m_iReports;
+
+	protected void Report(int now)
+	{
+		m_iReports++;
+		int n = m_iReports;
+		vector at = m_vShown;
+		IEntity f = m_ShownFollow;
+		if (f)
+			at = f.GetOrigin();
+		Print(string.Format("[ZCR][REPORT] n=%1 t=%2 clock=%3 shot=%4 at=%5 %6 label=%7", n, now, Clock(now), m_iShot, Math.Round(at[0]), Math.Round(at[2]), m_sShownLabel), LogLevel.NORMAL);
+		if (f)
+		{
+			string kind = "entity";
+			ChimeraCharacter c = ChimeraCharacter.Cast(f);
+			string extra = "";
+			if (c)
+			{
+				kind = "soldier";
+				CharacterControllerComponent ctl = c.GetCharacterController();
+				if (ctl)
+					extra = string.Format(" stance=%1", typename.EnumToString(ECharacterStance, ctl.GetStance()));
+				extra += string.Format(" vehicle=%1 role=%2", c.IsInVehicle(), ZCR_LossLog.Role(f));
+				extra += ZCR_Sampler.DeathState(f, ZCR_CoverLayer.NearestEnemy(f));
+			}
+			else if (ZCR_Drones.s_aDrones.Contains(f))
+				kind = "drone";
+			else if (Vehicle.Cast(f))
+				kind = "vehicle " + VehicleName(f);
+			Print(string.Format("[ZCR][REPORT] n=%1 followed=%2 side=%3 at=%4 %5 height=%6%7", n, kind, ZCR_LossLog.SideOf(f), Math.Round(at[0]), Math.Round(at[2]),
+				Math.Round(at[1] - GetGame().GetWorld().GetSurfaceY(at[0], at[2])), extra), LogLevel.NORMAL);
+			AICF_GroupSlot slot = m_mLeaderSlot.Get(f);
+			if (slot)
+				Print(string.Format("[ZCR][REPORT] n=%1 team slot=%2 men=%3 goal=%4", n, slot.GetSlotId(), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), TeamGoal(slot, f)), LogLevel.NORMAL);
+		}
+		// Around the spot: soldiers per side within 150 m, enemies known, drones near.
+		map<string, int> men = new map<string, int>();
+		foreach (IEntity e : m_aMen)
+		{
+			if (e && vector.DistanceXZ(e.GetOrigin(), at) < 150)
+				men.Set(ZCR_LossLog.SideOf(e), men.Get(ZCR_LossLog.SideOf(e)) + 1);
+		}
+		int drones;
+		for (int k; k < ZCR_Drones.s_aDrones.Count(); k++)
+		{
+			IEntity d = ZCR_Drones.s_aDrones[k];
+			if (d && vector.DistanceXZ(d.GetOrigin(), at) < 300)
+				drones++;
+		}
+		Print(string.Format("[ZCR][REPORT] n=%1 around US=%2 USSR=%3 known_enemies_US=%4 known_enemies_USSR=%5 drones_within_300=%6", n, men.Get("US"), men.Get("USSR"),
+			ZCR_Sampler.KnownEnemiesNear("US", at, 300), ZCR_Sampler.KnownEnemiesNear("USSR", at, 300), drones), LogLevel.NORMAL);
+		ZCR_Feed.Note("US", string.Format("REPORT %1 marked at %2", n, Clock(now)));
+	}
 
 	// "ATTACK Farm - 450 m to go - riding", from AI Conflict's own order for the team.
 	protected string TeamGoal(AICF_GroupSlot slot, IEntity leader)

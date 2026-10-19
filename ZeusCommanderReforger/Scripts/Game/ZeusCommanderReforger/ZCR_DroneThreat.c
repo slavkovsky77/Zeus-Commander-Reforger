@@ -34,6 +34,9 @@ class ZCR_DroneThreat
 	protected static ref map<IEntity, vector> s_mWas = new map<IEntity, vector>();
 	static const float REACT = 250;      // an FPV is heard well before it arrives (was 150)
 	protected static ref map<IEntity, int> s_mSpreadAt = new map<IEntity, int>();
+	// Prone held by the game's own stance setting (a "get down" request was undone by the attack logic
+	// the next moment: of 99 dead in the 23:22 match, none was prone - 64% standing).
+	protected static ref map<IEntity, int> s_mProneUntil = new map<IEntity, int>();
 	static const int COOLDOWN = 15;
 
 	static void Start()
@@ -48,6 +51,18 @@ class ZCR_DroneThreat
 	protected void Tick()
 	{
 		int now = ZCR_LossLog.Seconds();
+		// Prone time over: up again.
+		array<IEntity> up = {};
+		foreach (IEntity pe, int until : s_mProneUntil)
+		{
+			if (!pe || now >= until)
+				up.Insert(pe);
+		}
+		foreach (IEntity pe : up)
+		{
+			Up(pe);
+			s_mProneUntil.Remove(pe);
+		}
 		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
 		map<string, int> covered = new map<string, int>();
@@ -199,8 +214,33 @@ class ZCR_DroneThreat
 				return;
 			}
 		}
-		if (utility.m_CombatMoveState)
-			utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.PRONE);
+		Down(c, now);
+	}
+
+	// Prone only, for 15 s, at scenario priority (above the attack's own stance) - then lifted.
+	protected static void Down(ChimeraCharacter c, int now)
+	{
+		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+		if (!control || !control.GetControlAIAgent())
+			return;
+		SCR_AICharacterSettingsComponent settings = SCR_AICharacterSettingsComponent.Cast(control.GetControlAIAgent().FindComponent(SCR_AICharacterSettingsComponent));
+		if (!settings)
+			return;
+		settings.AddCharacterSetting(SCR_AICharacterStanceSetting.Create(SCR_EAISettingOrigin.SCENARIO, SCR_EAIBehaviorCause.ALWAYS, ECharacterStance.PRONE), false, true);
+		s_mProneUntil.Set(c, now + 15);
+	}
+
+	protected static void Up(IEntity e)
+	{
+		ChimeraCharacter c = ChimeraCharacter.Cast(e);
+		if (!c)
+			return;
+		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+		if (!control || !control.GetControlAIAgent())
+			return;
+		SCR_AICharacterSettingsComponent settings = SCR_AICharacterSettingsComponent.Cast(control.GetControlAIAgent().FindComponent(SCR_AICharacterSettingsComponent));
+		if (settings)
+			settings.RemoveSettingsOfTypeAndOrigin(SCR_AICharacterStanceSettingBase, SCR_EAISettingOrigin.SCENARIO);
 	}
 
 	// After a drone went off: everyone within 40 m runs 20-35 m off, each his own way.

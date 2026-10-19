@@ -31,10 +31,19 @@ modded class SCR_PlayerController
 
 class ZCR_WatchTapHandler : ScriptedWidgetEventHandler
 {
+	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
+	{
+		if (button == 1)
+			ZCR_WatchControls.s_bRight = true;
+		return true;
+	}
+
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
 		if (button == 0)
 			ZCR_WatchControls.OnClick();
+		if (button == 1)
+			ZCR_WatchControls.s_bRight = false;
 		return true;
 	}
 }
@@ -50,6 +59,12 @@ class ZCR_WatchButton
 class ZCR_WatchControls
 {
 	protected static ref ZCR_WatchControls s_Instance;
+	static bool s_bRight;       // the right mouse button held over the picture (camera turning)
+
+	static bool RightDown()
+	{
+		return s_bRight;
+	}
 	protected static const ResourceName FONT_BOLD = "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt";
 	protected static const float X0 = 0.005;
 	protected static const float W = 0.08;
@@ -152,6 +167,7 @@ class ZCR_WatchControls
 		Add("BOTH SIDES", "side", 6, 0);
 		Add("TEAMS", "kind", 6, 1);
 		Add("FREE LOOK", "free", 7, 0);
+		Add("REPORT", "report", 7, 1);
 		Labels();
 	}
 

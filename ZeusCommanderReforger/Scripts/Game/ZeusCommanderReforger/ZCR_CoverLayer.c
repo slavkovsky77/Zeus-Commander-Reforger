@@ -22,6 +22,31 @@
 //   outcome of the previous tick's asks: found= / nocover=.
 class ZCR_CoverLayer
 {
+	// Martin (19 Oct 23:35): "reckless soldiers" - in the 23:22 match gunfire kills happened at a median
+	// of 6 m: the game's attack closes on a seen enemy until 15 m. Soldiers now hold at 60 m from an
+	// enemy seen in the last 15 s and fight from there (-zcrStandoff), except within 150 m of an
+	// enemy-held base, where the objective has to be cleared.
+	static float Standoff()
+	{
+		string value;
+		if (System.GetCLIParam("zcrStandoff", value) && !value.IsEmpty())
+			return value.ToFloat();
+		return 60;
+	}
+
+	static bool NearEnemyBase(IEntity soldier)
+	{
+		string side = ZCR_LossLog.SideOf(soldier);
+		vector at = soldier.GetOrigin();
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
+			if (!owner.IsEmpty() && owner != side && vector.DistanceXZ(pos, at) < 150)
+				return true;
+		}
+		return false;
+	}
+
 	protected static ref map<IEntity, int> s_mMovedAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mHold = new map<IEntity, int>();
 	protected static ref map<IEntity, ref SCR_AICombatMoveRequest_Move> s_mAsked = new map<IEntity, ref SCR_AICombatMoveRequest_Move>();
@@ -313,6 +338,15 @@ class ZCR_CoverLayer
 // ours hold it at least 20 s (Arma 3's cover layer), so they fight from it.
 modded class SCR_AICombatMoveLogic_Attack
 {
+	// Hold at the standoff from a seen enemy instead of closing to 15 m (ZCR_CoverLayer.Standoff).
+	override protected bool MoveToNextPosCondition()
+	{
+		if (m_Target && m_MyEntity && m_fTargetDist < ZCR_CoverLayer.Standoff() && m_Target.GetTimeSinceSeen() < 15
+			&& !ZCR_CoverLayer.NearEnemyBase(m_MyEntity))
+			return false;
+		return super.MoveToNextPosCondition();
+	}
+
 	protected override float ResolveStoppedWaitTime(bool inCover, EAIThreatState threat, EWeaponType weaponType)
 	{
 		float wait = super.ResolveStoppedWaitTime(inCover, threat, weaponType);

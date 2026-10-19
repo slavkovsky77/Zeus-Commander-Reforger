@@ -185,10 +185,23 @@ class ZCR_Watch
 		// open - raw key states didn't reach the game (Martin: "those keys don't work on free look").
 		InputManager im = GetGame().GetInputManager();
 		im.ActivateContext("ManualCameraContext");
-		float yawIn = Smoothed(im.GetActionValue("ManualCameraRotateYaw"), 0);
-		float pitchIn = Smoothed(im.GetActionValue("ManualCameraRotatePitch"), 1);
-		m_fYaw += yawIn;
-		m_fPitch = Math.Clamp(m_fPitch + pitchIn, -85, 85);
+		// Turning only while the right mouse button is held (Martin: "the mouse rotates the camera
+		// always - right mouse only, like Arma"): the button from the click catcher, the turn from the
+		// cursor's movement.
+		int mx, my;
+		WidgetManager.GetMousePos(mx, my);
+		if (ZCR_WatchControls.RightDown() && m_iMouseX >= 0)
+		{
+			m_fYaw += (mx - m_iMouseX) * 0.2;
+			m_fPitch = Math.Clamp(m_fPitch - (my - m_iMouseY) * 0.2, -85, 85);
+		}
+		if (ZCR_WatchControls.RightDown())
+		{
+			m_iMouseX = mx;
+			m_iMouseY = my;
+		}
+		else
+			m_iMouseX = -1;
 		float y = m_fYaw * Math.DEG2RAD;
 		float p = m_fPitch * Math.DEG2RAD;
 		vector forward = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
@@ -499,15 +512,9 @@ class ZCR_Watch
 		}
 		// Orbit (Martin: "free look on locked units - rotation"): the right mouse button held and dragged
 		// turns the camera round what it shows, up and down too; it stays until AUTO.
-		InputManager oim = GetGame().GetInputManager();
-		oim.ActivateContext("ManualCameraContext");
-		float oyaw = Smoothed(oim.GetActionValue("ManualCameraRotateYaw"), 0);
-		float opitch = Smoothed(oim.GetActionValue("ManualCameraRotatePitch"), 1);
-		m_fOrbitYaw += oyaw;
-		m_fOrbitLift = Math.Clamp(m_fOrbitLift - opitch * 0.02, 0.2, 3);
 		int mx, my;
 		WidgetManager.GetMousePos(mx, my);
-		if (Debug.GetMouseState(MouseState.RIGHT) & Debug.MB_PRESSED_MASK)
+		if (ZCR_WatchControls.RightDown())
 		{
 			if (m_iOrbitX >= 0)
 			{
