@@ -305,10 +305,12 @@ class ZCR_Director
 		array<string> planOrder = {"USSR", "US"};
 		foreach (string side : planOrder)
 		{
+			// Only when the main effort moves to another base (a replan to the same base is no news).
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
-			int shown;
-			m_mPlanShown.Find(side, shown);
-			if (plan.GetRevision() > shown && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
+			int shown = -1;
+			if (!m_mPlanShown.Find(side, shown))
+				shown = -1;
+			if (plan.GetMainEffort() >= 0 && plan.GetMainEffort() != shown && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
 			{
 				planSide = side;
 				break;
@@ -327,7 +329,7 @@ class ZCR_Director
 		else if (!planSide.IsEmpty())
 		{
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(planSide);
-			m_mPlanShown.Set(planSide, plan.GetRevision());
+			m_mPlanShown.Set(planSide, plan.GetMainEffort());
 			target = ZCR_Strategist.s_mNodePos.Get(plan.GetMainEffort());
 			label = string.Format("%1 COMMANDER (%2): %3", planSide, plan.GetSource(), plan.GetIntent());
 			key = "plan" + planSide;
