@@ -57,9 +57,10 @@ BUILDS = [
     (10, "cover with the game", "2026-10-19 15:05", "the soldier layer works with the game's own cover: holds it 20 s (the game: 5 s), asks its cover search, leaves soldiers in it alone"),
     (11, "walk and ride", "2026-10-19 15:25", "Arma 3's walk and ride measures (squads report whether they ride), engine measures; recordings of the game window only"),
     (12, "covered dismount", "2026-10-19 15:40", "light vehicles first; our side's vehicles stop 200-400 m short where the objective can't see them; solo 2x watched matches"),
+    (13, "fireteams, side panels, bounding", "2026-10-19 17:20", "AI Conflict changed: 20 fireteams of 5 per side in a wedge; Arma 3's side panels; bounding on; drone shot to the hit; covered dismount on long rides"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
-KEYS = ["walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -70,6 +71,7 @@ def soldier_metrics(lines: list, side: str) -> dict:
     out = {}
     eng = cov = 0
     eng_g = inc = 0
+    teams, spacings = [], []
     stacked = []
     deaths = ducks = 0
     for l in lines:
@@ -84,6 +86,10 @@ def soldier_metrics(lines: list, side: str) -> dict:
         elif "[ZCR][CROWD]" in l and f"side={side} " in l:
             f = metrics.fields(l, "[ZCR][CROWD]")
             # In the field (over 200 m from the main base, where recruits gather) when logged.
+            if "team" in f and float(f["team"]) > 0:
+                teams.append(float(f["team"]))
+            if "spacing" in f and f["spacing"] != "-1":
+                spacings.append(int(f["spacing"]))
             if "field_stacked" in f:
                 if f["field_stacked"] != "-1":
                     stacked.append(int(f["field_stacked"]))
@@ -101,6 +107,10 @@ def soldier_metrics(lines: list, side: str) -> dict:
         out["cover"] = round(cov / eng, 1)
     if eng_g:
         out["incover"] = round(inc / eng_g, 1)
+    if teams:
+        out["team"] = round(statistics.mean(teams), 1)
+    if spacings:
+        out["spacing"] = round(statistics.median(spacings), 1)
     if stacked:
         out["stacked"] = round(statistics.mean(stacked), 1)
     if deaths:
@@ -389,6 +399,10 @@ def html(agg: dict, rows: list) -> str:
         ser("incover"), unit="%", ymax=60, better="higher")
     add("Sitting ducks", "Of the soldiers lost on foot, how many were standing or lying still in the open: not covered toward the killer, no roof, not moving. From r6.",
         ser("ducks"), unit="%", ymax=100, target=(50, "limit 50%"), better="lower")
+    add("Team size", "Soldiers on foot per group, on average (Martin: groups of 2-5 like Arma 3's fireteams; AI Conflict's squads were 10, fireteams of 5 from r13).",
+        ser("team"), target=(5, "5"), better="lower")
+    add("Spacing", "Median metres from a soldier in the field to his nearest friend - a squad walking single file down a road sits at 3-5 m. From r13.",
+        ser("spacing"), unit=" m", target=(10, "10 m"), better="higher")
     add("Stacking", "Soldiers on foot in the field (over 200 m from their main base, where AI Conflict gathers its recruits) bunched up with 6 or more friends within 25 m. From r6.",
         ser("stacked"), unit="%", target=(10, "limit 10%"), better="lower")
     base_margin_ussr = control_baseline(rows, "margin")

@@ -295,13 +295,29 @@ class ZCR_Sampler
 			int covered;
 			int prone;
 			int inGame;
+			// Fireteams (Martin: "groups of 2-5, never walk in one line"): the distance from each soldier
+			// in the field to his nearest friend, and how many soldiers each group on foot has.
+			array<float> nearestField = {};
+			map<AIGroup, int> groupSize = new map<AIGroup, int>();
 			foreach (IEntity e : men)
 			{
 				int friends;
+				float nearest = 1e9;
 				foreach (IEntity o : men)
 				{
-					if (o != e && vector.DistanceSq(o.GetOrigin(), e.GetOrigin()) < CROWD_RANGE * CROWD_RANGE)
+					if (o == e)
+						continue;
+					float dsq = vector.DistanceSq(o.GetOrigin(), e.GetOrigin());
+					if (dsq < CROWD_RANGE * CROWD_RANGE)
 						friends++;
+					if (dsq < nearest)
+						nearest = dsq;
+				}
+				AIControlComponent control = AIControlComponent.Cast(e.FindComponent(AIControlComponent));
+				if (control && control.GetControlAIAgent() && control.GetControlAIAgent().GetParentGroup())
+				{
+					AIGroup g = control.GetControlAIAgent().GetParentGroup();
+					groupSize.Set(g, groupSize.Get(g) + 1);
 				}
 				near += friends;
 				if (friends >= STACKED_FRIENDS)
@@ -311,6 +327,8 @@ class ZCR_Sampler
 				if (home == vector.Zero || vector.DistanceXZ(e.GetOrigin(), home) > 200)
 				{
 					field++;
+					if (nearest < 1e9)
+						nearestField.Insert(Math.Sqrt(nearest));
 					if (friends >= STACKED_FRIENDS)
 						fieldStacked++;
 					if (over != "none")
@@ -346,8 +364,22 @@ class ZCR_Sampler
 				fieldPct = Math.Round(100.0 * fieldStacked / field);
 				fieldAbovePct = Math.Round(100.0 * fieldAbove / field);
 			}
+			// team= the average soldiers on foot per group; spacing= the median metres to the nearest friend
+			// in the field (-1: nobody there).
+			float team;
+			foreach (AIGroup g, int n : groupSize)
+				team += n;
+			if (!groupSize.IsEmpty())
+				team = team / groupSize.Count();
+			int spacing = -1;
+			if (!nearestField.IsEmpty())
+			{
+				nearestField.Sort();
+				spacing = Math.Round(nearestField[nearestField.Count() / 2]);
+			}
 			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
-				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct), LogLevel.NORMAL);
+				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct)
+				+ string.Format(" team=%1 spacing=%2", Math.Round(team * 10) / 10.0, spacing), LogLevel.NORMAL);
 			if (fieldPct >= 0)
 				ZCR_Feed.s_mStacked.Set(side, fieldPct);
 			if (engaged > 0)
