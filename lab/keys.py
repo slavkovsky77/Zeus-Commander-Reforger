@@ -104,10 +104,6 @@ def set_speed(hwnd, speed: float) -> None:
     time.sleep(0.4)
     try:
         for k in ["down"] * 11 + ["right"] + ["down"] * 6 + ["right", "down"] + ["right"] * round((speed - 1) * 100):
-            if u.GetForegroundWindow() != hwnd:
-                # Win+Alt held over another window does Windows shortcuts: stop.
-                print("the game window lost the focus - speed keys stopped")
-                break
             tap(k)
     finally:
         for k in ("lalt", "lwin"):
