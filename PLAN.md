@@ -10,7 +10,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116) | Under the BLUFOR panel.
 - [Done] Recordings show only the game, never the desktop (126) | Windows Graphics Capture of the game window.
 - [Done] Always sped up (144) | Watched matches at 2x; headless servers can't (1x, several side by side).
-- [Done] Follow a drone until it reaches its target (144) | The drone shot lasts while the drone flies (up to 2 min), then 4 s on the impact.
+- [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
 - [Todo] Try 3x and 4x (129) | Check drones, vehicles and the AI with the bigger time steps.
 
 ## The screen
