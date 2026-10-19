@@ -438,8 +438,9 @@ class ZCR_Director
 			target = follow.GetOrigin();
 			label = string.Format("%1 FPV DRONE on its way %2", m_sDroneSide, Near(target));
 			key = "drone";
-			back = 45;
-			height = 30;
+			// Close behind it (the camera now looks at the drone itself, at its height).
+			back = 16;
+			height = 6;
 			duration = 30;
 		}
 		else if (force.IsEmpty() && m_bLastWasFight && best >= 0)

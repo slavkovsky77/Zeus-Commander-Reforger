@@ -302,6 +302,14 @@ class ZCR_Watch
 		float back = m_fFromBack + (m_fToBack - m_fFromBack) * k;
 		float height = m_fFromHeight + (m_fToHeight - m_fFromHeight) * k;
 		float ground = world.GetSurfaceY(spot[0], spot[2]);
+		// Following something in the air (an FPV drone): the camera at its height, looking at it -
+		// before, it looked at the ground 30 m below and the drone was a speck off the top (19 Oct).
+		if (follow && k >= 1)
+		{
+			vector fp = follow.GetOrigin();
+			if (fp[1] - ground > 5)
+				ground = fp[1] - 2;
+		}
 		vector eye = Vector(spot[0], ground + height, spot[2] - back);
 		float eyeGround = world.GetSurfaceY(eye[0], eye[2]);
 		if (eye[1] < eyeGround + 8)
@@ -355,6 +363,7 @@ class ZCR_Watch
 			}
 		}
 		used = DrawTags(world, workspace, used);
+		used = DrawDrones(world, workspace, used);
 		for (int i = used; i < m_aPool.Count(); i++)
 			m_aPool[i].SetVisible(false);
 	}
@@ -394,6 +403,35 @@ class ZCR_Watch
 			t.SetExactFontSize(14);
 			FrameSlot.SetPos(t, screen[0] - 40, screen[1] - 10);
 			FrameSlot.SetSize(t, 200, 22);
+		}
+		return used;
+	}
+
+	// "FPV" over every drone of the commanders' teams in the air, in its side's colour.
+	protected int DrawDrones(BaseWorld world, WorkspaceWidget workspace, int used)
+	{
+		for (int i; i < ZCR_Drones.s_aDrones.Count(); i++)
+		{
+			IEntity d = ZCR_Drones.s_aDrones[i];
+			if (!d)
+				continue;
+			vector p = d.GetOrigin();
+			if (p[1] - world.GetSurfaceY(p[0], p[2]) < 2)
+				continue;
+			vector screen = workspace.ProjWorldToScreen(p + Vector(0, 1.5, 0), world);
+			if (screen[2] <= 0)
+				continue;
+			Widget w = Pooled(used, true);
+			used++;
+			if (!w)
+				break;
+			w.SetVisible(true);
+			TextWidget t = TextWidget.Cast(w);
+			t.SetText("v FPV " + ZCR_Drones.s_aDroneSide[i]);
+			t.SetColor(Tint(ZCR_Drones.s_aDroneSide[i]));
+			t.SetExactFontSize(20);
+			FrameSlot.SetPos(t, screen[0] - 30, screen[1] - 26);
+			FrameSlot.SetSize(t, 200, 28);
 		}
 		return used;
 	}
