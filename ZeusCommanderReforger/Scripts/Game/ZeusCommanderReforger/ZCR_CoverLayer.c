@@ -6,7 +6,9 @@
 // away from the enemy, that is on the navmesh and has cover toward the enemy - at most every 20 s.
 // Not in a squad storming its objective (Arma 3: then everyone goes in). The move is the game's
 // own individual move at priority 58 + 40 = 98: above shooting a chosen target (90), below the
-// danger reactions; he fights from there, and rejoins his squad when it moves on.
+// danger reactions; he fights from there, crouched (the cover is measured at eye height), and
+// rejoins his squad when it moves on. With no covered spot within 25 m he goes prone (Arma 3: in the
+// open he lies down) - both through the game's own combat-move stance request.
 // On by default from r9 (probe: from cover 1.4-6.7% -> 11.6%, the attack as fast); -zcrNoCoverLayer
 // turns it off for an A/B. Logs [ZCR][COVERMOVE] per tick.
 class ZCR_CoverLayer
@@ -22,7 +24,7 @@ class ZCR_CoverLayer
 		if (!Replication.IsServer() || !state || System.IsCLIParam("zcrNoCoverLayer"))
 			return;
 		int now = ZCR_LossLog.Seconds();
-		int engaged, open, moved;
+		int engaged, open, moved, prone;
 		for (int s; s < state.GetSlotCount(); s++)
 		{
 			AICF_GroupSlot slot = state.GetSlot(s);
@@ -54,19 +56,30 @@ class ZCR_CoverLayer
 				open++;
 				if (now - s_mMovedAt.Get(c) < 20)
 					continue;
-				vector spot;
-				if (!FindCover(c, agent, threat, enemy, spot))
-					continue;
 				SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(agent.FindComponent(SCR_AIUtilityComponent));
 				if (!utility)
 					continue;
+				vector spot;
+				if (!FindCover(c, agent, threat, enemy, spot))
+				{
+					// Nothing to get behind: lie down and fight from there.
+					if (utility.m_CombatMoveState && ctl.GetStance() != ECharacterStance.PRONE)
+					{
+						utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.PRONE);
+						s_mMovedAt.Set(c, now);
+						prone++;
+					}
+					continue;
+				}
 				utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, LEVEL, null, 1.0));
+				if (utility.m_CombatMoveState)
+					utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.CROUCH);
 				s_mMovedAt.Set(c, now);
 				moved++;
 			}
 		}
 		if (engaged > 0)
-			Print(string.Format("[ZCR][COVERMOVE] t=%1 side=%2 engaged=%3 open=%4 moved=%5", now, side, engaged, open, moved), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][COVERMOVE] t=%1 side=%2 engaged=%3 open=%4 moved=%5 prone=%6", now, side, engaged, open, moved, prone), LogLevel.NORMAL);
 	}
 
 	protected static vector EyeOf(IEntity e)
