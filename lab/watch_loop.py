@@ -50,9 +50,9 @@ def git_commit() -> str:
     return r.stdout.strip() + ("+changes" if dirty else "")
 
 
-def opts(map_name: str, client: bool, us: str, ussr: str, label: str, solo: bool = False) -> Namespace:
+def opts(map_name: str, client: bool, us: str, ussr: str, label: str, solo: bool = False, extra: str = "") -> Namespace:
     return Namespace(map=map_name, port=PORT, client=client, drones=True, watch=True, plan_seconds=90,
-                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo)
+                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo, extra=extra)
 
 
 def start(o: Namespace, tag: str):
@@ -240,17 +240,18 @@ def write_index(path: Path, video: Path, meta: dict, m: dict, key: list, shots: 
 
 
 # --- one match -------------------------------------------------------------------------------------
-def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front: bool, solo: bool = False, speed: float = 1) -> dict:
+def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front: bool, solo: bool = False, speed: float = 1,
+          extra: str = "") -> dict:
     """minutes: game minutes; solo at speed x takes minutes / x on the clock."""
     label = f"w{n}-{map_name}-{us}-v-{ussr}"
     meta = {"map": map_name, "us": us, "ussr": ussr, "strategist": f"US {us} v USSR {ussr}", "commit": git_commit(),
             "started": f"{datetime.now():%Y-%m-%d %H:%M}", "minutes": minutes, "ended": "", "solo": solo, "speed": speed}
     log(f"match {n}: {map_name}, {meta['strategist']}, {minutes:.0f} min, build {meta['commit']}"
-        + (f", solo at {speed:g}x" if solo else ""))
+        + (f", solo at {speed:g}x" if solo else "") + (f", {extra}" if extra else ""))
     kill_crash_reporters()
     # Solo: the game hosts the match itself - one process, server and screen (the Diag Menu's time
     # multiplier works only there).
-    server, sprof = start(opts(map_name, False, us, ussr, label, solo=solo), "solo" if solo else "server")
+    server, sprof = start(opts(map_name, False, us, ussr, label, solo=solo, extra=extra), "solo" if solo else "server")
     client = ff = None
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     video = VIDEOS / f"{stamp}_{label}.mp4"
@@ -370,8 +371,11 @@ def main() -> int:
                     log(f"speed now {a.speed:g}x")
             except ValueError:
                 pass
+        # Server settings for the next match (e.g. -zcrNoFIA): .runtime/watch_extra.txt.
+        extra_file = ROOT / ".runtime" / "watch_extra.txt"
+        extra = extra_file.read_text(encoding="utf-8").strip() if extra_file.exists() else ""
         wall = (a.speed if a.solo else 1)
-        meta = match(n, map_name, us, ussr, min(a.minutes, max(5, ((end - time.time()) / 60 - 3) * wall)), a.keep_front, a.solo, a.speed)
+        meta = match(n, map_name, us, ussr, min(a.minutes, max(5, ((end - time.time()) / 60 - 3) * wall)), a.keep_front, a.solo, a.speed, extra)
         fails = fails + 1 if meta.get("ended") and meta.get("minutes", 0) < 2 else 0
         if fails >= 3:
             log("three matches in a row failed to start - stopping")
