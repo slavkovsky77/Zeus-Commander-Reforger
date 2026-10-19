@@ -159,6 +159,17 @@ class ZCR_Watch
 		return s_Instance && s_Instance.m_bFree;
 	}
 
+	// With the mouse an action fires only every second frame (the game's own camera does the same).
+	protected float m_aLastIn[2];
+	protected float Smoothed(float v, int i)
+	{
+		float prev = m_aLastIn[i];
+		m_aLastIn[i] = v;
+		if (v == 0 && prev != 0)
+			return prev;
+		return v;
+	}
+
 	protected static bool Down(KeyCode key)
 	{
 		return (Debug.KeyState(key) & 0x8000) != 0;
@@ -170,23 +181,20 @@ class ZCR_Watch
 		int tick = System.GetTickCount();
 		float dt = Math.Clamp((tick - m_iLastTick) / 1000.0, 0, 0.1);
 		m_iLastTick = tick;
-		int mx, my;
-		WidgetManager.GetMousePos(mx, my);
-		if (Debug.GetMouseState(MouseState.RIGHT) & Debug.MB_PRESSED_MASK)
-		{
-			if (m_iMouseX >= 0)
-			{
-				m_fYaw += (mx - m_iMouseX) * 0.15;
-				m_fPitch = Math.Clamp(m_fPitch - (my - m_iMouseY) * 0.15, -85, 85);
-			}
-		}
-		m_iMouseX = mx;
-		m_iMouseY = my;
+		// The game's own free camera input (Game Master's): its context and actions work with menus
+		// open - raw key states didn't reach the game (Martin: "those keys don't work on free look").
+		InputManager im = GetGame().GetInputManager();
+		im.ActivateContext("ManualCameraContext");
+		float yawIn = Smoothed(im.GetActionValue("ManualCameraRotateYaw"), 0);
+		float pitchIn = Smoothed(im.GetActionValue("ManualCameraRotatePitch"), 1);
+		m_fYaw += yawIn;
+		m_fPitch = Math.Clamp(m_fPitch + pitchIn, -85, 85);
 		float y = m_fYaw * Math.DEG2RAD;
 		float p = m_fPitch * Math.DEG2RAD;
 		vector forward = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
 		vector right = Vector(Math.Cos(y), 0, -Math.Sin(y));
-		vector move;
+		vector move = forward * im.GetActionValue("ManualCameraMoveLongitudinal") + right * im.GetActionValue("ManualCameraMoveLateral")
+			+ Vector(0, im.GetActionValue("ManualCameraMoveVertical"), 0);
 		if (Down(KeyCode.KC_W))
 			move += forward;
 		if (Down(KeyCode.KC_S))
@@ -200,7 +208,7 @@ class ZCR_Watch
 		if (Down(KeyCode.KC_Q))
 			move -= Vector(0, 1, 0);
 		float speed = 25;
-		if (Down(KeyCode.KC_LSHIFT))
+		if (Down(KeyCode.KC_LSHIFT) || im.GetActionValue("ManualCameraSpeedBoost") > 0)
 			speed = 100;
 		m_vFreePos = m_vFreePos + move * speed * dt;
 		float ground = world.GetSurfaceY(m_vFreePos[0], m_vFreePos[2]);
@@ -461,6 +469,12 @@ class ZCR_Watch
 		}
 		// Orbit (Martin: "free look on locked units - rotation"): the right mouse button held and dragged
 		// turns the camera round what it shows, up and down too; it stays until AUTO.
+		InputManager oim = GetGame().GetInputManager();
+		oim.ActivateContext("ManualCameraContext");
+		float oyaw = Smoothed(oim.GetActionValue("ManualCameraRotateYaw"), 0);
+		float opitch = Smoothed(oim.GetActionValue("ManualCameraRotatePitch"), 1);
+		m_fOrbitYaw += oyaw;
+		m_fOrbitLift = Math.Clamp(m_fOrbitLift - opitch * 0.02, 0.2, 3);
 		int mx, my;
 		WidgetManager.GetMousePos(mx, my);
 		if (Debug.GetMouseState(MouseState.RIGHT) & Debug.MB_PRESSED_MASK)

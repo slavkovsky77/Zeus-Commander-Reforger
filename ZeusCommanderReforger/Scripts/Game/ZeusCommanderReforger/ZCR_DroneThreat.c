@@ -86,6 +86,13 @@ class ZCR_DroneThreat
 			seen.m_vAt = dp;
 			s_aFound.Clear();
 			GetGame().GetWorld().QueryEntitiesBySphere(dp, REACT, s_Instance.AddMan, null, EQueryEntitiesFlags.DYNAMIC);
+			// Where soldiers already are counts as taken: a cover spot 6 m from all of them, not the one
+			// tree the whole team runs to (Martin, 23:30: "they are stacked and the enemy drone is overhead").
+			foreach (IEntity o : s_aFound)
+			{
+				if (o)
+					taken.Insert(o.GetOrigin());
+			}
 			foreach (IEntity e : s_aFound)
 			{
 				ChimeraCharacter c = ChimeraCharacter.Cast(e);
@@ -241,6 +248,11 @@ class ZCR_DroneThreat
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		array<vector> taken = {};
+		foreach (AIAgent a : agents)
+		{
+			if (a && a.GetControlledEntity())
+				taken.Insert(a.GetControlledEntity().GetOrigin());
+		}
 		map<string, int> idle = new map<string, int>();
 		map<string, int> open = new map<string, int>();
 		map<string, int> moved = new map<string, int>();
@@ -321,9 +333,10 @@ class ZCR_DroneThreat
 				bool crowded;
 				if (avoid)
 				{
+					vector self = c.GetOrigin();
 					foreach (vector q : avoid)
 					{
-						if (vector.DistanceXZ(q, nav) < 6)
+						if (vector.DistanceXZ(q, self) > 0.5 && vector.DistanceXZ(q, nav) < 6)
 							crowded = true;
 					}
 				}
