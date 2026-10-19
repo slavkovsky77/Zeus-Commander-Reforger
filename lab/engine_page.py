@@ -23,8 +23,8 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The watched loop at 2x (1.5x on Everon), two armies only (no FIA), fireteams of 5, drone trucks with operators, Arma 3's side panels; a headless head-to-head beside it at 1x.",
-    "Today's result": "Working with the game's own cover (r10) gave the best headless match so far: 4-2 in bases, exchange 1.36, soldiers in the game's cover 40% of the time (AI Conflict alone 24-27%). Reforger runs at 2x in solo; drones now show on screen.",
+    "Running now": "The watched loop at 3x on Arland, two armies only (no FIA), fireteams of 5, drone trucks with operators, Arma 3's side panels; the headless batch beside it at 1x, mostly two-army matchups.",
+    "Today's result": "Two armies only, fireteams, drone sites, drones where enemies are known: the doctrine side +1 and +3 headless (loss ratio 1.39-1.43), drones hit 69-94% and cause 56-79% of losses (front band 70-96%), stacking 1-4% (Arma 3's limit 10%). Watched matches at 3x: 9.4 minutes each.",
     "Being built next": "Measuring fireteams, bounding and drone sites in the two-army matches; drone sites moving forward with the front; riding to the attack more often.",
 }
 
