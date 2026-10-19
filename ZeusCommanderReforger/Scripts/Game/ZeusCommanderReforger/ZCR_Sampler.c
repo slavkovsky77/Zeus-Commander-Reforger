@@ -127,6 +127,33 @@ class ZCR_Sampler
 		return n;
 	}
 
+	// The enemy (any, FIA too) this side has seen in the last minute nearest to 'at', within 'radius'.
+	static bool NearestKnown(string side, vector at, float radius, out vector where)
+	{
+		if (!s_Instance)
+			return false;
+		map<IEntity, vector> pos;
+		map<IEntity, int> when;
+		if (!s_Instance.m_mKnownPos.Find(side, pos) || !s_Instance.m_mKnownAt.Find(side, when))
+			return false;
+		int now = ZCR_LossLog.Seconds();
+		float best = radius;
+		bool found;
+		foreach (IEntity e, vector p : pos)
+		{
+			if (!e || now - when.Get(e) > 60)
+				continue;
+			float d = vector.DistanceXZ(p, at);
+			if (d < best)
+			{
+				best = d;
+				where = p;
+				found = true;
+			}
+		}
+		return found;
+	}
+
 	// The biggest group of enemy soldiers of the main sides (not FIA) this side has seen in the last
 	// minute: where, and how many within 100 m of it - for the drones' hunt.
 	static int KnownCluster(string side, out vector where)

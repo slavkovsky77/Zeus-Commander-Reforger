@@ -115,6 +115,78 @@ class ZCR_Drones
 	}
 
 	protected static ref map<FactionKey, int> s_mLaunches = new map<FactionKey, int>();
+	protected static ref map<SCR_AIGroup, vector> s_mTeamGoal = new map<SCR_AIGroup, vector>();
+	protected static ref map<SCR_AIGroup, int> s_mTeamGoalAt = new map<SCR_AIGroup, int>();
+	protected static ref map<SCR_AIGroup, int> s_mTeamNo = new map<SCR_AIGroup, int>();
+
+	// Drones stuck in the air (Martin: "drones get stuck in the air and don't move"; Arma 3 note 53):
+	// a team hovering at its goal for a minute with nothing to hit gets a new goal - the nearest enemy
+	// its side has seen in the last minute, within 1.2 km; with none, after 2.5 minutes its drones
+	// are called home (removed). The drone mod's group station follows the team's waypoint.
+	// Logs [ZCR][DRONES] ... retarget / home.
+	static void Tend(FactionKey side)
+	{
+		int now = ZCR_LossLog.Seconds();
+		for (int i = s_aTeams.Count() - 1; i >= 0; i--)
+		{
+			SCR_AIGroup team = s_aTeams[i];
+			if (!team || s_aTeamSide[i] != side || !s_mTeamGoal.Contains(team))
+				continue;
+			int since = now - s_mTeamGoalAt.Get(team);
+			if (since < 60)
+				continue;
+			vector goal = s_mTeamGoal.Get(team);
+			array<IEntity> hovering = {};
+			for (int k; k < s_aDrones.Count(); k++)
+			{
+				IEntity d = s_aDrones[k];
+				if (!d || s_aDroneSide[k] != side)
+					continue;
+				vector p = d.GetOrigin();
+				if (vector.DistanceXZ(p, goal) < 200 && p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]) > 3)
+					hovering.Insert(d);
+			}
+			if (hovering.IsEmpty())
+				continue;
+			vector enemy;
+			if (ZCR_Sampler.NearestKnown(side, goal, 1200, enemy) && vector.DistanceXZ(enemy, goal) > 80)
+			{
+				SetGoal(team, enemy, now);
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 retarget hovering=%4 after=%5 to=%6 %7 distance=%8", now, side, s_mTeamNo.Get(team),
+					hovering.Count(), since, Math.Round(enemy[0]), Math.Round(enemy[2]), Math.Round(vector.DistanceXZ(enemy, goal))), LogLevel.NORMAL);
+				ZCR_Feed.Note(side, string.Format("drone team %1 had nothing to hit - on to enemies seen %2 m away", s_mTeamNo.Get(team), Math.Round(vector.DistanceXZ(enemy, goal))));
+			}
+			else if (since >= 150)
+			{
+				foreach (IEntity d : hovering)
+					SCR_EntityHelper.DeleteEntityAndChildren(d);
+				s_mTeamGoalAt.Set(team, now);
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 home hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
+				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit for 2.5 min - called home", s_mTeamNo.Get(team)));
+			}
+		}
+	}
+
+	// A team's goal: its waypoints replaced by one Move waypoint there.
+	protected static void SetGoal(SCR_AIGroup team, vector goal, int now)
+	{
+		array<AIWaypoint> old = {};
+		team.GetWaypoints(old);
+		foreach (AIWaypoint w : old)
+			team.RemoveWaypoint(w);
+		Resource wpRes = Resource.Load(WAYPOINT);
+		if (wpRes && wpRes.IsValid())
+		{
+			EntitySpawnParams wpParams = new EntitySpawnParams();
+			wpParams.TransformMode = ETransformMode.WORLD;
+			wpParams.Transform[3] = goal;
+			AIWaypoint wp = AIWaypoint.Cast(GetGame().SpawnEntityPrefab(wpRes, GetGame().GetWorld(), wpParams));
+			if (wp)
+				team.AddWaypoint(wp);
+		}
+		s_mTeamGoal.Set(team, goal);
+		s_mTeamGoalAt.Set(team, now);
+	}
 
 	protected static void Launch(FactionKey side, int target, int tempo, int maxUp, string why)
 	{
@@ -194,6 +266,9 @@ class ZCR_Drones
 		}
 		s_aTeams.Insert(team);
 		s_aTeamSide.Insert(side);
+		s_mTeamGoal.Set(team, goal);
+		s_mTeamGoalAt.Set(team, now);
+		s_mTeamNo.Set(team, n);
 		s_mCount.Set(side, n);
 		s_mNextAt.Set(side, now + tempo);
 		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);

@@ -9,6 +9,7 @@ modded class AICF_AICommander
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);
 			ZCR_Sampler.Start();
 			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
+			ZCR_Drones.Tend(m_sFactionKey);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);
 			if (matchController)
 			{
