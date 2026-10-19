@@ -180,12 +180,17 @@ def mmss(t: float) -> str:
 
 def moments(server_log: str, client_log: str, rec_start: int) -> tuple:
     key, shots = [], []
+    ours = "[ZCR][CAPTURE]" in server_log    # older builds: AI Conflict's own line, base ids only
     for line in server_log.splitlines():
         t = secs(line)
         if t is None:
             continue
         v = t - rec_start
-        if "[ZCR][CAPTURE]" in line:
+        if not ours and "[BASE_OWNER_CHANGED]" in line:
+            m = re.search(r"base=(\S+) old_owner=(\S*) new_owner=(\S*)", line)
+            if m:
+                key.append((v, f"CAPTURE: {m.group(3) or 'nobody'} takes base {m.group(1)} from {m.group(2) or 'nobody'}"))
+        elif "[ZCR][CAPTURE]" in line:
             m = re.search(r"base=(.*?) from=(\S*) to=(\S*)", line)   # base names have spaces
             if m:
                 key.append((v, f"CAPTURE: {m.group(3) or 'nobody'} takes {m.group(1)} from {m.group(2) or 'nobody'}"))
@@ -194,6 +199,10 @@ def moments(server_log: str, client_log: str, rec_start: int) -> tuple:
             m = re.search(r"from=(.*?) to=(.*?) distance=", line)   # base names have spaces
             where = f"from {m.group(1)} to {m.group(2)}" if m else ""
             key.append((v, f"DRONES: {f.get('side')} {f.get('kind')} FPV team {where}"))
+        elif "[ZCR][COMMIT]" in line:
+            f = metrics.fields(line, "[ZCR][COMMIT]")
+            what = "joins the attack" if f.get("role") == "ATTACK" else "goes back to defending"
+            key.append((v, f"COMMIT: {f.get('faction')} defender squad {f.get('slot')} ({f.get('alive')} men) {what}"))
         elif "[ZCR][PLAN]" in line:
             f = line.split("[ZCR][PLAN]", 1)[1]
             side = re.search(r"faction=(\S+)", f)

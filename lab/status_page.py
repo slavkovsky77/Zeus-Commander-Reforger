@@ -28,6 +28,8 @@ PROBLEMS = [
     ("risk", "Few matches yet", "Each matchup gets one or two 30-minute matches tonight. One match decides little; read the margins as a first look, with the control row as the size of chance."),
     ("risk", "Early game is quiet", "AI Conflict's squads start with one soldier and fill up at barracks, so the first 10-15 minutes are mostly marching and fights against FIA garrisons."),
     ("risk", "Drone strikes kill about one in three", "First drone test: 2 teams, 8 detonations on soldiers, 3 deaths; two soldiers were struck twice. A note for the FPV AI Drones chat (review note 98)."),
+    ("finding", "Assaults trickle in", "Phased USSR on Arland 'assaulted' Airport Base for 25 minutes without taking it: only 2-3 squads ever went (FIA lost 18, USSR 19 there). AI Conflict refills squads one at a time and sends each as it is ready, and its 4 DEFEND squads never attack. The doctrine's count also took in the home garrison (main base 430 m away) - fixed. Being tested: the doctrine commits 2 DEFEND squads to the assault while nothing of ours is being captured."),
+    ("risk", "Captures are rare", "0-2 bases change hands in a 30-minute match, the first at about 16 minutes - the score barely moves, so losses and time to the first capture matter as much."),
     ("design", "Watched matches differ a little", "The camera's observer loads FIA garrisons where it looks, and only watched matches have drones - the measurements come from the headless matches."),
 ]
 NEXT = [

@@ -195,6 +195,33 @@ class PhasedTests(unittest.TestCase):
         self.assertEqual(p.state["USSR"]["fails"][3], 1)
         self.assertNotEqual(p.state["USSR"]["target"], 3)   # an untried objective now
 
+    def test_assault_commits_defenders_only_when_safe(self):
+        import phased
+        p = phased.Phased()
+        p.decide(self.report(100))
+        d, _ = p.decide(self.report(190))                # assault Town - but the Farm is threatened
+        self.assertEqual(d["main_effort"], 3)
+        self.assertEqual(d["commit"], 0)
+        r = self.report(280)
+        for b in r["bases"]:
+            b["threatened"] = False
+        d, _ = p.decide(r)
+        self.assertEqual(d["commit"], 2)                 # nothing threatened: two DEFEND squads join
+        clean, _ = validate(d, r)
+        self.assertIn("commit 2", to_lines(clean, "phased").splitlines())
+        clean, problems = validate({"main_effort": 3, "commit": 9}, r)
+        self.assertEqual(clean["commit"], 2)
+
+    def test_force_at_objective_skips_staging_garrison(self):
+        import phased
+        r = self.report(100)
+        farm = next(b for b in r["bases"] if b["id"] == 1)
+        farm["x"], farm["z"] = 2200, 1300                # staging base 447 m from Town
+        r["squads"] = [{"alive": 10, "x": 2200, "z": 1300}, {"alive": 8, "x": 2500, "z": 1450}]
+        town = next(b for b in r["bases"] if b["id"] == 3)
+        self.assertEqual(phased.force_at(r, town, 450), 8.0)
+        self.assertEqual(phased.force_near(r, town, 450), 18.0)
+
     def test_new_match_resets(self):
         import phased
         p = phased.Phased()

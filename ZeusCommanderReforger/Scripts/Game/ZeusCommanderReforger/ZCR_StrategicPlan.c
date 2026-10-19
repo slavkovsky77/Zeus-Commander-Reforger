@@ -5,6 +5,8 @@
 //             threat rules still decide which squad can go.
 //   demand    the least force a base calls for: more squads converge on it (our doctrine: go in
 //             with 2x the known enemy, 3x against a trench line).
+//   commit    how many of AI Conflict's DEFEND squads join the attack (0-2): Arma 3's doctrine keeps
+//             a minimal garrison while nothing threatens us (ZCR_CommitDefenders).
 // Server only. Every change is logged as [ZCR][PLAN] for the lab.
 class ZCR_StrategicPlan
 {
@@ -18,6 +20,7 @@ class ZCR_StrategicPlan
 	protected int m_iRevision;
 	protected int m_iMainEffort = -1;
 	protected int m_iChangedAt;
+	protected int m_iCommit;
 
 	static ZCR_StrategicPlan Get(FactionKey faction)
 	{
@@ -52,6 +55,16 @@ class ZCR_StrategicPlan
 		if (m_mDemand.Find(nodeId, value))
 			return value;
 		return 0;
+	}
+
+	int GetCommit()
+	{
+		return m_iCommit;
+	}
+
+	void SetCommit(int commit)
+	{
+		m_iCommit = Math.ClampInt(commit, 0, 2);
 	}
 
 	string GetIntent()
@@ -123,12 +136,13 @@ class ZCR_StrategicPlan
 				m_iMainEffort = node;
 			}
 		}
-		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 intent=%6",
-			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][PLAN] faction=%1 revision=%2 source=%3 priorities=%4 demands=%5 commit=%7 intent=%6",
+			m_sFaction, m_iRevision, m_sSource, m_mPriority.Count(), m_mDemand.Count(), m_sIntent, m_iCommit), LogLevel.NORMAL);
 	}
 
 	void Clear(string source)
 	{
+		m_iCommit = 0;
 		Apply(null, null, "", source);
 	}
 }

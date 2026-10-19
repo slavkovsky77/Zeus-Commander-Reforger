@@ -2,7 +2,8 @@
 
 A decision names bases by their graph id from the situation report (ZCR_Strategist.BuildReport):
     {"intent": "...", "main_effort": 12, "supporting": [7], "hold": [3], "avoid": [20],
-     "concentration": "normal" | "heavy"}
+     "concentration": "normal" | "heavy", "commit": 0-2}
+commit: how many of AI Conflict's DEFEND squads join the attack while nothing threatens us.
 validate() drops anything the report doesn't support; to_lines() turns it into the plain lines the
 game reads (ZCR_Strategist.OnAnswer): a score bonus and a force demand per base, on top of AI
 Conflict's own commander. One full squad counts 10 in AI Conflict's units.
@@ -18,6 +19,7 @@ WEIGHTS = {
     "avoid": (-60.0, 0.0),
 }
 MAX_INTENT = 200
+MAX_COMMIT = 2
 
 
 def bases_by_id(report: dict) -> dict:
@@ -65,7 +67,12 @@ def validate(decision: dict, report: dict) -> tuple:
         "hold": [],
         "avoid": ids(decision.get("avoid", []), "avoid"),
         "concentration": "heavy" if decision.get("concentration") == "heavy" else "normal",
+        "commit": 0,
     }
+    try:
+        clean["commit"] = max(0, min(MAX_COMMIT, int(decision.get("commit") or 0)))
+    except (TypeError, ValueError):
+        problems.append(f"commit: not a number: {decision.get('commit')!r}")
     for i in ids(decision.get("hold", []), "hold"):
         if known[i].get("owner") == faction:
             clean["hold"].append(i)
@@ -102,4 +109,6 @@ def to_lines(decision: dict, source: str) -> str:
         out.append("intent " + decision["intent"])
     out += [f"priority {i} {v:g}" for i, v in sorted(priority.items())]
     out += [f"demand {i} {v:g}" for i, v in sorted(demand.items())]
+    if decision.get("commit"):
+        out.append(f"commit {int(decision['commit'])}")
     return "\n".join(out) + "\n"

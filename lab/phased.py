@@ -15,7 +15,8 @@ Phases per side (kept between rounds; a new match resets them):
            within 450 m after 6 min): back to gather, with a bigger need. No capture after 10 min
            (Arma 3: an assault that stops gaining is called off): the objective counts a failure
            and another one is picked - untried objectives first
-Our own threatened bases are always held.
+Our own threatened bases are always held. In the assault, while none of them is threatened, two of
+AI Conflict's DEFEND squads join it (commit): Arma 3's doctrine keeps a minimal garrison.
 """
 import math
 
@@ -27,6 +28,7 @@ NEED_PER_FAIL = 10.0
 GATHER_RADIUS = 600
 ASSAULT_RADIUS = 450   # at the objective - not counting the staging base nearby
 ASSAULT_MAX = 600      # s without a capture: called off, another objective
+COMMIT = 2             # DEFEND squads that join the assault while none of our bases is threatened
 
 
 def _dist(a: dict, b: dict) -> float:
@@ -36,6 +38,20 @@ def _dist(a: dict, b: dict) -> float:
 def force_near(report: dict, at: dict, radius: float) -> float:
     return float(sum(s.get("alive", 0) for s in report.get("squads", [])
                      if "x" in s and math.hypot(s["x"] - at["x"], s["z"] - at["z"]) <= radius))
+
+
+def force_at(report: dict, target: dict, radius: float) -> float:
+    """Soldiers at the objective: within the radius and nearer to it than to any of our bases, so
+    a staging base close by (Arland's USSR main base is 430 m from Airport Base) doesn't count."""
+    own = [b for b in own_bases(report) if b["id"] != target["id"]]
+    total = 0.0
+    for s in report.get("squads", []):
+        if "x" not in s:
+            continue
+        d = math.hypot(s["x"] - target["x"], s["z"] - target["z"])
+        if d <= radius and all(d < math.hypot(s["x"] - b["x"], s["z"] - b["z"]) for b in own):
+            total += s.get("alive", 0)
+    return total
 
 
 def staging_base(report: dict, target: dict):
@@ -118,7 +134,7 @@ class Phased:
                         "main_effort": stage["id"], "supporting": [], "hold": [stage["id"], *[h for h in hold if h != stage["id"]]][:3],
                         "avoid": [target["id"]], "concentration": "heavy"}, raw
         # Assault.
-        near = force_near(report, target, ASSAULT_RADIUS)
+        near = force_at(report, target, ASSAULT_RADIUS)
         if (elapsed >= 360 and near < 0.35 * need) or elapsed >= ASSAULT_MAX:
             st["fails"][target["id"]] = st["fails"].get(target["id"], 0) + 1
             st.update(phase="gather" if elapsed < ASSAULT_MAX else "pick", since=t, need=need + NEED_PER_FAIL)
@@ -127,6 +143,7 @@ class Phased:
             return {"intent": f"The attack on {name} bled out - falling back to gather more", "main_effort": stage["id"] if stage else None,
                     "supporting": [], "hold": hold[:3], "avoid": [target["id"]], "concentration": "heavy"}, raw
         intent = st.get("llm_intent") or ""
-        lead = f"Assault on {name} with {near:.0f} soldiers near it"
+        commit = 0 if hold else COMMIT
+        lead = f"Assault on {name} with {near:.0f} soldiers at it" + (f", {commit} defender squads committed" if commit else "")
         return {"intent": f"{lead}. {intent}" if intent else lead, "main_effort": target["id"], "supporting": [],
-                "hold": hold[:3], "avoid": [], "concentration": "heavy"}, raw
+                "hold": hold[:3], "avoid": [], "concentration": "heavy", "commit": commit}, raw
