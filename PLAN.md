@@ -7,7 +7,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Watching and speed
 - [Done] Run the game faster by any means (117, 123, 129) | The diagnostic build's Diag Menu > Cheats > DTime multiplier, only where the game hosts the match (solo): 2.0x measured at 60 fps. The watched loop sets it every match.
 - [Done] Watch in a normal window with borders at full resolution (130) | The game opens in its own maximised mode from its settings file.
-- [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116, 170) | Under the BLUFOR panel; groups of both sides in turn; PREV/NEXT POINT to watch one base.
+- [Done] Phone buttons like Arma 3: next / previous shot and group, lock, closer, wider, overview, auto, tap to follow (116, 170, 171, 178) | Under the BLUFOR panel; PREV/NEXT POINT to watch one base; BOTH SIDES / US ONLY / USSR ONLY; TEAMS / VEHICLES / DRONES - what PREV/NEXT steps through.
 - [Done] Recordings show only the game, never the desktop (126) | Windows Graphics Capture of the game window.
 - [Done] Always sped up (144, 164) | Watched matches at 3x on Arland; headless servers can't (1x, several side by side).
 - [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
@@ -21,7 +21,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Drones visible on screen (125, 136) | An FPV tag on every drone, the camera at the drone's height.
 
 ## Soldiers
-- [In progress] They walk across open fields like nothing is happening (125) | The game's own attack leaves cover after 5 s and closes to 15 m; kills happen at 22-38 m. r10 holds the game's cover 20 s.
+- [Fixed] Soldiers chilling at the base, all groups one guy (173) | AI Conflict started every team with 1 man and recruited the rest one at a time: teams waited 10-20 min. Now 3 of 5 at the start, out with 3: first team out at 1.8 min.
+- [In progress] They walk across open fields like nothing is happening (125, 174) | Each 220 m march step now ends in the best cover within 60 m (trees, roofs, buildings, walls) and teams jog; in a fight the game's attack still leaves cover after 5 s (r10 holds it 20 s).
 - [In progress] Fight from cover like Arma 3 (30-40%) (113, 124, 133) | In the game's own cover 40% (AI Conflict alone 24-27%); Arma 3's stricter measure 9.5%.
 - [In progress] Fireteams of 2-5, never single file down a road (135, 141, 159) | AI Conflict changed: 20 teams of 5 per side, wedge formation. Two-army probe: stacking 4.1% (Arma 3's limit 10%, first time under it), 3.6 soldiers a team, 8 m to the nearest friend.
 - [In progress] Bounding: one half covers, the other moves (134, 146) | Refined (60-350 m from the enemy, 4+ men): USSR lost 5 instead of 14, exchange 3.4, two bases. On by default from 19 Oct 17:20; measured in every match.
@@ -30,11 +31,13 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
 
 ## Vehicles
-- [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport first (M998, UAZ-452); no motorcycles in the vanilla game.
+- [Fixed] They don't use vehicles at all (175) | Not one ride all day: AI Conflict refused every infantry team a vehicle. Infantry teams now ride light transport (M998, UAZ) on marches over 500 m: 20 teams rode in an 8-minute probe.
+- [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
+- [Fixed] 0 drones in the sky (172) | My rule "drones only where enemies are known" grounded them from 18:40 (0-3 teams a match). Now: a search when nothing is known, the drones spot for their side, AI Conflict's side every 2 min.
 - [Done] Drone warfare doctrine: heavy drone use (118, 158, 160) | Prep fire while gathering, pressure during the assault; both sides fly drones. Two armies only: drones cause 60-79% of losses (front band 70-96%); drones go where enemies are known. A faster tempo gave nothing (the sites and teams in the air limit it).
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
 - [Fixed] Drones launched into the sea, then among their own soldiers (132, 137) | Never the sea; no clear spot, no team.
@@ -43,7 +46,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 
 ## AI Conflict
 - [Fixed] The doctrine never planned on Everon with fireteams (151) | The situation report passed 8191 characters and was cut; now joined, not formatted.
-- [In progress] Rework AI Conflict itself, fork it, don't hack around it (139) | Local branch zcr of the AI Conflict clone the lab loads; fireteams first.
+- [In progress] Rework AI Conflict itself, fork it, don't hack around it - our own version (139, 177) | Local branch zcr: fireteams of 3-5 that leave at once, covered march steps at a jog, infantry riding light vehicles; its plumbing (spawning, supplies, capture) stays.
 - [Fixed] A side never recruited at Arland's harbour base (119, 132) | AI Conflict's barracks search at its maximum; the small barracks now builds, the large one still fails there.
 - [Todo] Slow follow-on after a capture (109) | Squads walk 1-1.4 km in 220 m steps to the next base.
 
@@ -58,6 +61,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] How far the infantry walks, riding to the attack (127) | 270-890 m on foot; nobody rode yet.
 - [Done] How the engine behaves: fighting distance, server fps (127) | 22-38 m; watched Everon servers had run at 12-18 fps.
 - [Done] How soldiers behave when drones come, in detail (167) | Near an enemy drone: % under cover, running, prone; drone victims in the open and standing; soldiers in the field with nothing overhead.
+- [Done] A scorecard of what the screen shows, pass/fail per match (176) | lab/scorecard.py: first team out, % at the main base, team size, drone teams, drones up, rides - watched matches first. The measures before missed the regression.
 - [Done] Team size and spacing to the nearest friend (141) | Charted from r13: 2.1-3.6 soldiers per team, 6-8 m apart (squads in single file: 3-5 m).
 
 ## Lab
