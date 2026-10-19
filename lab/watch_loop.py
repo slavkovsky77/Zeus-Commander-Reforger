@@ -148,12 +148,14 @@ def kill_crash_reporters() -> None:
 
 
 # --- recording ------------------------------------------------------------------------------------
-def ffmpeg_start(out: Path, rect: tuple):
-    x, y, w, h = rect
-    argv = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "gdigrab", "-framerate", "30", "-draw_mouse", "0",
-            "-offset_x", str(x), "-offset_y", str(y), "-video_size", f"{w}x{h}", "-i", "desktop",
-            "-vf", "scale=1920:-2" if w > 1920 else "null",
-            "-c:v", "h264_mf", "-hw_encoding", "1", "-b:v", "8M", "-pix_fmt", "nv12", str(out)]
+def ffmpeg_start(out: Path, hwnd):
+    """Records the game window only (Windows Graphics Capture): what is in front of it - VS Code, a
+    browser, a notification - stays out of the video (gdigrab of the desktop recorded all of it)."""
+    w = client_rect(hwnd)[2]
+    grab = f"gfxcapture=hwnd={int(hwnd)}:max_framerate=30:capture_cursor=0,hwdownload,format=bgra"
+    argv = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-filter_complex",
+            grab + (",scale=1920:-2" if w > 1920 else "") + ",format=nv12",
+            "-c:v", "h264_mf", "-hw_encoding", "1", "-b:v", "8M", str(out)]
     return subprocess.Popen(argv, stdin=subprocess.PIPE)
 
 
@@ -264,7 +266,7 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)
             user32.SetForegroundWindow(hwnd)
         VIDEOS.mkdir(exist_ok=True)
-        ff = ffmpeg_start(mkv, client_rect(hwnd))
+        ff = ffmpeg_start(mkv, hwnd)
         rec_start = int(time.strftime("%H")) * 3600 + int(time.strftime("%M")) * 60 + int(time.strftime("%S"))
         log(f"recording {mkv.name}")
         t0 = time.time()

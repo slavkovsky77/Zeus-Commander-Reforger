@@ -232,6 +232,10 @@ class ZCR_Strategist
 			{
 				vector at = leader.GetOrigin();
 				entry += string.Format(",\"x\":%1,\"z\":%2", Num(at[0]), Num(at[2]));
+				// In a vehicle (the leader): for "how far the infantry walks" and "riding to the attack".
+				ChimeraCharacter lc = ChimeraCharacter.Cast(leader);
+				if (lc && lc.IsInVehicle())
+					entry += ",\"ride\":1";
 			}
 			entry += "}";
 			if (!squads.IsEmpty())

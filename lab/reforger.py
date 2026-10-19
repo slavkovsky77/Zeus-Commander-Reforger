@@ -46,8 +46,12 @@ READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 def command(a, profile: Path) -> list:
     project, extra, scenario, header = MAPS[a.map]
     addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "") if x)
-    exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not a.client else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
-    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones else []) + [str((SERVER_ROOT if not a.client else GAME_ROOT) / "addons")]
+    # Solo: the game itself hosts the match (singleplayer, like Arma 3's watched games) - only there
+    # the diagnostic build's Diag Menu > Cheats > "DTime multiplier" speeds the whole game up.
+    solo = getattr(a, "solo", False)
+    game = a.client or solo
+    exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
+    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones else []) + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
@@ -70,6 +74,8 @@ def command(a, profile: Path) -> list:
         cmd += (getattr(a, "extra", "") or "").split()   # lab settings, e.g. -zcrStormPriority 100
         if a.watch:
             cmd += ["-zcrWatchServer"]   # players get the whole map (they only watch)
+        if solo and a.watch:
+            cmd += ["-zcrWatch"]
     elif a.watch:
         cmd += ["-zcrWatch"]             # the director camera instead of the game's menus
     return cmd
@@ -90,6 +96,7 @@ def main() -> int:
     ap.add_argument("--bridge", action="store_true", help="send situation reports to the bridge (start lab/bridge.py first)")
     ap.add_argument("--bridge-url", default="http://127.0.0.1:8765")
     ap.add_argument("--client", action="store_true", help="the game on screen, joining the local server")
+    ap.add_argument("--solo", action="store_true", help="the game on screen hosting the match itself (singleplayer; the Diag Menu's time multiplier works here)")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")

@@ -19,6 +19,13 @@ Per match:
   stuck       AI Conflict's stuck reports for the doctrine side's squads per 20 game minutes
   drones      FPV teams, strikes and kills per match (watched matches load the drone mods)
   causes      share of all losses: drone, direct fire (a killer), unknown (no killer)
+  walk        Arma 3's "how far the infantry walks": median straight-line distance an attacking
+              squad covers on foot to its objective - from where it got out of a vehicle, or from
+              where it was when it got the order - of the squads that got within 150 m (from r11)
+  rode        Arma 3's "riding to the attack": % of those squads that rode a vehicle (from r11)
+  fight_m     engine: median distance of the direct-fire kills, everyone
+  fps         engine: the server's median frames per second (logged every minute), and aichar its
+              median soldiers simulated
   trips       truck trips AI Conflict started for the doctrine side (motorize, r6)
 """
 import json
@@ -48,9 +55,10 @@ BUILDS = [
     (8, "drone doctrine", "2026-10-19 13:00", "drone warfare doctrine: prep fire and pressure, both sides fly drones, headless too; force and storm from what the side has seen"),
     (9, "cover layer", "2026-10-19 14:31", "soldier layer: cover in a firefight for our strategist's side (Arma 3's coverFight); drones hunt seen enemy soldiers"),
     (10, "cover with the game", "2026-10-19 15:05", "the soldier layer works with the game's own cover: holds it 20 s (the game: 5 s), asks its cover search, leaves soldiers in it alone"),
+    (11, "walk and ride", "2026-10-19 15:25", "Arma 3's walk and ride measures (squads report whether they ride), engine measures; recordings of the game window only"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched")]
-KEYS = ["cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -97,6 +105,66 @@ def soldier_metrics(lines: list, side: str) -> dict:
     if deaths:
         out["ducks"] = round(100 * ducks / deaths, 1)
         out["deaths_sampled"] = deaths
+    return out
+
+
+def approach_metrics(snaps: list, side: str) -> dict:
+    """Arma 3's walk and rode (ac-lab v73) from the strategist's reports: per attack assignment (a
+    squad with the ATTACK role sent to a base not its side's), the distance on foot to the objective
+    from where it got out of a vehicle or got the order, for the assignments that got within 150 m."""
+    cur, done = {}, []
+    for r in snaps:
+        if r.get("faction") != side:
+            continue
+        bases = {b["id"]: b for b in r.get("bases", [])}
+        for s in r.get("squads", []):
+            if "x" not in s:
+                continue
+            b = bases.get(s.get("target", -1))
+            if b is None or b.get("owner") == side or s.get("role") != "ATTACK":
+                cur.pop(s["slot"], None)
+                continue
+            a = cur.get(s["slot"])
+            if a is None or a["target"] != b["id"]:
+                a = cur[s["slot"]] = {"target": b["id"], "start": (s["x"], s["z"]), "rode": False, "done": False}
+            if s.get("ride"):
+                a["rode"], a["start"] = True, None          # riding: the walk starts where he gets out
+            elif a["start"] is None:
+                a["start"] = (s["x"], s["z"])
+            cx, cz = b.get("cx", b["x"]), b.get("cz", b["z"])
+            if not a["done"] and a["start"] and math.hypot(s["x"] - cx, s["z"] - cz) <= 150:
+                a["done"] = True
+                done.append((a["rode"], math.hypot(a["start"][0] - cx, a["start"][1] - cz)))
+    if not done:
+        return {}
+    return {"walk": round(statistics.median(d for _, d in done)), "rode": round(100 * sum(r for r, _ in done) / len(done), 1),
+            "arrivals": len(done)}
+
+
+def engine_metrics(lines: list) -> dict:
+    """How the engine behaves: fighting distance, server frame rate, soldiers simulated."""
+    out = {}
+    dist = []
+    fps, chars = [], []
+    for l in lines:
+        if "[ZCR][LOSS]" in l:
+            f = metrics.fields(l, "[ZCR][LOSS]")
+            try:
+                d = float(f.get("distance", "-1"))
+            except ValueError:
+                continue
+            if f.get("killer_kind", "none") != "none" and d > 0:
+                dist.append(d)
+        elif "FPS: " in l and "frame time" in l:
+            m = re.search(r"FPS: ([\d.]+).*?AIChar: (\d+)", l)
+            if m:
+                fps.append(float(m.group(1)))
+                chars.append(int(m.group(2)))
+    if dist:
+        out["fight_m"] = round(statistics.median(dist))
+    if len(fps) > 2:
+        out["fps"] = round(statistics.median(fps[2:]), 1)      # past the start-up
+        out["aichar"] = round(statistics.median(chars[2:]))
     return out
 
 
@@ -227,6 +295,7 @@ def measure_run(run: Path, log: Path):
     row["lost_to_drones"] = m["drone_kills"].get(side, 0) if has_drones else None
     row["trips"] = sum(1 for l in lines if "][VEHICLE_REQUESTED]" in l and f"faction={side} " in l)
     row.update(soldier_metrics(lines, side))
+    row.update(engine_metrics(lines))
     # AI Conflict start-up failure seen once (19 Oct 13:27): a side's barracks never built, so it
     # never recruits - such a match says nothing about the strategist.
     row["recruits"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={side} " in l)
@@ -256,6 +325,14 @@ def measure_run(run: Path, log: Path):
             best = round(min(d)) if d else None
             break
         row["close6"] = best
+    if row["build"] >= 11 and snaps_path.exists():
+        snaps = []
+        for line in snaps_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                snaps.append(json.loads(line))
+            except ValueError:
+                pass
+        row.update(approach_metrics(snaps, side))
     return row
 
 
@@ -324,6 +401,14 @@ def html(agg: dict, rows: list) -> str:
     add("From the storm to the capture", "Minutes from the storm order to taking the base (from r4).", ser("storm"), unit=" min", ymax=15, better="lower")
     add("How close after 6 minutes", "Metres from the objective of the nearest squad sent there, 6 minutes into the first assault. AI Conflict stages squads 400-500 m out.",
         ser("close6"), unit=" m", target=(250, "250 m"), better="lower")
+    add("How far the infantry walks", "Median distance an attacking squad covers on foot to its objective - from where it got out of a vehicle, or from where it was when it got the order (squads that got within 150 m). Arma 3's measure; Martin: in reality they dismount 100-300 m out. From r11.",
+        ser("walk"), unit=" m", target=(300, "300 m"), better="lower")
+    add("Riding to the attack", "Of the attacking squads that reached their objective, how many rode a vehicle part of the way. Arma 3's measure. From r11.",
+        ser("rode"), unit="%", ymax=100, better="higher")
+    add("Fighting distance", "Engine: median distance between killer and victim of the direct-fire kills, everyone. Shows at what range Reforger's AI actually fights.",
+        ser("fight_m"), unit=" m")
+    add("Server frame rate", "Engine: the server's median frames per second during the match (logged every minute). The AI thinks and moves less smoothly when it drops; 3-4 servers and the watched game share one PC.",
+        ser("fps"), unit=" fps", target=(30, "30 fps"), better="higher")
     add("Exchange", "Soldiers the side with our strategist killed (FIA and enemy) per soldier it lost.", ser("exchange"), target=(1, "even trade"), better="higher")
     add("Does the fight happen", "Soldiers lost per 20 game minutes, everyone.", ser("intensity"))
     add("Stuck squads", "AI Conflict's stuck reports for the squads of the side with our strategist, per 20 game minutes.", ser("stuck"), better="lower")
