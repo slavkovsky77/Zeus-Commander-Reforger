@@ -479,8 +479,8 @@ class ZCR_Director
 			target = ZCR_Storm.s_aEventPos[storm];
 			label = ZCR_Storm.s_aEventText[storm];
 			key = "assault-storm" + storm;
-			back = 220;
-			height = 170;
+			back = 140;
+			height = 110;
 			m_vLastFight = target;
 			ZCR_Storm.s_aEventAt[storm] = -1000;
 		}
@@ -514,10 +514,20 @@ class ZCR_Director
 			string want = "US";
 			if (m_iShot % 2 == 0)
 				want = "USSR";
+			// Someone actually in the fight first (knows an enemy within 400 m) - Martin: "watch the
+			// fight closer, zoom in for a while".
 			foreach (IEntity e : m_aMen)
 			{
-				if (vector.DistanceXZ(e.GetOrigin(), m_vLastFight) < 300 && ZCR_LossLog.SideOf(e) == want)
+				if (vector.DistanceXZ(e.GetOrigin(), m_vLastFight) < 300 && ZCR_LossLog.SideOf(e) == want && ZCR_CoverLayer.NearestEnemy(e))
 					pool.Insert(e);
+			}
+			if (pool.IsEmpty())
+			{
+				foreach (IEntity e : m_aMen)
+				{
+					if (vector.DistanceXZ(e.GetOrigin(), m_vLastFight) < 300 && ZCR_LossLog.SideOf(e) == want)
+						pool.Insert(e);
+				}
 			}
 			if (pool.IsEmpty())
 			{
@@ -533,9 +543,9 @@ class ZCR_Director
 				target = follow.GetOrigin();
 				label = string.Format("CLOSE-UP: %1 %2 %3", ZCR_LossLog.SideOf(follow), ZCR_LossLog.Role(follow), Near(target));
 				key = "close";
-				back = 38;
-				height = 30;
-				duration = 14;
+				back = 24;
+				height = 14;
+				duration = 20;
 			}
 		}
 		bool hotTurn = force == "front" || (force.IsEmpty() && m_iShot % 5 == 0);
@@ -548,8 +558,9 @@ class ZCR_Director
 			if (lostUS + lostUSSR > 0)
 				label += string.Format(" - lost in the last minute: US %1, USSR %2", lostUS, lostUSSR);
 			key = string.Format("fight%1_%2", Math.Round(target[0] / 250), Math.Round(target[2] / 250));
-			back = 200;
-			height = 230;
+			back = 110;
+			height = 95;
+			duration = 22;
 			m_vLastFight = target;
 		}
 		if (key.IsEmpty() && !hotTurn)
@@ -597,8 +608,9 @@ class ZCR_Director
 				if (lost > 0)
 					label += string.Format(" - %1 lost there in the last minute", lost);
 				key = "assault" + bestNode;
-				back = 180;
-				height = 200;
+				back = 120;
+				height = 110;
+				duration = 22;
 				m_vLastFight = target;
 			}
 		}
