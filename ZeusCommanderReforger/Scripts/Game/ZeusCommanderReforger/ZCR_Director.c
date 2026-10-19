@@ -880,6 +880,13 @@ class ZCR_Director
 			m_sFocus = cmd.Substring(5, cmd.Length() - 5);
 			Print(string.Format("[ZCR][CAMUI] t=%1 side focus %2", now, m_sFocus), LogLevel.NORMAL);
 		}
+		else if (cmd.StartsWith("kind-"))
+		{
+			m_sKind = cmd.Substring(5, cmd.Length() - 5);
+			m_iGroupsAt = -1000;
+			Print(string.Format("[ZCR][CAMUI] t=%1 step through %2", now, m_sKind), LogLevel.NORMAL);
+			StepGroup(now, 1);
+		}
 		else if (cmd == "point+" || cmd == "point-")
 		{
 			int pdir = 1;
@@ -900,6 +907,64 @@ class ZCR_Director
 
 	protected int m_iPoint = -1;
 	protected string m_sFocus;          // SIDE button: "" both sides, "US" or "USSR" only
+	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
+
+	// Vehicles with US or USSR soldiers in them, and drones in the air, nearest the camera first.
+	protected void Movers(array<IEntity> into)
+	{
+		array<float> dist = {};
+		array<IEntity> seen = {};
+		if (m_sKind == "drones")
+		{
+			for (int k; k < ZCR_Drones.s_aDrones.Count(); k++)
+			{
+				IEntity d = ZCR_Drones.s_aDrones[k];
+				if (!d || (!m_sFocus.IsEmpty() && ZCR_Drones.s_aDroneSide[k] != m_sFocus))
+					continue;
+				vector p = d.GetOrigin();
+				if (p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]) < 3)
+					continue;
+				seen.Insert(d);
+			}
+		}
+		else
+		{
+			foreach (IEntity e : m_aMen)
+			{
+				ChimeraCharacter c = ChimeraCharacter.Cast(e);
+				if (!c || !c.IsInVehicle())
+					continue;
+				string side = ZCR_LossLog.SideOf(e);
+				if ((side != "US" && side != "USSR") || (!m_sFocus.IsEmpty() && side != m_sFocus))
+					continue;
+				IEntity v = e.GetRootParent();
+				if (v && v != e && !seen.Contains(v))
+					seen.Insert(v);
+			}
+		}
+		foreach (IEntity e : seen)
+		{
+			float d = vector.DistanceXZ(e.GetOrigin(), m_vShown);
+			int at = 0;
+			while (at < dist.Count() && dist[at] < d)
+				at++;
+			dist.InsertAt(d, at);
+			into.InsertAt(e, at);
+		}
+	}
+
+	protected static string VehicleName(IEntity v)
+	{
+		if (!v || !v.GetPrefabData())
+			return "vehicle";
+		string name = v.GetPrefabData().GetPrefabName();
+		int slash = name.LastIndexOf("/");
+		if (slash >= 0)
+			name = name.Substring(slash + 1, name.Length() - slash - 1);
+		name.Replace(".et", "");
+		name.Replace("_", " ");
+		return name;
+	}
 
 	// The side a shot keeps to: the focus, else the sides in turn.
 	protected string Turn(string a, string b)
@@ -963,14 +1028,20 @@ class ZCR_Director
 	// the US groups" - it took those within 700 m of the camera), each side nearest first; follow the leader.
 	protected void StepGroup(int now, int dir)
 	{
-		if (now - m_iGroupsAt > 40 || m_aGroupLeaders.IsEmpty() || !m_aGroupLeaders.Contains(m_ShownFollow))
+		// Teams change slowly; vehicles and drones come and go (a drone lives a minute or two).
+		int keep = 40;
+		if (m_sKind != "teams")
+			keep = 5;
+		if (now - m_iGroupsAt > keep || m_aGroupLeaders.IsEmpty() || !m_aGroupLeaders.Contains(m_ShownFollow))
 		{
 			m_iGroupsAt = now;
 			m_aGroupLeaders.Clear();
+			if (m_sKind != "teams")
+				Movers(m_aGroupLeaders);
 			array<ref array<IEntity>> bySide = {};
 			foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
 			{
-				if (!m_sFocus.IsEmpty() && faction != m_sFocus)
+				if (m_sKind != "teams" || (!m_sFocus.IsEmpty() && faction != m_sFocus))
 					continue;
 				array<IEntity> leaders = {};
 				array<float> dist = {};
@@ -1002,7 +1073,10 @@ class ZCR_Director
 		}
 		if (m_aGroupLeaders.IsEmpty())
 		{
-			Print("[ZCR][CAMUI] no squads", LogLevel.NORMAL);
+			Print(string.Format("[ZCR][CAMUI] no %1", m_sKind), LogLevel.NORMAL);
+			string none = string.Format("NO %1 NOW", m_sKind);
+			none.ToUpper();
+			Show(m_vShown, 120, 90, null, none, true);
 			return;
 		}
 		int n = m_aGroupLeaders.Count();
@@ -1019,7 +1093,21 @@ class ZCR_Director
 		m_bHold = true;
 		m_bLocked = true;
 		m_iSpotUntil = 0;
-		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING GROUP %1 OF %2: %3 squad leader %4", i + 1, n,
+		if (m_sKind == "drones")
+		{
+			int k = ZCR_Drones.s_aDrones.Find(leader);
+			string droneSide;
+			if (k >= 0)
+				droneSide = ZCR_Drones.s_aDroneSide[k];
+			Show(leader.GetOrigin(), 16, 6, leader, string.Format("FOLLOWING DRONE %1 OF %2: %3 FPV %4", i + 1, n, droneSide, Near(leader.GetOrigin())), true);
+			return;
+		}
+		if (m_sKind == "vehicles")
+		{
+			Show(leader.GetOrigin(), 30, 14, leader, string.Format("FOLLOWING VEHICLE %1 OF %2: %3 %4", i + 1, n, VehicleName(leader), Near(leader.GetOrigin())), true);
+			return;
+		}
+		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 team leader %4", i + 1, n,
 			ZCR_LossLog.SideOf(leader), Near(leader.GetOrigin())), true);
 	}
 

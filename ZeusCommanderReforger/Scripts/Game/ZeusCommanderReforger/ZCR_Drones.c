@@ -9,7 +9,7 @@
 // strategist sends its teams where the plan says (drone <base>: prep fire on the objective while
 // gathering, pressure during the assault and storm) - a team every 90 s, up to 3 in the air
 // (-zcrDroneTempo / -zcrDroneMax). A side on AI Conflict alone gets a baseline too, so both sides
-// use drones: every 4 minutes, up to 2, at the base most of its attack squads are sent to.
+// use drones: every 2 minutes, up to 3, at the base most of its attack squads are sent to.
 // The hunt (both sides): every other launch goes for the biggest group of enemy soldiers the side
 // has seen in the last minute (5 or more within 100 m, within 2.5 km of its bases) - drones hunt
 // the enemy's soldiers, not only the bases, so spacing and cover matter.
@@ -73,7 +73,8 @@ class ZCR_Drones
 		Launch(side, target, CliInt("zcrDroneTempo", 90), CliInt("zcrDroneMax", 3), "doctrine");
 	}
 
-	// AI Conflict's side (no strategist): a baseline - every 4 min, up to 2, at the base most of
+	// AI Conflict's side (no strategist): a baseline - every 2 min, up to 3 (was 4 min, 2: Martin, 19 Oct,
+	// "heavy drone dependent"; -zcrDroneBaselineTempo / -zcrDroneBaselineMax), at the base most of
 	// its attack squads are sent to.
 	static void Baseline(FactionKey side, AICF_FactionState state, AICF_ObjectiveGraph graph)
 	{
@@ -111,7 +112,7 @@ class ZCR_Drones
 		}
 		if (target < 0)
 			return;
-		Launch(side, target, 240, 2, "baseline");
+		Launch(side, target, CliInt("zcrDroneBaselineTempo", 120), CliInt("zcrDroneBaselineMax", 3), "baseline");
 	}
 
 	protected static ref map<FactionKey, int> s_mLaunches = new map<FactionKey, int>();

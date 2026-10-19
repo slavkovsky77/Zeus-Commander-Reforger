@@ -63,6 +63,7 @@ class ZCR_WatchControls
 	protected MenuBase m_Host;
 	protected bool m_bLocked;
 	protected string m_sFocus;          // the side the camera keeps to: "" both, "US", "USSR"
+	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
 	protected bool m_bAutoOff;
 	protected float m_fClock;
 	protected float m_fLastClick = -10;
@@ -138,8 +139,8 @@ class ZCR_WatchControls
 		}
 		Add("PREV SHOT", "prev", 0, 0);
 		Add("NEXT SHOT", "next", 0, 1);
-		Add("PREV GROUP", "group-", 1, 0);
-		Add("NEXT GROUP", "group+", 1, 1);
+		Add("PREV TEAM", "group-", 1, 0);
+		Add("NEXT TEAM", "group+", 1, 1);
 		Add("LOCK", "lock", 2, 0);
 		Add("ACTION", "action", 2, 1);
 		Add("CLOSER", "closer", 3, 0);
@@ -149,6 +150,7 @@ class ZCR_WatchControls
 		Add("PREV POINT", "point-", 5, 0);
 		Add("NEXT POINT", "point+", 5, 1);
 		Add("BOTH SIDES", "side", 6, 0);
+		Add("TEAMS", "kind", 6, 1);
 		Labels();
 	}
 
@@ -202,6 +204,24 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("BOTH SIDES");
 			}
+			else if (b.m_sCmd == "kind")
+			{
+				string kind = m_sKind;
+				kind.ToUpper();
+				b.m_wText.SetText(kind);
+			}
+			else if (b.m_sCmd == "group-" || b.m_sCmd == "group+")
+			{
+				string what = "TEAM";
+				if (m_sKind == "vehicles")
+					what = "VEHICLE";
+				else if (m_sKind == "drones")
+					what = "DRONE";
+				if (b.m_sCmd == "group-")
+					b.m_wText.SetText("PREV " + what);
+				else
+					b.m_wText.SetText("NEXT " + what);
+			}
 		}
 		Colours();
 	}
@@ -226,6 +246,10 @@ class ZCR_WatchControls
 				c = new Color(0.18, 0.35, 0.75, 0.85);
 			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
 				c = new Color(0.7, 0.18, 0.15, 0.85);
+			else if (b.m_sCmd == "kind" && m_sKind == "vehicles")
+				c = new Color(0.55, 0.42, 0.12, 0.85);
+			else if (b.m_sCmd == "kind" && m_sKind == "drones")
+				c = new Color(0.45, 0.2, 0.6, 0.85);
 			b.m_wBack.SetColor(c);
 		}
 	}
@@ -273,6 +297,18 @@ class ZCR_WatchControls
 					else
 						m_sFocus = "";
 					cmd = "side-" + m_sFocus;
+				}
+				// What PREV / NEXT steps through (Martin: "switch between infantry groups, vehicles and
+				// drones - what if I want to follow drones"): TEAMS -> VEHICLES -> DRONES.
+				if (cmd == "kind")
+				{
+					if (m_sKind == "teams")
+						m_sKind = "vehicles";
+					else if (m_sKind == "vehicles")
+						m_sKind = "drones";
+					else
+						m_sKind = "teams";
+					cmd = "kind-" + m_sKind;
 				}
 				Labels();
 				Send(cmd, vector.Zero);
