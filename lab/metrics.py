@@ -29,6 +29,8 @@ def measure(lines) -> dict:
     snapshots = 0
     t_end = 0
     score = {}
+    drone_kills = Counter()            # side whose soldier an FPV drone killed
+    drone_teams = Counter()
     for line in lines:
         if "[ZCR][LOSS]" in line:
             f = fields(line, "[ZCR][LOSS]")
@@ -36,6 +38,8 @@ def measure(lines) -> dict:
             by[f.get("side", "?")][f.get("killer_kind", "none")] += 1
             if "FRIENDLY" in f.get("relation", ""):
                 friendly += 1
+            if any(k in f.get("killer", "").lower() for k in ("fpv", "drone")):
+                drone_kills[f.get("side", "?")] += 1
             t_end = max(t_end, int(f.get("t", 0) or 0))
         elif "BASE_OWNER_CHANGED]" in line:
             f = fields(line, "BASE_OWNER_CHANGED]")
@@ -45,6 +49,8 @@ def measure(lines) -> dict:
             plans[fields(line, "[ZCR][PLAN]").get("source", "?")] += 1
         elif "[ZCR][BRIDGE_MISS]" in line:
             misses += 1
+        elif "[ZCR][DRONES]" in line and " team=" in line:
+            drone_teams[fields(line, "[ZCR][DRONES]").get("side", "?")] += 1
         elif "[ZCR][SCORE]" in line:
             f = fields(line, "[ZCR][SCORE]")
             score = {k: int(v) for k, v in f.items() if v.lstrip("-").isdigit()}
@@ -61,6 +67,8 @@ def measure(lines) -> dict:
         "plans": dict(plans),
         "bridge_misses": misses,
         "snapshots": snapshots,
+        "drone_teams": dict(drone_teams),
+        "drone_kills": dict(drone_kills),   # by the side that lost the soldier
         "score": score,   # bases held at the last round: US, USSR, FIA, objectives
     }
 

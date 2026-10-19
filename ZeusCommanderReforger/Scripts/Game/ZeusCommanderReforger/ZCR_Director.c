@@ -336,6 +336,18 @@ class ZCR_Director
 			back = 500;
 			height = 600;
 		}
+		else if (m_iShot % 3 == 1 && LiveDrone())
+		{
+			// An FPV drone on its way: followed until it hits (Martin on Arma 3: "I didn't see the
+			// finish of the FPV attack").
+			follow = LiveDrone();
+			target = follow.GetOrigin();
+			label = string.Format("%1 FPV DRONE on its way %2", m_sDroneSide, Near(target));
+			key = "drone";
+			back = 45;
+			height = 30;
+			duration = 45;
+		}
 		else if (m_bLastWasFight && best >= 0)
 		{
 			// Close-up in the fight just shown, alternating the side.
@@ -492,6 +504,31 @@ class ZCR_Director
 			gameMode.ZCR_SendShot(target, back, height, followId, label, duration);
 		Print(string.Format("[ZCR][CAM] t=%1 shot=%2 kind=%3 men=%4 moving=%5 fights=%6 label=%7", now, m_iShot, key, m_aMen.Count(), m_aMoving.Count(), centres.Count(), label), LogLevel.NORMAL);
 		SendOverlay(now);
+	}
+
+	protected string m_sDroneSide;
+
+	// A drone of the commanders' FPV teams still flying (deleted once it has hit).
+	protected IEntity LiveDrone()
+	{
+		for (int i = ZCR_Drones.s_aDrones.Count() - 1; i >= 0; i--)
+		{
+			IEntity d = ZCR_Drones.s_aDrones[i];
+			if (!d)
+			{
+				ZCR_Drones.s_aDrones.Remove(i);
+				ZCR_Drones.s_aDroneSide.Remove(i);
+				continue;
+			}
+			// In the air: well above the ground.
+			vector p = d.GetOrigin();
+			if (p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]) > 5)
+			{
+				m_sDroneSide = ZCR_Drones.s_aDroneSide[i];
+				return d;
+			}
+		}
+		return null;
 	}
 
 	protected string Score()

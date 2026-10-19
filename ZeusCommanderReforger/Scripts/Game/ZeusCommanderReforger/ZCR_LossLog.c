@@ -88,9 +88,12 @@ class ZCR_LossLog
 				s_aRecentSide.RemoveOrdered(0);
 			}
 		}
+		string killerName = "none";
+		if (killer)
+			killerName = ShortName(killer);
 		Print(string.Format("[ZCR][LOSS] t=%1 victim=%2 side=%3 kind=%4 killer_side=%5 killer_kind=%6 relation=%7 distance=%8 x=%9",
 			Seconds(), ShortName(victim), SideOf(victim), KindOf(victim), SideOf(killer), KindOf(killer),
 			typename.EnumToString(SCR_ECharacterDeathStatusRelations, data.GetVictimKillerRelation()), distance,
-			string.Format("%1 z=%2", Math.Round(at[0]), Math.Round(at[2]))), LogLevel.NORMAL);
+			string.Format("%1 z=%2 killer=%3", Math.Round(at[0]), Math.Round(at[2]), killerName)), LogLevel.NORMAL);
 	}
 }

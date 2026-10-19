@@ -65,6 +65,8 @@ def command(a, profile: Path) -> list:
             if name:
                 url = f"http://127.0.0.1:{BRIDGES[name]}" if name in BRIDGES else "none"
                 cmd += [f"-zcrBridge{side.upper()}", url]
+        if a.drones:
+            cmd += ["-zcrDrones"]        # strategist sides send FPV teams to their objectives
         if a.watch:
             cmd += ["-zcrWatchServer"]   # players get the whole map (they only watch)
     elif a.watch:
@@ -89,6 +91,8 @@ def main() -> int:
     ap.add_argument("--client", action="store_true", help="the game on screen, joining the local server")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
+    ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")
+    ap.add_argument("--ussr", default="", help="USSR strategist")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")

@@ -15,6 +15,7 @@ class ZCR_Strategist
 	// Every base of the objective graph by node id: where it is and its name (for the director).
 	static ref map<int, vector> s_mNodePos = new map<int, vector>();
 	static ref map<int, string> s_mNodeName = new map<int, string>();
+	static ref map<int, string> s_mNodeOwner = new map<int, string>();
 	// Each side's AI Conflict squads (for the director's list of soldiers).
 	static ref map<FactionKey, AICF_FactionState> s_mStates = new map<FactionKey, AICF_FactionState>();
 
@@ -172,6 +173,7 @@ class ZCR_Strategist
 			vector at = base.GetOwner().GetOrigin();
 			s_mNodePos.Set(node.GetId(), at);
 			s_mNodeName.Set(node.GetId(), BaseName(base));
+			s_mNodeOwner.Set(node.GetId(), owner);
 			string entry = string.Format("{\"id\":%1,\"name\":\"%2\",\"owner\":\"%3\",\"hq\":%4,\"objective\":%5,\"links\":[%6],\"x\":%7,\"z\":%8",
 				node.GetId(), Clean(BaseName(base)), owner, base.IsHQ(), node.IsObjective(), links, Num(at[0]), Num(at[2]));
 			if (ours)
@@ -264,7 +266,9 @@ class ZCR_Strategist
 				demand.Set(parts[1].ToInt(), parts[2].ToFloat());
 		}
 		m_iMissed = 0;
-		ZCR_StrategicPlan.Get(m_sFaction).Apply(priority, demand, intent, source);
+		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFaction);
+		plan.Apply(priority, demand, intent, source);
+		ZCR_Drones.OnPlan(m_sFaction, plan, source != "doctrine-fallback");
 	}
 
 	protected void OnError(RestCallback callback)

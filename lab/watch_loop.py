@@ -50,7 +50,7 @@ def git_commit() -> str:
 
 
 def opts(map_name: str, client: bool, us: str, ussr: str, label: str) -> Namespace:
-    return Namespace(map=map_name, port=PORT, client=client, drones=False, watch=True, plan_seconds=90,
+    return Namespace(map=map_name, port=PORT, client=client, drones=True, watch=True, plan_seconds=90,
                      bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False)
 
 
@@ -188,6 +188,11 @@ def moments(server_log: str, client_log: str, rec_start: int) -> tuple:
         if "BASE_OWNER_CHANGED]" in line:
             f = metrics.fields(line, "BASE_OWNER_CHANGED]")
             key.append((v, f"CAPTURE: {f.get('new_owner') or 'nobody'} takes {f.get('base', '?')} from {f.get('old_owner') or 'nobody'}"))
+        elif "[ZCR][DRONES]" in line and " team=" in line:
+            f = metrics.fields(line, "[ZCR][DRONES]")
+            m = re.search(r"from=(.*?) to=(.*?) distance=", line)   # base names have spaces
+            where = f"from {m.group(1)} to {m.group(2)}" if m else ""
+            key.append((v, f"DRONES: {f.get('side')} {f.get('kind')} FPV team {where}"))
         elif "[ZCR][PLAN]" in line:
             f = line.split("[ZCR][PLAN]", 1)[1]
             side = re.search(r"faction=(\S+)", f)
