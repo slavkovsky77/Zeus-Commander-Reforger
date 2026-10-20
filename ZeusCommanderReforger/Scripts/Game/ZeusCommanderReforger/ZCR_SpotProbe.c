@@ -6,6 +6,32 @@ class ZCR_SpotProbe
 	protected static int s_iDone;
 	protected static ref array<string> s_aLines;
 
+	protected static bool s_bRoads;
+
+	// -zcrProbeRoads: once, 20 s in, each base's radius and its nearest road point (any road within 400 m).
+	static void Roads()
+	{
+		if (s_bRoads || !System.IsCLIParam("zcrProbeRoads") || ZCR_LossLog.Seconds() < 20)
+			return;
+		s_bRoads = true;
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (!campaign || !aiWorld)
+			return;
+		array<SCR_CampaignMilitaryBaseComponent> bases = {};
+		campaign.GetBaseManager().GetBases(bases);
+		foreach (SCR_CampaignMilitaryBaseComponent base : bases)
+		{
+			vector c = base.GetOwner().GetOrigin();
+			vector road;
+			float d = -1;
+			if (AICF_LogisticsPlanner.NearestRoadPoint(aiWorld.GetRoadNetworkManager(), c, 400, road))
+				d = vector.DistanceXZ(road, c);
+			Print(string.Format("[ZCR][ROADS] base=%1 x=%2 z=%3 radius=%4 nearest_road_m=%5 at=%6,%7", base.GetOwner().GetID(), Math.Round(c[0]), Math.Round(c[2]),
+				Math.Round(base.GetRadius()), Math.Round(d), Math.Round(road[0]), Math.Round(road[2])), LogLevel.NORMAL);
+		}
+	}
+
 	static void Tick()
 	{
 		if (s_iDone >= 2 || !System.IsCLIParam("zcrProbeSpots"))
