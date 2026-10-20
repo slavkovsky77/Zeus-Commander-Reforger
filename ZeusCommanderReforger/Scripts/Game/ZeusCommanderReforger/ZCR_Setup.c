@@ -14,9 +14,10 @@ class ZCR_Setup
 	// off). Bunkers cost 100, and a build must leave AI Conflict's reserve for replacing teams (a few
 	// hundred); the front bases started near empty and no truck hauled supplies until r19.
 	// Logs [ZCR][SETUP] ... stocked=.
-	// Income for the lab (Martin: "add some more supplies"): every base of the two sides gains this many
-	// supplies a minute, the same for both (-zcrSupplyIncome N; default 60 in the two-army scenario) -
-	// recruits, vehicles and buildings drew the bases dry and the front bases never refilled.
+	// Income for the lab (Martin: "add some more supplies"): each side's main base gains this many
+	// supplies a minute, the same for both (-zcrSupplyIncome N; default 120 in the two-army scenario);
+	// AI Conflict's supply trucks carry it to the front. (Income at every base, the night of 20 Oct,
+	// left the trucks with no demand: 2 deliveries in 42 matches.)
 	protected static int s_iNextIncome;
 
 	static void Income()
@@ -28,7 +29,7 @@ class ZCR_Setup
 		if (System.GetCLIParam("zcrSupplyIncome", value) && !value.IsEmpty())
 			perMinute = value.ToInt();
 		else if (System.IsCLIParam("zcrNoFIA"))
-			perMinute = 60;
+			perMinute = 120;
 		int now = ZCR_LossLog.Seconds();
 		if (perMinute <= 0 || now < s_iNextIncome)
 			return;
@@ -45,6 +46,9 @@ class ZCR_Setup
 				continue;
 			string key = base.GetFaction().GetFactionKey();
 			if (key != "US" && key != "USSR")
+				continue;
+			SCR_CampaignFaction owner = SCR_CampaignFaction.Cast(base.GetFaction());
+			if (!owner || owner.GetMainBase() != base)
 				continue;
 			int add = Math.Min(perMinute, base.GetSuppliesMax() - base.GetSupplies());
 			if (add > 0)
