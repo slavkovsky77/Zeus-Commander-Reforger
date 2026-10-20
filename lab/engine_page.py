@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "r21: two headless matches with the road minefields removed (vehicles, trucks). The watched loop is off until Martin watches again.",
+    "Running now": "Watched loop at 3x on r21 (d2eb826): our doctrine against our doctrine and against doctrine + Gemini. First match: no crash, 54 boardings and none timed out, no vehicle lost.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Checking the mine fix in matches (vehicles lost, trucks delivered); supply trucks end to end (a depot at the main base); anti-drone balance.",
+    "Being built next": "Supply trucks end to end (no depot at the cramped US main base; jobs wait for demand); anti-drone balance.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -162,6 +162,8 @@ CAMERA = [
 PROBLEMS = [
     ("bug", "Supply trucks barely deliver", "Automatic dispatch restored and depots built first, but 44 truck jobs and 2 deliveries in 42 matches overnight: one job to follow end to end.", "review notes 203, 216"),
     ("good", "Vehicles blew up on mines at the main bases' exits", "Of 342 vehicles lost on 20 Oct, 191 blew up at two places ~300-500 m from the main bases - the first ones a minute into every match. Not the driving: A/B with a 50 km/h limit, AI drivers run a median 12 km/h. A probe of what is there (-zcrProbeSpots) found rows of six TM-62M anti-tank mines across both exit roads in Arland's Conflict world; AI drivers don't see mines. They also burned the supply truck of the test and killed the crews (no killer). Our AI Conflict now removes the world's minefields that lie on roads at the start (3 on Arland, 17 mines).", "review note 226"),
+    ("good", "Teams no longer wait at the main base for 10+ minutes", "Of the vehicle boardings in the 20 Oct tests, 85% ran out of time (223 against 36): our drone-cover layer sent soldiers waiting for their vehicle into buildings 40-60 m away, the 25-s boarding ran out, the trip started over. The south main base's side had a median 47% at the base at minute 10 (the north 20%). The cover layer now leaves teams that wait for or board a vehicle alone: first watched match, 54 boardings, none timed out.", "review note 228"),
+    ("bug", "Two watched matches stopped on the anti-drone fire", "The game's suppression sphere takes sqrt(r^2 - d^2) for a point near its edge; a hair outside it is NaN and the diagnostic build stops (13:00 and 13:04). Our anti-drone fire uses a sphere that clamps it; the loop restarted at 13:06 on the fix: 15 drones shot down, no stop.", "review note 229"),
     ("good", "Point-blank gunfights were a measuring error", "The 'median 3 m' counted friendly kills (crashes, run over) and suicides. Kills by enemy soldiers: median 30 m, 3% under 5 m, 42% at 20-50 m. The fighting-distance chart now counts enemy kills only.", "review note 227"),
     ("design", "Anti-drone balance", "21 drones shot down per side per match - about a third of those launched; probably too many.", "review note 213"),
     ("risk", "Formation spacing", "The wedge's spacing is in the game's formation config; one drone can still take several men.", "review note 183"),
@@ -197,6 +199,9 @@ CHANGELOG = [
     (21, "supply trucks carry the income", "20 Oct, from 11:14",
      ["AI Conflict fork: the world's minefields lying across roads are removed at the start - TM-62M rows across both main bases' exit roads blew up 191 of 342 vehicles on 20 Oct (found by a probe of the spot; a 50 km/h speed limit A/B ruled out driving).",
       "AI Conflict fork: a main base's vehicle depot keeps searching for a site (6 windows, 3x the sites) - the US main base on the coast never got one, so trucks drove 2.5 km round to load there.",
+      "Cover layer: teams waiting for or boarding their vehicle are left where they are - 85% of boardings timed out when they were sent to cover 40-60 m away.",
+      "Anti-drone fire: a suppression sphere that clamps its height range (the game's NaN stopped two watched matches).",
+      "The main base's long depot search is off by default: it took the planner's whole search budget and no base built a depot.",
       "Driving measured: [ZCR][DRIVE] speeds every 30 s, kmh= on vehicle losses; the game's cruise limit as an option (-zcrCruiseSpeed).",
       "Fighting distance counts enemy kills only: the 'point-blank gunfights' (median 3 m) were crashes and suicides; enemy kills median 30 m.",
       "AI Conflict fork: bases ask for a supply truck below 35% and are filled to 50%; a donor keeps 50% and gives above 55%; a base it owns keeps 200 back (was 500).",
