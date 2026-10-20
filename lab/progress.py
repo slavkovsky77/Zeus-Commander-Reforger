@@ -64,6 +64,7 @@ BUILDS = [
     (17, "rides, covered steps", "2026-10-19 21:51", "infantry teams ride light vehicles on marches over 500 m (not one ride before), jog, end each march step in cover; AI Conflict's side flies drones every 2 min"),
     (18, "cover, panic, scan", "2026-10-19 22:05", "idle soldiers to cover anywhere, drone panic from 250 m, drones sweep instead of hovering, rides from 300 m, 16 vehicles per side"),
     (19, "doctrine v doctrine, held prone, standoff", "2026-10-19 23:35", "both sides our doctrine; speed set by the game itself; prone held by the game's stance setting; soldiers hold 60 m from a seen enemy; supply trucks run again; free look, orbit, REPORT, IDs in captions"),
+    (20, "danger awareness, anti-drone fire, defend in buildings", "2026-10-20 05:16", "no standing in danger, prone every second near drones, small-arms fire at drones, defenders at the base's buildings, kill zones, wrecks cleared, spectators block no rescue, armed rides, wedge not column"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

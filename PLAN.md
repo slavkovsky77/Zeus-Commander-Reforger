@@ -4,17 +4,17 @@ Martin's wishes and remarks, grouped by theme, with the review note numbers (ac-
 and where each stands. Kept up to date with every change; `python lab/plan_page.py` builds the page.
 Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **Fixed** (a bug).
 
-## Night 20 Oct (Martin asleep 02:25-10:00)
-- [In progress] Soldiers don't care about danger (212) | Danger layer: high danger - never standing; medium - crouched when still. From the game's threat state, enemies known, kill zones, drones. Measure: % standing in danger, dead lying prone.
-- [In progress] Killed by drones outdoors with a house right there (211) | Drone within 100 m: down at once; farther: into a building within 40 m first; idle soldiers: a building within 60 m before trees.
-- [In progress] The next team walks into the kill zone of the previous one (208) | Kill zones: march steps keep 60 m from the side's losses of the last 3 min; high danger near them for 2 min.
-- [Todo] Infantry fires at drones with small arms, like in reality (213) | Soldiers with a line of sight to an enemy drone within ~120 m engage it; hits can bring it down. Measure: drones shot down, soldiers firing at drones.
-- [Todo] Vehicles crash into wrecks and get stuck (209) | Wrecks cleared a minute after they burn out; stuck vehicles measured.
-- [Todo] Supply trucks not used by the AI (216) | The automatic scheduler restored at 00:00 still put no truck on the road; find what else blocks it.
-- [Todo] Cars wiggle left-right (217) | Check the 3x time step against the drivers' steering (a 1x match), or the driving itself.
-- [Todo] Combat vehicles in some cases | Some teams ride armed light vehicles (M1025 M2, UAZ-469 PKM, BRDM-2) with a gunner manned.
-- [Todo] Count AI opening road blocks and gates (219, KEEP.md) | Martin liked a US medic opening a road block; no measure yet.
-- [Todo] Verify everything on watched matches (doctrine v doctrine, doctrine v Gemini) and the scorecard; the morning page: how the main problems were tackled (214, 215).
+## Night 20 Oct (Martin asleep 02:25-10:00; report https://claude.ai/artifact/CgNScfPGHX6GQCJnZpgBGb)
+- [Done] Soldiers don't care about danger (212) | Danger layer: high danger never standing, medium crouched when still. In high danger standing 72% -> 10% (42 matches).
+- [Done] Killed by drones outdoors with a house right there (211, 221, 222) | Prone every second within 150 m; buildings first; defend orders at the base's building cluster. Drone victims standing 91% -> 40%, prone 0.5% -> 26%.
+- [Done] Infantry fires at drones with small arms (213) | Up to 3 shooters, MGs first; 21 shot down per side per match - balance to discuss.
+- [Done] The next team walks into the kill zone of the previous one (208) | Kill zones: march steps keep 60 m away, high danger near them for 2 min.
+- [Fixed] Vehicles crash into wrecks and get stuck (209, 218, 220) | Wrecks removed after 60 s (205 overnight); the watching camera no longer blocks rescues (failing 77% -> 34%).
+- [Done] Combat vehicles in some cases | Every third team rides an armed light vehicle: 6.7 a side a match; riding 45% -> 69%.
+- [In progress] Supply trucks not used by the AI (216) | Dispatch restored, depots first, starting stock and income - still only 2 deliveries in 42 matches.
+- [Todo] Cars wiggle left-right (217) | Stuck/recovery events as many at 1x as at 3x: the driving AI and wrecks, not the speed-up; to look at in the recordings.
+- [In progress] Point-blank gunfights | Median 3 m, unchanged: fights are at bases where soldiers may close in - fight from the base's edge next.
+- [Todo] Count AI opening road blocks and gates (219, KEEP.md) | Martin liked a US medic opening a road block.
 
 ## Watching and speed
 - [Done] Run the game faster by any means (117, 123, 129) | The diagnostic build's Diag Menu > Cheats > DTime multiplier, only where the game hosts the match (solo): 2.0x measured at 60 fps. The watched loop sets it every match.

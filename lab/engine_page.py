@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Paused while Martin plays: his remarks from 22:30-00:10 are being built first. The watched loop then runs our doctrine against our doctrine at 3x (set by the game itself now), AI Conflict alone every fourth match as the check; the headless batch the same.",
-    "Tonight's result": "The regression the measures hid (teams of one at base, no drones, no rides) fixed in our own AI Conflict: every screen check passes in the latest headless match, 83-92% in the watched ones. What Martin still sees: soldiers reckless - gunfire kills at 1-4 m in doctrine v doctrine matches, nobody prone under drones, no supply trucks, few defenses.",
-    "Being built next": "Soldiers hold 60 m from a seen enemy and lie prone under drones (r19, to verify); supply trucks running again; fortifications the builders put up; an engineering and goals overview; /good and /bad reports.",
+    "Running now": "The watched loop at 3x and the headless batch, our doctrine against our doctrine and against doctrine + Gemini, on r20.",
+    "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). Night report: https://claude.ai/artifact/CgNScfPGHX6GQCJnZpgBGb",
+    "Being built next": "Supply trucks end to end (2 deliveries in 42 matches); fights from a base's edge instead of point-blank (median 3 m); anti-drone balance; formation spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -160,15 +160,12 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("risk", "Reckless soldiers", "Gunfire kills at 1-6 m; nobody prone under drones (0% of the dead); half the drone victims with nothing overhead. r19 holds 60 m from a seen enemy and keeps prone under drones - to verify in the next matches.", "Martin 23:30-23:35"),
-    ("risk", "Stacked under a drone", "A team still ends up at one tree with an enemy drone overhead; cover spots now keep 6 m from every soldier already there (r19), and the formation's spacing itself is in the game's formation config, not reachable from script yet.", "review notes 183, 196"),
-    ("risk", "Crossing open fields where cover was available", "March steps end in the best cover within 60 m, but the path between them is the shortest one - straight across a field; a route through cover is not built yet.", "review note 174"),
-    ("bug", "No supply trucks", "AI Conflict's dispatch was manual-only; the automatic scheduler is back in the fork (r19) - not yet seen in a match.", "Martin 00:00"),
-    ("design", "Defenses and engineering goals", "The builders put up barracks, armories and vehicle depots only. Fortifications (bunkers, sandbags - TRAIT_FORTIFICATION compositions in the faction catalog) as a new building type, and an overview of each side's goals and engineering, are next.", "review notes 186, 192, 197"),
-    ("risk", "Speed on Everon and with more soldiers", "3x measured 2.2-3.0x on Arland; more soldiers and vehicles lower the frame rate, and Everon only reaches ~1.5x.", ""),
-    ("design", "Careful or full storm?", "Careful (25) costs less but took Moss Hill once in two; full took it three in three. Careful is the default.", "review note 106"),
-    ("risk", "Slow follow-on after a capture", "Squads sent 1-1.4 km on to the next base take 7-18 min.", "review note 109"),
-    ("risk", "Few matches per build", "Each build has 1-4 matches per line, so single points jump.", ""),
+    ("bug", "Supply trucks barely deliver", "Automatic dispatch restored and depots built first, but 44 truck jobs and 2 deliveries in 42 matches overnight: one job to follow end to end.", "review notes 203, 216"),
+    ("risk", "Point-blank gunfights", "Median gunfire kill distance 3 m, 79% under 15 m, unchanged by the 60 m hold - most fights are within 150 m of an enemy base, where soldiers may close in to clear it.", "review note 200"),
+    ("design", "Anti-drone balance", "21 drones shot down per side per match - about a third of those launched; probably too many.", "review note 213"),
+    ("risk", "Formation spacing", "The wedge's spacing is in the game's formation config; one drone can still take several men.", "review note 183"),
+    ("design", "Bunkers", "34 built overnight (0.4 per side per match) - supplies and AI Conflict's reserve are the limit.", "review notes 186, 192"),
+    ("risk", "Unattended nights", "The PC slept 02:42-05:13 (now kept awake while the lab runs); after 05:16 no change was made - nothing woke the session between matches.", ""),
 ]
 
 NEXT = [
@@ -196,6 +193,15 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (20, "danger awareness, anti-drone fire, defend in buildings", "20 Oct, from 02:25 (final 05:16)",
+     ["Danger layer: high danger (threatened, enemy within 150 m, a kill zone, a drone within 150 m) - never standing; medium - crouched when still.",
+      "Drones: prone every second within 150 m with nothing overhead; buildings first for cover; small-arms fire at drones (up to 3 shooters, MGs first) with a chance to bring them down.",
+      "Defend orders at each base's building cluster (25 m) instead of the open spawn point; every AI Conflict order a wedge instead of a column.",
+      "Kill zones: march steps keep 60 m from the side's losses of the last 3 min.",
+      "Vehicles: wrecks removed 60 s after they burn out; a spectator (the watching camera) no longer blocks rescues and cleanup; every third team rides an armed light vehicle.",
+      "Builders: depots before armories; the lab gives starting supplies and an income; a fortification (bunker) type."],
+     "Martin: they don't care about danger; killed by drones outdoors with a house right there; defense against drones with small arms; the next team walks into the kill zone; vehicles crash into wrecks and get stuck; use combat vehicles; supply trucks not used.",
+     "42 matches overnight: screen checks 81% -> 91%; drone victims standing 91% -> 40%, prone 0.5% -> 26%; in high danger standing 72% -> 10%; 21 drones shot down per side per match; riding 45% -> 69%; 205 wrecks removed; losses 56 -> 46. Still open: supply trucks (2 deliveries in 42 matches), point-blank gunfights (median 3 m)."),
     (19, "doctrine v doctrine, held prone, standoff, script speed", "19-20 Oct, from 23:35",
      ["Speed set by the game itself (the Diag Menu's engine values) - no key presses at match start.",
       "Soldiers hold 60 m from an enemy seen in the last 15 s (the game's attack closed to 15 m), except within 150 m of an enemy base.",
