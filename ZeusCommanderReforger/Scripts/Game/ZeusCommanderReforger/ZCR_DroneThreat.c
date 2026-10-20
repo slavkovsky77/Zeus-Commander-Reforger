@@ -3,7 +3,7 @@
 // ZC_fnc_droneThreat). Every second, for every commanders' drone in the air: soldiers on foot of the
 // other sides within 250 m of it (an FPV is heard; was 150) react, each at most every 15 s -
 //   - under a roof or tree canopy already: stay, crouched;
-//   - the drone within 100 m: down at once (prone held 15 s) - no sprinting upright;
+//   - the drone within 150 m and nothing overhead: down at once, checked every second (prone held 15 s);
 //   - overhead cover (canopy, a building) within 20 m, the far side from the drone first, each soldier
 //     his own spot 6 m from the others: run there;
 //   - none: spread out (15-25 m away from the drone, each his own way, 8 m apart), down when it comes again.
@@ -126,6 +126,11 @@ class ZCR_DroneThreat
 					running.Set(side, running.Get(side) + 1);
 				if (ctl.GetStance() == ECharacterStance.PRONE)
 					prone.Set(side, prone.Get(side) + 1);
+				// Close and in the open: down now, every second - not only at his reaction every 15 s (the
+				// first one came when the drone was heard at 250 m; by the time it was close his next one
+				// was still waiting, and almost nobody was prone: Martin 02:32, Moss Hill, 3-4 at a time).
+				if (!over && vector.DistanceXZ(c.GetOrigin(), dp) < 150 && (!s_mProneUntil.Contains(c) || now >= s_mProneUntil.Get(c) - 5))
+					Down(c, now);
 				if (now - s_mReactedAt.Get(c) < COOLDOWN && s_mReactedAt.Contains(c))
 					continue;
 				s_mReactedAt.Set(c, now);
@@ -184,7 +189,7 @@ class ZCR_DroneThreat
 		// Close (under 100 m): down at once - a man sprinting upright is what an FPV catches (02:00,
 		// Martin's report 1: drone victims 95-98% standing, 0% prone; 75-94% were running for cover).
 		float d = vector.DistanceXZ(c.GetOrigin(), from);
-		if (d < 100)
+		if (d < 150)
 		{
 			Down(c, now);
 			return;
