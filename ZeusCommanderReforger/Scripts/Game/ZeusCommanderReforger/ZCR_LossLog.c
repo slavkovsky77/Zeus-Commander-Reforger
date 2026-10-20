@@ -97,6 +97,9 @@ class ZCR_LossLog
 			s_aRecentPos.Insert(at);
 			s_aRecentAt.Insert(Seconds());
 			s_aRecentSide.Insert(SideOf(victim));
+			// Kill zones for AI Conflict's march steps (our fork's AICF_DangerZones).
+			if (ChimeraCharacter.Cast(victim))
+				AICF_DangerZones.Add(at, SideOf(victim));
 			if (s_aRecentPos.Count() > 400)
 			{
 				s_aRecentPos.RemoveOrdered(0);

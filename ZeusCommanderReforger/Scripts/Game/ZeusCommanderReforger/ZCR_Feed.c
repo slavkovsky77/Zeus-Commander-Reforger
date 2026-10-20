@@ -86,6 +86,9 @@ class ZCR_Feed
 		string joined;
 		foreach (int i, string l : lines)
 		{
+			// Four in the panel (with GOALS the panel ran into the buttons below it - Martin's screen, 02:00).
+			if (i >= 4)
+				break;
 			if (i > 0)
 				joined += "<br/>";
 			string t = l.Trim();

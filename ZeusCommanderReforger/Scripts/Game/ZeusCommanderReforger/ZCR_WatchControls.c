@@ -109,7 +109,13 @@ class ZCR_WatchControls
 		if (!s_Instance || !menus)
 			return;
 		if (s_Instance.m_Host && s_Instance.m_Host.IsOpen())
+		{
+			// Kept hidden: a key had shown it over the picture (Martin's screen 02:01:24) and a click in
+			// it most likely restarted the mission (a new playthrough at 02:01:46).
+			if (s_Instance.m_Host.GetRootWidget() && s_Instance.m_Host.GetRootWidget().IsVisible())
+				s_Instance.m_Host.GetRootWidget().SetVisible(false);
 			return;
+		}
 		s_Instance.m_Host = menus.OpenMenu(ChimeraMenuPreset.PlayerListMenu);
 		if (s_Instance.m_Host && s_Instance.m_Host.GetRootWidget())
 			s_Instance.m_Host.GetRootWidget().SetVisible(false);

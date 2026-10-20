@@ -3,7 +3,8 @@
 // ZC_fnc_droneThreat). Every second, for every commanders' drone in the air: soldiers on foot of the
 // other sides within 250 m of it (an FPV is heard; was 150) react, each at most every 15 s -
 //   - under a roof or tree canopy already: stay, crouched;
-//   - overhead cover (canopy, a building) within 40 m, the far side from the drone first, each soldier
+//   - the drone within 100 m: down at once (prone held 15 s) - no sprinting upright;
+//   - overhead cover (canopy, a building) within 20 m, the far side from the drone first, each soldier
 //     his own spot 6 m from the others: run there;
 //   - none: spread out (15-25 m away from the drone, each his own way, 8 m apart), down when it comes again.
 // When a drone goes off, the survivors within 40 m scatter 20-35 m, each his own way, into overhead
@@ -175,8 +176,19 @@ class ZCR_DroneThreat
 				utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.CROUCH);
 			return;
 		}
+		// Close (under 100 m): down at once - a man sprinting upright is what an FPV catches (02:00,
+		// Martin's report 1: drone victims 95-98% standing, 0% prone; 75-94% were running for cover).
+		float d = vector.DistanceXZ(c.GetOrigin(), from);
+		if (d < 100)
+		{
+			Down(c, now);
+			return;
+		}
+		// Farther: cover only when it is near (20 m, a few seconds' run), else spread out, then down.
 		vector spot;
-		if (FindOverhead(c, from, 40, spot, vector.Zero, taken))
+		// A building within 40 m first (Martin 02:05: "three guys killed by drones at Moss Hill, spending
+		// time outdoors - and they have a house there"), else a roof or tree crown within 20 m.
+		if (FindShelter(c, from, 40, spot, taken) || FindOverhead(c, from, 20, spot, vector.Zero, taken))
 		{
 			// Above the attack (90) and the cover layer (98): a drone overhead comes first.
 			taken.Insert(spot);
@@ -322,7 +334,7 @@ class ZCR_DroneThreat
 			open.Set(side, open.Get(side) + 1);
 			SCR_AIUtilityComponent utility = Utility(c);
 			vector spot;
-			if (!utility || !FindOverhead(c, p, 40, spot, vector.Zero, taken))
+			if (!utility || !(FindShelter(c, p, 60, spot, taken) || FindOverhead(c, p, 40, spot, vector.Zero, taken)))
 				continue;
 			taken.Insert(spot);
 			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 10, null, 1.0));
@@ -385,6 +397,79 @@ class ZCR_DroneThreat
 				spot = nav;
 				return true;
 			}
+		}
+		return false;
+	}
+
+	// Inside a building within 'radius': a low roof (within 6 m over the head) and walls within 8 m on at
+	// least 5 of 8 sides, on the navmesh, 6 m from the others; the nearest, the far side from 'threat' first.
+	protected static bool FindShelter(ChimeraCharacter c, vector threat, float radius, out vector spot, array<vector> avoid)
+	{
+		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+		AIPathfindingComponent pathfinding;
+		if (control && control.GetControlAIAgent())
+			pathfinding = AIPathfindingComponent.Cast(control.GetControlAIAgent().FindComponent(AIPathfindingComponent));
+		BaseWorld world = GetGame().GetWorld();
+		vector here = c.GetOrigin();
+		vector away = here - threat;
+		away[1] = 0;
+		if (away.Length() < 1)
+			away = Vector(1, 0, 0);
+		away.Normalize();
+		vector self = here;
+		for (float d = 5; d <= radius; d += 5)
+		{
+			for (int k; k < 12; k++)
+			{
+				float r = k * 30 * Math.DEG2RAD;
+				vector dir = Vector(away[0] * Math.Cos(r) - away[2] * Math.Sin(r), 0, away[0] * Math.Sin(r) + away[2] * Math.Cos(r));
+				vector p = here + dir * d;
+				p[1] = world.GetSurfaceY(p[0], p[2]);
+				if (!Inside(world, p, c))
+					continue;
+				vector nav = p;
+				if (pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav))
+					continue;
+				if (vector.DistanceXZ(nav, p) > 2)
+					continue;
+				bool crowded;
+				foreach (vector q : avoid)
+				{
+					if (vector.DistanceXZ(q, self) > 0.5 && vector.DistanceXZ(q, nav) < 6)
+						crowded = true;
+				}
+				if (crowded)
+					continue;
+				spot = nav;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	protected static bool Inside(BaseWorld world, vector p, IEntity self)
+	{
+		if (!s_Trace)
+			s_Trace = new TraceParam();
+		s_Trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		s_Trace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.FireGeometry;
+		s_Trace.Exclude = self;
+		s_Trace.Start = p + "0 1.5 0";
+		s_Trace.End = p + "0 7.5 0";
+		if (world.TraceMove(s_Trace, null) >= 1.0)
+			return false;               // no low roof
+		int walls;
+		for (int k; k < 8; k++)
+		{
+			float r = k * 45 * Math.DEG2RAD;
+			s_Trace.Start = p + "0 1 0";
+			s_Trace.End = p + Vector(Math.Cos(r) * 8, 1, Math.Sin(r) * 8);
+			if (world.TraceMove(s_Trace, null) < 1.0)
+				walls++;
+			if (walls >= 5)
+				return true;
+			if (walls + (7 - k) < 5)
+				return false;
 		}
 		return false;
 	}

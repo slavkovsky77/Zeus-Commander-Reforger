@@ -430,8 +430,8 @@ class ZCR_Watch
 		// Arma 3's panel look (ZC_fnc_debugPanel): black at 62%, the side's name in its colour, grey
 		// section labels, captures green, losses red, attacks and storms yellow.
 		m_Panel = NewText(0.26, 0.005, 0.74, 0.045, 20, 0.62, null, true);
-		m_Left = NewText(0.004, 0.005, 0.252, 0.47, 17, 0.62, null, true);
-		m_Right = NewText(0.748, 0.005, 0.996, 0.47, 17, 0.62, null, true);
+		m_Left = NewText(0.004, 0.005, 0.252, 0.47, 15, 0.62, null, true);
+		m_Right = NewText(0.748, 0.005, 0.996, 0.47, 15, 0.62, null, true);
 		m_Bottom = NewText(0.004, 0.953, 0.996, 0.995, 16, 0.62, null, true);
 		if (m_Left)
 			m_Left.SetFont(FONT);
