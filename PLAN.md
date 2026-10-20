@@ -73,6 +73,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 
 ## Drones
+- [Fixed] Drones crash into the water (236) | A third of all drones (537 in 28 matches) flew into the sea inlet south of the Military Training Area on our search sweeps; sweeps and goals never over the sea now. Drone mod (other chat): height over water should come from the water surface, not the sea bed.
 - [Fixed] 0 drones in the sky (172) | My rule "drones only where enemies are known" grounded them from 18:40 (0-3 teams a match). Now: a search when nothing is known, the drones spot for their side, AI Conflict's side every 2 min.
 - [Done] Drone warfare doctrine: heavy drone use (118, 158, 160) | Prep fire while gathering, pressure during the assault; both sides fly drones. Two armies only: drones cause 60-79% of losses (front band 70-96%); drones go where enemies are known. A faster tempo gave nothing (the sites and teams in the air limit it).
 - [Fixed] Drones fell at their spawn (122) | Launch spots clear of buildings and trees.
