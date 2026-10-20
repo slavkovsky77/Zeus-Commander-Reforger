@@ -156,6 +156,11 @@ class ZCR_DroneThreat
 		return true;
 	}
 
+	static SCR_AIUtilityComponent UtilityOf(ChimeraCharacter c)
+	{
+		return Utility(c);
+	}
+
 	protected static SCR_AIUtilityComponent Utility(ChimeraCharacter c)
 	{
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));

@@ -15,6 +15,7 @@ modded class AICF_AICommander
 			ZCR_Sampler.Start();
 			ZCR_DroneThreat.Start();     // soldiers react to enemy drones (both sides)
 			ZCR_Danger.Start();       // danger awareness: no standing in danger (-zcrNoDanger)
+			ZCR_AntiDrone.Start();    // small-arms fire at enemy drones (-zcrNoAntiDrone)
 			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
 			ZCR_Drones.Tend(m_sFactionKey);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);

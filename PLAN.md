@@ -10,6 +10,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] The next team walks into the kill zone of the previous one (208) | Kill zones: march steps keep 60 m from the side's losses of the last 3 min; high danger near them for 2 min.
 - [Todo] Infantry fires at drones with small arms, like in reality (213) | Soldiers with a line of sight to an enemy drone within ~120 m engage it; hits can bring it down. Measure: drones shot down, soldiers firing at drones.
 - [Todo] Vehicles crash into wrecks and get stuck (209) | Wrecks cleared a minute after they burn out; stuck vehicles measured.
+- [Todo] Supply trucks not used by the AI (216) | The automatic scheduler restored at 00:00 still put no truck on the road; find what else blocks it.
+- [Todo] Cars wiggle left-right (217) | Check the 3x time step against the drivers' steering (a 1x match), or the driving itself.
 - [Todo] Combat vehicles in some cases | Some teams ride armed light vehicles (M1025 M2, UAZ-469 PKM, BRDM-2) with a gunner manned.
 - [Todo] Verify everything on watched matches (doctrine v doctrine, doctrine v Gemini) and the scorecard; the morning page: how the main problems were tackled (214, 215).
 
