@@ -58,11 +58,18 @@ def measure(run: Path) -> dict:
     boarded = {s: set() for s in SIDES}
     riding = {s: [] for s in SIDES}
     threat = {s: [] for s in SIDES}
+    danger_high = {s: [] for s in SIDES}        # % of the high-danger soldiers standing, per sample
+    shot_down = {s: 0 for s in SIDES}
+    jobs = {s: 0 for s in SIDES}
+    unloads = {s: 0 for s in SIDES}
+    forts = {s: 0 for s in SIDES}
+    armed = {s: set() for s in SIDES}
+    wrecks = 0
     drone_dead = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
     last_t = 0
     for line in open(log, encoding="utf-8", errors="replace"):
-        if "[ZCR][" not in line and "BOARDING_PHASE_STARTED" not in line:
+        if "[ZCR][" not in line and "BOARDING_PHASE_STARTED" not in line and "LOGISTICS_" not in line                 and "CONSTRUCTION_COMPLETED" not in line and "ARMED_LIGHT" not in line:
             continue
         d = kv(line)
         t = num(d.get("t"))
@@ -81,6 +88,21 @@ def measure(run: Path) -> dict:
         elif "[ZCR][DRONETHREAT]" in line and side in SIDES and " near=" in line:
             safe = num(d.get("covered"), 0) + num(d.get("reacting"), 0) + num(d.get("prone"), 0)
             threat[side].append(min(100, safe))
+        elif "[ZCR][DANGER]" in line and side in SIDES:
+            if num(d.get("high_standing"), -1) >= 0:
+                danger_high[side].append(num(d.get("high_standing")))
+        elif "[ZCR][ANTIDRONE]" in line and side in SIDES and "shot_down=1" in line:
+            shot_down[side] += 1
+        elif "[ZCR][WRECK]" in line:
+            wrecks += 1
+        elif "LOGISTICS_JOB_RESERVED" in line and side in SIDES:
+            jobs[side] += 1
+        elif "LOGISTICS_UNLOAD_COMMITTED" in line and side in SIDES:
+            unloads[side] += 1
+        elif "CONSTRUCTION_COMPLETED" in line and "type=FORTIFICATION" in line and side in SIDES:
+            forts[side] += 1
+        elif "ARMED_LIGHT" in line and side in SIDES and d.get("slot"):
+            armed[side].add(d.get("slot"))
         elif "[ZCR][RIDING]" in line and side in SIDES:
             riding[side].append(int(num(d.get("riding"), 0)))
         elif "BOARDING_PHASE_STARTED" in line and side in SIDES:
@@ -91,7 +113,7 @@ def measure(run: Path) -> dict:
                 lost[v] += 1
                 if d.get("kind") == "man" and d.get("killer_kind") in ("none", "") and d.get("stance"):
                     drone_dead[v].append(d.get("stance"))
-    out = {"run": run.name, "minutes": round(last_t / 60, 1), "sides": {}}
+    out = {"run": run.name, "minutes": round(last_t / 60, 1), "sides": {}, "wrecks": wrecks}
     for s in SIDES:
         rows = crowd[s]
         first_out = next((num(r["t"]) / 60 for r in rows if num(r.get("field"), 0) > 0), None)
@@ -117,6 +139,12 @@ def measure(run: Path) -> dict:
             "riding_avg": round(sum(riding[s]) / len(riding[s]), 1) if riding[s] else None,
             "field_overhead": round(sum(field_cover) / len(field_cover)) if field_cover else None,
             "panic_pct": round(sum(threat[s]) / len(threat[s])) if threat[s] else None,
+            "danger_standing": round(sum(danger_high[s]) / len(danger_high[s])) if danger_high[s] else None,
+            "shot_down": shot_down[s],
+            "truck_jobs": jobs[s],
+            "truck_unloads": unloads[s],
+            "forts": forts[s],
+            "armed_teams": len(armed[s]),
             "drone_dead_standing": round(100 * drone_dead[s].count("STAND") / len(drone_dead[s])) if drone_dead[s] else None,
             "drone_dead_prone": round(100 * drone_dead[s].count("PRONE") / len(drone_dead[s])) if drone_dead[s] else None,
             "lost": lost[s],
@@ -151,6 +179,8 @@ def report(card: dict) -> tuple:
             fails += not good
             parts.append(f"{name} {'ok ' if good else 'FAIL'} {show(m)}")
         lines.append(f"  {s:5} " + " | ".join(parts) + f" | field overhead {m['field_overhead']}% | lost {m['lost']}")
+        lines.append(f"        in danger standing {m.get('danger_standing')}% | drones shot down {m.get('shot_down')} | truck jobs {m.get('truck_jobs')}, "
+                     f"unloads {m.get('truck_unloads')} | bunkers {m.get('forts')} | armed rides {m.get('armed_teams')} teams")
     return "\n".join(lines), fails
 
 
