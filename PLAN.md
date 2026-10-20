@@ -4,6 +4,15 @@ Martin's wishes and remarks, grouped by theme, with the review note numbers (ac-
 and where each stands. Kept up to date with every change; `python lab/plan_page.py` builds the page.
 Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **Fixed** (a bug).
 
+## Night 20 Oct (Martin asleep 02:25-10:00)
+- [In progress] Soldiers don't care about danger (212) | Danger layer: high danger - never standing; medium - crouched when still. From the game's threat state, enemies known, kill zones, drones. Measure: % standing in danger, dead lying prone.
+- [In progress] Killed by drones outdoors with a house right there (211) | Drone within 100 m: down at once; farther: into a building within 40 m first; idle soldiers: a building within 60 m before trees.
+- [In progress] The next team walks into the kill zone of the previous one (208) | Kill zones: march steps keep 60 m from the side's losses of the last 3 min; high danger near them for 2 min.
+- [Todo] Infantry fires at drones with small arms, like in reality (213) | Soldiers with a line of sight to an enemy drone within ~120 m engage it; hits can bring it down. Measure: drones shot down, soldiers firing at drones.
+- [Todo] Vehicles crash into wrecks and get stuck (209) | Wrecks cleared a minute after they burn out; stuck vehicles measured.
+- [Todo] Combat vehicles in some cases | Some teams ride armed light vehicles (M1025 M2, UAZ-469 PKM, BRDM-2) with a gunner manned.
+- [Todo] Verify everything on watched matches (doctrine v doctrine, doctrine v Gemini) and the scorecard; the morning page: how the main problems were tackled (214, 215).
+
 ## Watching and speed
 - [Done] Run the game faster by any means (117, 123, 129) | The diagnostic build's Diag Menu > Cheats > DTime multiplier, only where the game hosts the match (solo): 2.0x measured at 60 fps. The watched loop sets it every match.
 - [Done] Watch in a normal window with borders at full resolution (130) | The game opens in its own maximised mode from its settings file.
