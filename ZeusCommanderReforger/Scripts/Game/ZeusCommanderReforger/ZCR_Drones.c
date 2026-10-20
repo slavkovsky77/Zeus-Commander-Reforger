@@ -182,12 +182,18 @@ class ZCR_Drones
 			{
 				// Nothing known, no route left: sweep a 250 m circle round here before going home - the
 				// drones' own eyes look as they go.
+				// Not over the sea: points in it, or with the sea between, are left out (20 Oct: 537 drones in 28
+				// watched matches flew into the inlet south of the Military Training Area on such a sweep).
 				array<vector> sweep = {};
-				for (int q; q < 4; q++)
+				for (int q; q < 8 && sweep.Count() < 4; q++)
 				{
-					float a = q * 90 * Math.DEG2RAD;
-					sweep.Insert(goal + Vector(Math.Cos(a) * 250, 0, Math.Sin(a) * 250));
+					float a = q * 45 * Math.DEG2RAD;
+					vector point = goal + Vector(Math.Cos(a) * 250, 0, Math.Sin(a) * 250);
+					if (!Wet(point) && !CrossesWater(goal, point))
+						sweep.Insert(point);
 				}
+				if (sweep.IsEmpty())
+					sweep.Insert(goal);
 				s_mTeamSwept.Set(team, true);
 				vector first = sweep[0];
 				sweep.RemoveOrdered(0);
@@ -206,9 +212,48 @@ class ZCR_Drones
 		}
 	}
 
-	// A team's goal: its waypoints replaced by one Move waypoint there.
+	// The sea at this point (the terrain under the sea level). The drone mod holds its height above the
+	// terrain, and over the sea that is the sea bed - drones there fly at the water and are lost.
+	static bool Wet(vector p)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		return world.IsOcean() && world.GetSurfaceY(p[0], p[2]) < world.GetOceanBaseHeight() + 1.0;
+	}
+
+	// The straight line between two points goes over the sea somewhere (every 25 m).
+	static bool CrossesWater(vector a, vector b)
+	{
+		float d = vector.DistanceXZ(a, b);
+		float steps = Math.Ceil(d / 25);
+		for (float i = 1; i < steps; i++)
+		{
+			if (Wet(a + (b - a) * (i / steps)))
+				return true;
+		}
+		return false;
+	}
+
+	// A goal over the sea moves back toward 'from' until it is over land (25 m steps).
+	static vector DryGoal(vector goal, vector from)
+	{
+		if (!Wet(goal))
+			return goal;
+		float d = vector.DistanceXZ(goal, from);
+		for (float back = 25; back < d; back += 25)
+		{
+			vector p = goal + (from - goal) * (back / d);
+			if (!Wet(p))
+				return p;
+		}
+		return from;
+	}
+
+	// A team's goal: its waypoints replaced by one Move waypoint there - never over the sea.
 	protected static void SetGoal(SCR_AIGroup team, vector goal, int now)
 	{
+		vector was;
+		if (s_mTeamGoal.Find(team, was))
+			goal = DryGoal(goal, was);
 		array<AIWaypoint> old = {};
 		team.GetWaypoints(old);
 		foreach (AIWaypoint w : old)
