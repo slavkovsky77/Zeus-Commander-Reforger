@@ -16,3 +16,4 @@ change that breaks it shows up.
   [ZCR][DISMOUNT] per match, scorecard "rides".
 - **Soldiers hide in the buildings** - "great, our soldiers hide in the buildings" (19 Oct 22:20). Measure: [ZCR][DISPERSE]
   moved / idle in the open; chart "In the open in the field".
+- Soldiers fire at incoming drones and bring some down - a wave of USSR FPVs, 6 shot down in 20 game s by US machine gunners, squad leaders and a medic at 13-120 m, 34 soldiers engaging (report 010-good, 20 Oct 19:55). Breaks if: scorecard 'drones shot down' is 0 for a side whose soldiers had enemy drones near ([ZCR][DRONETHREAT] near>0), or no [ZCR][ANTIDRONE] shot_down=1 lines in a match with enemy drones; chart 'Fire at drones' on the engine page.
