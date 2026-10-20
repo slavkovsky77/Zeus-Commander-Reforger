@@ -20,6 +20,7 @@ modded class AICF_AICommander
 			ZCR_AntiDrone.Start();    // small-arms fire at enemy drones (-zcrNoAntiDrone)
 			ZCR_Driving.Start();      // AI drivers' cruise speed (-zcrCruiseSpeed, km/h) and [ZCR][DRIVE]
 			ZCR_Logistics.Log();      // [ZCR][SUPPLY] each base's stock and storage, every minute
+			ZCR_WorkCrew.Start();     // idle soldiers near a building site join the builder (-zcrNoWorkCrew)
 			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
 			ZCR_Drones.Tend(m_sFactionKey);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);

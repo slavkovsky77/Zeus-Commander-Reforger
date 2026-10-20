@@ -56,6 +56,11 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Panic when a drone is heard: run, spread out, cover (184) | From 250 m: own covered spot within 40 m, else spread 15-25 m apart, then down. 89-93% react.
 - [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
 
+## Next (Martin, 20 Oct 14:00)
+- [In progress] Supply trucks deliver (216, 224, 231) | No depot in 14 of 16 matches: forward bases couldn't afford one, full bases never ask. Depots now pay their cost only; demand thresholds A/B.
+- [In progress] Free soldiers build much more (231) | 5 fortifications per base within 2.5 km of the enemy, six types (bunker, MG nests, sandbags, tower), no reserve; idle teams joining the work if orders are no longer the limit.
+- [Todo] Test on Yunakivka - trenches (233) | The map mod and an AI Conflict scenario on it.
+
 ## Vehicles
 - [Fixed] They don't use vehicles at all (175) | Not one ride all day: AI Conflict refused every infantry team a vehicle. Infantry teams now ride light transport (M998, UAZ) on marches over 500 m: 20 teams rode in an 8-minute probe.
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.

@@ -339,6 +339,8 @@ class ZCR_DroneThreat
 				continue;
 			if (ZCR_Sampler.KnownEnemiesNear(side, p, 300) > 0)
 				continue;
+			if (ZCR_WorkCrew.Busy(c))      // digging in at a building site
+				continue;
 			// A team waiting for its vehicle or boarding stays put: sent into buildings 40-60 m away, 85% of
 			// AI Conflict's boardings ran out of time and the trips started over for 10+ minutes (20 Oct).
 			if (Mounting(agent, side))
