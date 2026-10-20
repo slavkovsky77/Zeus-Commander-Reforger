@@ -63,6 +63,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Test on Yunakivka - trenches (233) | Installed: SH-Yunakivka 8.2.4 (6A2C1C65791CE941) and all six dependencies (SH-Trenches, Ukraine Trenches, ...). It ships RAAS/AAS only; AI Conflict runs on Conflict worlds (CTI_Campaign_Arland/Eden). To do: an AIConflictYunakivka addon with a Conflict world on the Yunakivka terrain (game mode, two main bases, 6-8 bases with radio coverage, spawn points), AI Conflict's map key and content profile for it, then headless and watched tests.
 
 ## Vehicles
+- [Fixed] Vehicles stuck on an abandoned vehicle (237) | AI Conflict abandoned a stuck UAZ on a junction and kept it until its reuse pool was full; abandoned vehicles on a road are retired at once now.
 - [Fixed] They don't use vehicles at all (175) | Not one ride all day: AI Conflict refused every infantry team a vehicle. Infantry teams now ride light transport (M998, UAZ) on marches over 500 m: 20 teams rode in an 8-minute probe.
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.
 - [In progress] Drive to a point with cover, dismount, clear the position (128) | Out at the first spot 180-450 m short that the objective can't see; vehicles only for long marches from the main base (over 1 km).
