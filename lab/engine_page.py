@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Watched loop at 3x on r21 (d2eb826): our doctrine against our doctrine and against doctrine + Gemini. First match: no crash, 54 boardings and none timed out, no vehicle lost.",
+    "Running now": "Headless tests of r22 three at a time (20 min each): supply trucks and building. The watched loop is off while Martin works.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Supply trucks end to end (no depot at the cramped US main base; jobs wait for demand); anti-drone balance.",
+    "Being built next": "Supply trucks every match on both sides: a vehicle depot early (every base tries one first while the side has none); then Yunakivka (trenches) with an AI Conflict scenario.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -162,6 +162,8 @@ CAMERA = [
 PROBLEMS = [
     ("bug", "Supply trucks barely deliver", "Automatic dispatch restored and depots built first, but 44 truck jobs and 2 deliveries in 42 matches overnight: one job to follow end to end.", "review notes 203, 216"),
     ("good", "Vehicles blew up on mines at the main bases' exits", "Of 342 vehicles lost on 20 Oct, 191 blew up at two places ~300-500 m from the main bases - the first ones a minute into every match. Not the driving: A/B with a 50 km/h limit, AI drivers run a median 12 km/h. A probe of what is there (-zcrProbeSpots) found rows of six TM-62M anti-tank mines across both exit roads in Arland's Conflict world; AI drivers don't see mines. They also burned the supply truck of the test and killed the crews (no killer). Our AI Conflict now removes the world's minefields that lie on roads at the start (3 on Arland, 17 mines).", "review note 226"),
+    ("good", "Much more building", "Fortifications 2-7 a side a match (0.4 overnight): depots and fortifications pay their cost only, 5 a base within 2.5 km of the enemy, six types in turn (bunker, MG nests, sandbag positions, guard tower). Work crews: idle soldiers near a site join the builder (60-330 build points a side a match).", "review note 231"),
+    ("risk", "Supply trucks: the depot is the last blocker", "Best matches 3-4 deliveries, both sides; others none - no vehicle depot in 20 minutes at crowded bases. Fixed so far: the minefields, the 500 reserve, demand, truck roads beyond a base's edge, the route query's long detours. Now every base tries a depot first while its side has none.", "review note 231"),
     ("good", "Teams no longer wait at the main base for 10+ minutes", "Of the vehicle boardings in the 20 Oct tests, 85% ran out of time (223 against 36): our drone-cover layer sent soldiers waiting for their vehicle into buildings 40-60 m away, the 25-s boarding ran out, the trip started over. The south main base's side had a median 47% at the base at minute 10 (the north 20%). The cover layer now leaves teams that wait for or board a vehicle alone: first watched match, 54 boardings, none timed out.", "review note 228"),
     ("bug", "Two watched matches stopped on the anti-drone fire", "The game's suppression sphere takes sqrt(r^2 - d^2) for a point near its edge; a hair outside it is NaN and the diagnostic build stops (13:00 and 13:04). Our anti-drone fire uses a sphere that clamps it; the loop restarted at 13:06 on the fix: 15 drones shot down, no stop.", "review note 229"),
     ("good", "Point-blank gunfights were a measuring error", "The 'median 3 m' counted friendly kills (crashes, run over) and suicides. Kills by enemy soldiers: median 30 m, 3% under 5 m, 42% at 20-50 m. The fighting-distance chart now counts enemy kills only.", "review note 227"),
@@ -196,6 +198,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (22, "trucks deliver, much more building", "20 Oct, from 14:05",
+     ["AI Conflict fork: vehicle depots and fortifications pay their cost only - a squad's replacement (500) kept back meant forward bases never afforded a depot (no depot in 14 of 16 matches).",
+      "AI Conflict fork: up to 5 fortifications a base within 2.5 km of the enemy (was 2 within 1.5 km), in turn: bunker, two MG nests, two sandbag positions, guard tower - Conflict's own compositions.",
+      "Work crews: up to 4 idle soldiers near a building site join the builder from spots round its footprint and add build points (Martin: free guys should build much more).",
+      "AI Conflict fork, trucks: the road and the loading up to 100 m beyond a base's edge (Airport Base's road is 233 m from its centre), the nearest road point when the route query gives up on a long detour, a side's first depot searches longer and every base tries one first.",
+      "Measures: [ZCR][SUPPLY] each base's stock every minute; lab/trucks.py traces every truck job end to end."],
+     "Martin: supply trucks barely deliver (2 in 42 matches overnight); bunkers 0.4 a side a match - free guys should build much more.",
+     "Fortifications 2-7 a side a match (0.4 overnight), all six types built; work crews add 60-330 build points a side. Trucks: the best matches 3-4 deliveries with both sides trucking, a load-and-deliver run in under 3 minutes; still matches with no depot after 20 minutes."),
     (21, "supply trucks carry the income", "20 Oct, from 11:14",
      ["AI Conflict fork: the world's minefields lying across roads are removed at the start - TM-62M rows across both main bases' exit roads blew up 191 of 342 vehicles on 20 Oct (found by a probe of the spot; a 50 km/h speed limit A/B ruled out driving).",
       "AI Conflict fork: a main base's vehicle depot keeps searching for a site (6 windows, 3x the sites) - the US main base on the coast never got one, so trucks drove 2.5 km round to load there.",
