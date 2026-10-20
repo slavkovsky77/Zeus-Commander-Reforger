@@ -1418,8 +1418,14 @@ class ZCR_Director
 	{
 		string markers;
 		// Bases, in their owner's colour.
+		// AI Conflict's supply depots: "SUPPLY DEPOT", green while neutral (FIA's colour), any side loads there.
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
-			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, string.Format("%1  %2", ZCR_Strategist.BaseName(base), ZCR_Logistics.Stock(base)));
+		{
+			string tag = "";
+			if (AICF_SupplyDepots.Is(base))
+				tag = "  SUPPLY DEPOT";
+			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, string.Format("%1  %2%3", ZCR_Strategist.BaseName(base), ZCR_Logistics.Stock(base), tag));
+		}
 		// The followed team's goal.
 		if (m_vTeamGoal != vector.Zero && m_ShownFollow && m_mLeaderSlot.Contains(m_ShownFollow))
 			markers += Marker("G", m_vTeamGoal + Vector(0, 60, 0), Colour(ZCR_LossLog.SideOf(m_ShownFollow)), 1, "TEAM GOAL: " + m_sTeamGoal);
