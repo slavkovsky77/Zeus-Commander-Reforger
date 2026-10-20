@@ -64,6 +64,8 @@ class ZCR_WorkCrew
 			if (!soldier || !onSite || !sites.Contains(onSite) || !Fit(soldier, agentOf.Get(soldier), onSite, LEAVE_M, false))
 				leave.Insert(soldier);
 		}
+		if (m_mSite.Contains(null))
+			leave.Insert(null);
 		foreach (IEntity gone : leave)
 		{
 			m_mSite.Remove(gone);
@@ -88,7 +90,7 @@ class ZCR_WorkCrew
 			array<bool> slotTaken = {false, false, false, false};
 			foreach (IEntity member, SCR_CampaignBuildingCompositionComponent memberSite : m_mSite)
 			{
-				if (memberSite == site)
+				if (member && memberSite == site)    // a member deleted this tick (a body cleared) is skipped
 				{
 					crew.Insert(member);
 					slotTaken[m_mSlot.Get(member)] = true;
@@ -120,6 +122,8 @@ class ZCR_WorkCrew
 			int working;
 			foreach (IEntity member : crew)
 			{
+				if (!member)
+					continue;
 				float angle = (m_mSlot.Get(member) * 90 + 45) * Math.DEG2RAD;
 				vector spot = center + Vector(Math.Cos(angle) * ring, 0, Math.Sin(angle) * ring);
 				spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
