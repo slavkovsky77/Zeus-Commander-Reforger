@@ -11,7 +11,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] The next team walks into the kill zone of the previous one (208) | Kill zones: march steps keep 60 m away, high danger near them for 2 min.
 - [Fixed] Vehicles crash into wrecks and get stuck (209, 218, 220) | Wrecks removed after 60 s (205 overnight); the watching camera no longer blocks rescues (failing 77% -> 34%).
 - [Done] Combat vehicles in some cases | Every third team rides an armed light vehicle: 6.7 a side a match; riding 45% -> 69%.
-- [In progress] Supply trucks not used by the AI (216) | Dispatch restored, depots first, starting stock and income - still only 2 deliveries in 42 matches.
+- [In progress] Supply trucks not used by the AI (216, 224) | Our AI Conflict: dispatch restored; bases ask below 35% and are filled to 50%, a source keeps 200; lab income only at the main bases. Test: the truck takes its job but burns on the way to the main base to load - at the crash spot below.
+- [Measure] Vehicles crash at two spots on the main bases' exit roads (226) | 230 of 342 vehicles lost on 20 Oct crashed, 191 at two places. The game's cruise-speed limit on every AI-driven vehicle (50 km/h) and speeds measured; A/B 0 v 50 km/h running.
 - [Todo] Cars wiggle left-right (217) | Stuck/recovery events as many at 1x as at 3x: the driving AI and wrecks, not the speed-up; to look at in the recordings.
 - [In progress] Point-blank gunfights | Median 3 m, unchanged: fights are at bases where soldiers may close in - fight from the base's edge next.
 - [Todo] Count AI opening road blocks and gates (219, KEEP.md) | Martin liked a US medic opening a road block.
