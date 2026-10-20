@@ -11,7 +11,7 @@
 class ZCR_AntiDroneTarget
 {
 	IEntity m_Drone;
-	ref SCR_AISuppressionVolumeSphere m_Volume;
+	ref ZCR_SafeSphere m_Volume;
 }
 
 class ZCR_AntiDrone
@@ -52,7 +52,7 @@ class ZCR_AntiDrone
 	{
 		ZCR_AntiDroneTarget t = new ZCR_AntiDroneTarget();
 		t.m_Drone = drone;
-		t.m_Volume = new SCR_AISuppressionVolumeSphere(at, 4);
+		t.m_Volume = new ZCR_SafeSphere(at, 4);
 		m_aTargets.Insert(t);
 		return t;
 	}
@@ -185,5 +185,20 @@ class ZCR_AntiDrone
 				return;
 		}
 		SCR_EntityHelper.DeleteEntityAndChildren(drone);
+	}
+}
+
+// The game's suppression sphere takes sqrt(r^2 - d^2) for a point the suppression picked near its edge;
+// a hair outside the sphere that is NaN and the diagnostic build stops (BadFloat in GetYRange: the
+// watched match of 20 Oct 13:00, and 05:16 before - moving the sphere was only part of it). Clamped at 0.
+class ZCR_SafeSphere : SCR_AISuppressionVolumeSphere
+{
+	override protected void GetYRange(vector position, out float minY, out float maxY)
+	{
+		vector centerPos = GetCenterPosition();
+		float distToCenter2D = vector.DistanceXZ(centerPos, position);
+		float maxDist = Math.Sqrt(Math.Max(0, (m_fRadius * m_fRadius) - (distToCenter2D * distToCenter2D)));
+		maxY = centerPos[1] + maxDist;
+		minY = centerPos[1] - maxDist;
 	}
 }
