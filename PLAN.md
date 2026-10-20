@@ -59,6 +59,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 ## Next (Martin, 20 Oct 14:00)
 - [In progress] Supply trucks deliver (216, 224, 231) | No depot in 14 of 16 matches: forward bases couldn't afford one, full bases never ask. Depots now pay their cost only; demand thresholds A/B.
 - [In progress] Free soldiers build much more (231) | 5 fortifications per base within 2.5 km of the enemy, six types (bunker, MG nests, sandbags, tower), no reserve; idle teams joining the work if orders are no longer the limit.
+- [Todo] AI lays mines on roads by its own decision (234) | Engineers lay mine rows on approach roads when the doctrine says so; own side knows and avoids them (AI drivers don't see mines). The world's road minefields stay removed by default.
 - [Todo] Test on Yunakivka - trenches (233) | Installed: SH-Yunakivka 8.2.4 (6A2C1C65791CE941) and all six dependencies (SH-Trenches, Ukraine Trenches, ...). It ships RAAS/AAS only; AI Conflict runs on Conflict worlds (CTI_Campaign_Arland/Eden). To do: an AIConflictYunakivka addon with a Conflict world on the Yunakivka terrain (game mode, two main bases, 6-8 bases with radio coverage, spawn points), AI Conflict's map key and content profile for it, then headless and watched tests.
 
 ## Vehicles
