@@ -9,6 +9,40 @@ class ZCR_Logistics
 	protected static ref map<string, int> s_mLastAt = new map<string, int>();
 	protected static ref map<string, int> s_mRate = new map<string, int>();
 
+	protected static int s_iNextLog;
+
+	// Every minute, each side's bases: [ZCR][SUPPLY] t= side= base= value= max= pct= main= - what AI Conflict's
+	// supply trucks read (a base asks below a share of its storage, the main base gives above one).
+	static void Log()
+	{
+		int now = ZCR_LossLog.Seconds();
+		if (now < s_iNextLog || !Replication.IsServer())
+			return;
+		s_iNextLog = now + 60;
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
+		if (!campaign || !campaign.GetBaseManager())
+			return;
+		array<SCR_CampaignMilitaryBaseComponent> bases = {};
+		campaign.GetBaseManager().GetBases(bases);
+		foreach (SCR_CampaignMilitaryBaseComponent base : bases)
+		{
+			if (!base || !base.GetFaction())
+				continue;
+			string side = base.GetFaction().GetFactionKey();
+			if (side != "US" && side != "USSR")
+				continue;
+			float max = base.GetSuppliesMax();
+			int pct = -1;
+			if (max > 0)
+				pct = Math.Round(100 * base.GetSupplies() / max);
+			SCR_CampaignFaction faction = SCR_CampaignFaction.Cast(base.GetFaction());
+			string name = base.GetBaseName();
+			name.Replace(" ", "_");
+			Print(string.Format("[ZCR][SUPPLY] t=%1 side=%2 base=%3 value=%4 max=%5 pct=%6 main=%7", now, side, name,
+				Math.Round(base.GetSupplies()), Math.Round(max), pct, faction && faction.GetMainBase() == base), LogLevel.NORMAL);
+		}
+	}
+
 	static int Stock(SCR_CampaignMilitaryBaseComponent base)
 	{
 		if (!base)
