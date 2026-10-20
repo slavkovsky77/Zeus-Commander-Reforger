@@ -13,6 +13,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Supply trucks not used by the AI (216) | The automatic scheduler restored at 00:00 still put no truck on the road; find what else blocks it.
 - [Todo] Cars wiggle left-right (217) | Check the 3x time step against the drivers' steering (a 1x match), or the driving itself.
 - [Todo] Combat vehicles in some cases | Some teams ride armed light vehicles (M1025 M2, UAZ-469 PKM, BRDM-2) with a gunner manned.
+- [Todo] Count AI opening road blocks and gates (219, KEEP.md) | Martin liked a US medic opening a road block; no measure yet.
 - [Todo] Verify everything on watched matches (doctrine v doctrine, doctrine v Gemini) and the scorecard; the morning page: how the main problems were tackled (214, 215).
 
 ## Watching and speed
