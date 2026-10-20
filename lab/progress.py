@@ -225,7 +225,9 @@ def engine_metrics(lines: list) -> dict:
                 d = float(f.get("distance", "-1"))
             except ValueError:
                 continue
-            if f.get("killer_kind", "none") != "none" and d > 0:
+            # Enemy fire only (20 Oct): friendly kills (crashes, run over, 347 at a median 3 m) and
+            # suicides (0 m) made the "point-blank gunfights" of the night's page - enemy kills: 30 m.
+            if f.get("killer_kind", "none") == "man" and f.get("relation", "").startswith("KILLED_BY_ENEMY") and d > 0:
                 dist.append(d)
         elif "FPS: " in l and "frame time" in l:
             m = re.search(r"FPS: ([\d.]+).*?AIChar: (\d+)", l)
@@ -546,7 +548,7 @@ def html(agg: dict, rows: list) -> str:
         ser("walk"), unit=" m", target=(300, "300 m"), better="lower")
     add("Riding to the attack", "Of the attacking squads that reached their objective, how many rode a vehicle part of the way. Arma 3's measure. From r11.",
         ser("rode"), unit="%", ymax=100, better="higher")
-    add("Fighting distance", "Engine: median distance between killer and victim of the direct-fire kills, everyone. Shows at what range Reforger's AI actually fights.",
+    add("Fighting distance", "Engine: median distance between killer and victim of the kills by enemy soldiers (from 20 Oct: friendly kills - crashes, run over - and suicides left out; they made a false 3 m). Shows at what range Reforger's AI actually fights.",
         ser("fight_m"), unit=" m")
     add("Server frame rate", "Engine: the server's median frames per second during the match (logged every minute). The AI thinks and moves less smoothly when it drops; 3-4 servers and the watched game share one PC.",
         ser("fps"), unit=" fps", target=(30, "30 fps"), better="higher")
@@ -599,6 +601,8 @@ def headline(agg: dict, first: int = 14) -> str:
         [s("standing in danger", "sc_danger"), s("drone victims standing", "sc_dd_standing"), s("drone victims prone", "sc_dd_prone")], unit="%", ymax=100, better="lower")
     add("Safe near a drone", "Of the soldiers within 150 m of an enemy drone: under a roof or trees, running for cover or lying prone.",
         [s("safe near drones", "sc_panic")], unit="%", ymax=100, target=(60, "60%"), better="higher")
+    add("Spread out", "Median metres from a soldier in the field to his nearest friend (\"one drone kills them all\"); target 10 m.",
+        [s("metres to the nearest friend", "spacing")], unit=" m", target=(10, "10 m"), better="higher")
     add("Chilling at the base", "% of each side's soldiers within 200 m of their main base at minute 10.",
         [s("at the main base", "sc_atbase")], unit="%", ymax=100, target=(40, "40%"), better="lower")
     add("Drones in the air", "% of the 30-s samples with a side's drones up, and drone teams launched per 4 minutes.",

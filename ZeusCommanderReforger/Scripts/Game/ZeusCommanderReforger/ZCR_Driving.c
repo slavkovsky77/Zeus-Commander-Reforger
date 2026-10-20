@@ -2,8 +2,10 @@
 // 230 of 342 vehicles lost were crashes - the killer their own driver at 1 m - 191 of them at two places on
 // the main bases' exit roads, ~500 m east of the US base and ~300 m north-east of the USSR base).
 // The game's own cruise-speed limit for an AI driver (AICarMovementComponent.SetCruiseSpeed - its scenario
-// framework's "set vehicle cruise speed" action) on every vehicle an AI drives: -zcrCruiseSpeed (km/h,
-// default 50; 0 = the game's own speed).
+// framework's "set vehicle cruise speed" action) on every vehicle an AI drives: -zcrCruiseSpeed (km/h;
+// default 0 = the game's own speed). A/B 20 Oct, 0 v 50 km/h: AI drivers run a median 12 km/h, at most 62,
+// and the vehicles still blew up at the same places - the world's minefields across the exit roads (removed
+// by our AI Conflict, AICF_RoadMines), not speed.
 // Measured every 30 s: [ZCR][DRIVE] t= side= driven= median_kmh= max_kmh= over60= limit=, and a vehicle's
 // last speed on its [ZCR][LOSS] line (kmh=).
 class ZCR_Driving
@@ -11,7 +13,7 @@ class ZCR_Driving
 	protected static ref ZCR_Driving s_Instance;
 	protected static ref map<IEntity, float> s_mSpeed = new map<IEntity, float>();
 	protected static ref map<IEntity, int> s_mSeen = new map<IEntity, int>();
-	protected float m_fLimit = 50;
+	protected float m_fLimit = 0;
 	protected int m_iNextLog;
 	protected int m_iNextClean;
 

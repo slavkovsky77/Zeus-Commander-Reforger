@@ -14,7 +14,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] Supply trucks not used by the AI (216, 224) | Our AI Conflict: dispatch restored; bases ask below 35% and are filled to 50%, a source keeps 200; lab income only at the main bases. Test: the truck takes its job but burns on the way to the main base to load - at the crash spot below.
 - [Measure] Vehicles crash at two spots on the main bases' exit roads (226) | 230 of 342 vehicles lost on 20 Oct crashed, 191 at two places. The game's cruise-speed limit on every AI-driven vehicle (50 km/h) and speeds measured; A/B 0 v 50 km/h running.
 - [Todo] Cars wiggle left-right (217) | Stuck/recovery events as many at 1x as at 3x: the driving AI and wrecks, not the speed-up; to look at in the recordings.
-- [In progress] Point-blank gunfights | Median 3 m, unchanged: fights are at bases where soldiers may close in - fight from the base's edge next.
+- [Fixed] Point-blank gunfights (227) | A measuring error: the 'median 3 m' counted friendly kills (vehicle crashes, run over) and suicides. Enemy kills: median 30 m, 3% under 5 m.
 - [Todo] Count AI opening road blocks and gates (219, KEEP.md) | Martin liked a US medic opening a road block.
 
 ## Watching and speed
@@ -40,7 +40,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 
 ## Soldiers
 - [Fixed] Soldiers chilling at the base, all groups one guy (173) | AI Conflict started every team with 1 man and recruited the rest one at a time: teams waited 10-20 min. Now 3 of 5 at the start, out with 3: first team out at 1.8 min.
-- [In progress] Reckless soldiers: fights at 1-6 m, nobody prone under drones (200) | Hold 60 m from a seen enemy, prone held under drones, cover spots spread 6 m (r19) - to verify.
+- [Done] Reckless soldiers: fights at 1-6 m, nobody prone under drones (200, 212) | The 1-6 m were crashes and suicides counted as fights (enemy kills: median 30 m); the danger layer and prone under drones (r20): in high danger standing 72% -> 10%, drone victims prone 0.5% -> 26%.
 - [Done] Drone panic as an optimisation target (201) | Charts and scorecard checks: safe near drones, drone victims standing / prone.
 - [In progress] They walk across open fields like nothing is happening (125, 174, 197) | Each 220 m march step now ends in the best cover within 60 m (trees, roofs, buildings, walls) and teams jog; in a fight the game's attack still leaves cover after 5 s (r10 holds it 20 s).
 - [In progress] Fight from cover like Arma 3 (30-40%) (113, 124, 133) | In the game's own cover 40% (AI Conflict alone 24-27%); Arma 3's stricter measure 9.5%.
@@ -50,7 +50,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 
 - [Fixed] Enemy infantry chilling at the base, massacred by drones (181) | Drone searches camped the enemy's main base while teams waited there; searches now stay near the front.
 - [In progress] Not out in the open - hide in cover, ideally buildings (182) | Idle soldiers anywhere go under a roof or canopy within 40 m, spread 6 m apart; buildings first and fortifications still to do.
-- [In progress] Spread out within a team - one drone kills them all (183) | Near a drone each runs to his own spot 6-8 m apart; a wider formation needs our own formation config.
+- [Done] Spread out within a team - one drone kills them all (183) | Wedge instead of column (r20) and own spots near drones: median distance to the nearest friend 7-9 m before r19, 14 m on r19-r20 (target 10 m); stacking 6% (limit 10%).
 - [Done] Panic when a drone is heard: run, spread out, cover (184) | From 250 m: own covered spot within 40 m, else spread 15-25 m apart, then down. 89-93% react.
 - [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
 

@@ -25,7 +25,7 @@ ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 VERDICT = {
     "Running now": "r21: headless tests of AI Conflict's supply trucks, followed job by job. The watched loop is off until Martin watches again.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Supply trucks end to end (2 deliveries in 42 matches); fights from a base's edge instead of point-blank (median 3 m); anti-drone balance; formation spacing.",
+    "Being built next": "Vehicle crashes: 230 of 342 vehicles lost on 20 Oct crashed, 191 at two spots on the main bases' exit roads - speed limit A/B now; supply trucks end to end; anti-drone balance; formation spacing.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -161,7 +161,8 @@ CAMERA = [
 
 PROBLEMS = [
     ("bug", "Supply trucks barely deliver", "Automatic dispatch restored and depots built first, but 44 truck jobs and 2 deliveries in 42 matches overnight: one job to follow end to end.", "review notes 203, 216"),
-    ("risk", "Point-blank gunfights", "Median gunfire kill distance 3 m, 79% under 15 m, unchanged by the 60 m hold - most fights are within 150 m of an enemy base, where soldiers may close in to clear it.", "review note 200"),
+    ("bug", "Vehicles crash at two spots", "Of 342 vehicles lost on 20 Oct, 230 crashed (the killer their own driver at 1 m) and 191 of those at two places: ~500 m east of the US main base and ~300 m north-east of the USSR one, on the exit roads every trip uses. The crashes also kill soldiers: 350 deaths by friendly AI (median 3 m) and 165 'suicides' in the night's matches against 142 by enemy fire. It burned the one supply truck in the test. AI drivers run at the game's own speed; the game's cruise-speed limit (50 km/h) is in A/B now.", "review note 226"),
+    ("good", "Point-blank gunfights were a measuring error", "The 'median 3 m' counted friendly kills (crashes, run over) and suicides. Kills by enemy soldiers: median 30 m, 3% under 5 m, 42% at 20-50 m. The fighting-distance chart now counts enemy kills only.", "review note 227"),
     ("design", "Anti-drone balance", "21 drones shot down per side per match - about a third of those launched; probably too many.", "review note 213"),
     ("risk", "Formation spacing", "The wedge's spacing is in the game's formation config; one drone can still take several men.", "review note 183"),
     ("design", "Bunkers", "34 built overnight (0.4 per side per match) - supplies and AI Conflict's reserve are the limit.", "review notes 186, 192"),
