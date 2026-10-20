@@ -45,19 +45,14 @@ class ZCR_AntiDrone
 		return true;
 	}
 
+	// A fixed sphere at the drone for each burst - never moved: the game picks a point in the volume,
+	// then its height range there, and a sphere moved in between left the point outside - a negative
+	// square root, a NaN, and the diagnostic build stopped (probe 20 Oct 02:42).
 	protected ZCR_AntiDroneTarget Target(IEntity drone, vector at)
 	{
-		foreach (ZCR_AntiDroneTarget t : m_aTargets)
-		{
-			if (t.m_Drone == drone)
-			{
-				t.m_Volume.m_vPos = at;
-				return t;
-			}
-		}
 		ZCR_AntiDroneTarget t = new ZCR_AntiDroneTarget();
 		t.m_Drone = drone;
-		t.m_Volume = new SCR_AISuppressionVolumeSphere(at, 2);
+		t.m_Volume = new SCR_AISuppressionVolumeSphere(at, 4);
 		m_aTargets.Insert(t);
 		return t;
 	}
@@ -66,11 +61,8 @@ class ZCR_AntiDrone
 	{
 		int now = ZCR_LossLog.Seconds();
 		BaseWorld world = GetGame().GetWorld();
-		for (int g = m_aTargets.Count() - 1; g >= 0; g--)
-		{
-			if (!m_aTargets[g].m_Drone)
-				m_aTargets.Remove(g);
-		}
+		// Old bursts' spheres: kept only while referenced by a running behaviour (they are refs there).
+		m_aTargets.Clear();
 		for (int i; i < ZCR_Drones.s_aDrones.Count(); i++)
 		{
 			IEntity drone = ZCR_Drones.s_aDrones[i];
@@ -117,13 +109,13 @@ class ZCR_AntiDrone
 			{
 				ChimeraCharacter c = shooters[k];
 				m_mShooters.Set(side, m_mShooters.Get(side) + 1);
-				// The game's suppress behaviour at the drone, renewed every 8 s while it is near.
+				// The game's suppress behaviour at the drone, a 3 s burst re-aimed while it is near.
 				if (!m_mFiringUntil.Contains(c) || now >= m_mFiringUntil.Get(c))
 				{
 					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(c);
 					if (utility)
-						utility.AddAction(new SCR_AISuppressBehavior(utility, null, target.m_Volume, 8, 3, 80));
-					m_mFiringUntil.Set(c, now + 8);
+						utility.AddAction(new SCR_AISuppressBehavior(utility, null, target.m_Volume, 3, 3, 80));
+					m_mFiringUntil.Set(c, now + 3);
 				}
 				float d = vector.Distance(c.EyePosition(), dp);
 				float chance = 0.03;
