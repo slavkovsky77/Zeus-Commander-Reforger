@@ -65,6 +65,7 @@ def measure(run: Path) -> dict:
     forts = {s: 0 for s in SIDES}
     armed = {s: set() for s in SIDES}
     wrecks = 0
+    veh_lost = 0
     drone_dead = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
     last_t = 0
@@ -108,12 +109,14 @@ def measure(run: Path) -> dict:
         elif "BOARDING_PHASE_STARTED" in line and side in SIDES:
             boarded[side].add(d.get("slot"))
         elif "[ZCR][LOSS]" in line:
+            if d.get("kind") == "vehicle":
+                veh_lost += 1
             v = d.get("victim_side") or d.get("side")
             if v in SIDES:
                 lost[v] += 1
                 if d.get("kind") == "man" and d.get("killer_kind") in ("none", "") and d.get("stance"):
                     drone_dead[v].append(d.get("stance"))
-    out = {"run": run.name, "minutes": round(last_t / 60, 1), "sides": {}, "wrecks": wrecks}
+    out = {"run": run.name, "minutes": round(last_t / 60, 1), "sides": {}, "wrecks": wrecks, "veh_lost": veh_lost}
     for s in SIDES:
         rows = crowd[s]
         first_out = next((num(r["t"]) / 60 for r in rows if num(r.get("field"), 0) > 0), None)
@@ -169,7 +172,7 @@ CHECKS = [
 
 
 def report(card: dict) -> tuple:
-    lines = [f"{card['run']}  ({card['minutes']} min)"]
+    lines = [f"{card['run']}  ({card['minutes']} min, vehicles lost {card.get('veh_lost')}, wrecks removed {card.get('wrecks')})"]
     fails = 0
     for s in SIDES:
         m = card["sides"][s]

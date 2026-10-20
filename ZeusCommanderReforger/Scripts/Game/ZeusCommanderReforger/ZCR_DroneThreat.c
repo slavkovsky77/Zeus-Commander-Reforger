@@ -318,6 +318,7 @@ class ZCR_DroneThreat
 		map<string, int> idle = new map<string, int>();
 		map<string, int> open = new map<string, int>();
 		map<string, int> moved = new map<string, int>();
+		map<string, int> waiting = new map<string, int>();
 		foreach (AIAgent agent : agents)
 		{
 			if (!agent)
@@ -338,6 +339,13 @@ class ZCR_DroneThreat
 				continue;
 			if (ZCR_Sampler.KnownEnemiesNear(side, p, 300) > 0)
 				continue;
+			// A team waiting for its vehicle or boarding stays put: sent into buildings 40-60 m away, 85% of
+			// AI Conflict's boardings ran out of time and the trips started over for 10+ minutes (20 Oct).
+			if (Mounting(agent, side))
+			{
+				waiting.Set(side, waiting.Get(side) + 1);
+				continue;
+			}
 			idle.Set(side, idle.Get(side) + 1);
 			if (Overhead(c.EyePosition(), c))
 				continue;
@@ -351,7 +359,19 @@ class ZCR_DroneThreat
 			moved.Set(side, moved.Get(side) + 1);
 		}
 		foreach (string side, int n : idle)
-			Print(string.Format("[ZCR][DISPERSE] t=%1 side=%2 idle=%3 open=%4 moved=%5", now, side, n, open.Get(side), moved.Get(side)), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][DISPERSE] t=%1 side=%2 idle=%3 open=%4 moved=%5 mounting=%6", now, side, n, open.Get(side), moved.Get(side), waiting.Get(side)), LogLevel.NORMAL);
+	}
+
+	// The soldier's team is in an AI Conflict vehicle trip before it drives off (waiting for a site,
+	// staging, boarding).
+	static bool Mounting(AIAgent agent, string side)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(agent.GetParentGroup());
+		AICF_FactionState state;
+		if (!group || !ZCR_Strategist.s_mStates.Find(side, state) || !state)
+			return false;
+		AICF_GroupSlot slot = state.FindSlotByGroup(group);
+		return slot && AICF_TransportTripRegistry.Mounting(side, slot.GetSlotId());
 	}
 
 	// A spot within 'radius' (of 'center', default the soldier) under a roof or canopy, on the navmesh,

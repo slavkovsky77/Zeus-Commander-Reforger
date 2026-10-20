@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "r21: headless tests of AI Conflict's supply trucks, followed job by job. The watched loop is off until Martin watches again.",
+    "Running now": "r21: two headless matches with the road minefields removed (vehicles, trucks). The watched loop is off until Martin watches again.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Vehicle crashes: 230 of 342 vehicles lost on 20 Oct crashed, 191 at two spots on the main bases' exit roads - speed limit A/B now; supply trucks end to end; anti-drone balance; formation spacing.",
+    "Being built next": "Checking the mine fix in matches (vehicles lost, trucks delivered); supply trucks end to end (a depot at the main base); anti-drone balance.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -161,7 +161,7 @@ CAMERA = [
 
 PROBLEMS = [
     ("bug", "Supply trucks barely deliver", "Automatic dispatch restored and depots built first, but 44 truck jobs and 2 deliveries in 42 matches overnight: one job to follow end to end.", "review notes 203, 216"),
-    ("bug", "Vehicles crash at two spots", "Of 342 vehicles lost on 20 Oct, 230 crashed (the killer their own driver at 1 m) and 191 of those at two places: ~500 m east of the US main base and ~300 m north-east of the USSR one, on the exit roads every trip uses. The crashes also kill soldiers: 350 deaths by friendly AI (median 3 m) and 165 'suicides' in the night's matches against 142 by enemy fire. It burned the one supply truck in the test. AI drivers run at the game's own speed; the game's cruise-speed limit (50 km/h) is in A/B now.", "review note 226"),
+    ("good", "Vehicles blew up on mines at the main bases' exits", "Of 342 vehicles lost on 20 Oct, 191 blew up at two places ~300-500 m from the main bases - the first ones a minute into every match. Not the driving: A/B with a 50 km/h limit, AI drivers run a median 12 km/h. A probe of what is there (-zcrProbeSpots) found rows of six TM-62M anti-tank mines across both exit roads in Arland's Conflict world; AI drivers don't see mines. They also burned the supply truck of the test and killed the crews (no killer). Our AI Conflict now removes the world's minefields that lie on roads at the start (3 on Arland, 17 mines).", "review note 226"),
     ("good", "Point-blank gunfights were a measuring error", "The 'median 3 m' counted friendly kills (crashes, run over) and suicides. Kills by enemy soldiers: median 30 m, 3% under 5 m, 42% at 20-50 m. The fighting-distance chart now counts enemy kills only.", "review note 227"),
     ("design", "Anti-drone balance", "21 drones shot down per side per match - about a third of those launched; probably too many.", "review note 213"),
     ("risk", "Formation spacing", "The wedge's spacing is in the game's formation config; one drone can still take several men.", "review note 183"),
@@ -195,11 +195,15 @@ FACTS = [
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
     (21, "supply trucks carry the income", "20 Oct, from 11:14",
-     ["AI Conflict fork: bases ask for a supply truck below 35% and are filled to 50%; a donor keeps 50% and gives above 55%; a base it owns keeps 200 back (was 500).",
+     ["AI Conflict fork: the world's minefields lying across roads are removed at the start - TM-62M rows across both main bases' exit roads blew up 191 of 342 vehicles on 20 Oct (found by a probe of the spot; a 50 km/h speed limit A/B ruled out driving).",
+      "AI Conflict fork: a main base's vehicle depot keeps searching for a site (6 windows, 3x the sites) - the US main base on the coast never got one, so trucks drove 2.5 km round to load there.",
+      "Driving measured: [ZCR][DRIVE] speeds every 30 s, kmh= on vehicle losses; the game's cruise limit as an option (-zcrCruiseSpeed).",
+      "Fighting distance counts enemy kills only: the 'point-blank gunfights' (median 3 m) were crashes and suicides; enemy kills median 30 m.",
+      "AI Conflict fork: bases ask for a supply truck below 35% and are filled to 50%; a donor keeps 50% and gives above 55%; a base it owns keeps 200 back (was 500).",
       "Lab income (180 a minute) goes to each side's main base only, so the front bases need trucks.",
       "Engine page: the main problems charted per build at the top; doctrine-v-doctrine matches counted (they were left out of every chart)."],
      "Martin: no supply trucks seen. In the night logs 70 depots were ready, 46 jobs, 39 trucks, 2 unloads: the lab paid income to every base, so no base asked.",
-     "Test 1 (65/75/80): 3 jobs, 2 trucks, nothing loaded - the main base never reached 80% to give. Test 2 (35/50/55): 1 job, 1 truck, nothing loaded yet - followed job by job next."),
+     "Test 1 (65/75/80): 3 jobs, 2 trucks, nothing loaded. Test 2 (35/50/55): the truck burned on the way to load - on the minefield. With the speed A/B: 3 jobs, 1 load, 2 unloads. Mine fix: two matches running."),
     (20, "danger awareness, anti-drone fire, defend in buildings", "20 Oct, from 02:25 (final 05:16)",
      ["Danger layer: high danger (threatened, enemy within 150 m, a kill zone, a drone within 150 m) - never standing; medium - crouched when still.",
       "Drones: prone every second within 150 m with nothing overhead; buildings first for cover; small-arms fire at drones (up to 3 shooters, MGs first) with a chance to bring them down.",
