@@ -9,6 +9,7 @@ modded class AICF_AICommander
 			ZCR_Setup.NoFIA();          // -zcrNoFIA: only the two armies (once, at the first tick)
 			ZCR_FortList.Tick();        // -zcrListFortifications (lab: what the builders could put up)
 			ZCR_Setup.StartSupplies();  // starting stock so the builders can afford defenses
+			ZCR_Setup.Income();         // lab supply income (-zcrSupplyIncome)
 			if (m_FactionState)
 				ZCR_Strategist.s_mStates.Set(m_sFactionKey, m_FactionState);
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);

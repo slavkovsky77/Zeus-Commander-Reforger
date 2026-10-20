@@ -10,10 +10,48 @@ class ZCR_Setup
 
 	// Starting supplies (Martin, 19 Oct 23:59: "we can add some more supplies so the strategic bot
 	// actually tries to build defenses"): every base of the two sides gets at least this stock once, at
-	// the first tick after the split - -zcrStartSupplies N (default 800 in the two-army scenario, else
+	// the first tick after the split - -zcrStartSupplies N (default 1200 in the two-army scenario, else
 	// off). Bunkers cost 100, and a build must leave AI Conflict's reserve for replacing teams (a few
 	// hundred); the front bases started near empty and no truck hauled supplies until r19.
 	// Logs [ZCR][SETUP] ... stocked=.
+	// Income for the lab (Martin: "add some more supplies"): every base of the two sides gains this many
+	// supplies a minute, the same for both (-zcrSupplyIncome N; default 60 in the two-army scenario) -
+	// recruits, vehicles and buildings drew the bases dry and the front bases never refilled.
+	protected static int s_iNextIncome;
+
+	static void Income()
+	{
+		if (!Replication.IsServer())
+			return;
+		int perMinute;
+		string value;
+		if (System.GetCLIParam("zcrSupplyIncome", value) && !value.IsEmpty())
+			perMinute = value.ToInt();
+		else if (System.IsCLIParam("zcrNoFIA"))
+			perMinute = 60;
+		int now = ZCR_LossLog.Seconds();
+		if (perMinute <= 0 || now < s_iNextIncome)
+			return;
+		s_iNextIncome = now + 60;
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return;
+		array<SCR_MilitaryBaseComponent> all = {};
+		system.GetBases(all);
+		foreach (SCR_MilitaryBaseComponent b : all)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetFaction())
+				continue;
+			string key = base.GetFaction().GetFactionKey();
+			if (key != "US" && key != "USSR")
+				continue;
+			int add = Math.Min(perMinute, base.GetSuppliesMax() - base.GetSupplies());
+			if (add > 0)
+				base.AddSupplies(add);
+		}
+	}
+
 	static void StartSupplies()
 	{
 		if (s_bStocked || !Replication.IsServer())
@@ -23,7 +61,7 @@ class ZCR_Setup
 		if (System.GetCLIParam("zcrStartSupplies", value) && !value.IsEmpty())
 			target = value.ToInt();
 		else if (System.IsCLIParam("zcrNoFIA"))
-			target = 800;
+			target = 1200;
 		if (target <= 0 || (System.IsCLIParam("zcrNoFIA") && !s_bDone))
 			return;
 		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();

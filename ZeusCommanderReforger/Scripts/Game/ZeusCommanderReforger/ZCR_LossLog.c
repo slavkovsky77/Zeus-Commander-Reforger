@@ -92,6 +92,8 @@ class ZCR_LossLog
 		int distance = -1;
 		if (killer)
 			distance = Math.Round(vector.Distance(at, killer.GetOrigin()));
+		if (Vehicle.Cast(victim))
+			ZCR_Wrecks.Add(victim);         // removed a minute later (vehicles crashed into wrecks)
 		if (ChimeraCharacter.Cast(victim) || Vehicle.Cast(victim))
 		{
 			s_aRecentPos.Insert(at);
