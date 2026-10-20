@@ -67,6 +67,7 @@ BUILDS = [
     (20, "danger awareness, anti-drone fire, defend in buildings", "2026-10-20 02:20", "no standing in danger, prone every second near drones, small-arms fire at drones, defenders at the base's buildings, kill zones, wrecks cleared, spectators block no rescue, armed rides, wedge not column"),
     (21, "supply trucks carry the income", "2026-10-20 11:14", "AI Conflict's trucks: bases ask below 35% and are filled to 50%, a source keeps 200; lab income only at the main bases, so the trucks have something to carry"),
     (22, "trucks deliver, much more building", "2026-10-20 14:05", "depots and fortifications pay their cost only, 5 fortifications a base in six types, work crews of idle soldiers, truck roads 100 m beyond a base, the side's first depot first"),
+    (23, "supply depots, trucks every match, drones off the sea", "2026-10-20 16:30", "the two bases nearest the middle are supply depots, 3 trucks a depot, fortifications third in the building round, trucks from 60%, drone sweeps never over the sea, abandoned vehicles off the roads"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

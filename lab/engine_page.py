@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Headless tests of r22 three at a time (20 min each): supply trucks and building. The watched loop is off while Martin works.",
+    "Running now": "Nothing - paused while Martin uses the PC (21 Oct 00:20); continues tonight when he says.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Supply trucks every match on both sides: a vehicle depot early (every base tries one first while the side has none); then Yunakivka (trenches) with an AI Conflict scenario.",
+    "Being built next": "Supplies, trucks and building visible in the watch view (supply state on the map, truck cargo tags, fortification and building-site markers); shorter supply runs; more building in watched matches; then Yunakivka.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -198,6 +198,15 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (23, "supply depots, trucks every match, drones off the sea", "20 Oct, 16:30-21:18",
+     ["Supply depots (Martin: 'if supply points are missing on the map, add them'): Arland's AI Conflict had none (0 of 8 bases a supply source) - the two bases nearest the middle (Beauregard, Military Training Area) gain 150 supplies a minute, any side's trucks load there while neutral (they stay FIA in the two-army setup), the holder loads there like at its main base; tagged SUPPLY DEPOT (green) on the watch labels.",
+      "AI Conflict fork: 3 supply trucks run per vehicle depot (was 1 - more only from players' orders); bases ask below 60% and are filled to 80% (at 35% they stayed full for 15 minutes).",
+      "AI Conflict fork: every base with its barracks tries a vehicle depot first while its side has none (both sides had a depot in 3 of 3 tests: USSR ~6 min, US ~15 min); fortifications third in the building round - as the last of six they never got a turn in a watched match.",
+      "Drones: search sweeps and goals never over the sea - 537 drones in 28 watched matches flew into the inlet south of the Military Training Area (Martin's /bad); the drone mod holds its height over the sea bed (note for its chat).",
+      "AI Conflict fork: an abandoned vehicle standing on a road is retired at once - a USSR UAZ given up on a junction blocked a US M998 (Martin's /bad 'now they seem to be stuck').",
+      "Work crews: a member deleted in the same tick is skipped (a NULL error in a watched match). Kept: soldiers shooting down incoming drones (Martin's /good, KEEP.md)."],
+     "Martin: logistics is very important - add supply points; supply trucks barely deliver; drones crash into the water; vehicles stuck.",
+     "Watched matches 20:00-21:00: 7-10 truck jobs a match (was 0-3), trucks on the road on both sides; a run forward depot > main base > front takes ~14 game minutes, so few deliveries finish in a 30-minute match. Fortifications still 0-2 a side in watched matches. Next: supplies, trucks and building visible on screen (review note 239), shorter runs (nearest source)."),
     (22, "trucks deliver, much more building", "20 Oct, from 14:05",
      ["AI Conflict fork: vehicle depots and fortifications pay their cost only - a squad's replacement (500) kept back meant forward bases never afforded a depot (no depot in 14 of 16 matches).",
       "AI Conflict fork: up to 5 fortifications a base within 2.5 km of the enemy (was 2 within 1.5 km), in turn: bunker, two MG nests, two sandbag positions, guard tower - Conflict's own compositions.",
