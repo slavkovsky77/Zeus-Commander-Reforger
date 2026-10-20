@@ -108,6 +108,9 @@ class ZCR_Setup
 		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
 		if (!system)
 			return;
+		// AI Conflict's supply depots (the bases nearest the middle) stay neutral: every side may load there
+		// until one side takes it.
+		AICF_SupplyDepots.Pick();
 		vector homeUS = us.GetMainBase().GetOwner().GetOrigin();
 		vector homeUSSR = ussr.GetMainBase().GetOwner().GetOrigin();
 		array<SCR_MilitaryBaseComponent> all = {};
@@ -120,6 +123,11 @@ class ZCR_Setup
 			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
 			if (!base || base.IsHQ() || !base.GetFaction() || base.GetFaction().GetFactionKey() != "FIA")
 				continue;
+			if (AICF_SupplyDepots.Is(base))
+			{
+				Print(string.Format("[ZCR][SETUP] t=%1 no_fia base=%2 stays=FIA supply_depot=1", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base)), LogLevel.NORMAL);
+				continue;
+			}
 			vector at = base.GetOwner().GetOrigin();
 			float l = vector.DistanceXZ(at, homeUS) - vector.DistanceXZ(at, homeUSSR);
 			int i;

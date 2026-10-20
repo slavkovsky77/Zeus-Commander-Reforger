@@ -27,8 +27,12 @@ class ZCR_SpotProbe
 			float d = -1;
 			if (AICF_LogisticsPlanner.NearestRoadPoint(aiWorld.GetRoadNetworkManager(), c, 400, road))
 				d = vector.DistanceXZ(road, c);
-			Print(string.Format("[ZCR][ROADS] base=%1 x=%2 z=%3 radius=%4 nearest_road_m=%5 at=%6,%7", base.GetOwner().GetID(), Math.Round(c[0]), Math.Round(c[2]),
-				Math.Round(base.GetRadius()), Math.Round(d), Math.Round(road[0]), Math.Round(road[2])), LogLevel.NORMAL);
+			string owner = "none";
+			if (base.GetFaction())
+				owner = base.GetFaction().GetFactionKey();
+			Print(string.Format("[ZCR][ROADS] base=%1 x=%2 z=%3 radius=%4 nearest_road_m=%5 at=%6,%7 type=%8 owner=%9", base.GetOwner().GetID(), Math.Round(c[0]), Math.Round(c[2]),
+				Math.Round(base.GetRadius()), Math.Round(d), Math.Round(road[0]), Math.Round(road[2]), typename.EnumToString(SCR_ECampaignBaseType, base.GetType()),
+				owner + string.Format(" source_component=%1 supplies=%2/%3", base.GetOwner().FindComponent(SCR_CampaignSourceBaseComponent) != null, Math.Round(base.GetSupplies()), Math.Round(base.GetSuppliesMax()))), LogLevel.NORMAL);
 		}
 	}
 
