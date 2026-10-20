@@ -15,7 +15,7 @@ class ZCR_Setup
 	// hundred); the front bases started near empty and no truck hauled supplies until r19.
 	// Logs [ZCR][SETUP] ... stocked=.
 	// Income for the lab (Martin: "add some more supplies"): each side's main base gains this many
-	// supplies a minute, the same for both (-zcrSupplyIncome N; default 120 in the two-army scenario);
+	// supplies a minute, the same for both (-zcrSupplyIncome N; default 180 in the two-army scenario);
 	// AI Conflict's supply trucks carry it to the front. (Income at every base, the night of 20 Oct,
 	// left the trucks with no demand: 2 deliveries in 42 matches.)
 	protected static int s_iNextIncome;
@@ -29,7 +29,7 @@ class ZCR_Setup
 		if (System.GetCLIParam("zcrSupplyIncome", value) && !value.IsEmpty())
 			perMinute = value.ToInt();
 		else if (System.IsCLIParam("zcrNoFIA"))
-			perMinute = 120;
+			perMinute = 180;
 		int now = ZCR_LossLog.Seconds();
 		if (perMinute <= 0 || now < s_iNextIncome)
 			return;
