@@ -29,6 +29,20 @@ class ZCR_WorkCrew
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 3000, true);
 	}
 
+	// How many soldiers work with the builder at this site.
+	static int CrewAt(SCR_CampaignBuildingCompositionComponent site)
+	{
+		int n;
+		if (!s_Instance)
+			return 0;
+		foreach (IEntity member, SCR_CampaignBuildingCompositionComponent onSite : s_Instance.m_mSite)
+		{
+			if (member && onSite == site)
+				n++;
+		}
+		return n;
+	}
+
 	// The soldier is on a work crew (the cover layer leaves him there).
 	static bool Busy(IEntity soldier)
 	{

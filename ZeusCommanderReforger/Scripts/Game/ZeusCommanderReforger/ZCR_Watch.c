@@ -552,7 +552,8 @@ class ZCR_Watch
 			vector screen = workspace.ProjWorldToScreen(m.m_vPos, world);
 			if (screen[2] <= 0)
 				continue;
-			bool label = m.m_sKind == "B" || m.m_sKind == "G";
+			// Labels: bases, goals, supply trucks (S), fortifications (F), buildings going up (C).
+			bool label = m.m_sKind == "B" || m.m_sKind == "G" || m.m_sKind == "S" || m.m_sKind == "F" || m.m_sKind == "C";
 			Widget w = Pooled(used, label);
 			used++;
 			if (!w)
@@ -566,8 +567,16 @@ class ZCR_Watch
 				t.SetExactFontSize(18);
 				if (m.m_sKind == "G")
 					t.SetExactFontSize(22);
+				float width = 260;
+				if (m.m_sKind == "S" || m.m_sKind == "C")
+				{
+					t.SetExactFontSize(15);
+					width = 420;
+				}
+				if (m.m_sKind == "F")
+					t.SetExactFontSize(13);
 				FrameSlot.SetPos(t, screen[0] - 60, screen[1] - 12);
-				FrameSlot.SetSize(t, 260, 30);
+				FrameSlot.SetSize(t, width, 30);
 			}
 			else
 			{
