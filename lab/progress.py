@@ -64,12 +64,14 @@ BUILDS = [
     (17, "rides, covered steps", "2026-10-19 21:51", "infantry teams ride light vehicles on marches over 500 m (not one ride before), jog, end each march step in cover; AI Conflict's side flies drones every 2 min"),
     (18, "cover, panic, scan", "2026-10-19 22:05", "idle soldiers to cover anywhere, drone panic from 250 m, drones sweep instead of hovering, rides from 300 m, 16 vehicles per side"),
     (19, "doctrine v doctrine, held prone, standoff", "2026-10-19 23:35", "both sides our doctrine; speed set by the game itself; prone held by the game's stance setting; soldiers hold 60 m from a seen enemy; supply trucks run again; free look, orbit, REPORT, IDs in captions"),
-    (20, "danger awareness, anti-drone fire, defend in buildings", "2026-10-20 05:16", "no standing in danger, prone every second near drones, small-arms fire at drones, defenders at the base's buildings, kill zones, wrecks cleared, spectators block no rescue, armed rides, wedge not column"),
+    (20, "danger awareness, anti-drone fire, defend in buildings", "2026-10-20 02:20", "no standing in danger, prone every second near drones, small-arms fire at drones, defenders at the base's buildings, kill zones, wrecks cleared, spectators block no rescue, armed rides, wedge not column"),
+    (21, "supply trucks carry the income", "2026-10-20 11:14", "AI Conflict's trucks: bases ask below 35% and are filled to 50%, a source keeps 200; lab income only at the main bases, so the trucks have something to carry"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
-            ("everon-watched-2a", "Everon watched, two armies")]
-KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+            ("everon-watched-2a", "Everon watched, two armies"),
+            ("arland-headless-2a-dd", "Arland headless, doctrine v doctrine"), ("arland-watched-2a-dd", "Arland watched, doctrine v doctrine")]
+KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "sc_danger", "sc_panic", "sc_dd_standing", "sc_dd_prone", "sc_shot", "sc_lost", "sc_armed", "sc_jobs", "sc_unloads", "sc_forts", "sc_wrecks", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -377,7 +379,8 @@ def measure_run(run: Path, log: Path):
     # never recruits - such a match says nothing about the strategist.
     row["recruits"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={side} " in l)
     row["recruits_other"] = sum(1 for l in lines if "INFANTRY_RECRUIT_JOINED" in l and f"faction={other} " in l)
-    if m["minutes"] >= 20 and (row["recruits"] < 20 or row["recruits_other"] < 20):
+    # Two armies (-zcrNoFIA) start with soldiers on the map and recruit only 9-30 a match: under 3 is the failure.
+    if m["minutes"] >= 20 and (row["recruits"] < 3 or row["recruits_other"] < 3):
         return None
 
     # Approach: the nearest squad sent to the first objective, 6 min after the assault order.
@@ -429,8 +432,16 @@ def screen_metrics(run: Path, lines: list) -> dict:
         def avg(key):
             vals = [m[key] for m in sides if m.get(key) is not None]
             return round(sum(vals) / len(vals), 1) if vals else None
+        def total(key):
+            vals = [m[key] for m in sides if m.get(key) is not None]
+            return sum(vals) if vals else None
         out.update({"sc_out": avg("out_min"), "sc_atbase": avg("atbase10"), "sc_drones": avg("drones_per4"),
-                    "sc_sky": avg("sky_pct"), "sc_riding": avg("riding_pct")})
+                    "sc_sky": avg("sky_pct"), "sc_riding": avg("riding_pct"),
+                    "sc_danger": avg("danger_standing"), "sc_panic": avg("panic_pct"),
+                    "sc_dd_standing": avg("drone_dead_standing"), "sc_dd_prone": avg("drone_dead_prone"),
+                    "sc_shot": avg("shot_down"), "sc_lost": avg("lost"), "sc_armed": avg("armed_teams"),
+                    "sc_jobs": total("truck_jobs"), "sc_unloads": total("truck_unloads"), "sc_forts": total("forts"),
+                    "sc_wrecks": card.get("wrecks")})
     except Exception as e:   # the page must not stop on one match
         print(f"scorecard {run.name}: {e}", file=sys.stderr)
     paces = [int(m.group(1)) for m in (re.search(r" pace=(\d+)", l) for l in lines if "[ZCR][CROWD]" in l) if m]
@@ -563,6 +574,49 @@ def html(agg: dict, rows: list) -> str:
             f'<code>python lab/progress.py</code>. Each point is the mean of that build\'s matches - most builds have 1-4, so single points jump. '
             f'Lines are per map and kind: headless (measured) and watched (recorded, with drones). Hover a point for its value.</p>'
             '<div class="pgrid">' + "".join(charts) + "</div>")
+
+
+def headline(agg: dict, first: int = 14) -> str:
+    """The problems Martin raised, one chart each: every match of a build (both sides ours, both sides
+    averaged), from r14 (two armies, drone sites) - the top of the engine page."""
+    from charts import line_chart
+    notes = {b: name for b, name, *_ in BUILDS}
+    allb = {b: ks for b, ks in agg.get("all", {}).items() if b >= first}
+    charts = []
+
+    def add(title, why, series, **kw):
+        used = sorted({b for _, d in series for b, v in d.items() if v is not None})
+        if not used:
+            return
+        charts.append(f'<figure class="pfig"><figcaption><b>{title}</b> {why}</figcaption>'
+                      + line_chart(title, used, series, prefix="r", **kw) + "</figure>")
+
+    def s(name, key):
+        return (name, {b: ks.get(key) for b, ks in allb.items()})
+    add("Checks passed", "What the screen shows (lab/scorecard.py): team out by 3 min, few at the base at 10 min, teams of 2.5+, drones every 4 min and up 60% of the time, panic near drones, drone victims not standing, riding 25%.",
+        [s("checks passed", "sc_pass")], unit="%", ymax=100, target=(100, "all"), better="higher")
+    add("Reckless soldiers", "Of the soldiers in high danger (enemy within 150 m, under fire, a friend just lost, a drone within 150 m), % still standing - measured from r20; and of the soldiers drones killed, % standing and % prone.",
+        [s("standing in danger", "sc_danger"), s("drone victims standing", "sc_dd_standing"), s("drone victims prone", "sc_dd_prone")], unit="%", ymax=100, better="lower")
+    add("Safe near a drone", "Of the soldiers within 150 m of an enemy drone: under a roof or trees, running for cover or lying prone.",
+        [s("safe near drones", "sc_panic")], unit="%", ymax=100, target=(60, "60%"), better="higher")
+    add("Chilling at the base", "% of each side's soldiers within 200 m of their main base at minute 10.",
+        [s("at the main base", "sc_atbase")], unit="%", ymax=100, target=(40, "40%"), better="lower")
+    add("Drones in the air", "% of the 30-s samples with a side's drones up, and drone teams launched per 4 minutes.",
+        [s("drones up %", "sc_sky")], unit="%", ymax=100, target=(60, "60%"), better="higher")
+    add("Using vehicles", "% of the 30-s samples with a side's soldiers riding a moving vehicle; teams riding an armed vehicle per side.",
+        [s("riding %", "sc_riding")], unit="%", ymax=100, target=(25, "25%"), better="higher")
+    add("Fire at drones", "Drones a side's soldiers shot down with small arms, per side per match (from r20).",
+        [s("shot down", "sc_shot")], better="higher")
+    add("Supply trucks", "AI Conflict's supply runs per match, both sides: jobs taken and loads unloaded at a base.",
+        [s("jobs", "sc_jobs"), s("unloads", "sc_unloads")], better="higher")
+    add("Defences built", "Bunkers both sides' engineers finished per match (from r20).",
+        [s("bunkers", "sc_forts")], better="higher")
+    add("Losses", "Soldiers lost per side per match.", [s("lost per side", "sc_lost")], better="lower")
+    n = {b: ks.get("n") for b, ks in allb.items()}
+    counts = ", ".join(f"r{b} {c}" for b, c in n.items() if c)
+    key = " · ".join(f"<b>r{b}</b> {notes[b]}" for b in sorted(allb))
+    return (f'<p class="pnote">One point per build: the mean of its matches (both sides ours, headless and watched; probes left out). Matches: {counts}. Hover a point for its value.</p>'
+            '<div class="pgrid">' + "".join(charts) + f'</div><p class="pnote">Builds: {key}. What each one changed: the changelog.</p>')
 
 
 def main() -> int:

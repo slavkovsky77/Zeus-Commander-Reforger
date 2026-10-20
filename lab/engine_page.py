@@ -23,8 +23,8 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The watched loop at 3x and the headless batch, our doctrine against our doctrine and against doctrine + Gemini, on r20.",
-    "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). Night report: https://claude.ai/artifact/CgNScfPGHX6GQCJnZpgBGb",
+    "Running now": "r21: headless tests of AI Conflict's supply trucks, followed job by job. The watched loop is off until Martin watches again.",
+    "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
     "Being built next": "Supply trucks end to end (2 deliveries in 42 matches); fights from a base's edge instead of point-blank (median 3 m); anti-drone balance; formation spacing.",
 }
 
@@ -193,6 +193,12 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (21, "supply trucks carry the income", "20 Oct, from 11:14",
+     ["AI Conflict fork: bases ask for a supply truck below 35% and are filled to 50%; a donor keeps 50% and gives above 55%; a base it owns keeps 200 back (was 500).",
+      "Lab income (180 a minute) goes to each side's main base only, so the front bases need trucks.",
+      "Engine page: the main problems charted per build at the top; doctrine-v-doctrine matches counted (they were left out of every chart)."],
+     "Martin: no supply trucks seen. In the night logs 70 depots were ready, 46 jobs, 39 trucks, 2 unloads: the lab paid income to every base, so no base asked.",
+     "Test 1 (65/75/80): 3 jobs, 2 trucks, nothing loaded - the main base never reached 80% to give. Test 2 (35/50/55): 1 job, 1 truck, nothing loaded yet - followed job by job next."),
     (20, "danger awareness, anti-drone fire, defend in buildings", "20 Oct, from 02:25 (final 05:16)",
      ["Danger layer: high danger (threatened, enemy within 150 m, a kill zone, a drone within 150 m) - never standing; medium - crouched when still.",
       "Drones: prone every second within 150 m with nothing overhead; buildings first for cover; small-arms fire at drones (up to 3 shooters, MGs first) with a chance to bring them down.",
@@ -354,6 +360,7 @@ def engine(changelog_url: str) -> str:
     rows = progress.rows_all()
     agg = progress.aggregate(rows)
     charts = progress.html(agg, rows)
+    head_charts = progress.headline(agg)
     probes = probe_rows()
     build = max(b for b, *_ in progress.BUILDS)
     now = datetime.now()
@@ -390,8 +397,11 @@ def engine(changelog_url: str) -> str:
   <div class="verdict">{verdict}</div>
 </header>
 <nav class="toc" aria-label="Contents">
-  <a href="#now">Now</a><a href="#progress">Progress</a><a href="#probes">Probes</a><a href="#how">How a match runs</a><a href="#commander">Commander</a><a href="#drones">Drones</a><a href="#camera">Camera</a><a href="#problems">Open problems</a><a href="#next">Next</a><a href="#engine">Engine facts</a><a href="{changelog_url}">Changelog ↗</a>
+  <a href="#main">Main problems</a><a href="#now">Now</a><a href="#progress">All measures</a><a href="#probes">Probes</a><a href="#how">How a match runs</a><a href="#commander">Commander</a><a href="#drones">Drones</a><a href="#camera">Camera</a><a href="#problems">Open problems</a><a href="#next">Next</a><a href="#engine">Engine facts</a><a href="{changelog_url}">Changelog ↗</a>
 </nav>
+
+<h2 id="main">The main problems, measured <span class="ref">PER BUILD, FROM R14</span></h2>
+{head_charts}
 
 <h2 id="now">Now <span class="ref">BUILD R{build}</span></h2>
 <div class="findings">{cards}</div>
