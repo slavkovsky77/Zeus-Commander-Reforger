@@ -135,13 +135,22 @@ video { width: 100%; border-radius: 8px; background: #000; }
 .pbar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .pbar > i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width .6s ease; }
 .pbar.us > i { background: var(--us); } .pbar.ussr > i { background: var(--ussr); } .pbar.low > i { background: var(--bad); }
-.pbar.busy > i { width: 30% !important; opacity: .55; animation: busy 1.6s ease-in-out infinite; }
-@keyframes busy { 0% { margin-left: 0; } 50% { margin-left: 70%; } 100% { margin-left: 0; } }
-@media (prefers-reduced-motion: reduce) { .pbar.busy > i { animation: none; } .pbar > i { transition: none; } }
-.steps { display: flex; gap: 4px; align-items: center; }
-.steps i { width: 22px; height: 7px; border-radius: 3px; background: var(--line); }
-.steps i.done { background: var(--good); } .steps i.now { background: var(--accent); }
-.steps span { font: 11px var(--f-mono); color: var(--muted); margin-left: 6px; }
+/* No measure yet (choosing a site, truck getting ready): a striped track, not a fill that reads as a percentage. */
+.pbar.busy, .rseg.wait { background: repeating-linear-gradient(-45deg, var(--line) 0 6px, transparent 6px 12px); background-size: 17px 100%; animation: busy 1.2s linear infinite; }
+.pbar.busy > i { display: none; }
+@keyframes busy { to { background-position: 17px 0; } }
+@media (prefers-reduced-motion: reduce) { .pbar.busy, .rseg.wait { animation: none; } .pbar > i, .rseg > i { transition: none; } }
+.run { display: grid; gap: 4px; padding: 5px 0; }
+.run .top { display: flex; gap: 8px; align-items: baseline; font-size: 14px; flex-wrap: wrap; }
+.run .top .n { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+.track { display: grid; grid-template-columns: 3fr 1fr 3fr 1fr; gap: 3px; }
+.rseg { height: 9px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.rseg > i { display: block; height: 100%; background: var(--us); transition: width .6s ease; }
+.run.ussr .rseg > i { background: var(--ussr); }
+.rseg.cur { box-shadow: 0 0 0 1.5px var(--us); }
+.run.ussr .rseg.cur { box-shadow: 0 0 0 1.5px var(--ussr); }
+.track.names span { font: 10.5px var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track.names span.cur { color: var(--ink); font-weight: 600; }
 .banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
 </style>
 </head>
@@ -346,8 +355,26 @@ video { width: 100%; border-radius: 8px; background: #000; }
     // A labelled progress bar: pct 0-100, or null for work under way with no measure yet (moving stripe).
     const prog = (text, n, pct, cls) => `<div class="prog"><div class="top"><span class="t">${text}</span>${n ? `<span class="n">${n}</span>` : ""}</div>
       <div class="pbar ${cls || ""}${pct == null ? " busy" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="100"${pct == null ? "" : ` aria-valuenow="${pct}"`}><i style="width:${pct == null ? 30 : Math.max(2, pct)}%"></i></div></div>`;
-    const STEPS = ["to load", "loading", "driving", "unloading"];
-    const steps = (step) => `<div class="steps">${STEPS.map((_, i) => `<i class="${i + 1 < step ? "done" : i + 1 === step ? "now" : ""}"></i>`).join("")}<span>${step ? STEPS[step - 1] : ""}</span></div>`;
+    // A supply run as one track of four parts: drive to the load point, load, drive to deliver, unload.
+    // The drives fill by the distance covered (straight line), loading by cargo/planned, unloading by what left.
+    const km = (m) => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+    const run = (tr, side) => {
+      const step = tr.step || 0, planned = Math.max(1, tr.planned || 0), cargo = tr.cargo || 0;
+      const part = [0, 0, 0, 0];
+      for (let i = 0; i < step - 1; i++) part[i] = 100;
+      if (step === 1 || step === 3) part[step - 1] = tr.leg || 0;
+      if (step === 2) part[1] = tr.planned ? Math.min(100, Math.round(100 * cargo / planned)) : 50;
+      if (step === 4) part[3] = tr.planned ? Math.max(0, Math.round(100 - 100 * cargo / planned)) : 50;
+      const left = tr.left >= 0 ? `${km(tr.left)} to go` : "";
+      const now = step === 1 ? `driving to load · ${left}` : step === 2 ? `loading ${cargo}/${tr.planned || "?"}`
+        : step === 3 ? `delivering ${cargo} · ${left}` : step === 4 ? `unloading · ${cargo} left` : "getting ready";
+      const route = tr.from && tr.to ? `${esc(tr.from)} → ${esc(tr.to)}` : `truck ${esc(tr.doing)}`;
+      const names = [`to ${tr.from || "load"}`, "load", `to ${tr.to || "deliver"}`, "unload"];
+      return `<div class="run ${side}"><div class="top"><span class="t">${route}</span><span class="n">${esc(now)}</span></div>
+        <div class="track">${part.map((p, i) => `<div class="rseg${i + 1 === step ? " cur" : ""}${step === 0 && i === 0 ? " wait" : ""}"
+          role="progressbar" aria-label="${esc(names[i])}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%"></i></div>`).join("")}</div>
+        <div class="track names">${names.map((n, i) => `<span${i + 1 === step ? ' class="cur"' : ""}>${esc(n)}</span>`).join("")}</div></div>`;
+    };
     $("efforts").innerHTML = sides.map((s) => {
       const e = ef[s], side = s.toLowerCase();
       const attack = (e.attack || []).slice().sort((a, b) => b.men - a.men).map((a) =>
@@ -357,8 +384,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         prog(esc(a.base), `${a.there ?? 0} of ${a.men} in place · ${a.teams} teams`, a.men ? Math.round(100 * (a.there || 0) / a.men) : 0, side));
       const hold = (e.hold || []).map((h) => item(`${esc(h.base)} - enemies near`, `${h.enemies} seen`, true));
       const supply = (e.short || []).map((b) => prog(`${esc(b.base)} needs supplies`, `${b.have}/${b.max}`, Math.round(100 * b.have / Math.max(1, b.max)), b.have < 0.2 * b.max ? "low" : ""))
-        .concat((e.trucks || []).map((tr) => `<div class="prog"><div class="top"><span class="t">truck ${esc(tr.doing)}</span>${tr.cargo ? `<span class="n">${tr.cargo} supplies</span>` : ""}</div>${steps(tr.step || 0)}` +
-          (tr.step === 1 || tr.step === 3 ? `<div class="pbar ${side}"><i style="width:${Math.max(2, tr.leg || 0)}%"></i></div>` : "") + "</div>"))
+        .concat((e.trucks || []).map((tr) => run(tr, side)))
         .concat((e.trucks || []).length ? [] : [item('<span class="muted">no supply trucks on the road (they come from depots)</span>', "")]);
       const build = (e.sites || []).map((x) => prog(`${esc(x.what)} at ${esc(x.base)}`, x.pct >= 0 ? `${x.pct}% built` : "", x.pct >= 0 ? x.pct : null, side))
         .concat((e.build || []).filter((b) => b.stage !== "building").map((b) => prog(`${esc(b.what)} at ${esc(b.base)}`, esc(b.stage), null, side)));

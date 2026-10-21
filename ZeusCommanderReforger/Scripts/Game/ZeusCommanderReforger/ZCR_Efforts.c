@@ -2,7 +2,7 @@
 // current efforts - defend, supply, attack efforts... I am missing supply runs, what are building efforts").
 // Every 30 game seconds, one line per side:
 //   [ZCR][EFFORTS] t= side= json={"main": base, "attack": [{base, teams, men, riding}], "defend": [...],
-//     "hold": [{base, enemies}], "short": [{base, have, max}], "trucks": [{doing, phase, from, to, cargo}],
+//     "hold": [{base, enemies}], "short": [{base, have, max}], "trucks": [{doing, phase, from, to, cargo, step, leg, left, planned}],
 //     "build": [{what, base, stage}], "sites": [{base, what}], "armour": [label]}
 // From AI Conflict's team slots (role and target), the bases, its supply trucks and construction orders, the
 // side's knowledge of enemies near its bases, and the armour units. Server side; logging only.
@@ -113,7 +113,7 @@ class ZCR_Efforts
 			if (t.m_To)
 				to = ZCR_Strategist.BaseName(t.m_To);
 			trucks += string.Format(",{\"doing\":%1,\"phase\":%2,\"from\":%3,\"to\":%4,\"cargo\":%5,", J(doing), J(t.m_sPhase), J(from), J(to), Math.Round(t.m_fCargo)) +
-				string.Format("\"step\":%1,\"leg\":%2}", Step(t.m_sPhase), Leg(t));
+				string.Format("\"step\":%1,\"leg\":%2,\"left\":%3,\"planned\":%4}", Step(t.m_sPhase), Leg(t), Left(t), Math.Round(Planned(t)));
 		}
 		// Engineers: AI Conflict's construction orders (choosing a site / building).
 		string build;
@@ -196,6 +196,29 @@ class ZCR_Efforts
 		if (phase == "UNLOADING")
 			return 4;
 		return 0;
+	}
+
+	// Metres (straight line) to the base the truck is driving to; -1 while not driving.
+	protected static int Left(AICF_TruckView t)
+	{
+		if (!t.m_Vehicle)
+			return -1;
+		SCR_CampaignMilitaryBaseComponent goal;
+		if (t.m_sPhase == "TO_SOURCE")
+			goal = t.m_From;
+		else if (t.m_sPhase == "TO_DESTINATION")
+			goal = t.m_To;
+		if (!goal || !goal.GetOwner())
+			return -1;
+		return Math.Round(vector.DistanceXZ(t.m_Vehicle.GetOrigin(), goal.GetOwner().GetOrigin()));
+	}
+
+	// The load the truck is to carry: the planned amount, else what it can hold.
+	protected static float Planned(AICF_TruckView t)
+	{
+		if (t.m_fPlanned > 0)
+			return t.m_fPlanned;
+		return t.m_fCapacity;
 	}
 
 	// How far along its current drive a truck is: 100 - the distance left in % of the most it had left on this leg.
