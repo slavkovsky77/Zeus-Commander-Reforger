@@ -55,6 +55,8 @@ for _k in SCORECARD_KEYS:
     MEASURES.setdefault(_k, ("side", "lab/scorecard.py, see its header"))
 
 _cache = {}
+# The code that measures, as loaded: a process started before an edit must not stamp its old results as new.
+_CODE_STAMP = int(Path(__file__).stat().st_mtime)
 
 
 def extra(run: Path) -> dict:
@@ -160,7 +162,7 @@ def measure(run: Path) -> dict:
         return _cache[key]
     # Finished matches are measured once: .runtime/measures/<run>.json, redone when the log or this file changes.
     log = scorecard.console(run)
-    stamp = f"{log.stat().st_size}-{int(log.stat().st_mtime)}-{int(Path(__file__).stat().st_mtime)}" if log else ""
+    stamp = f"{log.stat().st_size}-{int(log.stat().st_mtime)}-{_CODE_STAMP}" if log else ""
     disk = scorecard.RUNS.parent / "measures" / f"{run.name}.json"
     if log and disk.exists():
         saved = json.loads(disk.read_text(encoding="utf-8"))
