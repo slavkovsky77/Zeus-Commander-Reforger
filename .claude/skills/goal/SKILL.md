@@ -23,7 +23,9 @@ description: Turn the owner's wish or complaint about the AI into a goal in goal
 4. **Write the goal** into `goals.toml` (format at the top of the file): `id`, `title`, `wish` (their
    words, who, when), `notes`, `status = "active"`, `matches` (watched by default), `met_when`, and one
    `[[goal.measure]]` per number with its `target`. Order matters: the loop works on the first unmet
-   goal - put it where the owner's priority says.
+   goal - put it where the owner's priority says. For something rare (a crash in 1 match of 5), judge it
+   on enough matches: `met_when = "10 of 10"` makes lab/goals.py look at the last 10 (3 clean matches
+   once marked the crash goal met; the next two crashed).
 
 5. **Check it parses and reads right**: `python lab/goals.py` - the new goal shows with today's values.
 

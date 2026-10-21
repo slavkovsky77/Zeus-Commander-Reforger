@@ -100,7 +100,9 @@ def main() -> int:
         if a.runs:
             runs = [Path(r) if Path(r).is_dir() else scorecard.RUNS / r for r in a.runs]
         else:
-            runs = runs_for(goal.get("matches", "watched"), a.last, goal.get("needs", []))
+            # A goal judged on more matches than --last (met_when "10 of 10" for a rare crash) gets them.
+            of = int(re.findall(r"\d+", goal.get("met_when", "2 of 3"))[1])
+            runs = runs_for(goal.get("matches", "watched"), max(a.last, of), goal.get("needs", []))
         res = judge(goal, runs)
         results.append(res)
         verdict = {True: "MET", False: "NOT MET", None: "TOO FEW MATCHES"}[res["met"]]

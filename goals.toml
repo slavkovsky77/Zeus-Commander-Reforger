@@ -68,7 +68,7 @@ wish = "the game crashes during watched matches (21 Oct night, 6 of 15 armour ma
 notes = [246]
 status = "active"         # marked met 15:10 on 3 clean matches - too few for a 1-in-5 crash; w15, w16 crashed (note 246)
 matches = "watched"
-met_when = "3 of 3"
+met_when = "10 of 10"      # a crash comes about 1 match in 5: 3 clean matches prove nothing
   [[goal.measure]]
   key = "ended_early"
   target = "== 0"
