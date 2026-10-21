@@ -487,6 +487,10 @@ class ZCR_Director
 			}
 		}
 
+		IEntity truck;
+		string truckLabel;
+		vector siteAt;
+		string siteLabel;
 		if (force.IsEmpty() && capture >= 0)
 		{
 			target = m_aCapturePos[capture];
@@ -541,6 +545,29 @@ class ZCR_Director
 			back = 25;
 			height = 9;
 			duration = 20;
+		}
+		else if (force.IsEmpty() && m_iShot % 6 == 3 && SupplyTruck(truck, truckLabel))
+		{
+			// A supply truck on the road with what it carries (Martin, 21 Oct: "it should be seen on
+			// vehicles during the game if they carry supplies and how much").
+			follow = truck;
+			target = truck.GetOrigin();
+			label = truckLabel;
+			key = "truck";
+			back = 25;
+			height = 10;
+			duration = 20;
+		}
+		else if (force.IsEmpty() && m_iShot % 6 == 5 && BuildSite(siteAt, siteLabel))
+		{
+			// A building going up, the builder and his crew at it (Martin: "I am not seeing defences
+			// being built by anybody").
+			target = siteAt;
+			label = siteLabel;
+			key = "build";
+			back = 30;
+			height = 14;
+			duration = 16;
 		}
 		else if (force.IsEmpty() && m_bLastWasFight && best >= 0)
 		{
@@ -1406,6 +1433,57 @@ class ZCR_Director
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 			held.Set(owner, held.Get(owner) + 1);
 		return string.Format("bases US %1 | USSR %2 | FIA %3", held.Get("US"), held.Get("USSR"), held.Get("FIA"));
+	}
+
+	// A supply truck to show: one on the road (to load or with its cargo), the sides in turn.
+	protected bool SupplyTruck(out IEntity truck, out string label)
+	{
+		array<ref AICF_TruckView> trucks = {};
+		AICF_LogisticsDepotRegistry.AICF_Trucks(trucks);
+		string want = Turn("US", "USSR");
+		AICF_TruckView pick;
+		foreach (AICF_TruckView t : trucks)
+		{
+			if (!t.m_Vehicle || (t.m_sPhase != "TO_SOURCE" && t.m_sPhase != "TO_DESTINATION" && t.m_sPhase != "LOADING" && t.m_sPhase != "UNLOADING"))
+				continue;
+			if (!pick || (t.m_sSide == want && pick.m_sSide != want))
+				pick = t;
+		}
+		if (!pick)
+			return false;
+		truck = pick.m_Vehicle;
+		label = string.Format("%1 SUPPLY TRUCK %2 - %3/%4 supplies aboard %5", pick.m_sSide, TruckDoing(pick), Math.Round(pick.m_fCargo), Math.Round(pick.m_fCapacity), Near(truck.GetOrigin()));
+		return true;
+	}
+
+	// A building going up to show: the one with the biggest crew, then the most progress.
+	protected bool BuildSite(out vector at, out string label)
+	{
+		array<SCR_CampaignBuildingCompositionComponent> sites = {};
+		array<Faction> factions = {};
+		AICF_BaseBuilderService.AICF_Sites(sites, factions);
+		int best = -1;
+		int bestCrew = -1;
+		foreach (int i, SCR_CampaignBuildingCompositionComponent site : sites)
+		{
+			if (!site || !site.GetOwner() || !factions[i])
+				continue;
+			int crew = ZCR_WorkCrew.CrewAt(site);
+			if (crew > bestCrew)
+			{
+				best = i;
+				bestCrew = crew;
+			}
+		}
+		if (best < 0)
+			return false;
+		IEntity e = sites[best].GetOwner();
+		string what = "A BUILDING";
+		if (e.GetPrefabData())
+			what = BuildingKind(e.GetPrefabData().GetPrefabName());
+		at = e.GetOrigin();
+		label = string.Format("%1 ENGINEERS BUILDING %2 %3 - builder and crew of %4", factions[best].GetFactionKey(), what, Near(at), bestCrew);
+		return true;
 	}
 
 	protected static string BaseLabel(SCR_CampaignMilitaryBaseComponent base)
