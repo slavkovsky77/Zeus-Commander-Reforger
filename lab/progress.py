@@ -73,6 +73,7 @@ BUILDS = [
     (26, "armour units (game APCs)", "2026-10-21 04:28", "each side buys a crewed tank/IFV pair at its HQ and sends it to the front; without the armour mods the LAV-25 / BTR-70"),
     (27, "armour mods watched; crews stay aboard; more building", "2026-10-21 05:17", "watched matches load the armour mods (Abrams, Bradley, T-72, BMP-1); crews stay in intact vehicles, slow for friendly soldiers ahead; one base a side searches for the first depot, the others build"),
     (28, "armour: crash suspects out, guns hold for own men", "2026-10-21 07:04", "replaced armour waypoints deleted 20 s later; crew aboard counted from the crew group; gunners hold fire with own soldiers near the target or the line of fire; armour bought at the base nearest the front"),
+    (29, "armour follows the fight; own-vehicle remount; no forest tracks", "2026-10-21 07:46", "remount on the unit's own vehicle (registered with its group); assault goal follows the losses near the front; spawn spots with no road on, stuck history or a narrow road ranked last; gun hold also for the line of fire"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

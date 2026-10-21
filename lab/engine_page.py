@@ -201,6 +201,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (29, "armour follows the fight; remount on its own vehicle; no forest tracks", "21 Oct, from 07:46 (Martin asleep)",
+     ["Remount on the unit's own vehicle (the game's Get In waypoint on it, the vehicle registered with the crew group at crewing and before boarding) - the 07:26 watched crash recorded the AI boarding a vehicle its group doesn't own; 'Get In Nearest' could pick any.",
+      "In the assault the goal follows the fight: the middle of the last 150 s's losses within 700 m of the front, re-aimed when it moves 200 m+ (watched two-army matches: armour drove to the enemy base's centre while the fighting was elsewhere).",
+      "Spawn spots ranked: no road on towards the front, a unit stuck there before, or a road under 5 m wide (forest tracks by the south HQ held units in most watched matches) go last.",
+      "Gunners also hold fire with their own soldiers within 8 m of the line of fire (armour-11's Abrams killed 10 of its own); a friendly kill logs the gunner's target."],
+     "The night's watched matches: armour stuck by the HQs, little fighting, a crash with a boarding assert.",
+     "Headless armour-12 to -15: all four units into the assault in 3 of 4 tests, 6-10 enemy killed, 0-1 own killed except armour-14 (7, a T-72 at its HQ); watched since 07:04: 1 crash in 7 armour matches (6 in 15 before)."),
     (28, "armour: crash suspects out, guns hold for their own men", "21 Oct, from 07:04 (Martin asleep)",
      ["Watched matches crashed in the engine's entity update (heap corruption, access violations) in 6 of 15 matches with armour, 4 in a row 06:19-06:30; none in the 73 before, none in 2 matches 06:42-07:04 without armour units, never in headless tests. Two suspects taken out: a replaced armour waypoint is deleted 20 s later (a stuck unit's waypoint swap came 3-60 s before each crash), and the crew aboard is counted from the crew group instead of walking the vehicle's seats and turret attachments several times a second (most crashes followed an FPV drone going for the armour).",
       "Armour gunners hold fire when their own soldiers are within 20 m of the target or 8 m of the line of fire: armour-6's T-72 killed 3 of its own at once, armour-11's Abrams 10 at 13-321 m.",
