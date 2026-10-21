@@ -407,7 +407,26 @@ class ZCR_Armour
 		string note;
 		ZCR_ArmourUnit by = UnitOf(killer);
 		if (by)
+		{
 			note += string.Format(" armour=%1", by.m_sKind);
+			// Our own killed by armour: what its gunner was firing at (friendly fire, note 250).
+			if (victim && ZCR_LossLog.SideOf(victim) == by.m_sSide && killer)
+			{
+				SCR_AICombatComponent combat = SCR_AICombatComponent.Cast(killer.FindComponent(SCR_AICombatComponent));
+				BaseTarget target;
+				if (combat)
+					target = combat.GetCurrentTarget();
+				if (target)
+				{
+					vector tp = target.GetLastSeenPosition();
+					note += string.Format(" gunner_target=%1 target_m=%2 target_side=%3", ZCR_LossLog.ShortName(target.GetTargetEntity()),
+						Math.Round(vector.Distance(killer.GetOrigin(), tp)), ZCR_LossLog.SideOf(target.GetTargetEntity()));
+				}
+				else
+					note += " gunner_target=none";
+				note += string.Format(" held=%1", s_mHold.Get(killer));
+			}
+		}
 		ZCR_ArmourUnit hit = UnitOf(victim);
 		if (hit)
 			note += string.Format(" armour_hit=%1", hit.m_sKind);
