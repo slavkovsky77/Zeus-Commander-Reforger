@@ -29,6 +29,7 @@ class ZCR_ArmourUnit
 	int m_iRemountAt;
 	bool m_bSlow;
 	int m_iSlowed;
+	int m_iOrderedAt;
 	string m_sPhase;
 	int m_iBoughtAt;
 	int m_iLostAt = -1;
@@ -720,6 +721,28 @@ class ZCR_Armour
 			SCR_EntityHelper.DeleteEntityAndChildren(waypoint);
 	}
 
+	// Where the side fights near its front: the middle of the last 150 s's losses (either side) within 700 m
+	// of the front, when there are 3 or more; else the front itself. Watched two-army matches: armour drove to
+	// the enemy base's centre while the fighting was elsewhere - 0-3 kills a match.
+	protected static vector FightNear(vector front, int now)
+	{
+		vector sum;
+		int n;
+		for (int i = ZCR_LossLog.s_aRecentPos.Count() - 1; i >= 0; i--)
+		{
+			if (now - ZCR_LossLog.s_aRecentAt[i] > 150)
+				break;
+			vector p = ZCR_LossLog.s_aRecentPos[i];
+			if (vector.DistanceXZ(p, front) > 700)
+				continue;
+			sum = sum + p;
+			n++;
+		}
+		if (n < 3)
+			return front;
+		return sum * (1.0 / n);
+	}
+
 	protected static float Health(ZCR_ArmourUnit unit)
 	{
 		if (!unit.m_Vehicle)
@@ -826,14 +849,17 @@ class ZCR_Armour
 		bool sameFront = unit.m_vFront != vector.Zero && vector.DistanceXZ(unit.m_vFront, front) < 100;
 		// At its support point (within 80 m of it): on into the base, however far that is.
 		bool arrived = sameFront && unit.m_sPhase == "APPROACH" && vector.DistanceXZ(at, unit.m_vOrder) < 80;
-		if (sameFront && unit.m_Waypoint && !arrived && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
+		// In the assault the goal follows the fight (re-aimed when it moved 200 m+, at most once a minute).
+		bool reaim = sameFront && unit.m_sPhase == "ASSAULT" && now - unit.m_iOrderedAt >= 60 &&
+			vector.DistanceXZ(FightNear(front, now), unit.m_vOrder) > 200;
+		if (sameFront && unit.m_Waypoint && !arrived && !reaim && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
 			return;
 		string phase = "APPROACH";
 		vector goal;
-		if (dist <= SHORT_M + 100 || arrived)
+		if (dist <= SHORT_M + 100 || arrived || (unit.m_sPhase == "ASSAULT" && sameFront))
 		{
 			phase = "ASSAULT";
-			goal = front;
+			goal = FightNear(front, now);
 		}
 		else
 		{
@@ -871,6 +897,7 @@ class ZCR_Armour
 		unit.m_vOrder = goal;
 		unit.m_sPhase = phase;
 		unit.m_vFront = front;
+		unit.m_iOrderedAt = now;
 		Log(unit, now, "ORDER", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 goal_x=%5 goal_z=%6", unit.m_sPrefab, phase, FrontName(front),
 			Math.Round(dist), Math.Round(goal[0]), Math.Round(goal[2])));
 	}
