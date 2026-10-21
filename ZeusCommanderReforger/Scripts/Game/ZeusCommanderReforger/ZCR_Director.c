@@ -487,6 +487,8 @@ class ZCR_Director
 			}
 		}
 
+		IEntity armour;
+		string armourLabel;
 		IEntity truck;
 		string truckLabel;
 		vector siteAt;
@@ -544,6 +546,17 @@ class ZCR_Director
 			key = "ride";
 			back = 25;
 			height = 9;
+			duration = 20;
+		}
+		else if (force.IsEmpty() && m_iShot % 6 == 0 && ZCR_Armour.Pick(Turn("US", "USSR"), armour, armourLabel))
+		{
+			// A tank or IFV of ours going in (Martin, 21 Oct: "make AI use them also for combat").
+			follow = armour;
+			target = armour.GetOrigin();
+			label = armourLabel + " " + Near(target);
+			key = "armour";
+			back = 30;
+			height = 12;
 			duration = 20;
 		}
 		else if (force.IsEmpty() && m_iShot % 6 == 3 && SupplyTruck(truck, truckLabel))
@@ -1513,6 +1526,13 @@ class ZCR_Director
 			markers += Marker("S", t.m_Vehicle.GetOrigin() + Vector(0, 7, 0), Colour(t.m_sSide), 1,
 				string.Format("%1 SUPPLY TRUCK %2/%3 - %4", t.m_sSide, Math.Round(t.m_fCargo), Math.Round(t.m_fCapacity), doing));
 		}
+		// Armour units (ZCR_Armour): what each tank / IFV is doing.
+		array<vector> armourAt = {};
+		array<string> armourSide = {};
+		array<string> armourLabel = {};
+		ZCR_Armour.List(armourAt, armourSide, armourLabel);
+		foreach (int a, vector armourPos : armourAt)
+			markers += Marker("A", armourPos + Vector(0, 8, 0), Colour(armourSide[a]), 1, armourLabel[a]);
 		array<IEntity> forts = {};
 		array<string> sides = {};
 		array<string> kinds = {};

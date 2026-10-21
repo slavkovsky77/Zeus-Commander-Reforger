@@ -1,0 +1,733 @@
+// Armour (Martin, 21 Oct: "usage of more types of vehicles - APC, tanks etc., maybe use some mods...
+// make AI use them also for combat. That's important."). AI Conflict's rides carry a team and leave the
+// vehicle empty at the objective; these fight. Each side keeps up to MAX crewed fighting vehicles:
+//   unit 1: a tank  - US M1A1 Abrams, USSR T-72B (mods), else the IFV, else the game's LAV-25 / BTR-70
+//   unit 2: an IFV  - US M2A2 Bradley, USSR BMP-1 (mods), else the LAV-25 / BTR-70
+// Bought at the side's HQ for supplies (tank 800, IFV 500, APC 300 - the HQs sit full at 4000-4200 all
+// match, the stock the trucks can't move to the front), on a road clear of things within 200 m. The
+// crew (the faction's crewmen, in every driver and turret seat) is a group of its own, spawned in the
+// seats the way the Game Master does. Orders every 15 s: the side's front (the plan's main effort, or
+// where most of its attack teams go) - first a support position SHORT_M short of it on the way in,
+// then into the base itself (Move waypoints: the crew stays aboard and fights from the vehicle). A unit lost (vehicle destroyed, no crew aboard) is
+// bought again after REBUY_S.
+// Logs [ZCR][ARMOUR] t= side= unit= event=BOUGHT|CREW|ORDER|STATUS|LOST|SKIP ...; kills and losses
+// tagged in [ZCR][LOSS] (armour=, armour_hit=). -zcrNoArmour turns it off, -zcrArmourMax N (2).
+class ZCR_ArmourUnit
+{
+	FactionKey m_sSide;
+	int m_iNo;
+	Vehicle m_Vehicle;
+	string m_sPrefab;
+	string m_sKind;
+	SCR_AIGroup m_Group;
+	AIWaypoint m_Waypoint;
+	vector m_vOrder;
+	vector m_vFront;
+	int m_iStill;
+	int m_iDetour;
+	int m_iRemounts;
+	int m_iRemountAt;
+	string m_sPhase;
+	int m_iBoughtAt;
+	int m_iLostAt = -1;
+	int m_iCrew;
+	vector m_vWas;
+	int m_iNextStatus;
+}
+
+class ZCR_Armour
+{
+	static const int START_S = 120;
+	static const int REBUY_S = 300;
+	static const float SHORT_M = 350;
+	static const int RESERVE = 1200;     // the HQ keeps this much for its recruits and builders
+
+	protected static ref array<ref ZCR_ArmourUnit> s_aUnits = {};
+	protected static ref map<IEntity, ZCR_ArmourUnit> s_mVehicle = new map<IEntity, ZCR_ArmourUnit>();
+	protected static ref map<string, int> s_mNextTick = new map<string, int>();
+	protected static ref map<string, vector> s_mFront = new map<string, vector>();
+	protected static ref map<string, int> s_mFrontAt = new map<string, int>();
+
+	static void Tick(FactionKey side, SCR_CampaignFaction faction, vector front)
+	{
+		if (!Replication.IsServer() || System.IsCLIParam("zcrNoArmour") || !faction)
+			return;
+		int now = ZCR_LossLog.Seconds();
+		if (now < START_S || now < s_mNextTick.Get(side))
+			return;
+		s_mNextTick.Set(side, now + 15);
+		front = Front(side, front);
+		// Held 3 minutes: AI Conflict's main target moved Airport Base > Farm > Military Training Area within
+		// 4 minutes and the Abrams chased each (21 Oct test). A front taken by the side is left at once.
+		vector held;
+		if (s_mFront.Find(side, held) && held != vector.Zero && front != vector.Zero && vector.DistanceXZ(held, front) > 300 &&
+			now - s_mFrontAt.Get(side) < 180 && !Own(side, held))
+			front = held;
+		else if (front != vector.Zero && (!s_mFront.Find(side, held) || vector.DistanceXZ(held, front) > 300))
+		{
+			s_mFront.Set(side, front);
+			s_mFrontAt.Set(side, now);
+		}
+		for (int no = 1; no <= Max(); no++)
+		{
+			ZCR_ArmourUnit unit = Find(side, no);
+			if (!unit)
+			{
+				unit = new ZCR_ArmourUnit();
+				unit.m_sSide = side;
+				unit.m_iNo = no;
+				s_aUnits.Insert(unit);
+			}
+			if (unit.m_Vehicle)
+			{
+				if (Lost(unit, now))
+					continue;
+				if (!Remounting(unit, now))
+					Order(unit, front, now);
+				Status(unit, front, now);
+			}
+			else if (front != vector.Zero && (unit.m_iLostAt < 0 || now - unit.m_iLostAt >= REBUY_S))
+				Buy(unit, faction, now);
+		}
+	}
+
+	// Where the armour goes: the plan's main effort (or AI Conflict's main target) unless that is a base of
+	// the side's own - 21 Oct test: an attack team "attacking" the USSR's own main base made it the front
+	// and the T-72 and BMP-1 were sent to assault their own HQ - else the enemy-held base most of the
+	// side's attack teams are sent to.
+	protected static vector Front(FactionKey side, vector given)
+	{
+		if (given != vector.Zero && !Own(side, given))
+			return given;
+		AICF_FactionState state = ZCR_Strategist.s_mStates.Get(side);
+		if (!state)
+			return vector.Zero;
+		map<IEntity, int> votes = new map<IEntity, int>();
+		IEntity best;
+		int most;
+		for (int s; s < state.GetSlotCount(); s++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(s);
+			if (!slot || slot.GetRole() != AICF_EGroupRole.ATTACK || !slot.GetTargetBase() || !slot.GetTargetBase().GetOwner())
+				continue;
+			if (slot.GetTargetBase().GetFaction() && slot.GetTargetBase().GetFaction().GetFactionKey() == side)
+				continue;
+			IEntity owner = slot.GetTargetBase().GetOwner();
+			int n = votes.Get(owner) + 1;
+			votes.Set(owner, n);
+			if (n > most)
+			{
+				most = n;
+				best = owner;
+			}
+		}
+		if (!best)
+			return vector.Zero;
+		return best.GetOrigin();
+	}
+
+	// A base of the side's own within 150 m of the spot.
+	protected static bool Own(FactionKey side, vector at)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return false;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (base && base.GetOwner() && base.GetFaction() && base.GetFaction().GetFactionKey() == side &&
+				vector.DistanceXZ(base.GetOwner().GetOrigin(), at) < 150)
+				return true;
+		}
+		return false;
+	}
+
+	static int Max()
+	{
+		string value;
+		if (System.GetCLIParam("zcrArmourMax", value) && !value.IsEmpty())
+			return Math.ClampInt(value.ToInt(), 0, 6);
+		return 2;
+	}
+
+	// The watch labels (kind A): "US TANK M1A1_Olive - ASSAULT Farm, crew 3/3, 87%".
+	static void List(array<vector> at, array<string> sides, array<string> labels)
+	{
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (!unit.m_Vehicle)
+				continue;
+			float health = 1;
+			SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(unit.m_Vehicle.FindComponent(SCR_DamageManagerComponent));
+			if (damage)
+				health = damage.GetHealthScaled();
+			string doing = "at base";
+			if (!unit.m_sPhase.IsEmpty())
+				doing = unit.m_sPhase + " " + FrontName(unit.m_vOrder);
+			at.Insert(unit.m_Vehicle.GetOrigin());
+			sides.Insert(unit.m_sSide);
+			labels.Insert(string.Format("%1 %2 %3 - %4, crew %5/%6, ", unit.m_sSide, unit.m_sKind, unit.m_sPrefab, doing, Aboard(unit), unit.m_iCrew) +
+				string.Format("%1", Math.Round(100 * health)) + "%");
+		}
+	}
+
+	// One to show (the director's armour shot): the wanted side first, a unit going in (ASSAULT) before
+	// one on its way, crewed.
+	static bool Pick(string want, out IEntity vehicle, out string label)
+	{
+		ZCR_ArmourUnit best;
+		int bestScore = -1;
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (!unit.m_Vehicle || unit.m_sPhase.IsEmpty() || Aboard(unit) == 0)
+				continue;
+			int score = 1;
+			if (unit.m_sPhase == "ASSAULT")
+				score += 1;
+			if (unit.m_sSide == want)
+				score += 2;
+			if (score > bestScore)
+			{
+				bestScore = score;
+				best = unit;
+			}
+		}
+		if (!best)
+			return false;
+		vehicle = best.m_Vehicle;
+		label = string.Format("%1 %2 %3 - %4 %5, crew %6/%7", best.m_sSide, best.m_sKind, best.m_sPrefab, best.m_sPhase, FrontName(best.m_vOrder), Aboard(best), best.m_iCrew);
+		return true;
+	}
+
+	// The soldier crews one of our armour units (the soldier layers leave him in his seat).
+	static bool IsCrew(IEntity soldier)
+	{
+		if (!soldier)
+			return false;
+		AIControlComponent control = AIControlComponent.Cast(soldier.FindComponent(AIControlComponent));
+		if (!control || !control.GetAIAgent())
+			return false;
+		AIGroup group = control.GetAIAgent().GetParentGroup();
+		if (!group)
+			return false;
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (unit.m_Group == group)
+				return true;
+		}
+		return false;
+	}
+
+	// [ZCR][LOSS] tags: the killer was one of our armour units (its vehicle or crew), the victim was.
+	static string Note(IEntity victim, IEntity killer)
+	{
+		string note;
+		ZCR_ArmourUnit by = UnitOf(killer);
+		if (by)
+			note += string.Format(" armour=%1", by.m_sKind);
+		ZCR_ArmourUnit hit = UnitOf(victim);
+		if (hit)
+			note += string.Format(" armour_hit=%1", hit.m_sKind);
+		return note;
+	}
+
+	// The unit the entity belongs to: its vehicle, a soldier of its crew, or anything sitting in its vehicle.
+	protected static ZCR_ArmourUnit UnitOf(IEntity e)
+	{
+		if (!e)
+			return null;
+		ZCR_ArmourUnit unit;
+		if (s_mVehicle.Find(e, unit))
+			return unit;
+		ChimeraCharacter character = ChimeraCharacter.Cast(e);
+		if (character && character.GetCompartmentAccessComponent())
+		{
+			IEntity vehicle = character.GetCompartmentAccessComponent().GetVehicleIn(character);
+			if (vehicle && s_mVehicle.Find(vehicle, unit))
+				return unit;
+		}
+		AIControlComponent control = AIControlComponent.Cast(e.FindComponent(AIControlComponent));
+		if (control && control.GetAIAgent() && control.GetAIAgent().GetParentGroup())
+		{
+			foreach (ZCR_ArmourUnit u : s_aUnits)
+			{
+				if (u.m_Group && u.m_Group == control.GetAIAgent().GetParentGroup())
+					return u;
+			}
+		}
+		return null;
+	}
+
+	protected static ZCR_ArmourUnit Find(FactionKey side, int no)
+	{
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (unit.m_sSide == side && unit.m_iNo == no)
+				return unit;
+		}
+		return null;
+	}
+
+	// Most wanted first; a prefab whose mod isn't loaded doesn't load and the next one is used.
+	protected static void Choices(FactionKey side, int no, array<string> prefabs, array<string> kinds, array<int> costs)
+	{
+		bool us = side == "US";
+		if (no == 1)
+		{
+			prefabs.Insert(Pick(us, "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et", "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et"));
+			kinds.Insert("TANK");
+			costs.Insert(800);
+		}
+		prefabs.Insert(Pick(us, "{24223D0679CDD612}Prefabs/Vehicles/Tracked/M2A2/M2A2_OD.et", "{1DC01AAACFFA8B63}Prefabs/Vehicles/Tracked/BMP1/BMP1_Base.et"));
+		kinds.Insert("IFV");
+		costs.Insert(500);
+		prefabs.Insert(Pick(us, "{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et"));
+		kinds.Insert("APC");
+		costs.Insert(300);
+		prefabs.Insert(Pick(us, "{0FBF8F010F81A4E5}Prefabs/Vehicles/Wheeled/LAV25/LAV25.et", "{C012BB3488BEA0C2}Prefabs/Vehicles/Wheeled/BTR70/BTR70.et"));
+		kinds.Insert("APC");
+		costs.Insert(300);
+	}
+
+	protected static string Pick(bool us, string usPrefab, string ussrPrefab)
+	{
+		if (us)
+			return usPrefab;
+		return ussrPrefab;
+	}
+
+	protected static void Buy(ZCR_ArmourUnit unit, SCR_CampaignFaction faction, int now)
+	{
+		SCR_CampaignMilitaryBaseComponent hq = faction.GetMainBase();
+		if (!hq || !hq.GetOwner())
+			return;
+		array<string> prefabs = {};
+		array<string> kinds = {};
+		array<int> costs = {};
+		Choices(unit.m_sSide, unit.m_iNo, prefabs, kinds, costs);
+		int pick = -1;
+		for (int i; i < prefabs.Count(); i++)
+		{
+			Resource res = Resource.Load(prefabs[i]);
+			if (res && res.IsValid())
+			{
+				pick = i;
+				break;
+			}
+		}
+		if (pick < 0)
+		{
+			Skip(unit, now, "NO_PREFAB");
+			return;
+		}
+		if (hq.GetSupplies() < costs[pick] + RESERVE)
+		{
+			Skip(unit, now, string.Format("NO_SUPPLIES have=%1 need=%2", Math.Round(hq.GetSupplies()), costs[pick] + RESERVE));
+			return;
+		}
+		vector pose[4];
+		if (!FindSpot(hq.GetOwner().GetOrigin(), pose))
+		{
+			Skip(unit, now, "NO_SPOT " + s_sSpotWhy);
+			return;
+		}
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		for (int axis; axis < 4; axis++)
+			params.Transform[axis] = pose[axis];
+		Vehicle vehicle = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(prefabs[pick]), GetGame().GetWorld(), params));
+		if (!vehicle)
+		{
+			Skip(unit, now, "SPAWN_FAILED");
+			return;
+		}
+		hq.AddSupplies(-costs[pick]);
+		unit.m_Vehicle = vehicle;
+		unit.m_sPrefab = ZCR_LossLog.ShortName(vehicle);
+		unit.m_sKind = kinds[pick];
+		unit.m_Group = null;
+		unit.m_Waypoint = null;
+		unit.m_vOrder = vector.Zero;
+		unit.m_vFront = vector.Zero;
+		unit.m_iStill = 0;
+		unit.m_iDetour = 0;
+		unit.m_iRemounts = 0;
+		unit.m_iRemountAt = 0;
+		unit.m_sPhase = "";
+		unit.m_iBoughtAt = now;
+		unit.m_iCrew = 0;
+		unit.m_vWas = pose[3];
+		unit.m_iNextStatus = now + 60;
+		s_mVehicle.Set(vehicle, unit);
+		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 hq_after=%5 x=%6 z=%7", unit.m_sPrefab, unit.m_sKind,
+			costs[pick], ZCR_Strategist.BaseName(hq), Math.Round(hq.GetSupplies()), Math.Round(pose[3][0]), Math.Round(pose[3][2])));
+		// The turrets are slotted entities: their seats are there a moment after the hull.
+		GetGame().GetCallqueue().CallLater(Crew, 1500, false, unit);
+	}
+
+	protected static void Skip(ZCR_ArmourUnit unit, int now, string reason)
+	{
+		// Once a minute at most per unit (the tick is every 15 s).
+		if (now < unit.m_iNextStatus)
+			return;
+		unit.m_iNextStatus = now + 60;
+		Log(unit, now, "SKIP", "reason=" + reason);
+	}
+
+	// The faction's crewman in every accessible driver and turret seat (the turrets' own seats included).
+	protected static void Crew(ZCR_ArmourUnit unit)
+	{
+		if (!unit || !unit.m_Vehicle)
+			return;
+		string character = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
+		if (unit.m_sSide != "US")
+			character = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(unit.m_Vehicle, seats);
+		AIGroup group;
+		int pilots, turrets;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (!seat || !seat.IsCompartmentAccessible() || seat.GetOccupant())
+				continue;
+			if (seat.GetType() != ECompartmentType.PILOT && seat.GetType() != ECompartmentType.TURRET)
+				continue;
+			// One driver: tanks with a second driver's seat (the FIA copies) take one.
+			if (seat.GetType() == ECompartmentType.PILOT && pilots > 0)
+				continue;
+			if (!seat.SpawnCharacterInCompartment(character, group))
+				continue;
+			if (seat.GetType() == ECompartmentType.PILOT)
+				pilots++;
+			else
+				turrets++;
+		}
+		unit.m_Group = SCR_AIGroup.Cast(group);
+		unit.m_iCrew = pilots + turrets;
+		if (unit.m_Group && unit.m_Group.GetGroupUtilityComponent())
+		{
+			unit.m_Group.GetGroupUtilityComponent().SetCombatMode(EAIGroupCombatMode.FIRE_AT_WILL);
+			unit.m_Group.GetGroupUtilityComponent().EvaluateCombatMode();
+		}
+		Log(unit, ZCR_LossLog.Seconds(), "CREW", string.Format("prefab=%1 seats=%2 driver=%3 turret=%4 group=%5", unit.m_sPrefab, seats.Count(),
+			pilots, turrets, unit.m_Group != null));
+	}
+
+	// Lost: the vehicle destroyed or gone, or nobody of the crew aboard any more.
+	protected static bool Lost(ZCR_ArmourUnit unit, int now)
+	{
+		string reason;
+		if (!unit.m_Vehicle)
+			reason = "GONE";
+		else
+		{
+			SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(unit.m_Vehicle.FindComponent(SCR_DamageManagerComponent));
+			if (damage && damage.GetState() == EDamageState.DESTROYED)
+				reason = "DESTROYED";
+			else if (now - unit.m_iBoughtAt > 20 && Aboard(unit) == 0 && unit.m_sPhase != "REMOUNT" &&
+				(unit.m_iRemounts >= 3 || !unit.m_Group || AICF_GroupRuntime.CountAliveAgents(unit.m_Group) == 0 || Health(unit) < 0.35))
+				reason = "CREW_OUT";
+		}
+		if (reason.IsEmpty())
+			return false;
+		vector at;
+		if (unit.m_Vehicle)
+			at = unit.m_Vehicle.GetOrigin();
+		Log(unit, now, "LOST", string.Format("prefab=%1 reason=%2 lived_s=%3 phase=%4 x=%5 z=%6", unit.m_sPrefab, reason, now - unit.m_iBoughtAt,
+			unit.m_sPhase, Math.Round(at[0]), Math.Round(at[2])));
+		// The crew that got out walks on as infantry with its last order.
+		if (unit.m_Vehicle)
+			s_mVehicle.Remove(unit.m_Vehicle);
+		unit.m_Vehicle = null;
+		unit.m_Group = null;
+		unit.m_Waypoint = null;
+		unit.m_iLostAt = now;
+		unit.m_iNextStatus = 0;
+		return true;
+	}
+
+	// The crew still in the vehicle (alive, in a seat).
+	protected static int Aboard(ZCR_ArmourUnit unit)
+	{
+		if (!unit.m_Vehicle || !unit.m_Group)
+			return 0;
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(unit.m_Vehicle, seats);
+		int n;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			ChimeraCharacter occupant = ChimeraCharacter.Cast(seat.GetOccupant());
+			if (occupant && AICF_GroupRuntime.IsAliveCharacter(occupant))
+				n++;
+		}
+		return n;
+	}
+
+	protected static float Health(ZCR_ArmourUnit unit)
+	{
+		if (!unit.m_Vehicle)
+			return 0;
+		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(unit.m_Vehicle.FindComponent(SCR_DamageManagerComponent));
+		if (!damage)
+			return 1;
+		return damage.GetHealthScaled();
+	}
+
+	// Goals on the road network: a vehicle's move to a spot it can't path to fails, and the game then
+	// releases the group's vehicle - the BMP-1's crew got out 75 s after its order (21 Oct test).
+	protected static vector OnRoad(vector from, vector goal)
+	{
+		SCR_AIWorld ai = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		vector road;
+		if (ai && ai.GetRoadNetworkManager() && ai.GetRoadNetworkManager().GetReachableWaypointInRoad(from, goal, 250, road))
+			return road;
+		return goal;
+	}
+
+	// Crew out of an intact vehicle (a gunner gone to look, a failed move): the group is ordered back in
+	// (the game's Get In Nearest waypoint) - up to 3 times, 90 s each; then the orders go on.
+	protected static bool Remounting(ZCR_ArmourUnit unit, int now)
+	{
+		if (!unit.m_Group)
+			return false;
+		int alive = AICF_GroupRuntime.CountAliveAgents(unit.m_Group);
+		int aboard = Aboard(unit);
+		int want = Math.Min(alive, unit.m_iCrew);
+		if (unit.m_sPhase == "REMOUNT")
+		{
+			if (aboard < want && now - unit.m_iRemountAt <= 90)
+				return true;
+			Log(unit, now, "REMOUNTED", string.Format("prefab=%1 aboard=%2/%3 took_s=%4", unit.m_sPrefab, aboard, want, now - unit.m_iRemountAt));
+			unit.m_sPhase = "";
+			unit.m_vFront = vector.Zero;
+			return false;
+		}
+		if (alive == 0 || aboard >= want || unit.m_iRemounts >= 3 || Health(unit) < 0.35)
+			return false;
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = unit.m_Vehicle.GetOrigin();
+		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{B049D4C74FBC0C4D}Prefabs/AI/Waypoints/AIWaypoint_GetInNearest.et", false, params: params));
+		if (!waypoint)
+			return false;
+		waypoint.SetCompletionRadius(25);
+		if (unit.m_Waypoint)
+		{
+			unit.m_Group.RemoveWaypoint(unit.m_Waypoint);
+			SCR_EntityHelper.DeleteEntityAndChildren(unit.m_Waypoint);
+		}
+		unit.m_Group.AddWaypoint(waypoint);
+		unit.m_Waypoint = waypoint;
+		unit.m_sPhase = "REMOUNT";
+		unit.m_iRemounts++;
+		unit.m_iRemountAt = now;
+		Log(unit, now, "REMOUNT", string.Format("prefab=%1 aboard=%2/%3 try=%4", unit.m_sPrefab, aboard, want, unit.m_iRemounts));
+		return true;
+	}
+
+	// Approach: a support position SHORT_M short of the front on the vehicle's way in; there (or within
+	// SHORT_M + 100 of the front), Search and Destroy at the front itself.
+	protected static void Order(ZCR_ArmourUnit unit, vector front, int now)
+	{
+		if (!unit.m_Group || front == vector.Zero)
+			return;
+		vector at = unit.m_Vehicle.GetOrigin();
+		float dist = vector.DistanceXZ(at, front);
+		// One order per front: the support point is fixed when the front is set (recomputing it as the
+		// vehicle moved re-ordered the Bradley every tick in the first test). The assault follows once the
+		// vehicle is within SHORT_M + 100 of the front.
+		bool sameFront = unit.m_vFront != vector.Zero && vector.DistanceXZ(unit.m_vFront, front) < 100;
+		if (sameFront && unit.m_Waypoint && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
+			return;
+		string phase = "APPROACH";
+		vector goal;
+		if (dist <= SHORT_M + 100)
+		{
+			phase = "ASSAULT";
+			goal = front;
+		}
+		else
+		{
+			vector way = at - front;
+			way[1] = 0;
+			way.Normalize();
+			// A unit stuck on its way (STILL) tries another way in: the support point turned 70 degrees a try.
+			if (unit.m_iDetour > 0)
+			{
+				float turn = unit.m_iDetour * 70 * Math.DEG2RAD;
+				if (unit.m_iDetour % 2 == 0)
+					turn = -turn;
+				way = Vector(way[0] * Math.Cos(turn) - way[2] * Math.Sin(turn), 0, way[0] * Math.Sin(turn) + way[2] * Math.Cos(turn));
+			}
+			goal = front + way * SHORT_M;
+		}
+		goal = OnRoad(at, goal);
+		goal[1] = GetGame().GetWorld().GetSurfaceY(goal[0], goal[2]);
+		// Move waypoints only: the game's Search and Destroy searches on foot (no vehicles) - in the first test
+		// the Abrams crew got out a minute after it. A group on a Move stays in its vehicles and fights from
+		// them (the game's vehicle combat activity takes over when it meets a threat).
+		ResourceName prefab = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et";
+		float radius = 40;
+		if (phase == "ASSAULT")
+			radius = 60;
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = goal;
+		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx(prefab, false, params: params));
+		if (!waypoint)
+			return;
+		waypoint.SetCompletionRadius(radius);
+		if (unit.m_Waypoint)
+		{
+			unit.m_Group.RemoveWaypoint(unit.m_Waypoint);
+			SCR_EntityHelper.DeleteEntityAndChildren(unit.m_Waypoint);
+		}
+		unit.m_Group.AddWaypoint(waypoint);
+		unit.m_Waypoint = waypoint;
+		unit.m_vOrder = goal;
+		unit.m_sPhase = phase;
+		unit.m_vFront = front;
+		Log(unit, now, "ORDER", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 goal_x=%5 goal_z=%6", unit.m_sPrefab, phase, FrontName(front),
+			Math.Round(dist), Math.Round(goal[0]), Math.Round(goal[2])));
+	}
+
+	protected static void Status(ZCR_ArmourUnit unit, vector front, int now)
+	{
+		if (now < unit.m_iNextStatus)
+			return;
+		unit.m_iNextStatus = now + 60;
+		vector at = unit.m_Vehicle.GetOrigin();
+		float health = 1;
+		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(unit.m_Vehicle.FindComponent(SCR_DamageManagerComponent));
+		if (damage)
+			health = damage.GetHealthScaled();
+		float dist = -1;
+		if (front != vector.Zero)
+			dist = vector.DistanceXZ(at, front);
+		Log(unit, now, "STATUS", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 moved_m=%5 aboard=%6/%7 health=%8 x=%9", unit.m_sPrefab, unit.m_sPhase,
+			FrontName(front), Math.Round(dist), Math.Round(vector.DistanceXZ(at, unit.m_vWas)), Aboard(unit), unit.m_iCrew, Math.Round(100 * health),
+			string.Format("%1 z=%2", Math.Round(at[0]), Math.Round(at[2]))));
+		// Still (under 25 m a minute) for two minutes short of its order: re-ordered with another way in.
+		if (unit.m_sPhase != "REMOUNT" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > 80)
+			unit.m_iStill++;
+		else
+			unit.m_iStill = 0;
+		unit.m_vWas = at;
+		if (unit.m_iStill >= 2)
+		{
+			unit.m_iStill = 0;
+			unit.m_iDetour++;
+			Log(unit, now, "STILL", string.Format("prefab=%1 phase=%2 order_m=%3 detour=%4 x=%5 z=%6", unit.m_sPrefab, unit.m_sPhase,
+				Math.Round(vector.DistanceXZ(at, unit.m_vOrder)), unit.m_iDetour, Math.Round(at[0]), Math.Round(at[2])));
+			unit.m_vFront = vector.Zero;
+			Order(unit, front, now);
+		}
+	}
+
+	protected static string FrontName(vector front)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system || front == vector.Zero)
+			return "-";
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		SCR_CampaignMilitaryBaseComponent best;
+		float bestDist = 300;
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetOwner())
+				continue;
+			float d = vector.DistanceXZ(base.GetOwner().GetOrigin(), front);
+			if (d < bestDist)
+			{
+				bestDist = d;
+				best = base;
+			}
+		}
+		if (!best)
+			return "-";
+		return ZCR_Strategist.BaseName(best);
+	}
+
+	// A road spot 25-250 m from the HQ, facing away from it, where a tank's box (4.6 x 11 m, 0.6-3.6 m up)
+	// hits nothing on the vehicle layer (the test AI Conflict uses for its own vehicles) and clear of
+	// building sites. s_sSpotWhy: how many spots failed and why.
+	protected static string s_sSpotWhy;
+
+	protected static bool FindSpot(vector center, out vector pose[4])
+	{
+		SCR_AIWorld ai = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (!ai || !ai.GetRoadNetworkManager())
+			return false;
+		BaseWorld world = GetGame().GetWorld();
+		int noRoad, far, wet, site, blocked;
+		for (int candidate; candidate < 40; candidate++)
+		{
+			int bearing = candidate % 8;
+			int ring = candidate / 8;
+			float angle = bearing * 45 * Math.DEG2RAD;
+			float radius = 40 + ring * 45;
+			vector requested = center + Vector(Math.Cos(angle) * radius, 0, Math.Sin(angle) * radius);
+			vector road;
+			if (!ai.GetRoadNetworkManager().GetReachableWaypointInRoad(center, requested, 60, road))
+			{
+				noRoad++;
+				continue;
+			}
+			float fromCenter = vector.DistanceXZ(center, road);
+			if (fromCenter < 25 || fromCenter > 250)
+			{
+				far++;
+				continue;
+			}
+			road[1] = world.GetSurfaceY(road[0], road[2]);
+			if (world.IsOcean() && road[1] < world.GetOceanBaseHeight() + 1)
+			{
+				wet++;
+				continue;
+			}
+			if (!AICF_ConstructionPlanner.VehicleAreaClear(road, 12))
+			{
+				site++;
+				continue;
+			}
+			// Along the road: the direction to the next road point a little further from the HQ.
+			vector direction = road - center;
+			direction[1] = 0;
+			direction.Normalize();
+			vector next;
+			if (ai.GetRoadNetworkManager().GetReachableWaypointInRoad(road, road + direction * 15, 20, next) && vector.DistanceXZ(next, road) > 3)
+			{
+				direction = next - road;
+				direction[1] = 0;
+				direction.Normalize();
+			}
+			Math3D.DirectionAndUpMatrix(direction, "0 1 0", pose);
+			pose[3] = road + Vector(0, 0.3, 0);
+			TraceOBB body = new TraceOBB();
+			for (int axis; axis < 3; axis++)
+				body.Mat[axis] = pose[axis];
+			body.Start = pose[3];
+			body.Mins = Vector(-2.3, 0.6, -5.5);
+			body.Maxs = Vector(2.3, 3.6, 5.5);
+			body.Flags = TraceFlags.ENTS;
+			body.LayerMask = EPhysicsLayerPresets.Vehicle;
+			if (world.TracePosition(body, null) < 0)
+			{
+				blocked++;
+				continue;
+			}
+			return true;
+		}
+		s_sSpotWhy = string.Format("no_road=%1 far=%2 wet=%3 site=%4 blocked=%5", noRoad, far, wet, site, blocked);
+		return false;
+	}
+
+	protected static void Log(ZCR_ArmourUnit unit, int now, string what, string details)
+	{
+		Print(string.Format("[ZCR][ARMOUR] t=%1 side=%2 unit=%3 event=%4 %5", now, unit.m_sSide, unit.m_iNo, what, details), LogLevel.NORMAL);
+	}
+}

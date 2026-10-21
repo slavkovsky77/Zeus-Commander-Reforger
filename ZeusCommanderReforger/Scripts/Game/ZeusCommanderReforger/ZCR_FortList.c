@@ -39,5 +39,34 @@ class ZCR_FortList
 			Print(string.Format("[ZCR][FORTLIST] faction=%1 id=%2 prefab=%3 labels=%4", info.GetFactionKey(), manager.GetCompositionId(prefab), prefab, labels), LogLevel.NORMAL);
 		}
 		Print(string.Format("[ZCR][FORTLIST] placeable=%1 fortifications=%2", prefabs.Count(), forts), LogLevel.NORMAL);
+		// Each faction's vehicle catalog with its labels (21 Oct, Martin: "use more types of vehicles - APCs,
+		// tanks - for combat too").
+		array<string> keys = {"US", "USSR", "FIA"};
+		foreach (string key : keys)
+		{
+			SCR_Faction faction = SCR_Faction.Cast(GetGame().GetFactionManager().GetFactionByKey(key));
+			if (!faction)
+				continue;
+			SCR_EntityCatalog catalog = faction.GetFactionEntityCatalogOfType(EEntityCatalogType.VEHICLE);
+			if (!catalog)
+				continue;
+			array<SCR_EntityCatalogEntry> entries = {};
+			catalog.GetEntityList(entries);
+			foreach (SCR_EntityCatalogEntry entry : entries)
+			{
+				if (!entry)
+					continue;
+				string vl;
+				array<EEditableEntityLabel> labels = {};
+				entry.GetEditableEntityLabels(labels);
+				foreach (EEditableEntityLabel l : labels)
+				{
+					string ls = typename.EnumToString(EEditableEntityLabel, l);
+					if (ls.StartsWith("VEHICLE_") || ls.StartsWith("TRAIT_ARMED") || ls.Contains("ARMOR") || ls.Contains("TANK"))
+						vl += ls + ",";
+				}
+				Print(string.Format("[ZCR][VEHLIST] faction=%1 enabled=%2 prefab=%3 labels=%4", key, entry.IsEnabled(), entry.GetPrefab(), vl), LogLevel.NORMAL);
+			}
+		}
 	}
 }

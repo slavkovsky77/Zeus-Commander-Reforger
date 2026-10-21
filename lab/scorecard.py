@@ -66,6 +66,9 @@ def measure(run: Path) -> dict:
     armed = {s: set() for s in SIDES}
     wrecks = 0
     veh_lost = 0
+    # Armour (ZCR_Armour): units bought, units that got to the assault, enemy killed by armour, armour lost.
+    armour = {k: {s: 0 for s in SIDES} for k in ("bought", "lost", "kills")}
+    armour_assault = {s: set() for s in SIDES}
     drone_dead = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
     last_t = 0
@@ -94,6 +97,14 @@ def measure(run: Path) -> dict:
                 danger_high[side].append(num(d.get("high_standing")))
         elif "[ZCR][ANTIDRONE]" in line and side in SIDES and "shot_down=1" in line:
             shot_down[side] += 1
+        elif "[ZCR][ARMOUR]" in line and side in SIDES:
+            ev = d.get("event")
+            if ev == "BOUGHT":
+                armour["bought"][side] += 1
+            elif ev == "LOST":
+                armour["lost"][side] += 1
+            elif ev == "ORDER" and d.get("phase") == "ASSAULT":
+                armour_assault[side].add((d.get("unit"), armour["bought"][side]))
         elif "[ZCR][WRECK]" in line:
             wrecks += 1
         elif "LOGISTICS_JOB_RESERVED" in line and side in SIDES:
@@ -111,6 +122,9 @@ def measure(run: Path) -> dict:
         elif "[ZCR][LOSS]" in line:
             if d.get("kind") == "vehicle":
                 veh_lost += 1
+            k = d.get("killer_side")
+            if "armour=" in line and k in SIDES and k != (d.get("victim_side") or d.get("side")):
+                armour["kills"][k] += 1
             v = d.get("victim_side") or d.get("side")
             if v in SIDES:
                 lost[v] += 1
@@ -151,6 +165,10 @@ def measure(run: Path) -> dict:
             "drone_dead_standing": round(100 * drone_dead[s].count("STAND") / len(drone_dead[s])) if drone_dead[s] else None,
             "drone_dead_prone": round(100 * drone_dead[s].count("PRONE") / len(drone_dead[s])) if drone_dead[s] else None,
             "lost": lost[s],
+            "armour": armour["bought"][s],
+            "armour_assault": len(armour_assault[s]),
+            "armour_kills": armour["kills"][s],
+            "armour_lost": armour["lost"][s],
         }
     return out
 
@@ -183,7 +201,8 @@ def report(card: dict) -> tuple:
             parts.append(f"{name} {'ok ' if good else 'FAIL'} {show(m)}")
         lines.append(f"  {s:5} " + " | ".join(parts) + f" | field overhead {m['field_overhead']}% | lost {m['lost']}")
         lines.append(f"        in danger standing {m.get('danger_standing')}% | drones shot down {m.get('shot_down')} | truck jobs {m.get('truck_jobs')}, "
-                     f"unloads {m.get('truck_unloads')} | bunkers {m.get('forts')} | armed rides {m.get('armed_teams')} teams")
+                     f"unloads {m.get('truck_unloads')} | bunkers {m.get('forts')} | armed rides {m.get('armed_teams')} teams"
+                     f" | armour {m.get('armour')} bought, {m.get('armour_assault')} into the assault, {m.get('armour_kills')} kills, {m.get('armour_lost')} lost")
     return "\n".join(lines), fails
 
 

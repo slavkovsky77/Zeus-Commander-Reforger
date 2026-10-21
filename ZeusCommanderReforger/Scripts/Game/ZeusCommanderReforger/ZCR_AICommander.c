@@ -30,6 +30,7 @@ modded class AICF_AICommander
 			if (!plan.IsEmpty() && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
 				front = ZCR_Strategist.s_mNodePos.Get(plan.GetMainEffort());
 			ZCR_DroneSites.Tick(m_sFactionKey, front);
+			ZCR_Armour.Tick(m_sFactionKey, m_Faction, front);   // crewed tanks/IFVs to the front (-zcrNoArmour)
 			if (matchController)
 			{
 				matchController.ZCR_CommitDefenders(m_Faction, m_FactionState, plan.GetCommit(), ZCR_UnderCapture());

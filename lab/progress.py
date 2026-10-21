@@ -74,7 +74,7 @@ FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland w
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
             ("everon-watched-2a", "Everon watched, two armies"),
             ("arland-headless-2a-dd", "Arland headless, doctrine v doctrine"), ("arland-watched-2a-dd", "Arland watched, doctrine v doctrine")]
-KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "sc_danger", "sc_panic", "sc_dd_standing", "sc_dd_prone", "sc_shot", "sc_lost", "sc_armed", "sc_jobs", "sc_unloads", "sc_forts", "sc_wrecks", "sc_veh_lost", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
+KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "sc_danger", "sc_panic", "sc_dd_standing", "sc_dd_prone", "sc_shot", "sc_lost", "sc_armed", "sc_jobs", "sc_unloads", "sc_forts", "sc_wrecks", "sc_veh_lost", "sc_armour", "sc_armour_assault", "sc_armour_kills", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
@@ -446,7 +446,8 @@ def screen_metrics(run: Path, lines: list) -> dict:
                     "sc_dd_standing": avg("drone_dead_standing"), "sc_dd_prone": avg("drone_dead_prone"),
                     "sc_shot": avg("shot_down"), "sc_lost": avg("lost"), "sc_armed": avg("armed_teams"),
                     "sc_jobs": total("truck_jobs"), "sc_unloads": total("truck_unloads"), "sc_forts": total("forts"),
-                    "sc_wrecks": card.get("wrecks"), "sc_veh_lost": card.get("veh_lost")})
+                    "sc_wrecks": card.get("wrecks"), "sc_veh_lost": card.get("veh_lost"),
+                    "sc_armour": total("armour"), "sc_armour_assault": total("armour_assault"), "sc_armour_kills": total("armour_kills")})
     except Exception as e:   # the page must not stop on one match
         print(f"scorecard {run.name}: {e}", file=sys.stderr)
     paces = [int(m.group(1)) for m in (re.search(r" pace=(\d+)", l) for l in lines if "[ZCR][CROWD]" in l) if m]
@@ -614,6 +615,8 @@ def headline(agg: dict, first: int = 14) -> str:
         [s("riding %", "sc_riding")], unit="%", ymax=100, target=(25, "25%"), better="higher")
     add("Vehicles lost", "Vehicles destroyed per match, both sides. On 20 Oct 191 of 342 blew up on the world's mine rows across the main bases' exit roads (removed from r21).",
         [s("vehicles lost", "sc_veh_lost")], better="lower")
+    add("Armour in combat", "Tanks and IFVs (ZCR_Armour, from r26) per match, both sides: bought, got into the assault on their front, and enemy killed by them.",
+        [s("armour bought", "sc_armour"), s("into the assault", "sc_armour_assault"), s("killed by armour", "sc_armour_kills")], better="higher")
     add("Fire at drones", "Drones a side's soldiers shot down with small arms, per side per match (from r20).",
         [s("shot down", "sc_shot")], better="higher")
     add("Supply trucks", "AI Conflict's supply runs per match, both sides: jobs taken and loads unloaded at a base.",

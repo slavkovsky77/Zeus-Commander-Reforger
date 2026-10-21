@@ -33,6 +33,11 @@ OUR_ADDON = "CA2CA4E14BB55417"
 DRONE_DIRS = [r"D:\work\reforger-local-mods", r"E:\ArmaReforgerMods\addons"]
 DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
 CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
+# Armour (Martin, 21 Oct: "more types of vehicles - APC, tanks... maybe use some mods"): one family of
+# Workshop mods on the same two bases (SpaceCore, WCS_Armaments) - M2A2 Bradley, BMP-1, M1A1 Abrams,
+# T-72. ZCR_Armour buys them for each side when they're loaded (else the game's LAV-25 / BTR-70).
+ARMOUR_ADDONS = "5E389BB9F58B79A6,629B2BA37EFFD577,63120AE07E6C0966,5E524E4FEECCA92B,5D1880C4AD410C14,5E0AB16BEB16D6A4"
+ARMOUR_DIR = DRONE_DIRS[1]     # the Workshop mods folder
 # The strategist bridges (lab/bridge.py), shared by every match on this PC.
 BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768}
 MAPS = {
@@ -50,13 +55,15 @@ READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 
 def command(a, profile: Path) -> list:
     project, extra, scenario, header = MAPS[a.map]
-    addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "") if x)
+    armour = getattr(a, "armour", False)
+    addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "", ARMOUR_ADDONS if armour else "") if x)
     # Solo: the game itself hosts the match (singleplayer, like Arma 3's watched games) - only there
     # the diagnostic build's Diag Menu > Cheats > "DTime multiplier" speeds the whole game up.
     solo = getattr(a, "solo", False)
     game = a.client or solo
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
-    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones or a.map == "yunakivka" else []) + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
+    mod_dirs = DRONE_DIRS if a.drones or a.map == "yunakivka" else ([ARMOUR_DIR] if armour else [])
+    roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
@@ -122,6 +129,7 @@ def main() -> int:
     ap.add_argument("--client", action="store_true", help="the game on screen, joining the local server")
     ap.add_argument("--solo", action="store_true", help="the game on screen hosting the match itself (singleplayer; the Diag Menu's time multiplier works here)")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
+    ap.add_argument("--armour", action="store_true", help="load the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")
     ap.add_argument("--ussr", default="", help="USSR strategist")
