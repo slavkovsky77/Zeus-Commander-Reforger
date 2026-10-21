@@ -261,7 +261,8 @@ class ZCR_Driving
 		}
 	}
 
-	// Metres from the vehicle to its driver's group's current waypoint; -1 with none (parked, or not an AI's).
+	// Metres from the vehicle to where its driver's group's current waypoint counts as reached (its centre less its
+	// completion radius - armour in an assault holds a firing spot inside a 60-m one); -1 with none.
 	protected static float GoalDistance(AIAgent driver, IEntity v)
 	{
 		if (!driver)
@@ -272,7 +273,7 @@ class ZCR_Driving
 		AIWaypoint waypoint = group.GetCurrentWaypoint();
 		if (!waypoint)
 			return -1;
-		return vector.DistanceXZ(waypoint.GetOrigin(), v.GetOrigin());
+		return Math.Max(0, vector.DistanceXZ(waypoint.GetOrigin(), v.GetOrigin()) - waypoint.GetCompletionRadius());
 	}
 
 	// The jammed pair: which one backs off, then back it.
