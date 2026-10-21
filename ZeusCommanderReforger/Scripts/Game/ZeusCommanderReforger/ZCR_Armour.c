@@ -556,6 +556,7 @@ class ZCR_Armour
 		params.TransformMode = ETransformMode.WORLD;
 		for (int axis; axis < 4; axis++)
 			params.Transform[axis] = pose[axis];
+		ZCR_Trace.At("spawn", prefabs[pick], pose[3], "armour_bought");
 		Vehicle vehicle = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(prefabs[pick]), GetGame().GetWorld(), params));
 		if (!vehicle)
 		{
@@ -654,6 +655,7 @@ class ZCR_Armour
 			// One driver: tanks with a second driver's seat (the FIA copies) take one.
 			if (seat.GetType() == ECompartmentType.PILOT && pilots > 0)
 				continue;
+			ZCR_Trace.Ent("crew", unit.m_Vehicle, "armour_crew");
 			if (!seat.SpawnCharacterInCompartment(character, group))
 				continue;
 			if (seat.GetType() == ECompartmentType.PILOT)
@@ -798,6 +800,7 @@ class ZCR_Armour
 			return false;
 		physics.SetVelocity(vector.Zero);
 		physics.SetAngularVelocity(vector.Zero);
+		ZCR_Trace.Ent("move", unit.m_Vehicle, string.Format("relocate_to_%1_%2", Math.Round(pose[3][0]), Math.Round(pose[3][2])));
 		if (!unit.m_Vehicle.SetWorldTransform(pose))
 			return false;
 		unit.m_iRelocations++;
@@ -969,7 +972,10 @@ class ZCR_Armour
 				continue;
 			CompartmentAccessComponent access = body.GetCompartmentAccessComponent();
 			if (access)
+			{
+				ZCR_Trace.Ent("kick", body, "recrew_dead");
 				access.KickFromVehicle(0);
+			}
 		}
 	}
 
@@ -1000,6 +1006,7 @@ class ZCR_Armour
 				continue;
 			if (seat.GetType() != ECompartmentType.PILOT && seat.GetType() != ECompartmentType.TURRET)
 				continue;
+			ZCR_Trace.Ent("crew", unit.m_Vehicle, "recrew");
 			if (!seat.SpawnCharacterInCompartment(character, group))
 				continue;
 			if (seat.GetType() == ECompartmentType.PILOT)
@@ -1029,6 +1036,7 @@ class ZCR_Armour
 			SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(c.GetCompartmentAccessComponent());
 			if (!access)
 				continue;
+			ZCR_Trace.Ent("board", c, "remount");
 			if (access.MoveInVehicle(unit.m_Vehicle, ECompartmentType.PILOT) || access.MoveInVehicle(unit.m_Vehicle, ECompartmentType.TURRET))
 				seated++;
 		}

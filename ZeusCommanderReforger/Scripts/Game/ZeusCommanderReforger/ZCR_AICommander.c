@@ -6,19 +6,24 @@ modded class AICF_AICommander
 	{
 		if (Replication.IsServer() && IsEnabled() && m_Faction)
 		{
+			ZCR_Trace.Begin(m_sFactionKey);   // [ZCR][STEP] / [ZCR][SLOW] (crash hunting)
 			ZCR_Setup.NoFIA();          // -zcrNoFIA: only the two armies (once, at the first tick)
 			ZCR_FortList.Tick();        // -zcrListFortifications (lab: what the builders could put up)
 			ZCR_SpotProbe.Tick();       // -zcrProbeSpots x,z;x,z (lab: what is at a map spot)
 			ZCR_SpotProbe.Roads();      // -zcrProbeRoads (lab: each base's nearest road)
+			ZCR_Trace.Step("efforts");
 			ZCR_Efforts.Tick(); // [ZCR][EFFORTS] each side's efforts every 30 s (the lab app's Live tab)
 			ZCR_SpotProbe.SupplyProbe(); // -zcrSupplyProbe (lab: what refills the front bases)
 			ZCR_SpotProbe.DepotProbe(); // -zcrDepotProbe (lab: which vehicle depots exist)
 			ZCR_SpotProbe.DryPathProbe(); // -zcrDryPathProbe (lab: drones' way over land)
+			ZCR_Trace.Step("setup");
 			ZCR_Setup.StartSupplies();  // starting stock so the builders can afford defenses
 			ZCR_Setup.Income();         // lab supply income (-zcrSupplyIncome)
 			if (m_FactionState)
 				ZCR_Strategist.s_mStates.Set(m_sFactionKey, m_FactionState);
+			ZCR_Trace.Step("strategist");
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);
+			ZCR_Trace.Step("loops");
 			ZCR_Sampler.Start();
 			ZCR_DroneThreat.Start();     // soldiers react to enemy drones (both sides)
 			ZCR_Danger.Start();       // danger awareness: no standing in danger (-zcrNoDanger)
@@ -26,15 +31,20 @@ modded class AICF_AICommander
 			ZCR_Driving.Start();      // AI drivers' cruise speed (-zcrCruiseSpeed, km/h) and [ZCR][DRIVE]
 			ZCR_Logistics.Log();      // [ZCR][SUPPLY] each base's stock and storage, every minute
 			ZCR_WorkCrew.Start();     // idle soldiers near a building site join the builder (-zcrNoWorkCrew)
+			ZCR_Trace.Step("feed");
 			ZCR_Feed.Now(m_sFactionKey, m_FactionState);
+			ZCR_Trace.Step("drones");
 			ZCR_Drones.Tend(m_sFactionKey);
 			ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_sFactionKey);
 			// Drone sites: the front is the plan's main effort, or AI Conflict's main target.
 			vector front = ZCR_Feed.s_mMainTargetPos.Get(m_sFactionKey);
 			if (!plan.IsEmpty() && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
 				front = ZCR_Strategist.s_mNodePos.Get(plan.GetMainEffort());
+			ZCR_Trace.Step("drone_sites");
 			ZCR_DroneSites.Tick(m_sFactionKey, front);
+			ZCR_Trace.Step("armour");
 			ZCR_Armour.Tick(m_sFactionKey, m_Faction, front);   // crewed tanks/IFVs to the front (-zcrNoArmour)
+			ZCR_Trace.Step("commit");
 			if (matchController)
 			{
 				matchController.ZCR_CommitDefenders(m_Faction, m_FactionState, plan.GetCommit(), ZCR_UnderCapture());
@@ -42,15 +52,20 @@ modded class AICF_AICommander
 				if (!plan.IsEmpty())
 					matchController.ZCR_Motorize(m_Faction, m_FactionState, plan.GetMotorize());
 			}
+			ZCR_Trace.Step("storm");
 			ZCR_ApplyStorm(plan.GetStorm());
 			// The soldier layer (cover in a firefight) for the side with our strategist.
+			ZCR_Trace.Step("cover");
 			if (!plan.IsEmpty())
 				ZCR_CoverLayer.Tick(m_sFactionKey, m_FactionState);
 			// A side on AI Conflict alone uses drones too (a baseline; ZCR_Drones).
 			if (plan.IsEmpty())
 				ZCR_Drones.Baseline(m_sFactionKey, m_FactionState, m_ObjectiveGraph);
+			ZCR_Trace.Step("aicf");
 		}
-		return super.Tick(matchController, reason);
+		bool result = super.Tick(matchController, reason);
+		ZCR_Trace.Step("idle");
+		return result;
 	}
 
 	// One of our bases is being captured: every squad's place is AI Conflict's to decide again.

@@ -204,7 +204,10 @@ class ZCR_Drones
 			else if (since >= 60)
 			{
 				foreach (IEntity d : hovering)
+				{
+					ZCR_Trace.Ent("delete", d, "drone_home");
 					SCR_EntityHelper.DeleteEntityAndChildren(d);
+				}
 				s_mTeamGoalAt.Set(team, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 home hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1: nothing to hit, area swept - called home", s_mTeamNo.Get(team)));
@@ -522,6 +525,7 @@ class ZCR_Drones
 		}
 		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
 		params.Transform[3] = at;
+		ZCR_Trace.At("spawn", "drone_team", at, side);
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
 		if (!team)
 			return;

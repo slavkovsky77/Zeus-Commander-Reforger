@@ -180,10 +180,12 @@ class ZCR_AntiDrone
 		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(drone.FindComponent(SCR_DamageManagerComponent));
 		if (damage && !damage.IsDestroyed())
 		{
+			ZCR_Trace.Ent("destroy", drone, "shot_down");
 			damage.SetHealthScaled(0);
 			if (damage.IsDestroyed())
 				return;
 		}
+		ZCR_Trace.Ent("delete", drone, "shot_down");
 		SCR_EntityHelper.DeleteEntityAndChildren(drone);
 	}
 }

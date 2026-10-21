@@ -175,6 +175,7 @@ class ZCR_DroneSites
 		s.m_vLaunch = launch;
 		s.m_bMain = main;
 		s.m_iReadyAt = readyAt;
+		ZCR_Trace.At("spawn", "drone_site", spot, side);
 		s.m_Truck = GetGame().SpawnEntityPrefab(truckRes, GetGame().GetWorld(), params);
 		params.Transform[3] = spot + Vector(6, 0, 4);
 		s.m_Operators = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(teamRes, GetGame().GetWorld(), params));

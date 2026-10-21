@@ -40,6 +40,7 @@ class ZCR_Wrecks
 			Print(string.Format("[ZCR][WRECK] t=%1 removed=%2 at=%3 %4", now, ZCR_LossLog.ShortName(v), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 			m_aWrecks.Remove(i);
 			m_aAt.Remove(i);
+			ZCR_Trace.Ent("delete", v, "wreck");
 			SCR_EntityHelper.DeleteEntityAndChildren(v);
 		}
 	}

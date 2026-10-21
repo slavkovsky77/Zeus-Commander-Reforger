@@ -184,6 +184,7 @@ class ZCR_Setup
 				e = agent.GetControlledEntity();
 			if (e && ChimeraCharacter.Cast(e) && ZCR_LossLog.SideOf(e) == "FIA")
 			{
+				ZCR_Trace.Ent("delete", e, "no_fia");
 				SCR_EntityHelper.DeleteEntityAndChildren(e);
 				removed++;
 			}
