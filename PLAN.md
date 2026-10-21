@@ -57,6 +57,8 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [In progress] With drones about, run like hell to cover (166) | Soldiers within 150 m of an enemy drone run to overhead cover (canopy, buildings) within 30 m or get down; scatter after a hit. Both sides, from r15. Baseline: 89-100% of drone victims in the open.
 
 ## Next (Martin, 20 Oct 14:00)
+- [Todo] More vehicle types used in combat - APCs, tanks; mods if needed (243) | AI Conflict uses light transport and armed light cars; heavy depots exist. Next: which APC/tank prefabs the factions and installed mods have, and armour fighting with the infantry.
+- [In progress] Better driving - road blocks stay (242, 244) | Our layers broke 77% of the gate openings (fixed); detours round checkpoints next.
 - [Todo] See supplies, trucks and building on screen (239) | Base labels with stock/storage and 'asks for supplies'; supply truck tags (cargo, destination, doing) and overview markers; fortification and building-site markers with crews; director shots of trucks and building. Then shorter supply runs (nearest source) and more building in watched matches.
 - [In progress] Supply trucks deliver (216, 224, 231, 235) | Fixed: road minefields, depot reserve, roads beyond a base's edge, long detours, depots first while a side has none (both sides in 3 of 3 tests). Added supply depots: the 2 bases nearest the middle, +150 a minute, any side loads while neutral. Testing.
 - [In progress] Free soldiers build much more (231) | 5 fortifications per base within 2.5 km of the enemy, six types (bunker, MG nests, sandbags, tower), no reserve; idle teams joining the work if orders are no longer the limit.
