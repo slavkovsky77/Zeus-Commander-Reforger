@@ -50,7 +50,9 @@ def one(variant: str, minutes: float, port: int) -> dict:
            "--label", label, "--port", str(port), "--us", "phased", "--ussr", "phased", "--armour",
            f"--extra=-zcrNoFIA {extra}"] + (["--drones"] if drones else [])
     with open(ROOT / ".runtime" / f"{label}-{port}.out", "w", encoding="utf-8") as log:
-        subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=ROOT)
+        # Idle priority (the server inherits it): three at normal priority cut the watched game from ~40 to 15-20 FPS.
+        subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=ROOT,
+                       creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = [r for r in (ROOT / ".runtime" / "runs").glob(f"{label}-*") if r.stat().st_mtime >= started - 5]
     row = {"variant": variant, "port": port, "started": time.strftime("%Y-%m-%d %H:%M", time.localtime(started)),
            "planned_min": minutes}
