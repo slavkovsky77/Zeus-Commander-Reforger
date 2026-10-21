@@ -1529,7 +1529,7 @@ class ZCR_Director
 			string progress = "";
 			SCR_CampaignBuildingLayoutComponent layout = site.GetCompositionLayout();
 			if (layout && layout.GetToBuildValue() > 0)
-				progress = string.Format(" %1%", Math.Round(100 * layout.GetCurrentBuildValue() / layout.GetToBuildValue()));
+				progress = string.Format(" %1", Math.Round(100 * layout.GetCurrentBuildValue() / layout.GetToBuildValue())) + "%";
 			string what = "building";
 			EntityPrefabData data = site.GetOwner().GetPrefabData();
 			if (data)
