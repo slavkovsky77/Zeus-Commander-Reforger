@@ -30,6 +30,7 @@ class ZCR_ArmourUnit
 	bool m_bSlow;
 	int m_iSlowed;
 	int m_iOrderedAt;
+	int m_iRelocations;
 	string m_sPhase;
 	int m_iBoughtAt;
 	int m_iLostAt = -1;
@@ -278,6 +279,8 @@ class ZCR_Armour
 		if (!best)
 			return false;
 		vehicle = best.m_Vehicle;
+		s_ShownVehicle = best.m_Vehicle;
+		s_iShownAt = ZCR_LossLog.Seconds();
 		label = string.Format("%1 %2 %3 - %4 %5, crew %6/%7", best.m_sSide, best.m_sKind, Display(best.m_sPrefab), Doing(best.m_sPhase), FrontName(best.m_vFront), Aboard(best), best.m_iCrew);
 		return true;
 	}
@@ -570,6 +573,7 @@ class ZCR_Armour
 		unit.m_iRemountAt = 0;
 		unit.m_bSlow = false;
 		unit.m_iSlowed = 0;
+		unit.m_iRelocations = 0;
 		unit.m_sPhase = "";
 		unit.m_iBoughtAt = now;
 		unit.m_iCrew = 0;
@@ -760,6 +764,37 @@ class ZCR_Armour
 		if (n < 3)
 			return front;
 		return sum * (1.0 / n);
+	}
+
+	// Stuck for good (3 detours tried): moved along the road to a clear spot 25-250 m on, nearest the front -
+	// the way AI Conflict frees its stuck FIA patrol vehicles (velocity zeroed, transform set). Not while the
+	// director is showing it, at most twice a unit. Watched 08:22: US armour sat all match at two spots by
+	// the north HQ (1542 3336, 1611 3083).
+	protected static IEntity s_ShownVehicle;
+	protected static int s_iShownAt;
+
+	protected static bool Relocate(ZCR_ArmourUnit unit, vector front, int now)
+	{
+		if (System.IsCLIParam("zcrArmourNoRelocate") || unit.m_iRelocations >= 2 || Health(unit) < 0.35)
+			return false;
+		if (s_ShownVehicle == unit.m_Vehicle && now - s_iShownAt < 40)
+			return false;
+		Physics physics = unit.m_Vehicle.GetPhysics();
+		if (!physics || physics.GetVelocity().Length() > 3)
+			return false;
+		vector from = unit.m_Vehicle.GetOrigin();
+		vector pose[4];
+		if (!FindSpot(from, front, pose) || vector.DistanceXZ(pose[3], from) < 30)
+			return false;
+		physics.SetVelocity(vector.Zero);
+		physics.SetAngularVelocity(vector.Zero);
+		if (!unit.m_Vehicle.SetWorldTransform(pose))
+			return false;
+		unit.m_iRelocations++;
+		unit.m_vWas = pose[3];
+		Log(unit, now, "RELOCATED", string.Format("prefab=%1 from_x=%2 from_z=%3 to_x=%4 to_z=%5 count=%6", unit.m_sPrefab, Math.Round(from[0]), Math.Round(from[2]),
+			Math.Round(pose[3][0]), Math.Round(pose[3][2]), unit.m_iRelocations));
+		return true;
 	}
 
 	protected static float Health(ZCR_ArmourUnit unit)
@@ -963,6 +998,8 @@ class ZCR_Armour
 			Log(unit, now, "STILL", string.Format("prefab=%1 phase=%2 order_m=%3 detour=%4 x=%5 z=%6", unit.m_sPrefab, unit.m_sPhase,
 				Math.Round(vector.DistanceXZ(at, unit.m_vOrder)), unit.m_iDetour, Math.Round(at[0]), Math.Round(at[2])));
 			unit.m_vFront = vector.Zero;
+			if (unit.m_iDetour >= 3)
+				Relocate(unit, front, now);
 			Order(unit, front, now);
 		}
 	}
