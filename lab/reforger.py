@@ -39,6 +39,11 @@ MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
     "arland": ("AIConflictArland", "", "{BC2437E4861B4FD2}Missions/AICF_Conflict_Arland.conf", "Missions/AICF_Conflict_Arland.conf"),
     "everon": ("AIConflictEveron", "A4B2E62595F645A4", "{4C5D73A5614F41D9}Missions/AICF_Conflict_Everon.conf", "Missions/AICF_Conflict_Everon.conf"),
+    # Yunakivka (Martin, 20 Oct: "commonly used in multiplayer, a lot of trenches"): SpearHead's "SH UHC
+    # Yunakivka" is Conflict (GameMode_Campaign, ConflictBase prefabs, US/USSR/FIA, remnant supply depots) -
+    # AI Conflict's bootstrap (in AIConflictArland) runs on it. The map mod and its dependencies.
+    "yunakivka": ("AIConflictArland", "6A2C1C65791CE941,68D6FA70573ED4FE,6A46B8CB8111095A,66D60C6AD1621BF0,69770D09755CE1DC,646518DA09B1E283,673AD67900BE5E70",
+                  "{869411EFF47B7AF5}Missions/SH UHC Yunakivka.conf", "Missions/SH UHC Yunakivka.conf"),
 }
 READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 
@@ -51,7 +56,7 @@ def command(a, profile: Path) -> list:
     solo = getattr(a, "solo", False)
     game = a.client or solo
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
-    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones else []) + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
+    roots = [str(AICF), str(ROOT)] + (DRONE_DIRS if a.drones or a.map == "yunakivka" else []) + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
