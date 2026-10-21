@@ -167,7 +167,9 @@ class ZCR_Armour
 	// Friendly soldiers in the way: the T-72 and BMP-1 ran over their own MG gunner and medic in 15 minutes
 	// (21 Oct) - the game's AI driver doesn't steer round soldiers on foot. Every second: a friendly soldier
 	// on foot within 30 m ahead of the hull and 7 m of its line slows it to 5 km/h; clear, it cruises at
-	// CRUISE_KMH (the game's own cruise limit for an AI driver).
+	// CRUISE_KMH (the game's own cruise limit for an AI driver). Vehicles too (Martin's /bad 21 Oct 21:03, "soviet tank
+	// crashing vehicles": the T-72, driving back for a new crew against its own column, rammed a USSR UAZ-452 on the
+	// road and ran over a medic and a machine gunner) - any vehicle not the enemy's within 20 m ahead and 5 m of the line.
 	static const float CRUISE_KMH = 35;
 	protected static bool s_bGuard;
 	protected static ref array<IEntity> s_aAhead;
@@ -210,6 +212,20 @@ class ZCR_Armour
 		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * 10, 22, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
 		foreach (IEntity e : s_aAhead)
 		{
+			if (Vehicle.Cast(e))
+			{
+				if (e == unit.m_Vehicle || e.GetRootParent() == unit.m_Vehicle)
+					continue;
+				string owner = ZCR_LossLog.SideOf(e);
+				if ((owner == "US" || owner == "USSR") && owner != unit.m_sSide)
+					continue;
+				vector off3 = e.GetOrigin() - mat[3];
+				off3[1] = 0;
+				float ahead = vector.Dot(off3, forward);
+				if (ahead > 0 && ahead < 20 && (off3 - forward * ahead).Length() < 5)
+					return true;
+				continue;
+			}
 			ChimeraCharacter c = ChimeraCharacter.Cast(e);
 			if (!c || c.IsInVehicle() || !AICF_GroupRuntime.IsAliveCharacter(c) || ZCR_LossLog.SideOf(c) != unit.m_sSide)
 				continue;
@@ -231,7 +247,7 @@ class ZCR_Armour
 
 	protected static bool CollectMan(IEntity e)
 	{
-		if (ChimeraCharacter.Cast(e))
+		if (ChimeraCharacter.Cast(e) || Vehicle.Cast(e))
 			s_aAhead.Insert(e);
 		return true;
 	}
