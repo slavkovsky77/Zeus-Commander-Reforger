@@ -248,30 +248,89 @@ class ZCR_Drones
 		return from;
 	}
 
-	// A dry way round when the straight line from 'from' to 'goal' crosses the sea: a point beside the
-	// line's middle (200-1200 m either side) with land all the way to it and on from it to the goal.
-	static bool DryVia(vector from, vector goal, out vector via)
+	// A way over land from 'from' to 'goal' when the straight line crosses the sea: a breadth-first search
+	// on a 100 m grid of dry cells (the line's box and 1.5 km round it), then cut down to the fewest
+	// points that see each other over land. 'via' gets the points between (not 'from', not 'goal').
+	// False when there is no way over land in that box. (One point beside the line was not enough: the
+	// USSR's teams from its main base to the Military Training Area found none and flew into the inlet,
+	// 21 Oct.)
+	static bool DryPath(vector from, vector goal, notnull array<vector> via)
 	{
-		vector mid = (from + goal) * 0.5;
-		vector dir = goal - from;
-		dir[1] = 0;
-		float len = dir.Length();
-		if (len < 1)
-			return false;
-		vector side = Vector(-dir[2], 0, dir[0]) * (1 / len);
-		for (int k; k < 12; k++)
+		float cell = 100;
+		float minX = Math.Min(from[0], goal[0]) - 1500;
+		float minZ = Math.Min(from[2], goal[2]) - 1500;
+		float spanX = Math.Max(from[0], goal[0]) + 1500 - minX;
+		float spanZ = Math.Max(from[2], goal[2]) + 1500 - minZ;
+		int nx = Math.ClampInt((int)(spanX / cell) + 1, 2, 70);
+		int nz = Math.ClampInt((int)(spanZ / cell) + 1, 2, 70);
+		int count = nx * nz;
+		int start = CellOf(from, minX, minZ, cell, nx, nz);
+		int end = CellOf(goal, minX, minZ, cell, nx, nz);
+		array<int> came = {};
+		for (int i; i < count; i++)
+			came.Insert(-2);			// -2 unseen, -1 the start, else the cell it was reached from
+		array<int> queue = {start};
+		came[start] = -1;
+		int head;
+		bool found;
+		while (head < queue.Count() && !found)
 		{
-			float off = (200 + 200 * (k / 2));
-			if (k % 2 == 1)
-				off = -off;
-			vector p = mid + side * off;
-			if (!Wet(p) && !CrossesWater(from, p) && !CrossesWater(p, goal))
+			int c = queue[head];
+			head++;
+			int cx = c % nx;
+			int cz = c / nx;
+			for (int dz = -1; dz <= 1; dz++)
 			{
-				via = p;
-				return true;
+				for (int dx = -1; dx <= 1; dx++)
+				{
+					int x = cx + dx;
+					int z = cz + dz;
+					if ((dx == 0 && dz == 0) || x < 0 || z < 0 || x >= nx || z >= nz)
+						continue;
+					int n = z * nx + x;
+					if (came[n] != -2)
+						continue;
+					if (n != end && Wet(Vector(minX + (x + 0.5) * cell, 0, minZ + (z + 0.5) * cell)))
+						continue;
+					came[n] = c;
+					queue.Insert(n);
+					if (n == end)
+						found = true;
+				}
 			}
 		}
-		return false;
+		if (!found)
+			return false;
+		// The cells back from the goal, then forward with the start and goal points themselves.
+		array<vector> cells = {goal};
+		for (int k = came[end]; k >= 0 && k != start; k = came[k])
+		{
+			int kx = k % nx;
+			int kz = k / nx;
+			cells.InsertAt(Vector(minX + (kx + 0.5) * cell, 0, minZ + (kz + 0.5) * cell), 0);
+		}
+		// The fewest points: from each point, on to the furthest one it sees over land.
+		vector at = from;
+		int idx = -1;			// -1: at 'from'; else the index in cells
+		while (idx < cells.Count() - 1 && via.Count() < 8)
+		{
+			int j = cells.Count() - 1;
+			while (j > idx + 1 && CrossesWater(at, cells[j]))
+				j--;
+			if (j == cells.Count() - 1)
+				break;
+			via.Insert(cells[j]);
+			at = cells[j];
+			idx = j;
+		}
+		return true;
+	}
+
+	protected static int CellOf(vector p, float minX, float minZ, float cell, int nx, int nz)
+	{
+		int x = Math.ClampInt((int)((p[0] - minX) / cell), 0, nx - 1);
+		int z = Math.ClampInt((int)((p[2] - minZ) / cell), 0, nz - 1);
+		return z * nx + x;
 	}
 
 	// Where a team's drones are now (the middle of them); none - false.
@@ -293,24 +352,28 @@ class ZCR_Drones
 		return true;
 	}
 
-	// The team's Move waypoints from 'from' to 'goal': straight, or by a dry point when the straight line
-	// crosses the sea (21 Oct: 26 drones a match still lost in the inlet south of the Military Training
-	// Area - the goals were dry, but the teams flew straight across from their launch site, and the drone
-	// mod holds its height over the sea bed). The drone mod flies to the next waypoint once a drone has
-	// reached one. Logs [ZCR][DRONES] ... dry_route.
+	// The team's Move waypoints from 'from' to 'goal': straight, or round the sea over land when the
+	// straight line crosses it (21 Oct: 26 drones a match still lost in the inlet south of the Military
+	// Training Area - the goals were dry, but the teams flew straight across from their launch site, and
+	// the drone mod holds its height over the sea bed). The drone mod flies to the next waypoint once a
+	// drone has reached one. Logs [ZCR][DRONES] ... dry_route=1 (points) or dry_route=0 (no way over land:
+	// straight, as before).
 	protected static void AddRoute(SCR_AIGroup team, vector from, vector goal)
 	{
 		Resource wpRes = Resource.Load(WAYPOINT);
 		if (!wpRes || !wpRes.IsValid())
 			return;
 		array<vector> points = {};
-		vector via;
 		if (CrossesWater(from, goal))
 		{
-			if (DryVia(from, goal, via))
-				points.Insert(via);
-			Print(string.Format("[ZCR][DRONES] t=%1 team=%2 dry_route=%3 via=%4 %5", ZCR_LossLog.Seconds(), s_mTeamNo.Get(team),
-				points.Count(), Math.Round(via[0]), Math.Round(via[2])), LogLevel.NORMAL);
+			int dry = 0;
+			if (DryPath(from, goal, points))
+				dry = 1;
+			string where;
+			foreach (vector v : points)
+				where += string.Format(" %1,%2", Math.Round(v[0]), Math.Round(v[2]));
+			Print(string.Format("[ZCR][DRONES] t=%1 team=%2 dry_route=%3 points=%4 via=%5 from=%6,%7 to=%8,%9", ZCR_LossLog.Seconds(), s_mTeamNo.Get(team),
+				dry, points.Count(), where, Math.Round(from[0]), Math.Round(from[2]), Math.Round(goal[0]), Math.Round(goal[2])), LogLevel.NORMAL);
 		}
 		points.Insert(goal);
 		foreach (vector p : points)

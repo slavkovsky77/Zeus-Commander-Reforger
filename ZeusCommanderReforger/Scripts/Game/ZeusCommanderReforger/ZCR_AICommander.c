@@ -12,6 +12,7 @@ modded class AICF_AICommander
 			ZCR_SpotProbe.Roads();      // -zcrProbeRoads (lab: each base's nearest road)
 			ZCR_SpotProbe.SupplyProbe(); // -zcrSupplyProbe (lab: what refills the front bases)
 			ZCR_SpotProbe.DepotProbe(); // -zcrDepotProbe (lab: which vehicle depots exist)
+			ZCR_SpotProbe.DryPathProbe(); // -zcrDryPathProbe (lab: drones' way over land)
 			ZCR_Setup.StartSupplies();  // starting stock so the builders can afford defenses
 			ZCR_Setup.Income();         // lab supply income (-zcrSupplyIncome)
 			if (m_FactionState)

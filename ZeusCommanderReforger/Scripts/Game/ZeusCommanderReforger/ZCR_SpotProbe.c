@@ -13,6 +13,46 @@ class ZCR_SpotProbe
 	// with no truck (21 Oct).
 	protected static int s_iNextSupplyProbe;
 
+	// -zcrDryPathProbe x1,z1,x2,z2;... (lab): the drones' way over land between two points (ZCR_Drones.DryPath),
+	// 30 s into the match: whether the line crosses the sea, the points of the way, and how long it took.
+	protected static bool s_bDryPathDone;
+	static void DryPathProbe()
+	{
+		string spec;
+		if (s_bDryPathDone || ZCR_LossLog.Seconds() < 30 || !System.GetCLIParam("zcrDryPathProbe", spec))
+			return;
+		s_bDryPathDone = true;
+		array<string> pairs = {};
+		spec.Split(";", pairs, true);
+		foreach (string pair : pairs)
+		{
+			array<string> n = {};
+			pair.Split(",", n, true);
+			if (n.Count() < 4)
+				continue;
+			vector a = Vector(n[0].ToFloat(), 0, n[1].ToFloat());
+			vector b = Vector(n[2].ToFloat(), 0, n[3].ToFloat());
+			int started = System.GetTickCount();
+			array<vector> via = {};
+			bool crosses = ZCR_Drones.CrossesWater(a, b);
+			bool found = ZCR_Drones.DryPath(a, b, via);
+			string where;
+			bool wet;
+			vector at = a;
+			foreach (vector v : via)
+			{
+				where += string.Format(" %1,%2", Math.Round(v[0]), Math.Round(v[2]));
+				if (ZCR_Drones.CrossesWater(at, v))
+					wet = true;
+				at = v;
+			}
+			if (ZCR_Drones.CrossesWater(at, b))
+				wet = true;
+			Print(string.Format("[ZCR][DRYPATH_PROBE] from=%1 to=%2 crosses=%3 found=%4 points=%5 legs_wet=%6 ms=%7 via=%8", n[0] + "," + n[1],
+				n[2] + "," + n[3], crosses, found, via.Count(), wet, System.GetTickCount() - started, where));
+		}
+	}
+
 	// -zcrDepotProbe (lab): every vehicle-depot service on the map at 1 and 6 minutes - its type, side, place and
 	// bases - to see whether the HQs have one AI Conflict's supply trucks could start from.
 	protected static int s_iDepotProbes;
