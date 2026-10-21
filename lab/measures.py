@@ -41,7 +41,7 @@ MEASURES = {
     "runovers": ("match", "soldiers killed with no killer next to a moving vehicle of their side (runover= on [ZCR][LOSS])"),
     "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
-    "drive_kmh": ("match", "median speed of AI-driven vehicles over the match (the [ZCR][DRIVE] lines' median_kmh, both sides)"),
+    "drive_kmh": ("match", "median speed of AI-driven vehicles while moving (over 3 km/h; [ZCR][DRIVE] moving_kmh, older logs median_kmh), both sides"),
     "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
     "search_gave_up_pct": ("match", "% of building site searches that found no site (SEARCH_BUDGET_EXHAUSTED) of those that ended"),
 }
@@ -74,7 +74,8 @@ def extra(run: Path) -> dict:
     kmh = []
     for line in open(log, encoding="utf-8", errors="replace"):
         if "[ZCR][DRIVE]" in line and "median_kmh=" in line:
-            km = re.search(r"median_kmh=(\d+)", line)
+            # The moving vehicles' median (from 21 Oct night); older logs: the median of all driven vehicles.
+            km = re.search(r"moving_kmh=(\d+)", line) or re.search(r"median_kmh=(\d+)", line)
             if km:
                 kmh.append(int(km.group(1)))
             continue
