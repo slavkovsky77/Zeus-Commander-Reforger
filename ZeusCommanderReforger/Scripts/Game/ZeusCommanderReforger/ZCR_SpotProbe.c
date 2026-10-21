@@ -193,6 +193,36 @@ class ZCR_SpotProbe
 				heights += "|";
 			}
 			Print(string.Format("[ZCR][SPOT] t=%1 at=%2 %3 ground=%4 heights(x-20..+20 rows, z-20..+20)=%5 ocean=%6", now, Math.Round(at[0]), Math.Round(at[2]), Math.Round(at[1]), heights, world.GetOceanBaseHeight()), LogLevel.NORMAL);
+			// The AI road network within 40 m: each road's width and its nearest point to the spot (a building's
+			// footprint over a road - Martin, 21 Oct: "supply depot was built on the road and vehicles get stuck").
+			SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+			if (aiWorld && aiWorld.GetRoadNetworkManager())
+			{
+				array<BaseRoad> roads = {};
+				aiWorld.GetRoadNetworkManager().GetRoadsInAABB(at - Vector(40, 50, 40), at + Vector(40, 50, 40), roads);
+				foreach (BaseRoad road : roads)
+				{
+					array<vector> points = {};
+					road.GetPoints(points);
+					float best = 1e9;
+					vector bestAt;
+					for (int i = 1; i < points.Count(); i++)
+					{
+						for (int k = 0; k <= 10; k++)
+						{
+							vector p = points[i - 1] + (points[i] - points[i - 1]) * (k / 10.0);
+							float d = vector.DistanceXZ(p, at);
+							if (d < best)
+							{
+								best = d;
+								bestAt = p;
+							}
+						}
+					}
+					Print(string.Format("[ZCR][SPOTROAD] t=%1 at=%2 %3 road_width=%4 nearest_m=%5 nearest_at=%6 %7 points=%8", now, Math.Round(at[0]), Math.Round(at[2]),
+						road.GetWidth(), Math.Round(best * 10) / 10, Math.Round(bestAt[0]), Math.Round(bestAt[2]), points.Count()), LogLevel.NORMAL);
+				}
+			}
 			s_aLines = {};
 			world.QueryEntitiesBySphere(at, 25, Collect, null, EQueryEntitiesFlags.ALL);
 			foreach (string line : s_aLines)
