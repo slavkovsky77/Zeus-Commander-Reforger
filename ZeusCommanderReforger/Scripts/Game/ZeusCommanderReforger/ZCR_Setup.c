@@ -52,8 +52,33 @@ class ZCR_Setup
 				continue;
 			int add = Math.Min(perMinute, base.GetSuppliesMax() - base.GetSupplies());
 			if (add > 0)
-				base.AddSupplies(add);
+				Give(base, add);
 		}
+	}
+
+	// Supplies into a base: the game's way (its supply generator), and when that adds nothing - SpearHead's
+	// Yunakivka bases have no storage queue for their generator, the stock stayed 0 - straight into the
+	// base's supply container. Returns what was added.
+	static int Give(SCR_CampaignMilitaryBaseComponent base, int amount)
+	{
+		if (!base || amount <= 0)
+			return 0;
+		float before = base.GetSupplies();
+		base.AddSupplies(amount);
+		float added = base.GetSupplies() - before;
+		if (added > 0.5)
+			return Math.Round(added);
+		SCR_ResourceComponent resources = base.GetResourceComponent();
+		if (!resources)
+			return 0;
+		SCR_ResourceContainer container = resources.GetContainer(EResourceType.SUPPLIES);
+		if (!container)
+			return 0;
+		float room = container.GetMaxResourceValue() - container.GetResourceValue();
+		float put = Math.Min(amount, room);
+		if (put <= 0 || !container.IncreaseResourceValue(put))
+			return 0;
+		return Math.Round(put);
 	}
 
 	static void StartSupplies()
@@ -88,8 +113,8 @@ class ZCR_Setup
 			int add = Math.Min(target - have, room);
 			if (add <= 0)
 				continue;
-			base.AddSupplies(add);
-			stocked++;
+			if (Give(base, add) > 0)
+				stocked++;
 		}
 		Print(string.Format("[ZCR][SETUP] t=%1 stocked=%2 bases_to_at_least=%3", ZCR_LossLog.Seconds(), stocked, target), LogLevel.NORMAL);
 	}
