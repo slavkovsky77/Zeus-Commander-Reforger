@@ -27,6 +27,9 @@
 // side) on their way out - backing off 8 m brought them back against it 45 s later. A blocker nobody drives and
 // nobody sits in is parked off the road instead: 10-14 m to its side, a spot free of vehicles ([ZCR][UNJAM]
 // action=park), once a vehicle.
+// 22 Oct 01:40, Arland: the rides leaving the harbour main base jammed against the next ride waiting at the pad (its
+// driver aboard, its team on the way) and backed off three times for nothing. A blocker that is driven but waiting
+// (its goal within GOAL_M) is parked aside too; a vehicle can be parked again after 120 game s.
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -43,7 +46,8 @@ class ZCR_Driving
 	static const float BACK_M = 8;
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
-	protected static ref map<IEntity, bool> s_mParked = new map<IEntity, bool>();
+	protected static ref map<IEntity, int> s_mParked = new map<IEntity, int>();     // when it was last parked aside
+	protected static ref map<IEntity, bool> s_mWaiting = new map<IEntity, bool>();  // driven, but its goal is near
 	protected float m_fLimit = 0;
 	protected int m_iNextLog;
 	protected int m_iNextClean;
@@ -212,6 +216,7 @@ class ZCR_Driving
 		// Not trying to go anywhere (no waypoint, or it is within GOAL_M): waiting, not stuck.
 		float goal = GoalDistance(driver, v);
 		bool waiting = goal < GOAL_M;
+		s_mWaiting.Set(v, waiting);
 		if (!s_mMark.Find(v, mark) || vector.DistanceXZ(at, mark) > 3 || waiting)
 		{
 			string was = s_mStuck.Get(v);
@@ -277,8 +282,10 @@ class ZCR_Driving
 			return;
 		IEntity yielder = v;
 		bool otherDriven = s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10;
-		// An abandoned vehicle in the way: park it off the road, the driven one goes on.
-		if (!otherDriven && !s_mParked.Contains(other) && !ZCR_Wrecks.Occupied(other) && ParkAside(other, side, now, v))
+		bool otherWaiting = otherDriven && s_mWaiting.Get(other);
+		bool mayPark = !s_mParked.Contains(other) || now - s_mParked.Get(other) >= 120;
+		// An abandoned vehicle in the way, or one waiting there for its team: park it aside, the driven one goes on.
+		if (mayPark && ((!otherDriven && !ZCR_Wrecks.Occupied(other)) || otherWaiting) && ParkAside(other, side, now, v))
 			return;
 		if (otherDriven)
 		{
@@ -361,7 +368,7 @@ class ZCR_Driving
 		Vehicle vehicle = Vehicle.Cast(blocker);
 		if (!vehicle)
 			return false;
-		s_mParked.Set(blocker, true);
+		s_mParked.Set(blocker, now);
 		BaseWorld world = GetGame().GetWorld();
 		vector mat[4];
 		vehicle.GetWorldTransform(mat);
