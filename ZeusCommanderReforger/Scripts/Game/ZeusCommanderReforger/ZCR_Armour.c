@@ -1195,7 +1195,10 @@ class ZCR_Armour
 		return false;
 	}
 
-	protected static ref array<vector> s_aBadSpots = {};
+	// Known from the watched matches (the list starts each match with them; units stuck there are added):
+	// Arland's south HQ track - units bought there sat stuck all match, and the game crashed in 6 of 12 such
+	// matches (1 of 13 elsewhere). Only 1 tree near, so not the wood check.
+	protected static ref array<vector> s_aBadSpots = {"1619 0 1122", "1638 0 1108"};
 
 	protected static bool BadSpot(vector at)
 	{
