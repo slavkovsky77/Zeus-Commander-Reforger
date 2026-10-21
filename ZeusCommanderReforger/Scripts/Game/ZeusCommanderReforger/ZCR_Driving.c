@@ -16,6 +16,13 @@
 //   [ZCR][UNJAM] t= side= vehicle= stuck_s= (moving again or gone)
 // A soldier killed with no killer next to a moving vehicle of his side (6 m, over 2 km/h) gets runover=<vehicle> on
 // his [ZCR][LOSS] line (Martin's /bad 21:03: the T-72 ran over its medic and machine gunner).
+// 22 Oct 00:35 (Martin: "one of the biggest issues is cars blocking each other ... the biggest one"): only a vehicle
+// that wants to go somewhere counts - its driver's group has a waypoint over GOAL_M away (a truck loading at its
+// depot, a ride waiting for its team, a parked car aren't stuck). A jammed one backs off: of the two, the one driving
+// into the other (the other within 15 m in its front cone); head-on or side by side, the lighter one; a vehicle
+// nobody drives never moves, so the driven one backs. BACK_M back along its own track (5 m if that spot is taken),
+// at most every 30 game s and 3 times a vehicle - then the AI drivers find their way round each other. Logs
+// [ZCR][UNJAM] ... action=back. Off: -zcrNoUnjam.
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -28,6 +35,10 @@ class ZCR_Driving
 	protected static ref array<IEntity> s_aNear;
 	static const int STUCK_S = 45;
 	static const float JAM_M = 10;
+	static const float GOAL_M = 30;
+	static const float BACK_M = 8;
+	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
 	protected float m_fLimit = 0;
 	protected int m_iNextLog;
 	protected int m_iNextClean;
@@ -101,7 +112,7 @@ class ZCR_Driving
 			}
 			string side = ZCR_LossLog.SideOf(c);
 			s_mSide.Set(v, side);
-			Watch(v, side, now);
+			Watch(v, side, now, agent);
 			if (!speeds.Contains(side))
 				speeds.Set(side, {});
 			speeds.Get(side).Insert(kmh);
@@ -185,22 +196,39 @@ class ZCR_Driving
 	}
 
 	// Stuck / jammed bookkeeping for one driven vehicle (every 2 s).
-	protected static void Watch(IEntity v, string side, int now)
+	protected static void Watch(IEntity v, string side, int now, AIAgent driver)
 	{
 		vector at = v.GetOrigin();
 		vector mark;
-		if (!s_mMark.Find(v, mark) || vector.DistanceXZ(at, mark) > 3)
+		// Not trying to go anywhere (no waypoint, or it is within GOAL_M): waiting, not stuck.
+		float goal = GoalDistance(driver, v);
+		bool waiting = goal < GOAL_M;
+		if (!s_mMark.Find(v, mark) || vector.DistanceXZ(at, mark) > 3 || waiting)
 		{
 			string was = s_mStuck.Get(v);
+			string ended = "moving";
+			if (waiting)
+				ended = "arrived";
 			if (!was.IsEmpty())
-				Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 stuck_s=%4 ended=moving", now, side, ZCR_LossLog.ShortName(v), now - s_mMarkAt.Get(v)), LogLevel.NORMAL);
+				Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 stuck_s=%4 ended=%5", now, side, ZCR_LossLog.ShortName(v), now - s_mMarkAt.Get(v), ended), LogLevel.NORMAL);
 			s_mMark.Set(v, at);
 			s_mMarkAt.Set(v, now);
 			s_mStuck.Set(v, "");
 			return;
 		}
-		if (now - s_mMarkAt.Get(v) < STUCK_S || !s_mStuck.Get(v).IsEmpty())
+		if (now - s_mMarkAt.Get(v) < STUCK_S)
 			return;
+		if (!s_mStuck.Get(v).IsEmpty())
+		{
+			// Still jammed: another back-off when allowed.
+			if (s_mStuck.Get(v) == "JAM")
+			{
+				IEntity still = OtherVehicleNear(v, JAM_M);
+				if (still)
+					Unjam(v, still, side, now);
+			}
+			return;
+		}
 		IEntity other = OtherVehicleNear(v, JAM_M);
 		if (other)
 		{
@@ -208,14 +236,123 @@ class ZCR_Driving
 			string otherSide = ZCR_LossLog.SideOf(other);
 			if (otherSide.IsEmpty())
 				otherSide = "none";
-			Print(string.Format("[ZCR][JAM] t=%1 side=%2 vehicle=%3 other=%4 other_side=%5 x=%6 z=%7", now, side, ZCR_LossLog.ShortName(v),
-				ZCR_LossLog.ShortName(other), otherSide, Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][JAM] t=%1 side=%2 vehicle=%3 other=%4 other_side=%5 x=%6 z=%7 goal_m=%8", now, side, ZCR_LossLog.ShortName(v),
+				ZCR_LossLog.ShortName(other), otherSide, Math.Round(at[0]), Math.Round(at[2]), Math.Round(goal)), LogLevel.NORMAL);
+			Unjam(v, other, side, now);
 		}
 		else
 		{
 			s_mStuck.Set(v, "STUCK");
 			Print(string.Format("[ZCR][STUCKVEH] t=%1 side=%2 vehicle=%3 x=%4 z=%5", now, side, ZCR_LossLog.ShortName(v), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 		}
+	}
+
+	// Metres from the vehicle to its driver's group's current waypoint; -1 with none (parked, or not an AI's).
+	protected static float GoalDistance(AIAgent driver, IEntity v)
+	{
+		if (!driver)
+			return -1;
+		AIGroup group = driver.GetParentGroup();
+		if (!group)
+			return -1;
+		AIWaypoint waypoint = group.GetCurrentWaypoint();
+		if (!waypoint)
+			return -1;
+		return vector.DistanceXZ(waypoint.GetOrigin(), v.GetOrigin());
+	}
+
+	// The jammed pair: which one backs off, then back it.
+	protected static void Unjam(IEntity v, IEntity other, string side, int now)
+	{
+		if (System.IsCLIParam("zcrNoUnjam"))
+			return;
+		IEntity yielder = v;
+		if (s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10)
+		{
+			// Both driven: the one with the other in its front cone; head-on or neither, the lighter.
+			bool vInto = InFront(v, other);
+			bool oInto = InFront(other, v);
+			if (oInto && !vInto)
+				yielder = other;
+			else if (vInto == oInto && Mass(other) < Mass(v))
+				yielder = other;
+		}
+		BackOff(yielder, side, now, v, other);
+	}
+
+	protected static bool InFront(IEntity a, IEntity b)
+	{
+		vector mat[4];
+		a.GetWorldTransform(mat);
+		vector forward = mat[2];
+		forward[1] = 0;
+		forward.Normalize();
+		vector rel = b.GetOrigin() - mat[3];
+		rel[1] = 0;
+		float d = rel.Length();
+		return d < 15 && vector.Dot(rel, forward) > 0.5 * d;
+	}
+
+	protected static float Mass(IEntity e)
+	{
+		if (!e || !e.GetPhysics())
+			return 0;
+		return e.GetPhysics().GetMass();
+	}
+
+	protected static bool BackOff(IEntity yielder, string side, int now, IEntity a, IEntity b)
+	{
+		Vehicle vehicle = Vehicle.Cast(yielder);
+		if (!vehicle || s_mBacks.Get(yielder) >= 3 || now - s_mBackAt.Get(yielder) < 30)
+			return false;
+		BaseWorld world = GetGame().GetWorld();
+		vector mat[4];
+		vehicle.GetWorldTransform(mat);
+		vector back = mat[2];
+		back[1] = 0;
+		back.Normalize();
+		float lift = mat[3][1] - world.GetSurfaceY(mat[3][0], mat[3][2]);
+		if (lift < 0)
+			lift = 0;
+		array<float> distances = {BACK_M, 5.0};
+		foreach (float dist : distances)
+		{
+			vector spot = mat[3] - back * dist;
+			spot[1] = world.GetSurfaceY(spot[0], spot[2]) + lift;
+			if (VehicleAt(spot, 4, yielder))
+				continue;
+			mat[3] = spot;
+			Physics physics = vehicle.GetPhysics();
+			if (physics)
+			{
+				physics.SetVelocity(vector.Zero);
+				physics.SetAngularVelocity(vector.Zero);
+			}
+			ZCR_Trace.Ent("move", vehicle, "unjam_back");
+			if (!vehicle.SetWorldTransform(mat))
+				return false;
+			s_mBackAt.Set(yielder, now);
+			s_mBacks.Set(yielder, s_mBacks.Get(yielder) + 1);
+			IEntity partner = a;
+			if (yielder == a)
+				partner = b;
+			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=back m=%4 other=%5 count=%6 x=%7 z=%8", now, side, ZCR_LossLog.ShortName(yielder),
+				dist, ZCR_LossLog.ShortName(partner), s_mBacks.Get(yielder), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			return true;
+		}
+		return false;
+	}
+
+	protected static bool VehicleAt(vector spot, float radius, IEntity except)
+	{
+		s_aNear = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(spot, radius, CollectVehicle, null, EQueryEntitiesFlags.DYNAMIC);
+		foreach (IEntity e : s_aNear)
+		{
+			if (e != except && e.GetRootParent() != except)
+				return true;
+		}
+		return false;
 	}
 
 	protected static IEntity OtherVehicleNear(IEntity v, float radius)
