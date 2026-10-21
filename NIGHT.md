@@ -9,10 +9,9 @@ give-ways as they happen; **Crashes** keeps every crash.
 | Severity | Issue (review notes) | Goal | Measure, target | State 21 Oct 22:45 |
 |---|---|---|---|---|
 | 1 | Crashes and freezes (246, 269, 271) | no-crash | ended_early == 0, 10 of 10 matches | cause found: the mods' tanks; off since 21:50 |
-| 1 | Vehicles jam, ram, run over their own (275, 277, 282, 286) | traffic | jams <= 2, runovers <= 1, armour_still <= 2 a match | guard counts vehicles (fixed); give-way written |
+| 1 | Vehicles drive badly - jam, ram, get stuck, run over their own; all vehicles, the Bradley was one example (275, 277, 282, 283, 286) | traffic | jams <= 2, runovers <= 1, armour_still <= 2, stuck_vehicles <= 5, drive_kmh >= 18 a match | guard counts vehicles (fixed); give-way written; jam watch written |
 | 2 | Building: sites slow, searches give up, depots missing (265, 266, 268, 272, 284) | building-fast | site_search_s <= 60, search_gave_up_pct <= 25, depots >= 1 a side | search 3x faster (fixed); roadside depot spots, no wasted tries, slot lanes written |
 | 2 | Teams exposed - waiting for a ride, marching (276, 285) | cover | field_overhead >= 30% a side | covered march legs and staging written |
-| 2 | The Bradley drives badly (283) | traffic (armour_still) | as above | Martin's call: mod IFVs or the game's LAV/BTR |
 | 3 | Lag / FPS (273) | smooth | fps >= 35 | the stress servers; idle priority |
 | - | Progress GUI, phase times, crash reporting (267, 270, 272, 274) | - | - | done |
 

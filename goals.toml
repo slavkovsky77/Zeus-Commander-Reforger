@@ -29,9 +29,9 @@ met_when = "10 of 10"
 
 [[goal]]
 id = "traffic"
-title = "Vehicles don't jam, ram or run over their own"
-wish = "AI crashed into vehicles - they crash and crash, they deadlock themselves; that's a terrible bug (Martin, 21 Oct) - severity 1"
-notes = [275, 277, 282, 286]
+title = "Vehicles drive well - no jams, ramming, stuck or run-over soldiers"
+wish = "AI crashed into vehicles - they crash and crash, they deadlock themselves; that's a terrible bug ... it's not only the Bradley, it's vehicles mostly (Martin, 21 Oct) - severity 1"
+notes = [275, 277, 282, 283, 286]
 status = "active"
 matches = "watched"
 met_when = "2 of 3"
@@ -44,6 +44,12 @@ met_when = "2 of 3"
   [[goal.measure]]
   key = "armour_still"
   target = "<= 2"
+  [[goal.measure]]
+  key = "stuck_vehicles"
+  target = "<= 5"
+  [[goal.measure]]
+  key = "drive_kmh"
+  target = ">= 18"
 
 [[goal]]
 id = "building-fast"

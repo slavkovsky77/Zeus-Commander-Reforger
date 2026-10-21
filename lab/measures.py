@@ -41,6 +41,7 @@ MEASURES = {
     "runovers": ("match", "soldiers killed with no killer next to a moving vehicle of their side (runover= on [ZCR][LOSS])"),
     "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
+    "drive_kmh": ("match", "median speed of AI-driven vehicles over the match (the [ZCR][DRIVE] lines' median_kmh, both sides)"),
     "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
     "search_gave_up_pct": ("match", "% of building site searches that found no site (SEARCH_BUDGET_EXHAUSTED) of those that ended"),
 }
@@ -62,7 +63,7 @@ def extra(run: Path) -> dict:
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
            "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
-           "jams": 0, "stuck_vehicles": 0, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
+           "jams": 0, "stuck_vehicles": 0, "drive_kmh": None, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
@@ -70,7 +71,13 @@ def extra(run: Path) -> dict:
     fps = []
     speed = 1.0
     decided, placed_s, gave_up = {}, [], 0
+    kmh = []
     for line in open(log, encoding="utf-8", errors="replace"):
+        if "[ZCR][DRIVE]" in line and "median_kmh=" in line:
+            km = re.search(r"median_kmh=(\d+)", line)
+            if km:
+                kmh.append(int(km.group(1)))
+            continue
         if "[ZCR][JAM]" in line:
             out["jams"] += 1
             continue
@@ -133,6 +140,8 @@ def extra(run: Path) -> dict:
     for s in SIDES:
         vals = [v for (side, _), v in supply.items() if side == s]
         out["front_supply_pct"][s] = round(sum(vals) / len(vals)) if vals else None
+    if kmh:
+        out["drive_kmh"] = sorted(kmh)[len(kmh) // 2]
     if placed_s:
         out["site_search_s"] = round(sorted(placed_s)[len(placed_s) // 2])
     if placed_s or gave_up:
