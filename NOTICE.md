@@ -8,3 +8,6 @@ it keeps its Apache-2.0 licence header, and this notice lists the files.
 
 Arma Reforger and its scripts are by Bohemia Interactive a.s.; their use is subject to Bohemia's
 own terms.
+
+The lab app (lab/app/) bundles Apache ECharts 5.5.1 (lab/app/vendor/echarts.min.js), Copyright The Apache
+Software Foundation, licensed under the Apache License 2.0 (lab/app/vendor/LICENSE).
