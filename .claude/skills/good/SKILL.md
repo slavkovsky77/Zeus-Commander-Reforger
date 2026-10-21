@@ -15,6 +15,10 @@ check against regressions.
    python lab/report.py good "<their words, verbatim>"
    ```
 
+   A remark from the lab app (`python lab/app/server.py new` lists them): the moment is its `seen_at` - when the owner
+   started typing - so pass `--at` with that time (HH:MM:SS). If the caption then shows another team than the one
+   named, find when the named team was on screen ([ZCR][CAM] lines) and take frames from then.
+
 2. **Read** `summary.md`, the three frames and `log.txt` in the printed folder. Name exactly what
    happened: which units (team keys, drone team numbers), which code made it happen (the drone reaction,
    the dismount, the drone search...), and the numbers that show it (e.g. dismount out of the objective's
@@ -30,5 +34,7 @@ check against regressions.
 
 5. **Reply** in a couple of plain lines: what you saw in the frames and the log that made it good, and
    that it's now kept as a check.
+   For a remark from the lab app, also answer it there: `python lab/app/server.py file <id> --note N --reply "..."`,
+   and keep `python lab/app/server.py wait --minutes 240` running so the next remark wakes the session.
 
 Never start a game window for this.

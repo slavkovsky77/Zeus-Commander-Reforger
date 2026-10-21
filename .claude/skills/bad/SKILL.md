@@ -15,6 +15,10 @@ moment is in the logs and the recording.
    python lab/report.py bad "<their words, verbatim>"
    ```
 
+   A remark from the lab app (`python lab/app/server.py new` lists them): the moment is its `seen_at` - when the owner
+   started typing - so pass `--at` with that time (HH:MM:SS). If the caption then shows another team than the one
+   named, find when the named team was on screen ([ZCR][CAM] lines) and take frames from then.
+
    It prints the report folder (`.runtime/reports/NNN-bad/`) and the review note number, and files the
    note in the review notes (`paths.notes`).
 
@@ -36,5 +40,7 @@ moment is in the logs and the recording.
 
 6. **Reply** in a few plain lines: what the frame and the log show, the cause, what changed or what's
    planned. No headings or tables.
+   For a remark from the lab app, also answer it there: `python lab/app/server.py file <id> --note N --reply "..."`,
+   and keep `python lab/app/server.py wait --minutes 240` running so the next remark wakes the session.
 
 Never start a game window for this; never stop other sessions' games.
