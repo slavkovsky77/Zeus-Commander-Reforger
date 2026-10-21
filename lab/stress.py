@@ -11,6 +11,8 @@ bought again 30 s after a loss - many times the armour of a normal match. Each v
     hold        -zcrArmourHold      (bought and crewed, never ordered anywhere)
     nodrones    no FPV drones
     keepwrecks  -zcrKeepWrecks      (wrecks are not removed)
+    tanks       -zcrArmourOnly TANK (only the mods' tanks: Abrams, T-72)
+    ifvs        -zcrArmourOnly IFV  (only the mods' IFVs: Bradley, BMP-1)
 
 Runs matches of --minutes each until --hours have passed, one line per match into .runtime/stress.jsonl
 (variant, minutes, crashed, crash kind, game time). The lab app's Crashes tab shows them.
@@ -39,6 +41,8 @@ VARIANTS = {
     "hold": ("-zcrArmourStress -zcrArmourHold", True),
     "nodrones": ("-zcrArmourStress", False),
     "keepwrecks": ("-zcrArmourStress -zcrKeepWrecks", True),
+    "tanks": ("-zcrArmourStress -zcrArmourOnly TANK", True),
+    "ifvs": ("-zcrArmourStress -zcrArmourOnly IFV", True),
 }
 
 

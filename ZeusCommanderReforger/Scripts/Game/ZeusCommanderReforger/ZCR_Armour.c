@@ -16,7 +16,8 @@
 //   -zcrArmourStress  up to 6 units a side (tanks and IFVs in turn), free, from 30 s, bought again 30 s after a loss;
 //   -zcrArmourKeepType  the vehicle keeps its own type (not made an APC);
 //   -zcrArmourVanilla  the game's own LAV-25 / BTR-70 only (not the mods' vehicles);
-//   -zcrArmourHold  bought and crewed, but no orders (stays where it was bought).
+//   -zcrArmourHold  bought and crewed, but no orders (stays where it was bought);
+//   -zcrArmourOnly TANK|IFV  only the mods' tanks, or only their IFVs.
 class ZCR_ArmourUnit
 {
 	FactionKey m_sSide;
@@ -517,7 +518,15 @@ class ZCR_Armour
 			costs.Insert(300);
 			return;
 		}
-		if (no == 1 || (Stress() && no % 2 == 1))
+		// -zcrArmourOnly TANK|IFV: every unit a tank (Abrams / T-72) or every unit an IFV (Bradley / BMP-1).
+		string only;
+		System.GetCLIParam("zcrArmourOnly", only);
+		bool tank = no == 1 || (Stress() && no % 2 == 1);
+		if (only == "TANK")
+			tank = true;
+		else if (only == "IFV")
+			tank = false;
+		if (tank)
 		{
 			prefabs.Insert(Pick(us, "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et", "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et"));
 			kinds.Insert("TANK");
