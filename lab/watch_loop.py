@@ -399,6 +399,12 @@ def main() -> int:
         if fails >= 3:
             log("three matches in a row failed to start - stopping")
             return 1
+        # Stop between matches (to restart the loop on new lab code): .runtime/watch_stop.
+        stop = ROOT / ".runtime" / "watch_stop"
+        if stop.exists():
+            stop.unlink()
+            log("stopped between matches (.runtime/watch_stop)")
+            return 0
         time.sleep(10)
     return 0
 

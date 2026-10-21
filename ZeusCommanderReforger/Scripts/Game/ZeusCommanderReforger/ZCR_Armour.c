@@ -87,7 +87,7 @@ class ZCR_Armour
 				Status(unit, front, now);
 			}
 			else if (front != vector.Zero && (unit.m_iLostAt < 0 || now - unit.m_iLostAt >= REBUY_S))
-				Buy(unit, faction, now);
+				Buy(unit, faction, front, now);
 		}
 	}
 
@@ -298,7 +298,7 @@ class ZCR_Armour
 		return ussrPrefab;
 	}
 
-	protected static void Buy(ZCR_ArmourUnit unit, SCR_CampaignFaction faction, int now)
+	protected static void Buy(ZCR_ArmourUnit unit, SCR_CampaignFaction faction, vector front, int now)
 	{
 		SCR_CampaignMilitaryBaseComponent hq = faction.GetMainBase();
 		if (!hq || !hq.GetOwner())
@@ -328,7 +328,7 @@ class ZCR_Armour
 			return;
 		}
 		vector pose[4];
-		if (!FindSpot(hq.GetOwner().GetOrigin(), pose))
+		if (!FindSpot(hq.GetOwner().GetOrigin(), front, pose))
 		{
 			Skip(unit, now, "NO_SPOT " + s_sSpotWhy);
 			return;
@@ -343,6 +343,10 @@ class ZCR_Armour
 			Skip(unit, now, "SPAWN_FAILED");
 			return;
 		}
+		// Typed APC: the game keeps gunners of APCs in their turret when they can't hit what they see; the
+		// mods' tanks and IFVs aren't, and with no driver aboard their gunners got out to look (21 Oct test).
+		string typeWas = typename.EnumToString(EVehicleType, vehicle.m_eVehicleType);
+		vehicle.m_eVehicleType = EVehicleType.APC;
 		hq.AddSupplies(-costs[pick]);
 		unit.m_Vehicle = vehicle;
 		unit.m_sPrefab = ZCR_LossLog.ShortName(vehicle);
@@ -361,8 +365,8 @@ class ZCR_Armour
 		unit.m_vWas = pose[3];
 		unit.m_iNextStatus = now + 60;
 		s_mVehicle.Set(vehicle, unit);
-		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 hq_after=%5 x=%6 z=%7", unit.m_sPrefab, unit.m_sKind,
-			costs[pick], ZCR_Strategist.BaseName(hq), Math.Round(hq.GetSupplies()), Math.Round(pose[3][0]), Math.Round(pose[3][2])));
+		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 hq_after=%5 x=%6 z=%7 type_was=%8", unit.m_sPrefab, unit.m_sKind,
+			costs[pick], ZCR_Strategist.BaseName(hq), Math.Round(hq.GetSupplies()), Math.Round(pose[3][0]), Math.Round(pose[3][2]), typeWas));
 		// The turrets are slotted entities: their seats are there a moment after the hull.
 		GetGame().GetCallqueue().CallLater(Crew, 1500, false, unit);
 	}
@@ -481,7 +485,10 @@ class ZCR_Armour
 	{
 		SCR_AIWorld ai = SCR_AIWorld.Cast(GetGame().GetAIWorld());
 		vector road;
-		if (ai && ai.GetRoadNetworkManager() && ai.GetRoadNetworkManager().GetReachableWaypointInRoad(from, goal, 250, road))
+		// Only a road point near the goal: the T-72 and BMP-1's support point was pulled back to the HQ's own
+		// roads 40 m from where they stood, 486 m from the front, and they sat there 10 minutes.
+		if (ai && ai.GetRoadNetworkManager() && ai.GetRoadNetworkManager().GetReachableWaypointInRoad(from, goal, 150, road) &&
+			vector.DistanceXZ(road, goal) < 150)
 			return road;
 		return goal;
 	}
@@ -499,7 +506,13 @@ class ZCR_Armour
 		{
 			if (aboard < want && now - unit.m_iRemountAt <= 90)
 				return true;
-			Log(unit, now, "REMOUNTED", string.Format("prefab=%1 aboard=%2/%3 took_s=%4", unit.m_sPrefab, aboard, want, now - unit.m_iRemountAt));
+			// 90 s and still short (the Abrams' crew stayed at 1 of 3 through three tries): who is within 50 m
+			// is seated the way the Game Master seats a crew, the driver's seat first - a tank with a gunner
+			// and no driver stood at its HQ for 5 minutes.
+			int seated;
+			if (aboard < want)
+				seated = Seat(unit);
+			Log(unit, now, "REMOUNTED", string.Format("prefab=%1 aboard=%2/%3 took_s=%4 seated=%5", unit.m_sPrefab, Aboard(unit), want, now - unit.m_iRemountAt, seated));
 			unit.m_sPhase = "";
 			unit.m_vFront = vector.Zero;
 			return false;
@@ -527,6 +540,25 @@ class ZCR_Armour
 		return true;
 	}
 
+	protected static int Seat(ZCR_ArmourUnit unit)
+	{
+		array<AIAgent> agents = {};
+		unit.m_Group.GetAgents(agents);
+		int seated;
+		foreach (AIAgent agent : agents)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(agent.GetControlledEntity());
+			if (!c || !AICF_GroupRuntime.IsAliveCharacter(c) || c.IsInVehicle() || vector.DistanceXZ(c.GetOrigin(), unit.m_Vehicle.GetOrigin()) > 50)
+				continue;
+			SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(c.GetCompartmentAccessComponent());
+			if (!access)
+				continue;
+			if (access.MoveInVehicle(unit.m_Vehicle, ECompartmentType.PILOT) || access.MoveInVehicle(unit.m_Vehicle, ECompartmentType.TURRET))
+				seated++;
+		}
+		return seated;
+	}
+
 	// Approach: a support position SHORT_M short of the front on the vehicle's way in; there (or within
 	// SHORT_M + 100 of the front), Search and Destroy at the front itself.
 	protected static void Order(ZCR_ArmourUnit unit, vector front, int now)
@@ -539,11 +571,13 @@ class ZCR_Armour
 		// vehicle moved re-ordered the Bradley every tick in the first test). The assault follows once the
 		// vehicle is within SHORT_M + 100 of the front.
 		bool sameFront = unit.m_vFront != vector.Zero && vector.DistanceXZ(unit.m_vFront, front) < 100;
-		if (sameFront && unit.m_Waypoint && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
+		// At its support point (within 80 m of it): on into the base, however far that is.
+		bool arrived = sameFront && unit.m_sPhase == "APPROACH" && vector.DistanceXZ(at, unit.m_vOrder) < 80;
+		if (sameFront && unit.m_Waypoint && !arrived && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
 			return;
 		string phase = "APPROACH";
 		vector goal;
-		if (dist <= SHORT_M + 100)
+		if (dist <= SHORT_M + 100 || arrived)
 		{
 			phase = "ASSAULT";
 			goal = front;
@@ -657,13 +691,15 @@ class ZCR_Armour
 	// building sites. s_sSpotWhy: how many spots failed and why.
 	protected static string s_sSpotWhy;
 
-	protected static bool FindSpot(vector center, out vector pose[4])
+	protected static bool FindSpot(vector center, vector toward, out vector pose[4])
 	{
 		SCR_AIWorld ai = SCR_AIWorld.Cast(GetGame().GetAIWorld());
 		if (!ai || !ai.GetRoadNetworkManager())
 			return false;
 		BaseWorld world = GetGame().GetWorld();
-		int noRoad, far, wet, site, blocked;
+		int noRoad, far, wet, site, blocked, checkpoint, spawnPoint;
+		float bestScore = -1;
+		vector best[4];
 		for (int candidate; candidate < 40; candidate++)
 		{
 			int bearing = candidate % 8;
@@ -705,8 +741,33 @@ class ZCR_Armour
 				direction[1] = 0;
 				direction.Normalize();
 			}
-			Math3D.DirectionAndUpMatrix(direction, "0 1 0", pose);
-			pose[3] = road + Vector(0, 0.3, 0);
+			// Laid on the ground under the hull (the slope 5 m ahead/behind and to the sides), 0.5 m up: a 10 m
+			// hull set level on a slope starts inside the ground (the way AI Conflict fits its own vehicles).
+			vector side = Vector(direction[2], 0, -direction[0]);
+			vector front = road + direction * 5;
+			vector back = road - direction * 5;
+			vector left = road + side * 2;
+			vector right = road - side * 2;
+			front[1] = world.GetSurfaceY(front[0], front[2]);
+			back[1] = world.GetSurfaceY(back[0], back[2]);
+			left[1] = world.GetSurfaceY(left[0], left[2]);
+			right[1] = world.GetSurfaceY(right[0], right[2]);
+			vector along = front - back;
+			vector across = left - right;
+			vector up = Vector(across[1] * along[2] - across[2] * along[1], across[2] * along[0] - across[0] * along[2], across[0] * along[1] - across[1] * along[0]);
+			if (up[1] < 0)
+				up = -up;
+			up.Normalize();
+			if (up[1] < 0.85)
+			{
+				blocked++;
+				continue;
+			}
+			along.Normalize();
+			Math3D.DirectionAndUpMatrix(along, up, pose);
+			vector place = road;
+			place[1] = Math.Max(Math.Max(front[1], back[1]), road[1]) + 0.5;
+			pose[3] = place;
 			TraceOBB body = new TraceOBB();
 			for (int axis; axis < 3; axis++)
 				body.Mat[axis] = pose[axis];
@@ -720,10 +781,68 @@ class ZCR_Armour
 				blocked++;
 				continue;
 			}
+			// Not on a spawn point: soldiers can't appear where a tank stands - recruits for the north HQ
+			// timed out (GROUP_SPAWN_TIMEOUT) only in the armour tests, with its armour parked there.
+			if (NearSpawnPoint(road, 40))
+			{
+				spawnPoint++;
+				continue;
+			}
+			// Not by a road block (hedgehogs, dragon's teeth, gates, barriers - kept on the map, Martin): the
+			// 21 Oct probe found the Bradley spawned inside the north HQ's checkpoint (5 hedgehogs, two gates)
+			// and stuck there 10 minutes.
+			s_iBlocks = 0;
+			world.QueryEntitiesBySphere(road, 40, CountBlock, null, EQueryEntitiesFlags.STATIC);
+			if (s_iBlocks > 0)
+			{
+				checkpoint++;
+				continue;
+			}
+			// Of the clear spots, the one nearest the front (the way out it needn't turn back through).
+			float score = 0;
+			if (toward != vector.Zero)
+				score = vector.DistanceXZ(road, toward);
+			if (bestScore < 0 || score < bestScore)
+			{
+				bestScore = score;
+				for (int k; k < 4; k++)
+					best[k] = pose[k];
+			}
+		}
+		if (bestScore >= 0)
+		{
+			for (int m; m < 4; m++)
+				pose[m] = best[m];
 			return true;
 		}
-		s_sSpotWhy = string.Format("no_road=%1 far=%2 wet=%3 site=%4 blocked=%5", noRoad, far, wet, site, blocked);
+		s_sSpotWhy = string.Format("no_road=%1 far=%2 wet=%3 site=%4 blocked=%5 checkpoint=%6 spawn_point=%7", noRoad, far, wet, site, blocked, checkpoint, spawnPoint);
 		return false;
+	}
+
+	protected static bool NearSpawnPoint(vector at, float radius)
+	{
+		array<SCR_SpawnPoint> points = SCR_SpawnPoint.GetSpawnPoints();
+		if (!points)
+			return false;
+		foreach (SCR_SpawnPoint point : points)
+		{
+			if (point && vector.DistanceXZ(point.GetOrigin(), at) < radius)
+				return true;
+		}
+		return false;
+	}
+
+	protected static int s_iBlocks;
+
+	protected static bool CountBlock(IEntity e)
+	{
+		if (!e || !e.GetPrefabData())
+			return true;
+		string name = e.GetPrefabData().GetPrefabName();
+		if (name.Contains("Hedgehog") || name.Contains("Dragontooth") || name.Contains("BarGate") || name.Contains("MetalGate") ||
+			name.Contains("RoadBarrier") || name.Contains("Roadblock") || name.Contains("RoadBlock"))
+			s_iBlocks++;
+		return true;
 	}
 
 	protected static void Log(ZCR_ArmourUnit unit, int now, string what, string details)
