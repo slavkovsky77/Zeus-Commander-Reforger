@@ -33,6 +33,9 @@ import measures  # noqa: E402
 import scorecard  # noqa: E402
 
 OUT = ROOT / ".runtime" / "monitor"
+# Helper programs start without a console window: the lab app runs windowless (pythonw), and each
+# powershell / git it started flashed a console on the owner's screen (21 Oct).
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 NOW = OUT / "now.json"
 LOG = ROOT / ".runtime" / "loop_log.jsonl"
 MATCH_KEYS = ["truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water",
@@ -76,7 +79,7 @@ def servers() -> list:
     try:
         ps = subprocess.run(["powershell", "-NoProfile", "-Command",
                              "Get-CimInstance Win32_Process -Filter \"Name like 'ArmaReforger%'\" | ForEach-Object { $_.CommandLine }"],
-                            capture_output=True, text=True, timeout=30).stdout
+                            capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW).stdout
     except Exception:
         return []
     return sorted({m.group(1) for m in re.finditer(r"runs[\\/]([\w.-]+)", ps)})
@@ -87,7 +90,7 @@ def commits() -> list:
     for name, repo in (("commander", ROOT), ("ai-conflict", config.path("paths.ai_conflict"))):
         try:
             text = subprocess.run(["git", "-C", str(repo), "log", "-8", "--format=%h|%ad|%s", "--date=format:%d.%m %H:%M"],
-                                  capture_output=True, text=True, timeout=20).stdout
+                                  capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW).stdout
         except Exception:
             continue
         for l in text.splitlines():

@@ -70,7 +70,8 @@ class Slow:
         PAGES.mkdir(parents=True, exist_ok=True)
         for args in (["engine_page.py", str(PAGES)], ["plan_page.py", str(PAGES)]):
             try:
-                subprocess.run([sys.executable, str(LAB / args[0]), *args[1:]], cwd=ROOT, capture_output=True, timeout=600)
+                subprocess.run([sys.executable, str(LAB / args[0]), *args[1:]], cwd=ROOT, capture_output=True, timeout=600,
+                               creationflags=monitor.NO_WINDOW)
             except Exception as e:
                 print(f"[app] page {args[0]}: {e}", flush=True)
         cls.pages_updated = now_iso()
@@ -240,7 +241,8 @@ def frame() -> bytes:
         out = RUNTIME / "app_frame.jpg"
         try:
             subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-sseof", "-3", "-i", str(mkv[-1]),
-                            "-frames:v", "1", "-vf", "scale=1280:-1", "-q:v", "5", str(out)], timeout=20, capture_output=True)
+                            "-frames:v", "1", "-vf", "scale=1280:-1", "-q:v", "5", str(out)], timeout=20, capture_output=True,
+                           creationflags=monitor.NO_WINDOW)
             jpg = out.read_bytes() if out.exists() else None
         except Exception:
             jpg = None
