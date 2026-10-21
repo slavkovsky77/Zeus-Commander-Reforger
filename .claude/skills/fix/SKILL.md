@@ -25,8 +25,11 @@ description: Make a change to the commander AI or the AI Conflict fork in Enforc
    - An `out` parameter isn't read: pass a temp, not a variable holding a fallback.
    - Bash heredocs mangle backslashes (`\a` becomes a bell) - use the Edit tool for paths.
 
-5. **Compile check** (`run-matches`): 1 minute headless, no script errors, `[ZCR]` lines present. The
-   watched loop loads code from source at its next match - a compile error there costs a match.
+5. **Compile check** (`run-matches`): 1 minute headless, no script errors, `[ZCR]` lines present -
+   right after the edit, before anything else. The watched loop compiles whatever is on disk when its
+   next match starts: a half-finished edit with an error makes those matches end at once ("server did
+   not get ready" - two were lost that way on 21 Oct). When a match fails to start, look for
+   `SCRIPT    (E)` in its `logs/*/console.log` first.
 
 6. **Commit** on the working branch, message: what changed and why, the numbers. Commit freely;
    **never push** and never publish without the owner's go-ahead.
