@@ -12,6 +12,11 @@
 // bought again after REBUY_S.
 // Logs [ZCR][ARMOUR] t= side= unit= event=BOUGHT|CREW|ORDER|STATUS|LOST|SKIP ...; kills and losses
 // tagged in [ZCR][LOSS] (armour=, armour_hit=). -zcrNoArmour turns it off, -zcrArmourMax N (2).
+// Crash hunting (armour made the watched matches crash: 13 in 33 game hours vs 1 in 51 without, 21 Oct):
+//   -zcrArmourStress  up to 6 units a side (tanks and IFVs in turn), free, from 30 s, bought again 30 s after a loss;
+//   -zcrArmourKeepType  the vehicle keeps its own type (not made an APC);
+//   -zcrArmourVanilla  the game's own LAV-25 / BTR-70 only (not the mods' vehicles);
+//   -zcrArmourHold  bought and crewed, but no orders (stays where it was bought).
 class ZCR_ArmourUnit
 {
 	FactionKey m_sSide;
@@ -67,7 +72,7 @@ class ZCR_Armour
 			s_bGuard = true;
 			GetGame().GetCallqueue().CallLater(Guard, 1000, true);
 		}
-		if (now < START_S || now < s_mNextTick.Get(side))
+		if (now < StartS() || now < s_mNextTick.Get(side))
 			return;
 		s_mNextTick.Set(side, now + 15);
 		front = Front(side, front);
@@ -96,11 +101,11 @@ class ZCR_Armour
 			{
 				if (Lost(unit, now))
 					continue;
-				if (!Recrewing(unit, now) && !Remounting(unit, now))
+				if (!System.IsCLIParam("zcrArmourHold") && !Recrewing(unit, now) && !Remounting(unit, now))
 					Order(unit, front, now);
 				Status(unit, front, now);
 			}
-			else if (front != vector.Zero && (unit.m_iLostAt < 0 || now - unit.m_iLostAt >= REBUY_S))
+			else if (front != vector.Zero && (unit.m_iLostAt < 0 || now - unit.m_iLostAt >= RebuyS()))
 				Buy(unit, faction, front, now);
 		}
 	}
@@ -235,7 +240,28 @@ class ZCR_Armour
 		string value;
 		if (System.GetCLIParam("zcrArmourMax", value) && !value.IsEmpty())
 			return Math.ClampInt(value.ToInt(), 0, 6);
+		if (Stress())
+			return 6;
 		return 2;
+	}
+
+	static bool Stress()
+	{
+		return System.IsCLIParam("zcrArmourStress");
+	}
+
+	protected static int StartS()
+	{
+		if (Stress())
+			return 30;
+		return START_S;
+	}
+
+	protected static int RebuyS()
+	{
+		if (Stress())
+			return 30;
+		return REBUY_S;
 	}
 
 	// The watch labels (kind A): "US TANK M1A1_Olive - ASSAULT Farm, crew 3/3, 87%".
@@ -484,7 +510,14 @@ class ZCR_Armour
 	protected static void Choices(FactionKey side, int no, array<string> prefabs, array<string> kinds, array<int> costs)
 	{
 		bool us = side == "US";
-		if (no == 1)
+		if (System.IsCLIParam("zcrArmourVanilla"))
+		{
+			prefabs.Insert(Pick(us, "{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et"));
+			kinds.Insert("APC");
+			costs.Insert(300);
+			return;
+		}
+		if (no == 1 || (Stress() && no % 2 == 1))
 		{
 			prefabs.Insert(Pick(us, "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et", "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et"));
 			kinds.Insert("TANK");
@@ -517,6 +550,11 @@ class ZCR_Armour
 		array<string> kinds = {};
 		array<int> costs = {};
 		Choices(unit.m_sSide, unit.m_iNo, prefabs, kinds, costs);
+		if (Stress())
+		{
+			for (int c; c < costs.Count(); c++)
+				costs[c] = 0;
+		}
 		int pick = -1;
 		for (int i; i < prefabs.Count(); i++)
 		{
@@ -540,7 +578,7 @@ class ZCR_Armour
 		if (!from || !FindSpot(from.GetOwner().GetOrigin(), front, pose))
 		{
 			from = hq;
-			if (hq.GetSupplies() < costs[pick] + RESERVE)
+			if (!Stress() && hq.GetSupplies() < costs[pick] + RESERVE)
 			{
 				Skip(unit, now, string.Format("NO_SUPPLIES have=%1 need=%2", Math.Round(hq.GetSupplies()), costs[pick] + RESERVE));
 				return;
@@ -566,7 +604,8 @@ class ZCR_Armour
 		// Typed APC: the game keeps gunners of APCs in their turret when they can't hit what they see; the
 		// mods' tanks and IFVs aren't, and with no driver aboard their gunners got out to look (21 Oct test).
 		string typeWas = typename.EnumToString(EVehicleType, vehicle.m_eVehicleType);
-		vehicle.m_eVehicleType = EVehicleType.APC;
+		if (!System.IsCLIParam("zcrArmourKeepType"))
+			vehicle.m_eVehicleType = EVehicleType.APC;
 		hq.AddSupplies(-costs[pick]);
 		unit.m_Vehicle = vehicle;
 		unit.m_sPrefab = ZCR_LossLog.ShortName(vehicle);
