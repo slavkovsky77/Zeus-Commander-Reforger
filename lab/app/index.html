@@ -151,6 +151,14 @@ video { width: 100%; border-radius: 8px; background: #000; }
 .run.ussr .rseg.cur { box-shadow: 0 0 0 1.5px var(--ussr); }
 .track.names span { font: 10.5px var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track.names span.cur { color: var(--ink); font-weight: 600; }
+/* How long an item has been in its phase: one tick per game minute, amber past the usual time, red when it looks stuck. */
+.clock { display: flex; align-items: center; gap: 8px; min-height: 12px; }
+.clock .ticks { display: flex; gap: 2px; flex: 1; min-width: 0; overflow: hidden; }
+.clock .ticks i { flex: none; width: 4px; height: 7px; border-radius: 1px; background: var(--na); }
+.clock .ticks i.warn { background: var(--warn); } .clock .ticks i.bad { background: var(--bad); }
+.clock .ticks b { font: 600 10px var(--f-mono); color: var(--muted); line-height: 7px; }
+.clock .t { font: 11px var(--f-mono); color: var(--muted); white-space: nowrap; margin-left: auto; }
+.clock.warn .t { color: var(--warn); font-weight: 600; } .clock.bad .t { color: var(--bad); font-weight: 600; }
 .banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
 </style>
 </head>
@@ -364,8 +372,19 @@ video { width: 100%; border-radius: 8px; background: #000; }
     const item = (text, n, warn) => `<div class="eitem${warn ? " warn" : ""}"><span class="t">${text}</span>${n ? `<span class="n">${n}</span>` : ""}</div>`;
     const block = (label, items) => `<div class="eblock"><span class="lbl">${label}</span>${items.length ? items.join("") : '<span class="muted" style="font-size:14px">–</span>'}</div>`;
     // A labelled progress bar: pct 0-100, or null for work under way with no measure yet (moving stripe).
-    const prog = (text, n, pct, cls) => `<div class="prog"><div class="top"><span class="t">${text}</span>${n ? `<span class="n">${n}</span>` : ""}</div>
-      <div class="pbar ${cls || ""}${pct == null ? " busy" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="100"${pct == null ? "" : ` aria-valuenow="${pct}"`}><i style="width:${pct == null ? 30 : Math.max(2, pct)}%"></i></div></div>`;
+    const prog = (text, n, pct, cls, extra) => `<div class="prog"><div class="top"><span class="t">${text}</span>${n ? `<span class="n">${n}</span>` : ""}</div>
+      <div class="pbar ${cls || ""}${pct == null ? " busy" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="100"${pct == null ? "" : ` aria-valuenow="${pct}"`}><i style="width:${pct == null ? 30 : Math.max(2, pct)}%"></i></div>${extra || ""}</div>`;
+    // Time in the current phase (game seconds, [ZCR][EFFORTS] "for"): the time and one tick per game minute - amber
+    // past the usual time for that kind of phase, red past twice that (it looks stuck: the phase isn't changing).
+    const LIMITS = { attack: [8, 15], defend: [5, 10], drive: [8, 15], load: [2, 5], search: [4, 8], build: [6, 12] };
+    const clock = (sec, kind, done) => {
+      if (sec == null) return "";
+      const [warn, bad] = LIMITS[kind], min = sec / 60, n = Math.min(40, Math.floor(min));
+      const lvl = done ? "" : min >= bad ? "bad" : min >= warn ? "warn" : "";
+      const ticks = Array.from({ length: n }, (_, i) => `<i class="${done ? "" : i >= bad ? "bad" : i >= warn ? "warn" : ""}"></i>`).join("");
+      const note = lvl === "bad" ? " · stuck?" : lvl === "warn" ? " · slow" : "";
+      return `<div class="clock ${lvl}" title="${Math.floor(min)} game minutes in this phase (usual: under ${warn})"><span class="ticks">${ticks}${min > 40 ? "<b>+</b>" : ""}</span><span class="t">${mmss(sec)}${note}</span></div>`;
+    };
     // A supply run as one track of four parts: drive to the load point, load, drive to deliver, unload.
     // The drives fill by the distance covered (straight line), loading by cargo/planned, unloading by what left.
     const km = (m) => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
@@ -384,21 +403,26 @@ video { width: 100%; border-radius: 8px; background: #000; }
       return `<div class="run ${side}"><div class="top"><span class="t">${route}</span><span class="n">${esc(now)}</span></div>
         <div class="track">${part.map((p, i) => `<div class="rseg${i + 1 === step ? " cur" : ""}${step === 0 && i === 0 ? " wait" : ""}"
           role="progressbar" aria-label="${esc(names[i])}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%"></i></div>`).join("")}</div>
-        <div class="track names">${names.map((n, i) => `<span${i + 1 === step ? ' class="cur"' : ""}>${esc(n)}</span>`).join("")}</div></div>`;
+        <div class="track names">${names.map((n, i) => `<span${i + 1 === step ? ' class="cur"' : ""}>${esc(n)}</span>`).join("")}</div>
+        ${clock(tr.for, step === 1 || step === 3 ? "drive" : "load")}</div>`;
     };
     $("efforts").innerHTML = sides.map((s) => {
       const e = ef[s], side = s.toLowerCase();
       const attack = (e.attack || []).slice().sort((a, b) => b.men - a.men).map((a) =>
         prog(`${a.base === e.main ? "<b>" : ""}${esc(a.base)}${a.base === e.main ? "</b> · main effort" : ""}`,
-          `${a.there ?? 0} of ${a.men} there · ${a.teams} teams${a.riding ? ` · ${a.riding} riding` : ""}`, a.men ? Math.round(100 * (a.there || 0) / a.men) : 0, side));
+          `${a.there ?? 0} of ${a.men} there · ${a.teams} teams${a.riding ? ` · ${a.riding} riding` : ""}`, a.men ? Math.round(100 * (a.there || 0) / a.men) : 0, side,
+          clock(a.for, "attack", a.men && a.there >= a.men)));
       const defend = (e.defend || []).slice().sort((a, b) => b.men - a.men).map((a) =>
-        prog(esc(a.base), `${a.there ?? 0} of ${a.men} in place · ${a.teams} teams`, a.men ? Math.round(100 * (a.there || 0) / a.men) : 0, side));
+        prog(esc(a.base), `${a.there ?? 0} of ${a.men} in place · ${a.teams} teams`, a.men ? Math.round(100 * (a.there || 0) / a.men) : 0, side,
+          clock(a.for, "defend", a.men && a.there >= a.men)));
       const hold = (e.hold || []).map((h) => item(`${esc(h.base)} - enemies near`, `${h.enemies} seen`, true));
       const supply = (e.short || []).map((b) => prog(`${esc(b.base)} needs supplies`, `${b.have}/${b.max}`, Math.round(100 * b.have / Math.max(1, b.max)), b.have < 0.2 * b.max ? "low" : ""))
         .concat((e.trucks || []).map((tr) => run(tr, side)))
         .concat((e.trucks || []).length ? [] : [item('<span class="muted">no supply trucks on the road (they come from depots)</span>', "")]);
-      const build = (e.sites || []).map((x) => prog(`${esc(x.what)} at ${esc(x.base)}`, x.pct >= 0 ? `${x.pct}% built` : "", x.pct >= 0 ? x.pct : null, side))
-        .concat((e.build || []).filter((b) => b.stage !== "building").map((b) => prog(`${esc(b.what)} at ${esc(b.base)}`, esc(b.stage), null, side)));
+      const build = (e.sites || []).map((x) => prog(`${esc(x.what)} at ${esc(x.base)}`, x.pct >= 0 ? `${x.pct}% built` : "", x.pct >= 0 ? x.pct : null, side,
+          clock(x.for, "build", x.pct >= 100)))
+        .concat((e.build || []).filter((b) => b.stage !== "building").map((b) => prog(`${esc(b.what)} at ${esc(b.base)}`,
+          esc(b.stage) + (b.tries > 1 ? ` · try ${b.tries}` : ""), null, side, clock(b.for, "search"))));
       const armour = (e.armour || []).map((a) => item(esc(a), ""));
       return `<div class="eside ${s.toLowerCase()}"><h3>${s}</h3>${block("Attack", attack)}${block("Defend", defend)}${hold.length ? block("Hold", hold) : ""}${block("Supply", supply)}${block("Building", build)}${armour.length ? block("Armour", armour) : ""}</div>`;
     }).join("");
