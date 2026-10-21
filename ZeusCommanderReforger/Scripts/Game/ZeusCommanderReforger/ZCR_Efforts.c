@@ -3,15 +3,52 @@
 // Every 30 game seconds, one line per side:
 //   [ZCR][EFFORTS] t= side= json={"main": base, "attack": [{base, teams, men, riding}], "defend": [...],
 //     "hold": [{base, enemies}], "short": [{base, have, max}], "trucks": [{doing, phase, from, to, cargo, step, leg, left, planned}],
-//     "build": [{what, base, stage}], "sites": [{base, what}], "armour": [label]}
+//     "build": [{what, base, stage, for, tries}], "sites": [{base, what, pct, for}], "armour": [label]}
 // From AI Conflict's team slots (role and target), the bases, its supply trucks and construction orders, the
 // side's knowledge of enemies near its bases, and the armour units. Server side; logging only.
 // Progress (Martin: "those actions should have visible progresses"): attack/defend "there" = soldiers within 300 m
 // of the base; a truck's "step" 1-4 (to load, loading, driving, unloading) and "leg" 0-100 (how far along its
 // current drive, from the farthest it was on it); a site's "pct" built.
+// Time (Martin: "there could be also time how long is phase is taking"): every item has "for" - game seconds in its
+// current phase (an attack on that base, a truck's step, a site search across its retries, a site being built) - and
+// a site search "tries" (AI Conflict gives a search ~6 game minutes, then starts a new order for the same thing).
 class ZCR_Efforts
 {
 	protected static int s_iNext;
+	protected static ref map<string, int> s_mSince = new map<string, int>();
+	protected static ref map<string, int> s_mSeen = new map<string, int>();
+	protected static ref map<string, string> s_mStage = new map<string, string>();
+	protected static ref map<string, string> s_mToken = new map<string, string>();
+	protected static ref map<string, int> s_mTries = new map<string, int>();
+
+	// Game seconds the item has been in this stage; a new stage, or the item gone for over 75 s, starts again.
+	protected static int For(string key, string stage, int now)
+	{
+		int seen;
+		if (!s_mSeen.Find(key, seen) || now - seen > 75 || s_mStage.Get(key) != stage)
+		{
+			s_mSince.Set(key, now);
+			s_mStage.Set(key, stage);
+		}
+		s_mSeen.Set(key, now);
+		return now - s_mSince.Get(key);
+	}
+
+	// How many orders (tokens) the item has had since its stage began.
+	protected static int Tries(string key, string token, bool fresh)
+	{
+		if (fresh || !s_mTries.Contains(key))
+		{
+			s_mTries.Set(key, 1);
+			s_mToken.Set(key, token);
+		}
+		else if (s_mToken.Get(key) != token)
+		{
+			s_mTries.Set(key, s_mTries.Get(key) + 1);
+			s_mToken.Set(key, token);
+		}
+		return s_mTries.Get(key);
+	}
 
 	static void Tick()
 	{
@@ -73,9 +110,11 @@ class ZCR_Efforts
 		string attack;
 		string defend;
 		foreach (string base, int teams : attackTeams)
-			attack += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"riding\":%4,\"there\":%5}", J(base), teams, attackMen.Get(base), attackRiding.Get(base), attackThere.Get(base));
+			attack += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"riding\":%4,\"there\":%5,", J(base), teams, attackMen.Get(base), attackRiding.Get(base), attackThere.Get(base)) +
+				string.Format("\"for\":%1}", For(side + "|attack|" + base, "attack", now));
 		foreach (string base, int teams : defendTeams)
-			defend += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"there\":%4}", J(base), teams, defendMen.Get(base), defendThere.Get(base));
+			defend += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"there\":%4,\"for\":%5}", J(base), teams, defendMen.Get(base), defendThere.Get(base),
+				For(side + "|defend|" + base, "defend", now));
 		// The side's bases: enemies known near (hold), short of supplies (resupply).
 		string hold;
 		string low;
@@ -113,20 +152,30 @@ class ZCR_Efforts
 			if (t.m_To)
 				to = ZCR_Strategist.BaseName(t.m_To);
 			trucks += string.Format(",{\"doing\":%1,\"phase\":%2,\"from\":%3,\"to\":%4,\"cargo\":%5,", J(doing), J(t.m_sPhase), J(from), J(to), Math.Round(t.m_fCargo)) +
-				string.Format("\"step\":%1,\"leg\":%2,\"left\":%3,\"planned\":%4}", Step(t.m_sPhase), Leg(t), Left(t), Math.Round(Planned(t)));
+				string.Format("\"step\":%1,\"leg\":%2,\"left\":%3,\"planned\":%4,\"for\":%5}", Step(t.m_sPhase), Leg(t), Left(t), Math.Round(Planned(t)),
+				For(string.Format("%1|truck|%2|%3|%4", side, t.m_Vehicle, from, to), t.m_sPhase, now));
 		}
 		// Engineers: AI Conflict's construction orders (choosing a site / building).
 		string build;
 		array<SCR_CampaignMilitaryBaseComponent> obases = {};
 		array<string> what = {};
 		array<bool> building = {};
+		array<string> tokens = {};
 		AICF_ConstructionPlanner.AICF_Orders(side, obases, what, building);
+		AICF_ConstructionPlanner.AICF_OrderTokens(side, tokens);
 		for (int i; i < obases.Count(); i++)
 		{
 			string stage = "choosing a site";
 			if (building[i])
 				stage = "building";
-			build += string.Format(",{\"what\":%1,\"base\":%2,\"stage\":%3}", J(what[i]), J(ZCR_Strategist.BaseName(obases[i])), J(stage));
+			string orderBase = ZCR_Strategist.BaseName(obases[i]);
+			string orderKey = side + "|build|" + orderBase + "|" + what[i];
+			int took = For(orderKey, stage, now);
+			string token = "";
+			if (i < tokens.Count())
+				token = tokens[i];
+			int tries = Tries(orderKey, token, took == 0);
+			build += string.Format(",{\"what\":%1,\"base\":%2,\"stage\":%3,\"for\":%4,\"tries\":%5}", J(what[i]), J(orderBase), J(stage), took, tries);
 		}
 		// Building sites going up (the builders' targets), with their progress.
 		string sites;
@@ -145,7 +194,9 @@ class ZCR_Efforts
 			string kind = "building";
 			if (site.GetOwner().GetPrefabData())
 				kind = ZCR_Director.BuildingKind(site.GetOwner().GetPrefabData().GetPrefabName());
-			sites += string.Format(",{\"base\":%1,\"what\":%2,\"pct\":%3}", J(NearestBase(site.GetOwner().GetOrigin())), J(kind), pct);
+			string siteBase = NearestBase(site.GetOwner().GetOrigin());
+			sites += string.Format(",{\"base\":%1,\"what\":%2,\"pct\":%3,\"for\":%4}", J(siteBase), J(kind), pct,
+				For(string.Format("%1|site|%2", side, site.GetOwner()), "building", now));
 		}
 		// Armour units.
 		string armour;
