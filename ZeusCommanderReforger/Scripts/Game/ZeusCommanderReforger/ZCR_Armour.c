@@ -12,6 +12,7 @@
 // bought again after REBUY_S.
 // Logs [ZCR][ARMOUR] t= side= unit= event=BOUGHT|CREW|ORDER|STATUS|LOST|SKIP ...; kills and losses
 // tagged in [ZCR][LOSS] (armour=, armour_hit=). -zcrNoArmour turns it off, -zcrArmourMax N (2).
+// From 21 Oct 21:50 the tank slot takes an IFV too unless -zcrArmourTanks: the mods' tanks crash the game.
 // Crash hunting (armour made the watched matches crash: 13 in 33 game hours vs 1 in 51 without, 21 Oct):
 //   -zcrArmourStress  up to 6 units a side (tanks and IFVs in turn), free, from 30 s, bought again 30 s after a loss;
 //   -zcrArmourKeepType  the vehicle keeps its own type (not made an APC);
@@ -535,12 +536,20 @@ class ZCR_Armour
 			return;
 		}
 		// -zcrArmourOnly TANK|IFV: every unit a tank (Abrams / T-72) or every unit an IFV (Bradley / BMP-1).
+		// No tanks unless -zcrArmourTanks (21 Oct stress test: the mods' tanks crash the game - tanks only froze or
+		// crashed in 8-10 game minutes, with or without our APC typing; IFVs only ran 40 minutes clean, and the
+		// game's own LAV-25 / BTR-70 too). -zcrArmourTankSide US|USSR: tanks for that side only (which tank is it).
 		string only;
 		System.GetCLIParam("zcrArmourOnly", only);
 		bool tank = no == 1 || (Stress() && no % 2 == 1);
 		if (only == "TANK")
 			tank = true;
 		else if (only == "IFV")
+			tank = false;
+		string tankSide;
+		if (System.GetCLIParam("zcrArmourTankSide", tankSide) && !tankSide.IsEmpty())
+			tank = tank && side == tankSide;
+		else if (!System.IsCLIParam("zcrArmourTanks") && only != "TANK")
 			tank = false;
 		if (tank)
 		{
