@@ -19,6 +19,7 @@ them: write your wishes into `goals.toml`, or tell Claude and it writes them the
 | What changed, build by build, and why | `lab/engine_page.py` (changelog), git log | `record` skill |
 | Pages the owner reads (engine, changelog, plan, goals, night report) | `[pages]` in `lab/lab.local.toml` | `record` skill |
 | This machine's paths and page links | `lab/lab.local.toml` (not committed) | `lab-setup` skill |
+| The live monitor: what the loop does now, goals, iterations, matches, a box for remarks | `lab/monitor_page.html` + `lab/monitor.py` | `improve`, `record` |
 
 ## One iteration (`improve`)
 
@@ -42,7 +43,10 @@ them: write your wishes into `goals.toml`, or tell Claude and it writes them the
 5. **record** - the review note's finding, `PLAN.md`, the goal's status, the changelog, the pages.
 
 The owner watches matches meanwhile and reports with `good` and `bad` (or the in-game REPORT button);
-each report becomes a numbered note, and a wish becomes a goal.
+each report becomes a numbered note, and a wish becomes a goal. The live monitor page shows the loop
+as it runs - the current step, every goal with its last matches, each finished iteration with its
+before and after - and its "Tell the loop" box sends a wish or a good/bad remark from the phone,
+which the loop files at the start of its next iteration.
 
 ## Rules the loop keeps
 

@@ -27,3 +27,6 @@ changelog = ""
 plan = ""
 goals = ""
 night = ""
+# The live monitor (lab/monitor_page.html, published with the db capability; the loop pushes lab/monitor.py's
+# data to it and reads the remarks sent from it).
+monitor = ""

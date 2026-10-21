@@ -33,5 +33,17 @@ After every change or finding, all of these - in the same session:
 
 7. **Commit** the notes and pages' sources with the code they describe.
 
+8. **The live monitor** (`[pages] monitor`): after each finished iteration, log it -
+   ```
+   python lab/monitor.py log --goal trucks --title "Building planner checked ~1 site a second"        --finding "..." --change "..." --commit e639778 --before "..." --after "..." --verdict better
+   ```
+   (`now` instead of `log` when only the current step changed; both rebuild the data). Then push:
+   ArtifactData `list` collection `lab` (for the two documents' versions), and one `batch` of two
+   `set` writes - `lab/state` from `.runtime/monitor/state.json`, `lab/log` from
+   `.runtime/monitor/log.json` - each with its `if_version` (none the very first time). A new lab
+   publishes `lab/monitor_page.html` once with `capabilities: {db: {rules: [{path: "", read: "view",
+   write: "admin"}, {path: "inbox", read: "view", write: "interact"}]}, user: {}}` and puts its link
+   under `[pages] monitor`.
+
 Write for the owner: plain words, the game's own terms, numbers with their units, no jargon. A page
 that says "fixed" must have the before -> after that shows it.

@@ -1,0 +1,314 @@
+<title>Commander Lab Monitor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one phone-first column (max 900px): the loop's state on top, the remark box, then goals,
+   the iteration log, matches, commits and notes. Ops-board palette: map blue on a cool grey-green. */
+:root {
+  --bg: #f2f4f1; --panel: #ffffff; --ink: #18211e; --muted: #56625d; --line: #d5dbd6;
+  --accent: #2c5a86; --accent-soft: #e2ebf3;
+  --good: #23743f; --good-soft: #e1f1e6; --bad: #a3322a; --bad-soft: #f7e3e1;
+  --warn: #8a5a00; --warn-soft: #f6ecd6; --na: #b9c2bd; --field: #f7f9f7;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121816; --panel: #1a2220; --ink: #e3e9e5; --muted: #9aa7a1; --line: #2c3833;
+    --accent: #7fb0de; --accent-soft: #1d2d3b; --good: #6fcf8f; --good-soft: #17301f;
+    --bad: #f08a80; --bad-soft: #3a1d1a; --warn: #e7b85a; --warn-soft: #33290f; --na: #4a5651; --field: #151c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121816; --panel: #1a2220; --ink: #e3e9e5; --muted: #9aa7a1; --line: #2c3833;
+  --accent: #7fb0de; --accent-soft: #1d2d3b; --good: #6fcf8f; --good-soft: #17301f;
+  --bad: #f08a80; --bad-soft: #3a1d1a; --warn: #e7b85a; --warn-soft: #33290f; --na: #4a5651; --field: #151c1a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 900px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 22px 64px; display: grid; gap: 22px; }
+h1, h2 { font-family: var(--f-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1 { font-size: 38px; line-height: 1; }
+h2 { font-size: 22px; line-height: 1.1; }
+h3 { margin: 0; font-size: 16px; }
+p { margin: 0; }
+section { display: grid; gap: 10px; min-width: 0; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: 600 12px/1 var(--f-mono); padding: 6px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+.chip.ok { color: var(--good); background: var(--good-soft); border-color: transparent; }
+.chip.no { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.chip.wait { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.chip.step { color: var(--accent); background: var(--accent-soft); border-color: transparent; text-transform: uppercase; letter-spacing: .05em; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; min-width: 0; }
+.now { border-left: 4px solid var(--accent); }
+.now .doing { font-size: 17px; }
+.live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 6px; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+form { display: grid; gap: 8px; }
+.kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.kinds label { font: 600 13px var(--f-body); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; background: var(--field); }
+.kinds input { position: absolute; opacity: 0; pointer-events: none; }
+.kinds input:checked + span { color: var(--accent); }
+.kinds label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.kinds label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea { font: 15px/1.4 var(--f-body); color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 76px; resize: vertical; width: 100%; box-sizing: border-box; }
+textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: 700 14px var(--f-body); color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; justify-self: start; }
+button:disabled { opacity: .5; cursor: default; }
+.inbox { display: grid; gap: 8px; }
+.msg { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); min-width: 0; }
+.msg .text { overflow-wrap: anywhere; }
+.goals { display: grid; gap: 10px; }
+.goal .gh { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; justify-content: space-between; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 600 11px var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+.d { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--na); }
+.d.ok { background: var(--good); } .d.no { background: var(--bad); }
+.strip { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.s { width: 13px; height: 13px; border-radius: 3px; background: var(--na); }
+.s.ok { background: var(--good); } .s.no { background: var(--bad); }
+.log { display: grid; gap: 10px; }
+.it { display: grid; gap: 6px; }
+.it .ba { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 14px; }
+.it .ba b { font: 600 11px var(--f-mono); color: var(--muted); text-transform: uppercase; padding-top: 3px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.list { display: grid; gap: 8px; }
+.list .li { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--line); min-width: 0; }
+.list .li:last-child { border-bottom: 0; }
+.li .text { overflow-wrap: anywhere; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; }
+.links a { color: var(--accent); font-weight: 600; text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--panel); }
+.empty { padding: 22px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
+@media (max-width: 480px) { h1 { font-size: 32px; } }
+@media (prefers-reduced-motion: no-preference) { .live { animation: pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { opacity: .35; } } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="mono muted">Reforger commander · the improvement loop, live</div>
+    <h1>Commander Lab Monitor</h1>
+    <div class="row" id="head"><span class="chip">waiting for the lab's first update</span></div>
+  </header>
+
+  <div id="broke"></div>
+
+  <section class="card now" id="now">
+    <p class="muted">The loop writes here at every step: what it works on, the goals, each finished iteration.</p>
+  </section>
+
+  <section class="card" id="tell">
+    <h2>Tell the loop</h2>
+    <form id="form">
+      <div class="kinds" role="radiogroup" aria-label="Kind">
+        <label><input type="radio" name="kind" id="k-wish" value="wish" checked><span>Wish</span></label>
+        <label><input type="radio" name="kind" id="k-bad" value="bad"><span>Bad</span></label>
+        <label><input type="radio" name="kind" id="k-good" value="good"><span>Good</span></label>
+        <label><input type="radio" name="kind" id="k-question" value="question"><span>Question</span></label>
+      </div>
+      <textarea id="text" placeholder="What you want, or what you saw in the match (team, place, roughly when)" aria-label="Your remark"></textarea>
+      <div class="row"><button type="submit" id="send">Send to the loop</button><span class="muted" id="sendnote"></span></div>
+    </form>
+    <div class="inbox" id="inbox"></div>
+  </section>
+
+  <section>
+    <h2>Goals</h2>
+    <div class="goals" id="goals"><div class="empty">No goals yet.</div></div>
+  </section>
+
+  <section>
+    <h2>What the loop did</h2>
+    <div class="log" id="log"><div class="empty">No finished iterations yet.</div></div>
+  </section>
+
+  <section>
+    <h2>Latest watched matches</h2>
+    <div class="card tbl" id="matches"><div class="empty">No matches yet.</div></div>
+  </section>
+
+  <div class="cols">
+    <section class="card"><h2>Changes</h2><div class="list" id="commits"></div></section>
+    <section class="card"><h2>Review notes</h2><div class="list" id="notes"></div></section>
+  </div>
+
+  <section>
+    <h2>Pages</h2>
+    <div class="links" id="pages"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let state = null, log = null, inbox = [];
+  let db = null, user = null, canWrite = null, myId = null;
+
+  const ago = (iso) => {
+    if (!iso) return "";
+    const t = Date.parse(iso);
+    if (isNaN(t)) return "";
+    const m = Math.round((Date.now() - t) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return m + " min ago";
+    const h = Math.floor(m / 60);
+    return h < 24 ? h + " h " + (m % 60) + " min ago" : Math.floor(h / 24) + " d ago";
+  };
+  const hhmm = (iso) => (iso || "").slice(11, 16);
+  const verdict = (g) => {
+    if (g.status === "met" && g.met === false) return ["no", "broke (was met)"];
+    if (g.met === true) return ["ok", g.status === "met" ? "met - guarding" : "met"];
+    if (g.met === false) return ["no", "not met"];
+    return ["wait", "too few matches"];
+  };
+  const LABELS = { truck_first_min: "1st truck (min)", truck_unloads: "loads delivered", front_supply_pct: "front bases %",
+    depots: "depots", forts: "fortifications", drones_lost_water: "drones in the sea", armour_assault: "armour in assault",
+    armour_kills: "armour kills", scorecard_fails: "screen checks failed", lost: "soldiers lost" };
+  const side = (v, never) => {
+    if (v === null || v === undefined) return never ? "never" : "–";
+    if (typeof v === "object") return side(v.US, never) + " / " + side(v.USSR, never);
+    return String(v);
+  };
+
+  function renderHead() {
+    const h = $("head");
+    if (!state) { h.innerHTML = db ? '<span class="chip">waiting for the lab\'s first update</span>' : '<span class="chip">open in the Claude app to see the live lab</span>'; return; }
+    const now = state.now || {};
+    const w = state.watched || {};
+    let parts = [];
+    if (now.step) parts.push(`<span class="chip step">${esc(now.step)}</span>`);
+    if (now.goal) parts.push(`<span class="chip">goal: ${esc(now.goal)}</span>`);
+    parts.push(`<span class="chip">updated ${esc(ago(state.updated))}</span>`);
+    h.innerHTML = parts.join("");
+    $("broke").innerHTML = (state.broke && state.broke.length)
+      ? `<div class="banner">Broke: ${esc(state.broke.join(", "))} - a goal that was met fails again; the loop takes it first.</div>` : "";
+    let watched = "";
+    if (w.match) {
+      const pct = w.running && w.length_min ? Math.min(100, Math.round(100 * (w.game_min || 0) / w.length_min)) : 100;
+      watched = `<div class="row"><span class="mono">${w.running ? '<span class="live"></span>' : ""}Watched match ${esc(w.match)} · ${esc(w.sides)} · ${esc(w.map)}</span></div>
+        <div class="mono muted">${w.running ? `game minute ~${esc(w.game_min)} of ${esc(w.length_min)} · ${esc(w.speed)}x` : (w.ended_early ? "ended early: " + esc(w.ended_early) : "finished")} · build ${esc(w.build)} · started ${esc(w.started)}</div>
+        <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>`;
+    }
+    const others = (state.servers || []).filter((s) => !/^w\d+-/.test(s));
+    $("now").innerHTML = `
+      <div class="row"><span class="mono muted">Now · ${esc(hhmm(now.at))}</span>${state.next ? `<span class="chip">next goal: ${esc(state.next)}</span>` : ""}</div>
+      <p class="doing">${esc(now.doing || "Idle.")}</p>
+      ${now.next ? `<p class="muted">Then: ${esc(now.next)}</p>` : ""}
+      ${watched}
+      ${others.length ? `<div class="mono muted">Also running: ${others.map(esc).join(", ")}</div>` : ""}`;
+  }
+
+  function renderGoals() {
+    const gl = (state && state.goals) || [];
+    if (!gl.length) { $("goals").innerHTML = '<div class="empty">No goals yet.</div>'; return; }
+    $("goals").innerHTML = gl.slice().sort((a, b) => a.order - b.order).map((g) => {
+      const [cls, text] = verdict(g);
+      const ms = g.matches || [];
+      const head = ms.map((m) => `<th>${esc(m.when.slice(6))}</th>`).join("");
+      const rows = (ms[0] ? ms[0].cells : []).map((c, i) => `<tr><td>${esc(LABELS[c.key] || c.key)} <span class="mono muted">${esc(c.target)}</span></td>` +
+        ms.map((m) => { const x = m.cells[i] || {}; return `<td class="mono"><span class="d ${x.ok === true ? "ok" : x.ok === false ? "no" : ""}"></span>${esc(x.shown)}</td>`; }).join("") + "</tr>").join("");
+      const hist = (g.history || []).map((r) => `<span class="s ${r.ok ? "ok" : "no"}" title="${esc(r.when)}"></span>`).join("");
+      return `<div class="card goal">
+        <div class="gh"><h3>${esc(g.title)}</h3><span class="chip ${cls}">${esc(text)} · ${esc(g.passed)} of ${esc(g.of)}</span></div>
+        <p class="muted">“${esc(g.wish)}” <span class="mono">· ${esc(g.id)} · notes ${esc((g.notes || []).join(", "))}</span></p>
+        ${rows ? `<div class="tbl"><table><thead><tr><th>Measure</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+        ${hist ? `<div class="strip">${hist}<span class="mono muted" style="margin-left:6px">last ${(g.history || []).length} matches</span></div>` : ""}
+      </div>`;
+    }).join("");
+  }
+
+  function renderLog() {
+    const items = (log && log.items) || [];
+    if (!items.length) { $("log").innerHTML = '<div class="empty">No finished iterations yet.</div>'; return; }
+    $("log").innerHTML = items.map((it) => {
+      const v = (it.verdict || "").toLowerCase();
+      const cls = v.startsWith("fixed") ? "ok" : v.startsWith("better") ? "ok" : v.startsWith("worse") || v.startsWith("no change") ? "no" : "wait";
+      return `<div class="card it">
+        <div class="row"><span class="mono muted">${esc((it.at || "").slice(5, 16).replace("T", " "))}</span><span class="chip">${esc(it.goal)}</span>${it.verdict ? `<span class="chip ${cls}">${esc(it.verdict)}</span>` : ""}</div>
+        <h3>${esc(it.title)}</h3>
+        ${it.finding ? `<p>${esc(it.finding)}</p>` : ""}
+        <div class="ba">
+          ${it.change ? `<b>Change</b><span>${esc(it.change)}${it.commit ? ` <span class="mono muted">${esc(it.commit)}</span>` : ""}</span>` : ""}
+          ${it.before ? `<b>Before</b><span>${esc(it.before)}</span>` : ""}
+          ${it.after ? `<b>After</b><span>${esc(it.after)}</span>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderMatches() {
+    const ms = (state && state.matches) || [];
+    if (!ms.length) { $("matches").innerHTML = '<div class="empty">No matches yet.</div>'; return; }
+    const keys = ["truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water", "armour_kills", "scorecard_fails"];
+    $("matches").innerHTML = `<table><thead><tr><th>Match</th><th>ran</th>${keys.map((k) => `<th>${esc(LABELS[k])}</th>`).join("")}</tr></thead><tbody>` +
+      ms.map((m) => `<tr><td class="mono">${esc(m.when)}</td><td class="mono">${m.ended_early ? '<span class="d no"></span>crashed' : esc(m.minutes) + " min"}</td>` +
+        keys.map((k) => `<td class="mono">${esc(side(m[k], k === "truck_first_min"))}</td>`).join("") + "</tr>").join("") + "</tbody></table>";
+  }
+
+  function renderLists() {
+    $("commits").innerHTML = ((state && state.commits) || []).map((c) => `<div class="li"><span class="mono muted">${esc(c.at)} · ${esc(c.repo)} · ${esc(c.hash)}</span><span class="text">${esc(c.text)}</span></div>`).join("") || '<span class="muted">None yet.</span>';
+    $("notes").innerHTML = ((state && state.notes) || []).map((n) => `<div class="li"><span class="mono muted">note ${esc(n.no)}</span><span class="text">${esc(n.text)}</span><span class="muted text">${esc(n.status)}</span></div>`).join("") || '<span class="muted">None yet.</span>';
+    const names = { engine: "Engine page", changelog: "Changelog", plan: "Plan by theme", goals: "Goals", night: "Night report", skills_review: "Skills review", status: "Status", research: "Research" };
+    const pages = (state && state.pages) || {};
+    $("pages").innerHTML = Object.keys(pages).filter((k) => k !== "monitor").map((k) => `<a href="${esc(pages[k])}" target="_blank" rel="noopener">${esc(names[k] || k)}</a>`).join("") || '<span class="muted">None yet.</span>';
+  }
+
+  function renderInbox() {
+    const box = $("inbox");
+    if (!db) { box.innerHTML = ""; return; }
+    box.innerHTML = inbox.slice(0, 8).map((m) => {
+      const st = m.status === "filed" ? ["ok", m.note ? "filed as note " + m.note : "filed"] : m.status === "answered" ? ["ok", "answered"] : ["wait", "waiting for the loop"];
+      return `<div class="msg"><div class="row"><span class="chip">${esc(m.kind)}</span><span class="chip ${st[0]}">${esc(st[1])}</span><span class="mono muted">${esc(ago(m.at))}</span></div>
+        <span class="text">${esc(m.text)}</span>${m.reply ? `<span class="muted text">Loop: ${esc(m.reply)}</span>` : ""}</div>`;
+    }).join("");
+  }
+
+  function render() { renderHead(); renderGoals(); renderLog(); renderMatches(); renderLists(); renderInbox(); }
+  render();
+  setInterval(renderHead, 30000);
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    if (!text || !db) return;
+    const kind = (document.querySelector('input[name="kind"]:checked') || {}).value || "wish";
+    $("send").disabled = true;
+    $("sendnote").textContent = "Sending…";
+    try {
+      await db.collection("inbox").add({ at: new Date().toISOString(), kind, text: text.slice(0, 2000), by: myId || "", status: "new" });
+      $("text").value = "";
+      $("sendnote").textContent = "Sent. The loop reads it at its next step.";
+    } catch (err) {
+      $("sendnote").textContent = err && err.code === "invalid_argument" ? "This view can't send - only the lab's owner can." : "Not sent - try again in a moment.";
+    } finally {
+      $("send").disabled = false;
+    }
+  });
+
+  (async () => {
+    db = await window.claude?.use?.("db");
+    if (!db) { $("tell").hidden = true; render(); return; }
+    user = await window.claude.use("user");
+    if (user) {
+      try { myId = await user.id(); } catch (_) {}
+      try { canWrite = await user.can("data.write"); } catch (_) {}
+    }
+    if (canWrite === false) { $("form").hidden = true; }
+    db.doc("lab/state").onSnapshot((s) => { state = s.exists ? s.data() : null; render(); }, () => {});
+    db.doc("lab/log").onSnapshot((s) => { log = s.exists ? s.data() : null; renderLog(); }, () => {});
+    db.collection("inbox").orderBy("at", "desc").limit(20).onSnapshot((q) => {
+      inbox = q.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderInbox();
+    }, () => {});
+  })();
+})();
+</script>
