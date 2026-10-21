@@ -577,7 +577,7 @@ class ZCR_Armour
 		unit.m_vBoughtAt = pose[3];
 		unit.m_iNextStatus = now + 60;
 		s_mVehicle.Set(vehicle, unit);
-		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 stock_after=%5 x=%6 z=%7 type_was=%8", unit.m_sPrefab, unit.m_sKind,
+		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 stock_after=%5 x=%6 z=%7 type_was=%8" + string.Format(" road_w=%1", Math.Round(s_fSpotWidth)), unit.m_sPrefab, unit.m_sKind,
 			costs[pick], ZCR_Strategist.BaseName(hq), Math.Round(hq.GetSupplies()), Math.Round(pose[3][0]), Math.Round(pose[3][2]), typeWas));
 		// The turrets are slotted entities: their seats are there a moment after the hull.
 		GetGame().GetCallqueue().CallLater(Crew, 1500, false, unit);
@@ -997,6 +997,7 @@ class ZCR_Armour
 	// hits nothing on the vehicle layer (the test AI Conflict uses for its own vehicles) and clear of
 	// building sites. s_sSpotWhy: how many spots failed and why.
 	protected static string s_sSpotWhy;
+	protected static float s_fSpotWidth;
 
 	protected static bool FindSpot(vector center, vector toward, out vector pose[4])
 	{
@@ -1097,6 +1098,16 @@ class ZCR_Armour
 			vector onward;
 			if (toward != vector.Zero && !ai.GetRoadNetworkManager().GetReachableWaypointInRoad(road, toward, 400, onward))
 				penalty += 100000;
+			// A narrow road (a forest track) last too: the units bought on the south HQ's tracks (1619 1122,
+			// 1638 1108) sat there in most watched matches.
+			BaseRoad nearRoad;
+			float roadDist;
+			float width = -1;
+			ai.GetRoadNetworkManager().GetClosestRoad(road, nearRoad, roadDist);
+			if (nearRoad)
+				width = nearRoad.GetWidth();
+			if (width >= 0 && width < 5)
+				penalty += 30000;
 			if (penalty > 0)
 				bad++;
 			// Not on a spawn point: soldiers can't appear where a tank stands - recruits for the north HQ
@@ -1123,6 +1134,7 @@ class ZCR_Armour
 			if (bestScore < 0 || score < bestScore)
 			{
 				bestScore = score;
+				s_fSpotWidth = width;
 				for (int k; k < 4; k++)
 					best[k] = pose[k];
 			}
