@@ -62,7 +62,11 @@ class ZCR_Driving
 	// " runover=<vehicle>" for a soldier killed with no killer next to a moving vehicle of his side, else "".
 	static string RunOver(IEntity victim, IEntity killer)
 	{
-		if (!ChimeraCharacter.Cast(victim) || (killer && killer != victim))
+		ChimeraCharacter man = ChimeraCharacter.Cast(victim);
+		if (!man || (killer && killer != victim))
+			return "";
+		// Killed aboard (a drone hit on his vehicle has no killer either) - not run over.
+		if (man.IsInVehicle() || Vehicle.Cast(victim.GetRootParent()))
 			return "";
 		string side = ZCR_LossLog.SideOf(victim);
 		foreach (IEntity v, float kmh : s_mSpeed)
