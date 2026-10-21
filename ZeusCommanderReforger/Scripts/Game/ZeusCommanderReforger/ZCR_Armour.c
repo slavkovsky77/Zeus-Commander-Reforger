@@ -38,6 +38,10 @@ class ZCR_ArmourUnit
 	vector m_vWas;
 	vector m_vBoughtAt;
 	int m_iNextStatus;
+	int m_iRecrews;
+	int m_iRecrewAt;
+	bool m_bRecrewKicked;
+	SCR_CampaignMilitaryBaseComponent m_RecrewBase;
 }
 
 class ZCR_Armour
@@ -92,7 +96,7 @@ class ZCR_Armour
 			{
 				if (Lost(unit, now))
 					continue;
-				if (!Remounting(unit, now))
+				if (!Recrewing(unit, now) && !Remounting(unit, now))
 					Order(unit, front, now);
 				Status(unit, front, now);
 			}
@@ -575,6 +579,9 @@ class ZCR_Armour
 		unit.m_bSlow = false;
 		unit.m_iSlowed = 0;
 		unit.m_iRelocations = 0;
+		unit.m_iRecrews = 0;
+		unit.m_bRecrewKicked = false;
+		unit.m_RecrewBase = null;
 		unit.m_sPhase = "";
 		unit.m_iBoughtAt = now;
 		unit.m_iCrew = 0;
@@ -871,6 +878,142 @@ class ZCR_Armour
 		return true;
 	}
 
+	// Crewmen killed in an intact vehicle: FPV drone hits killed two of three crewmen at once with the hull fine
+	// (armour_hit=TANK, no killer), and the Abrams and T-72 then drove on with their driver alone - no gunner,
+	// 0-1 armour kills a watched match (21 Oct, w22-w29). The unit drives back to its side's nearest base for a
+	// new crew - the bodies out of their seats the way the game's "remove casualty" does it, a crewman a seat
+	// for RECREW_COST supplies from that base - then goes on. At most twice a unit, 5 game minutes to get
+	// there. -zcrNoRecrew: off. Logs RECREW / RECREWED / RECREW_FAILED.
+	static const int RECREW_COST = 100;
+
+	protected static bool Recrewing(ZCR_ArmourUnit unit, int now)
+	{
+		if (System.IsCLIParam("zcrNoRecrew") || !unit.m_Group || !unit.m_Vehicle)
+			return false;
+		if (unit.m_sPhase == "RECREW")
+		{
+			SCR_CampaignMilitaryBaseComponent base = unit.m_RecrewBase;
+			bool ours = base && base.GetOwner() && base.GetFaction() && base.GetFaction().GetFactionKey() == unit.m_sSide;
+			if (!ours || now - unit.m_iRecrewAt > 300)
+			{
+				Log(unit, now, "RECREW_FAILED", string.Format("prefab=%1 reason=%2 after_s=%3", unit.m_sPrefab, ours, now - unit.m_iRecrewAt));
+				unit.m_sPhase = "";
+				unit.m_vFront = vector.Zero;
+				return false;
+			}
+			if (unit.m_bRecrewKicked || vector.DistanceXZ(unit.m_Vehicle.GetOrigin(), base.GetOwner().GetOrigin()) > 150)
+				return true;
+			unit.m_bRecrewKicked = true;
+			KickDead(unit);
+			// The seats free a moment later; Refill ends the phase.
+			GetGame().GetCallqueue().CallLater(Refill, 2000, false, unit);
+			return true;
+		}
+		int alive = AICF_GroupRuntime.CountAliveAgents(unit.m_Group);
+		if (alive == 0 || alive >= unit.m_iCrew || unit.m_iRecrews >= 2 || unit.m_sPhase == "REMOUNT" || Health(unit) < 0.35 || Aboard(unit) == 0)
+			return false;
+		vector at = unit.m_Vehicle.GetOrigin();
+		SCR_CampaignMilitaryBaseComponent best;
+		float bestDist = 1e9;
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		array<SCR_MilitaryBaseComponent> bases = {};
+		if (system)
+			system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent cb = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!cb || !cb.GetOwner() || !cb.GetFaction() || cb.GetFaction().GetFactionKey() != unit.m_sSide || cb.GetType() == SCR_ECampaignBaseType.RELAY ||
+				cb.GetSupplies() < RECREW_COST * (unit.m_iCrew - alive))
+				continue;
+			float d = vector.DistanceXZ(cb.GetOwner().GetOrigin(), at);
+			if (d < bestDist)
+			{
+				bestDist = d;
+				best = cb;
+			}
+		}
+		if (!best)
+			return false;
+		vector goal = OnRoad(at, best.GetOwner().GetOrigin());
+		goal[1] = GetGame().GetWorld().GetSurfaceY(goal[0], goal[2]);
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = goal;
+		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+		if (!waypoint)
+			return false;
+		waypoint.SetCompletionRadius(60);
+		ReplaceWaypoint(unit, waypoint);
+		unit.m_Waypoint = waypoint;
+		unit.m_vOrder = goal;
+		unit.m_sPhase = "RECREW";
+		unit.m_iRecrewAt = now;
+		unit.m_bRecrewKicked = false;
+		unit.m_RecrewBase = best;
+		unit.m_iRecrews++;
+		Log(unit, now, "RECREW", string.Format("prefab=%1 crew=%2/%3 base=%4 dist=%5 try=%6", unit.m_sPrefab, alive, unit.m_iCrew,
+			ZCR_Strategist.BaseName(best), Math.Round(bestDist), unit.m_iRecrews));
+		return true;
+	}
+
+	protected static void KickDead(ZCR_ArmourUnit unit)
+	{
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(unit.m_Vehicle, seats);
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			ChimeraCharacter body = ChimeraCharacter.Cast(seat.GetOccupant());
+			if (!body || AICF_GroupRuntime.IsAliveCharacter(body))
+				continue;
+			CompartmentAccessComponent access = body.GetCompartmentAccessComponent();
+			if (access)
+				access.KickFromVehicle(0);
+		}
+	}
+
+	protected static void Refill(ZCR_ArmourUnit unit)
+	{
+		if (!unit || !unit.m_Vehicle || unit.m_sPhase != "RECREW")
+			return;
+		int now = ZCR_LossLog.Seconds();
+		string character = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
+		if (unit.m_sSide != "US")
+			character = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(unit.m_Vehicle, seats);
+		bool driver;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (seat && seat.GetType() == ECompartmentType.PILOT && seat.GetOccupant())
+				driver = true;
+		}
+		AIGroup group = unit.m_Group;
+		int added;
+		SCR_CampaignMilitaryBaseComponent base = unit.m_RecrewBase;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (!seat || !seat.IsCompartmentAccessible() || seat.GetOccupant() || !base || base.GetSupplies() < RECREW_COST)
+				continue;
+			if (seat.GetType() == ECompartmentType.PILOT && driver)
+				continue;
+			if (seat.GetType() != ECompartmentType.PILOT && seat.GetType() != ECompartmentType.TURRET)
+				continue;
+			if (!seat.SpawnCharacterInCompartment(character, group))
+				continue;
+			if (seat.GetType() == ECompartmentType.PILOT)
+				driver = true;
+			base.AddSupplies(-RECREW_COST);
+			added++;
+		}
+		int aboard = Aboard(unit);
+		if (aboard > unit.m_iCrew)
+			unit.m_iCrew = aboard;
+		Log(unit, now, "RECREWED", string.Format("prefab=%1 added=%2 aboard=%3/%4 base=%5 stock_after=%6 took_s=%7", unit.m_sPrefab, added, aboard, unit.m_iCrew,
+			ZCR_Strategist.BaseName(base), Math.Round(base.GetSupplies()), now - unit.m_iRecrewAt));
+		unit.m_sPhase = "";
+		unit.m_vFront = vector.Zero;
+	}
+
 	protected static int Seat(ZCR_ArmourUnit unit)
 	{
 		array<AIAgent> agents = {};
@@ -986,7 +1129,7 @@ class ZCR_Armour
 		float holdM = 80;
 		if (unit.m_sPhase == "ASSAULT")
 			holdM = 200;     // in the fight at the base: holding a firing spot is not stuck
-		if (unit.m_sPhase != "REMOUNT" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > holdM)
+		if (unit.m_sPhase != "REMOUNT" && unit.m_sPhase != "RECREW" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > holdM)
 			unit.m_iStill++;
 		else
 			unit.m_iStill = 0;
