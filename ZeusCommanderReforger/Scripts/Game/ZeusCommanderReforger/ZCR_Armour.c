@@ -883,6 +883,11 @@ class ZCR_Armour
 		Log(unit, now, "STATUS", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 moved_m=%5 aboard=%6/%7 health=%8" + slowedText + " x=%9", unit.m_sPrefab, unit.m_sPhase,
 			FrontName(front), Math.Round(dist), Math.Round(vector.DistanceXZ(at, unit.m_vWas)), Aboard(unit), unit.m_iCrew, Math.Round(100 * health),
 			string.Format("%1 z=%2", Math.Round(at[0]), Math.Round(at[2]))));
+		if (now - unit.m_iBoughtAt >= 180 && vector.DistanceXZ(at, unit.m_vBoughtAt) < 40 && !BadSpot(unit.m_vBoughtAt))
+		{
+			s_aBadSpots.Insert(unit.m_vBoughtAt);
+			Log(unit, now, "BAD_SPOT", string.Format("x=%1 z=%2 (not bought there again)", Math.Round(unit.m_vBoughtAt[0]), Math.Round(unit.m_vBoughtAt[2])));
+		}
 		// Still (under 25 m a minute) for two minutes short of its order: re-ordered with another way in.
 		float holdM = 80;
 		if (unit.m_sPhase == "ASSAULT")
@@ -941,7 +946,7 @@ class ZCR_Armour
 		if (!ai || !ai.GetRoadNetworkManager())
 			return false;
 		BaseWorld world = GetGame().GetWorld();
-		int noRoad, far, wet, site, blocked, checkpoint, spawnPoint;
+		int noRoad, far, wet, site, blocked, checkpoint, spawnPoint, bad;
 		float bestScore = -1;
 		vector best[4];
 		for (int candidate; candidate < 40; candidate++)
@@ -1025,6 +1030,17 @@ class ZCR_Armour
 				blocked++;
 				continue;
 			}
+			// Not a spot a unit got stuck at before, and one with a road on towards the front: units bought by
+			// the south HQ (1619 1122, 1638 1108) sat there for up to 15 minutes in the watched matches.
+			// (Ranked last rather than refused, so a side always gets a spot.)
+			float penalty = 0;
+			if (BadSpot(road))
+				penalty += 50000;
+			vector onward;
+			if (toward != vector.Zero && !ai.GetRoadNetworkManager().GetReachableWaypointInRoad(road, toward, 400, onward))
+				penalty += 100000;
+			if (penalty > 0)
+				bad++;
 			// Not on a spawn point: soldiers can't appear where a tank stands - recruits for the north HQ
 			// timed out (GROUP_SPAWN_TIMEOUT) only in the armour tests, with its armour parked there.
 			if (NearSpawnPoint(road, 40))
@@ -1043,9 +1059,9 @@ class ZCR_Armour
 				continue;
 			}
 			// Of the clear spots, the one nearest the front (the way out it needn't turn back through).
-			float score = 0;
+			float score = penalty;
 			if (toward != vector.Zero)
-				score = vector.DistanceXZ(road, toward);
+				score += vector.DistanceXZ(road, toward);
 			if (bestScore < 0 || score < bestScore)
 			{
 				bestScore = score;
@@ -1059,7 +1075,19 @@ class ZCR_Armour
 				pose[m] = best[m];
 			return true;
 		}
-		s_sSpotWhy = string.Format("no_road=%1 far=%2 wet=%3 site=%4 blocked=%5 checkpoint=%6 spawn_point=%7", noRoad, far, wet, site, blocked, checkpoint, spawnPoint);
+		s_sSpotWhy = string.Format("no_road=%1 far=%2 wet=%3 site=%4 blocked=%5 checkpoint=%6 spawn_point=%7 bad=%8", noRoad, far, wet, site, blocked, checkpoint, spawnPoint, bad);
+		return false;
+	}
+
+	protected static ref array<vector> s_aBadSpots = {};
+
+	protected static bool BadSpot(vector at)
+	{
+		foreach (vector b : s_aBadSpots)
+		{
+			if (vector.DistanceXZ(b, at) < 40)
+				return true;
+		}
 		return false;
 	}
 
