@@ -27,7 +27,7 @@ After every change or finding, all of these - in the same session:
    ```
    python lab/engine_page.py <scratch_dir>        # engine + changelog
    python lab/plan_page.py <scratch_dir>          # the plan by theme
-   python lab/goals.py --json                     # goals for the pages
+   python lab/goals.py --html <scratch_dir>/goals.html   # the goals page
    ```
    Publish each to its existing link so the owner's bookmarks keep working.
 
