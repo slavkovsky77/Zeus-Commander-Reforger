@@ -654,18 +654,21 @@ class ZCR_Armour
 		return true;
 	}
 
-	// The crew still in the vehicle (alive, in a seat).
+	// The crew still in the vehicle: the crew group's living soldiers sitting in a vehicle (they board only
+	// theirs). Not by walking the vehicle's seats - that reads the turrets' attached entities several times a
+	// second, and watched matches crashed in the engine's entity update soon after FPV drones went for the
+	// armour (a turret hit mid-deletion is a suspect).
 	protected static int Aboard(ZCR_ArmourUnit unit)
 	{
 		if (!unit.m_Vehicle || !unit.m_Group)
 			return 0;
-		array<BaseCompartmentSlot> seats = {};
-		AICF_FIAPatrolCrew.Seats(unit.m_Vehicle, seats);
+		array<AIAgent> agents = {};
+		unit.m_Group.GetAgents(agents);
 		int n;
-		foreach (BaseCompartmentSlot seat : seats)
+		foreach (AIAgent agent : agents)
 		{
-			ChimeraCharacter occupant = ChimeraCharacter.Cast(seat.GetOccupant());
-			if (occupant && AICF_GroupRuntime.IsAliveCharacter(occupant))
+			ChimeraCharacter c = ChimeraCharacter.Cast(agent.GetControlledEntity());
+			if (c && AICF_GroupRuntime.IsAliveCharacter(c) && c.IsInVehicle())
 				n++;
 		}
 		return n;
