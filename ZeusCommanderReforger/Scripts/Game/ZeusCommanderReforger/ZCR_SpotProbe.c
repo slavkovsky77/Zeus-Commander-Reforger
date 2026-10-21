@@ -13,6 +13,43 @@ class ZCR_SpotProbe
 	// with no truck (21 Oct).
 	protected static int s_iNextSupplyProbe;
 
+	// -zcrDepotProbe (lab): every vehicle-depot service on the map at 1 and 6 minutes - its type, side, place and
+	// bases - to see whether the HQs have one AI Conflict's supply trucks could start from.
+	protected static int s_iDepotProbes;
+	static void DepotProbe()
+	{
+		int at = 60;
+		if (s_iDepotProbes > 0)
+			at = 360;
+		if (!System.IsCLIParam("zcrDepotProbe") || s_iDepotProbes > 1 || ZCR_LossLog.Seconds() < at)
+			return;
+		s_iDepotProbes++;
+		foreach (SCR_CatalogEntitySpawnerComponent production : SCR_CatalogEntitySpawnerComponent.INSTANCES)
+		{
+			if (!production || !production.GetOwner())
+				continue;
+			string side = "none";
+			if (production.GetFaction())
+				side = production.GetFaction().GetFactionKey();
+			array<SCR_MilitaryBaseComponent> bases = {};
+			production.GetBases(bases);
+			string names;
+			foreach (SCR_MilitaryBaseComponent b : bases)
+			{
+				SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+				if (base)
+					names += base.GetBaseName() + "/hq" + base.IsHQ().ToString() + ",";
+			}
+			vector pos = production.GetOwner().GetOrigin();
+			string prefab = "-";
+			if (production.GetOwner().GetPrefabData())
+				prefab = production.GetOwner().GetPrefabData().GetPrefabName();
+			Print(string.Format("[ZCR][DEPOT_PROBE] t=%1 type=%2 side=%3 state=%4 x=%5 z=%6 bases=%7 prefab=%8", ZCR_LossLog.Seconds(),
+				typename.EnumToString(SCR_EServicePointType, production.GetType()), side,
+				typename.EnumToString(SCR_EServicePointStatus, production.GetServiceState()), (int)pos[0], (int)pos[2], names, prefab));
+		}
+	}
+
 	static void SupplyProbe()
 	{
 		if (!System.IsCLIParam("zcrSupplyProbe") || ZCR_LossLog.Seconds() < s_iNextSupplyProbe)

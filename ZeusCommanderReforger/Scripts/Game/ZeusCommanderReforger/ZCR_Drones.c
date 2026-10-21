@@ -248,26 +248,97 @@ class ZCR_Drones
 		return from;
 	}
 
-	// A team's goal: its waypoints replaced by one Move waypoint there - never over the sea.
+	// A dry way round when the straight line from 'from' to 'goal' crosses the sea: a point beside the
+	// line's middle (200-1200 m either side) with land all the way to it and on from it to the goal.
+	static bool DryVia(vector from, vector goal, out vector via)
+	{
+		vector mid = (from + goal) * 0.5;
+		vector dir = goal - from;
+		dir[1] = 0;
+		float len = dir.Length();
+		if (len < 1)
+			return false;
+		vector side = Vector(-dir[2], 0, dir[0]) * (1 / len);
+		for (int k; k < 12; k++)
+		{
+			float off = (200 + 200 * (k / 2));
+			if (k % 2 == 1)
+				off = -off;
+			vector p = mid + side * off;
+			if (!Wet(p) && !CrossesWater(from, p) && !CrossesWater(p, goal))
+			{
+				via = p;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Where a team's drones are now (the middle of them); none - false.
+	protected static bool TeamAt(SCR_AIGroup team, out vector at)
+	{
+		vector sum;
+		int n;
+		foreach (IEntity d, SCR_AIGroup t : s_mDroneTeam)
+		{
+			if (d && t == team)
+			{
+				sum = sum + d.GetOrigin();
+				n++;
+			}
+		}
+		if (n == 0)
+			return false;
+		at = sum * (1.0 / n);
+		return true;
+	}
+
+	// The team's Move waypoints from 'from' to 'goal': straight, or by a dry point when the straight line
+	// crosses the sea (21 Oct: 26 drones a match still lost in the inlet south of the Military Training
+	// Area - the goals were dry, but the teams flew straight across from their launch site, and the drone
+	// mod holds its height over the sea bed). The drone mod flies to the next waypoint once a drone has
+	// reached one. Logs [ZCR][DRONES] ... dry_route.
+	protected static void AddRoute(SCR_AIGroup team, vector from, vector goal)
+	{
+		Resource wpRes = Resource.Load(WAYPOINT);
+		if (!wpRes || !wpRes.IsValid())
+			return;
+		array<vector> points = {};
+		vector via;
+		if (CrossesWater(from, goal))
+		{
+			if (DryVia(from, goal, via))
+				points.Insert(via);
+			Print(string.Format("[ZCR][DRONES] t=%1 team=%2 dry_route=%3 via=%4 %5", ZCR_LossLog.Seconds(), s_mTeamNo.Get(team),
+				points.Count(), Math.Round(via[0]), Math.Round(via[2])), LogLevel.NORMAL);
+		}
+		points.Insert(goal);
+		foreach (vector p : points)
+		{
+			EntitySpawnParams wpParams = new EntitySpawnParams();
+			wpParams.TransformMode = ETransformMode.WORLD;
+			wpParams.Transform[3] = p;
+			AIWaypoint wp = AIWaypoint.Cast(GetGame().SpawnEntityPrefab(wpRes, GetGame().GetWorld(), wpParams));
+			if (wp)
+				team.AddWaypoint(wp);
+		}
+	}
+
+	// A team's goal: its waypoints replaced by Move waypoints there - never over the sea, and round it.
 	protected static void SetGoal(SCR_AIGroup team, vector goal, int now)
 	{
 		vector was;
 		if (s_mTeamGoal.Find(team, was))
 			goal = DryGoal(goal, was);
+		vector from = was;
+		vector now3;
+		if (TeamAt(team, now3))
+			from = now3;
 		array<AIWaypoint> old = {};
 		team.GetWaypoints(old);
 		foreach (AIWaypoint w : old)
 			team.RemoveWaypoint(w);
-		Resource wpRes = Resource.Load(WAYPOINT);
-		if (wpRes && wpRes.IsValid())
-		{
-			EntitySpawnParams wpParams = new EntitySpawnParams();
-			wpParams.TransformMode = ETransformMode.WORLD;
-			wpParams.Transform[3] = goal;
-			AIWaypoint wp = AIWaypoint.Cast(GetGame().SpawnEntityPrefab(wpRes, GetGame().GetWorld(), wpParams));
-			if (wp)
-				team.AddWaypoint(wp);
-		}
+		AddRoute(team, from, goal);
 		s_mTeamGoal.Set(team, goal);
 		s_mTeamGoalAt.Set(team, now);
 	}
@@ -391,21 +462,12 @@ class ZCR_Drones
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
 		if (!team)
 			return;
-		Resource wpRes = Resource.Load(WAYPOINT);
-		if (wpRes && wpRes.IsValid())
-		{
-			EntitySpawnParams wpParams = new EntitySpawnParams();
-			wpParams.TransformMode = ETransformMode.WORLD;
-			wpParams.Transform[3] = goal;
-			AIWaypoint wp = AIWaypoint.Cast(GetGame().SpawnEntityPrefab(wpRes, GetGame().GetWorld(), wpParams));
-			if (wp)
-				team.AddWaypoint(wp);
-		}
+		s_mTeamNo.Set(team, n);
+		AddRoute(team, at, goal);
 		s_aTeams.Insert(team);
 		s_aTeamSide.Insert(side);
 		s_mTeamGoal.Set(team, goal);
 		s_mTeamGoalAt.Set(team, now);
-		s_mTeamNo.Set(team, n);
 		s_mTeamLaunchedAt.Set(team, now);
 		if (route)
 			s_mTeamRoute.Set(team, route);
