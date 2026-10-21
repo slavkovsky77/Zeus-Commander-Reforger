@@ -325,7 +325,7 @@ class ZCR_Armour
 		return phase;
 	}
 
-	// Own soldiers within 20 m of a gunner's target (ZCR_AIAttackBehavior below holds the gun): the main
+	// Own soldiers within 20 m of a gunner's target or 8 m of his line of fire (ZCR_AIAttackBehavior below holds the gun): the main
 	// gun's rounds burst among them - armour-6: a T-72 killed 3 of its own at once 8-42 m away, another at
 	// 93 m. Only our armour's gunners; checked at most every 0.5 s a gunner.
 	protected static ref map<IEntity, int> s_mHoldCheckAt = new map<IEntity, int>();
@@ -342,13 +342,34 @@ class ZCR_Armour
 			return s_mHold.Get(gunner);
 		s_mHoldCheckAt.Set(gunner, now);
 		string side = ZCR_LossLog.SideOf(gunner);
+		// Near the target (20 m) or near the line of fire (8 m either side, from 5 m out to 20 m past the
+		// target): armour-11's Abrams killed 10 of its own at 13-321 m - soldiers between it and its target.
+		vector from = gunner.GetOrigin();
+		vector line = target - from;
+		line[1] = 0;
+		float length = line.Length();
+		if (length < 1)
+			return false;
+		vector dir = line * (1 / length);
 		s_aAhead = {};
-		GetGame().GetWorld().QueryEntitiesBySphere(target, 20, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		GetGame().GetWorld().QueryEntitiesBySphere(from + line * 0.5, Math.Min(length * 0.5 + 25, 450), CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
 		bool hold;
 		foreach (IEntity e : s_aAhead)
 		{
 			ChimeraCharacter c = ChimeraCharacter.Cast(e);
-			if (c && !c.IsInVehicle() && AICF_GroupRuntime.IsAliveCharacter(c) && ZCR_LossLog.SideOf(c) == side)
+			if (!c || c.IsInVehicle() || !AICF_GroupRuntime.IsAliveCharacter(c) || ZCR_LossLog.SideOf(c) != side)
+				continue;
+			vector rel = c.GetOrigin() - from;
+			rel[1] = 0;
+			if (vector.DistanceXZ(c.GetOrigin(), target) < 20)
+			{
+				hold = true;
+				break;
+			}
+			float along = vector.Dot(rel, dir);
+			if (along < 5 || along > length + 20)
+				continue;
+			if ((rel - dir * along).Length() < 8)
 			{
 				hold = true;
 				break;
