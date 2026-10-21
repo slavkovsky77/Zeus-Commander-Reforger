@@ -8,6 +8,57 @@ class ZCR_SpotProbe
 
 	protected static bool s_bRoads;
 
+	// -zcrSupplyProbe (lab): every 10 s each army's front bases - stock, and what could refill them (the
+	// container's own gain, Conflict's regular income settings). Front bases went 1250 -> 3000 in 4 minutes
+	// with no truck (21 Oct).
+	protected static int s_iNextSupplyProbe;
+
+	static void SupplyProbe()
+	{
+		if (!System.IsCLIParam("zcrSupplyProbe") || ZCR_LossLog.Seconds() < s_iNextSupplyProbe)
+			return;
+		s_iNextSupplyProbe = ZCR_LossLog.Seconds() + 10;
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!campaign || !system)
+			return;
+		array<SCR_MilitaryBaseComponent> all = {};
+		system.GetBases(all);
+		foreach (SCR_MilitaryBaseComponent b : all)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || base.IsHQ() || !base.GetFaction() || (base.GetFaction().GetFactionKey() != "US" && base.GetFaction().GetFactionKey() != "USSR"))
+				continue;
+			string gain = "none";
+			SCR_ResourceComponent rc = base.GetResourceComponent();
+			if (rc && rc.GetContainer(EResourceType.SUPPLIES))
+			{
+				SCR_ResourceContainer c = rc.GetContainer(EResourceType.SUPPLIES);
+				gain = string.Format("%1/%2/%3s", c.IsResourceGainEnabled(), c.GetResourceGain(), c.GetResourceGainTickrate());
+			}
+			// Each container the base's stock is summed from: who owns it, its value, its gain.
+			string parts;
+			SCR_ResourceConsumer consumer;
+			if (rc)
+				consumer = rc.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
+			if (consumer && consumer.GetContainerQueue())
+			{
+				SCR_ResourceContainerQueueBase queue = consumer.GetContainerQueue();
+				for (int q; q < queue.GetContainerCount(); q++)
+				{
+					SCR_ResourceContainer qc = queue.GetContainerAt(q);
+					if (!qc || !qc.GetOwner())
+						continue;
+					parts += string.Format(" [%1 %2 gain=%3/%4]", ZCR_LossLog.ShortName(qc.GetOwner()), Math.Round(qc.GetResourceValue()), qc.IsResourceGainEnabled(), qc.GetResourceGain());
+				}
+			}
+			Print(string.Format("[ZCR][SUPPLY_PROBE3] t=%1 base=%2%3", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base), parts), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][SUPPLY_PROBE2] t=%1 base=%2 value=%3 container_gain=%4 auto_regen=%5 threshold=%6 income=%7/%8/%9",
+				ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base), Math.Round(base.GetSupplies()), gain, campaign.GetSuppliesAutoRegenerationEnabled(),
+				campaign.GetSuppliesReplenishThreshold(), campaign.GetRegularSuppliesIncome(), campaign.GetRegularSuppliesIncomeBase(), campaign.GetRegularSuppliesIncomeExtra()), LogLevel.NORMAL);
+		}
+	}
+
 	// -zcrProbeRoads: once, 20 s in, each base's radius and its nearest road point (any road within 400 m).
 	static void Roads()
 	{
