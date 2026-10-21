@@ -180,6 +180,8 @@ class LiveState:
                     self.series.setdefault("lost", {}).setdefault(v, {})[minute] = self.lost[v]
                 if d.get("kind") == "vehicle":
                     self.events.append({"t": t, "side": v or "", "kind": "loss", "text": f"{d.get('victim', 'vehicle')} destroyed"})
+                if d.get("runover"):
+                    self.events.append({"t": t, "side": v or "", "kind": "jam", "text": f"{d.get('victim', 'soldier')} run over by {d.get('runover')}"})
             elif kind == "CAPTURE":
                 base = l.split("base=", 1)[-1].split(" from=")[0]
                 self.events.append({"t": t, "side": d.get("to", ""), "kind": "capture", "text": f"{base} taken by {d.get('to')} from {d.get('from')}"})
@@ -188,7 +190,13 @@ class LiveState:
             elif kind == "DRONES" and "kind=" in l and " to=" in l:
                 to = l.split(" to=", 1)[1].split(" distance=")[0]
                 self.events.append({"t": t, "side": side, "kind": "drone", "text": f"drone team {d.get('team')} ({d.get('kind')}) to {to}"})
-            elif kind == "ARMOUR" and d.get("event") in ("BOUGHT", "LOST", "RELOCATED"):
+            elif kind == "JAM":
+                self.events.append({"t": t, "side": side, "kind": "jam", "text": f"{d.get('vehicle')} jammed with {d.get('other')} ({d.get('other_side')})"})
+            elif kind == "STUCKVEH":
+                self.events.append({"t": t, "side": side, "kind": "jam", "text": f"{d.get('vehicle')} stuck"})
+            elif kind == "UNJAM" and int(d.get("stuck_s", 0) or 0) >= 60:
+                self.events.append({"t": t, "side": side, "kind": "jam", "text": f"{d.get('vehicle')} free after {d.get('stuck_s')} s ({d.get('ended')})"})
+            elif kind == "ARMOUR" and d.get("event") in ("BOUGHT", "LOST", "RELOCATED", "GIVEWAY", "RECREW"):
                 self.events.append({"t": t, "side": side, "kind": "armour", "text": f"{d.get('prefab', 'armour')} {d.get('event', '').lower()}"})
         self.events = self.events[-60:]
 

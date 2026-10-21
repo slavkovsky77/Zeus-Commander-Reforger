@@ -16,6 +16,78 @@
 #   met_when  "2 of 3": the goal is met when every measure passes in 2 of the last 3 matches
 
 [[goal]]
+id = "no-crash"
+title = "Matches run to the end - no crash, no freeze"
+wish = "a lot of crashes ... fix armor crashes (Martin, 21 Oct) - severity 1"
+notes = [246, 269, 271]
+status = "active"
+matches = "watched"
+met_when = "10 of 10"
+  [[goal.measure]]
+  key = "ended_early"
+  target = "== 0"
+
+[[goal]]
+id = "traffic"
+title = "Vehicles don't jam, ram or run over their own"
+wish = "AI crashed into vehicles - they crash and crash, they deadlock themselves; that's a terrible bug (Martin, 21 Oct) - severity 1"
+notes = [275, 277, 282, 286]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "jams"
+  target = "<= 2"
+  [[goal.measure]]
+  key = "runovers"
+  target = "<= 1"
+  [[goal.measure]]
+  key = "armour_still"
+  target = "<= 2"
+
+[[goal]]
+id = "building-fast"
+title = "Sites chosen in under a minute; every side gets its depots"
+wish = "choosing a site should take very fast, it's longer than a minute, try harder; building is definitely stuck (Martin, 21 Oct) - severity 2"
+notes = [265, 266, 268, 272, 284]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "site_search_s"
+  target = "<= 60"
+  [[goal.measure]]
+  key = "search_gave_up_pct"
+  target = "<= 25"
+  [[goal.measure]]
+  key = "depots"
+  target = ">= 1"
+
+[[goal]]
+id = "cover"
+title = "Teams march and wait in cover, not in the open"
+wish = "soviet team a0 is exposed ... they could be in a safer place; us team a8 is exposed as hell (Martin, 21 Oct) - severity 2"
+notes = [276, 285]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "field_overhead"
+  target = ">= 30"
+
+[[goal]]
+id = "smooth"
+title = "The watched game runs smoothly"
+wish = "it's a bit laggy, FPS dropped; measure average FPS per game (Martin, 21 Oct) - severity 3"
+notes = [273]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "fps"
+  target = ">= 35"
+
+[[goal]]
 id = "trucks"
 title = "The AI keeps its front bases supplied by truck"
 wish = "AI should learn to use supply trucks - logistics is very important (Martin, 20-21 Oct)"

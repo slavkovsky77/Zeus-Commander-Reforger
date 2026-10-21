@@ -23,7 +23,7 @@ KV = re.compile(r"(\w+)=(\S*)")
 # key: (per, what it counts). Scorecard keys are added at the end of the file.
 MEASURES = {
     "minutes": ("match", "game minutes the match ran - the watch loop's own record for watched matches, else the last commander log line"),
-    "ended_early": ("match", "1 when a watched match ended early (a crash, a dead process, a lost connection - the watch loop's record), else 0"),
+    "ended_early": ("match", "1 when a watched match ended early with a crash dump (a crash or a freeze); stopped by hand: 0"),
     "drones_lost_water": ("match", "drones the drone mod lost over the sea (its 'lost ... WST_OCEAN' line)"),
     "drones_lost": ("match", "drones the drone mod lost without a detonation, anywhere"),
     "dry_routes": ("match", "drone teams sent round the sea by a dry via point ([ZCR][DRONES] dry_route=1)"),
@@ -35,13 +35,21 @@ MEASURES = {
     "scorecard_fails": ("match", "lab/scorecard.py hard checks failed, both sides (what the watcher sees)"),
     "fps": ("match", "the game's average FPS over the match (the engine's 'FPS:' line every 10 s, -logStats)"),
     "fps_low": ("match", "the game's FPS at the slowest tenth of the match (10th percentile of those lines)"),
+    # 21 Oct night (Martin's complaints of the day, lab app 'Goals'):
+    "jams": ("match", "vehicles jammed - a driven vehicle still 45 game s with another vehicle within 10 m ([ZCR][JAM]), both sides"),
+    "stuck_vehicles": ("match", "driven vehicles still 45 game s with no vehicle near ([ZCR][STUCKVEH]), both sides"),
+    "runovers": ("match", "soldiers killed with no killer next to a moving vehicle of their side (runover= on [ZCR][LOSS])"),
+    "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
+    "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
+    "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
+    "search_gave_up_pct": ("match", "% of building site searches that found no site (SEARCH_BUDGET_EXHAUSTED) of those that ended"),
 }
 # Measures with no value when the thing never happened (no truck all match): that fails a target, it isn't "no data".
 NO_VALUE_FAILS = {"truck_first_min"}
 SCORECARD_KEYS = ["out_min", "atbase10", "team10", "drone_teams", "drones_per4", "sky_pct", "rides", "riding_pct",
                   "panic_pct", "danger_standing", "shot_down", "truck_jobs", "truck_unloads", "forts", "armed_teams",
                   "drone_dead_standing", "drone_dead_prone", "lost", "armour", "armour_assault", "armour_kills",
-                  "armour_lost"]
+                  "armour_lost", "field_overhead"]
 for _k in SCORECARD_KEYS:
     MEASURES.setdefault(_k, ("side", "lab/scorecard.py, see its header"))
 
@@ -53,13 +61,44 @@ def extra(run: Path) -> dict:
     out = {"drones_lost_water": 0, "drones_lost": 0, "dry_routes": 0,
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
-           "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None}
+           "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
+           "jams": 0, "stuck_vehicles": 0, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
     supply = {}
     fps = []
+    speed = 1.0
+    decided, placed_s, gave_up = {}, [], 0
     for line in open(log, encoding="utf-8", errors="replace"):
+        if "[ZCR][JAM]" in line:
+            out["jams"] += 1
+            continue
+        if "[ZCR][STUCKVEH]" in line:
+            out["stuck_vehicles"] += 1
+            continue
+        if "[ZCR][LOSS]" in line and " runover=" in line:
+            out["runovers"] += 1
+        if "[ZCR][ARMOUR]" in line:
+            if "event=GIVEWAY" in line:
+                out["giveways"] += 1
+            elif "event=STILL" in line:
+                out["armour_still"] += 1
+        if "[ZCR][SPEED]" in line and "switch=1" in line:
+            sp = re.search(r"multiplier=([\d.]+)", line)
+            if sp:
+                speed = float(sp.group(1))
+        if "[CONSTRUCTION_" in line:
+            cm = re.search(r"\[(CONSTRUCTION_[A-Z_]+)\].*?t_ms=(\d+) token=(\S+)", line)
+            if cm:
+                ev, tms, tok = cm.group(1), int(cm.group(2)), cm.group(3)
+                if ev == "CONSTRUCTION_DECISION":
+                    decided[tok] = tms
+                elif ev == "CONSTRUCTION_PLACED" and tok in decided:
+                    placed_s.append((tms - decided.pop(tok)) / 1000 * speed)
+                elif ev == "CONSTRUCTION_CANCELLED" and "SEARCH_BUDGET_EXHAUSTED" in line and tok in decided:
+                    decided.pop(tok)
+                    gave_up += 1
         if "DEFAULT" in line and ": FPS: " in line:
             f = re.search(r": FPS: ([\d.]+)", line)
             if f:
@@ -94,6 +133,10 @@ def extra(run: Path) -> dict:
     for s in SIDES:
         vals = [v for (side, _), v in supply.items() if side == s]
         out["front_supply_pct"][s] = round(sum(vals) / len(vals)) if vals else None
+    if placed_s:
+        out["site_search_s"] = round(sorted(placed_s)[len(placed_s) // 2])
+    if placed_s or gave_up:
+        out["search_gave_up_pct"] = round(100 * gave_up / (len(placed_s) + gave_up))
     if fps:
         out["fps"] = round(sum(fps) / len(fps), 1)
         out["fps_low"] = sorted(fps)[len(fps) // 10]
@@ -131,7 +174,9 @@ def measure(run: Path) -> dict:
                 rec = json.loads(line)
                 if Path(rec.get("server_profile", "")).name == run.name:
                     out["minutes"] = rec.get("minutes", out.get("minutes"))
-                    out["ended_early"] = 1 if rec.get("ended") else 0
+                    # A crash or freeze leaves a dump; a match stopped by hand (the owner, the loop) doesn't count.
+                    dumps = list(run.glob("logs/*/*.mdmp"))
+                    out["ended_early"] = 1 if rec.get("ended") and dumps else 0
     _cache[key] = out
     if log:
         disk.parent.mkdir(parents=True, exist_ok=True)
