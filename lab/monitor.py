@@ -38,7 +38,7 @@ OUT = ROOT / ".runtime" / "monitor"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 NOW = OUT / "now.json"
 LOG = ROOT / ".runtime" / "loop_log.jsonl"
-MATCH_KEYS = ["truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water",
+MATCH_KEYS = ["fps", "fps_low", "truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water",
               "armour_assault", "armour_kills", "scorecard_fails", "lost"]
 
 

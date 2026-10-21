@@ -248,7 +248,9 @@ window.LabCharts = (() => {
 
   // ------------------------------------------------------------------ the live match's graphs
   const liveCharts = {};
-  function liveChart(id, title, series, xmax, ymax) {
+  // keys: the series to draw (the two sides, or one line such as the game's FPS, drawn in the accent colour).
+  function liveChart(id, title, series, xmax, ymax, keys) {
+    keys = keys || ["US", "USSR"];
     let entry = liveCharts[id];
     const host = document.getElementById("charts");
     if (!entry) {
@@ -265,8 +267,8 @@ window.LabCharts = (() => {
       tooltip: { ...base().tooltip, formatter: (ps) => `game minute ${ps[0].value[0]}<br>` + ps.map((p) => `${p.marker}${esc(p.seriesName)}: <b>${p.value[1]}</b>`).join("<br>") },
       xAxis: { type: "value", min: 0, max: xmax, ...axisStyle(), splitLine: { show: false } },
       yAxis: { type: "value", min: 0, max: ymax || undefined, ...axisStyle() },
-      series: ["US", "USSR"].map((s) => ({ name: s, type: "line", showSymbol: false, data: (series || {})[s] || [], lineStyle: { width: 2 },
-        itemStyle: { color: css("--" + s.toLowerCase()) }, color: css("--" + s.toLowerCase()), endLabel: { show: false } })),
+      series: keys.map((s) => { const c = s === "US" || s === "USSR" ? css("--" + s.toLowerCase()) : css("--accent");
+        return { name: s, type: "line", showSymbol: false, data: (series || {})[s] || [], lineStyle: { width: 2 }, itemStyle: { color: c }, color: c, endLabel: { show: false } }; }),
     });
     entry.chart.setOption(opt, { notMerge: true });
   }
@@ -275,6 +277,7 @@ window.LabCharts = (() => {
     liveChart("field", "Soldiers in the field", ser.in_field, xmax);
     liveChart("air", "Drones in the air", ser.drones_up, xmax);
     liveChart("lost", "Soldiers lost", ser.lost, xmax);
+    liveChart("fps", "Game FPS (average per game minute)", ser.fps, xmax, undefined, ["FPS"]);
   }
 
   window.addEventListener("resize", () => { for (const c of live) c.resize(); });

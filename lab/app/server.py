@@ -122,6 +122,7 @@ class LiveState:
         self.score, self.crowd, self.air, self.riding = None, {}, {}, {}
         self.lost = {"US": 0, "USSR": 0}
         self.efforts, self.efforts_t = {}, {}
+        self.fps = {}           # game minute -> [sum, count] of the engine's FPS lines (every 10 s, -logStats)
 
     def update(self, log: Path):
         kv = re.compile(r"(\w+)=(\S*)")
@@ -135,6 +136,13 @@ class LiveState:
         for l in data[:cut].decode("utf-8", errors="replace").splitlines():
             m = re.search(r"\[ZCR\]\[(\w+)\] t=(\d+)", l)
             if not m:
+                fm = re.search(r"DEFAULT\s+: FPS: ([\d.]+)", l)
+                if fm:
+                    acc = self.fps.setdefault(self.t // 60, [0.0, 0])
+                    acc[0] += float(fm.group(1))
+                    acc[1] += 1
+                    self.series.setdefault("fps", {})["FPS"] = {k: round(v[0] / v[1], 1) for k, v in self.fps.items()}
+                    continue
                 if "LOGISTICS_UNLOAD_COMMITTED" in l:
                     d = dict(kv.findall(l))
                     self.events.append({"t": self.t, "side": d.get("faction", ""), "kind": "truck", "text": "supply truck unloaded"})

@@ -62,7 +62,7 @@ CHARTS = [
     ("walk", "family", "How far the infantry walks", "Median distance an attacking squad covers on foot to its objective (Arma 3's measure; from r11).",
      [("walked", "walk")], " m", None, (300, "300 m"), "lower"),
     ("fight", "family", "Fighting distance", "Median distance between killer and victim of the kills by enemy soldiers.", [("distance", "fight_m")], " m", None, None, None),
-    ("fps", "family", "Server frame rate", "The server's median frames per second during the match (logged every minute).",
+    ("fps", "family", "Game frame rate", "Median frames per second during each match: in a watched match the game window itself (it hosts the match), headless the server. Normal about 40; three of my stress servers alongside cut it to 15-20 (21 Oct 20:10).",
      [("fps", "fps")], " fps", None, (30, "30 fps"), "higher"),
 ]
 

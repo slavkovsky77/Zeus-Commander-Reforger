@@ -457,7 +457,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
 
   // ------------------------------------------------------------ slow tabs
   const LABELS = { truck_first_min: "1st truck (min)", truck_unloads: "loads delivered", front_supply_pct: "front bases %", depots: "depots", forts: "fortifications",
-    drones_lost_water: "drones in the sea", armour_assault: "armour in assault", armour_kills: "armour kills", scorecard_fails: "screen checks failed", lost: "soldiers lost", ended_early: "ended early", minutes: "minutes" };
+    drones_lost_water: "drones in the sea", armour_assault: "armour in assault", armour_kills: "armour kills", scorecard_fails: "screen checks failed", fps: "FPS avg", fps_low: "FPS low (slowest tenth)", lost: "soldiers lost", ended_early: "ended early", minutes: "minutes" };
   const side = (v, never) => v === null || v === undefined ? (never ? "never" : "–") : typeof v === "object" ? side(v.US, never) + " / " + side(v.USSR, never) : String(v);
   const verdict = (g) => g.status === "met" && g.met === false ? ["no", "broke (was met)"] : g.met === true ? ["ok", g.status === "met" ? "met - guarding" : "met"] : g.met === false ? ["no", "not met"] : ["wait", "too few matches"];
 
@@ -481,7 +481,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     }).join("") || '<div class="empty">No iterations yet.</div>';
     $("commits").innerHTML = (s.commits || []).map((c) => `<div><span class="mono muted">${esc(c.at)} · ${esc(c.repo)} · ${esc(c.hash)}</span><br><span class="text">${esc(c.text)}</span></div>`).join("");
     $("notes").innerHTML = (s.notes || []).map((n) => `<div><span class="mono muted">note ${esc(n.no)}</span><br><span class="text">${esc(n.text)}</span><br><span class="muted text">${esc(n.status)}</span></div>`).join("");
-    const keys = ["truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water", "armour_kills", "scorecard_fails"];
+    const keys = ["fps", "fps_low", "truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water", "armour_kills", "scorecard_fails"];
     $("matchtable").innerHTML = (s.matches || []).length ? `<table><thead><tr><th>Match</th><th>ran</th>${keys.map((k) => `<th>${esc(LABELS[k])}</th>`).join("")}</tr></thead><tbody>` +
       s.matches.map((m) => `<tr><td class="mono">${esc(m.when)}</td><td class="mono">${m.ended_early ? '<span class="d no"></span>crashed' : esc(m.minutes) + " min"}</td>${keys.map((k) => `<td class="mono">${esc(side(m[k], k === "truck_first_min"))}</td>`).join("")}</tr>`).join("") + "</tbody></table>" : '<div class="empty">No matches.</div>';
     $("videos").innerHTML = (s.videos || []).length ? `<table><thead><tr><th>Recording</th><th></th><th>Size</th></tr></thead><tbody>` + s.videos.map((v) =>

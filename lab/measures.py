@@ -33,6 +33,8 @@ MEASURES = {
     "depots": ("side", "supply depots the side built (light and heavy)"),
     "front_supply_pct": ("side", "the side's front bases (not its HQ), average supplies in % of their maximum at the end"),
     "scorecard_fails": ("match", "lab/scorecard.py hard checks failed, both sides (what the watcher sees)"),
+    "fps": ("match", "the game's average FPS over the match (the engine's 'FPS:' line every 10 s, -logStats)"),
+    "fps_low": ("match", "the game's FPS at the slowest tenth of the match (10th percentile of those lines)"),
 }
 # Measures with no value when the thing never happened (no truck all match): that fails a target, it isn't "no data".
 NO_VALUE_FAILS = {"truck_first_min"}
@@ -51,12 +53,18 @@ def extra(run: Path) -> dict:
     out = {"drones_lost_water": 0, "drones_lost": 0, "dry_routes": 0,
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
-           "front_supply_pct": {s: None for s in SIDES}}
+           "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None}
     if not log:
         return out
     game_t = 0
     supply = {}
+    fps = []
     for line in open(log, encoding="utf-8", errors="replace"):
+        if "DEFAULT" in line and ": FPS: " in line:
+            f = re.search(r": FPS: ([\d.]+)", line)
+            if f:
+                fps.append(float(f.group(1)))
+            continue
         g = re.search(r"\[ZCR\]\[\w+\] t=(\d+)", line)
         if g:
             game_t = int(g.group(1))
@@ -86,6 +94,9 @@ def extra(run: Path) -> dict:
     for s in SIDES:
         vals = [v for (side, _), v in supply.items() if side == s]
         out["front_supply_pct"][s] = round(sum(vals) / len(vals)) if vals else None
+    if fps:
+        out["fps"] = round(sum(fps) / len(fps), 1)
+        out["fps_low"] = sorted(fps)[len(fps) // 10]
     return out
 
 
