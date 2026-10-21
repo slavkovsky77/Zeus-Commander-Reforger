@@ -6,6 +6,9 @@
 //     "build": [{what, base, stage}], "sites": [{base, what}], "armour": [label]}
 // From AI Conflict's team slots (role and target), the bases, its supply trucks and construction orders, the
 // side's knowledge of enemies near its bases, and the armour units. Server side; logging only.
+// Progress (Martin: "those actions should have visible progresses"): attack/defend "there" = soldiers within 300 m
+// of the base; a truck's "step" 1-4 (to load, loading, driving, unloading) and "leg" 0-100 (how far along its
+// current drive, from the farthest it was on it); a site's "pct" built.
 class ZCR_Efforts
 {
 	protected static int s_iNext;
@@ -35,6 +38,8 @@ class ZCR_Efforts
 		map<string, int> attackRiding = new map<string, int>();
 		map<string, int> defendTeams = new map<string, int>();
 		map<string, int> defendMen = new map<string, int>();
+		map<string, int> attackThere = new map<string, int>();
+		map<string, int> defendThere = new map<string, int>();
 		AICF_FactionState state = ZCR_Strategist.s_mStates.Get(side);
 		if (state)
 		{
@@ -47,14 +52,19 @@ class ZCR_Efforts
 				if (men <= 0)
 					continue;
 				string base = ZCR_Strategist.BaseName(slot.GetTargetBase());
+				int there = 0;
+				if (slot.GetTargetBase().GetOwner())
+					there = MenNear(slot.GetGroup(), slot.GetTargetBase().GetOwner().GetOrigin(), 300);
 				if (slot.GetRole() == AICF_EGroupRole.ATTACK)
 				{
+					attackThere.Set(base, attackThere.Get(base) + there);
 					attackTeams.Set(base, attackTeams.Get(base) + 1);
 					attackMen.Set(base, attackMen.Get(base) + men);
 					attackRiding.Set(base, attackRiding.Get(base) + AICF_GroupRuntime.CountAliveAgentsInAnyVehicle(slot.GetGroup()));
 				}
 				else
 				{
+					defendThere.Set(base, defendThere.Get(base) + there);
 					defendTeams.Set(base, defendTeams.Get(base) + 1);
 					defendMen.Set(base, defendMen.Get(base) + men);
 				}
@@ -63,9 +73,9 @@ class ZCR_Efforts
 		string attack;
 		string defend;
 		foreach (string base, int teams : attackTeams)
-			attack += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"riding\":%4}", J(base), teams, attackMen.Get(base), attackRiding.Get(base));
+			attack += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"riding\":%4,\"there\":%5}", J(base), teams, attackMen.Get(base), attackRiding.Get(base), attackThere.Get(base));
 		foreach (string base, int teams : defendTeams)
-			defend += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3}", J(base), teams, defendMen.Get(base));
+			defend += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"there\":%4}", J(base), teams, defendMen.Get(base), defendThere.Get(base));
 		// The side's bases: enemies known near (hold), short of supplies (resupply).
 		string hold;
 		string low;
@@ -102,7 +112,8 @@ class ZCR_Efforts
 				from = ZCR_Strategist.BaseName(t.m_From);
 			if (t.m_To)
 				to = ZCR_Strategist.BaseName(t.m_To);
-			trucks += string.Format(",{\"doing\":%1,\"phase\":%2,\"from\":%3,\"to\":%4,\"cargo\":%5}", J(doing), J(t.m_sPhase), J(from), J(to), Math.Round(t.m_fCargo));
+			trucks += string.Format(",{\"doing\":%1,\"phase\":%2,\"from\":%3,\"to\":%4,\"cargo\":%5,", J(doing), J(t.m_sPhase), J(from), J(to), Math.Round(t.m_fCargo)) +
+				string.Format("\"step\":%1,\"leg\":%2}", Step(t.m_sPhase), Leg(t));
 		}
 		// Engineers: AI Conflict's construction orders (choosing a site / building).
 		string build;
@@ -117,15 +128,24 @@ class ZCR_Efforts
 				stage = "building";
 			build += string.Format(",{\"what\":%1,\"base\":%2,\"stage\":%3}", J(what[i]), J(ZCR_Strategist.BaseName(obases[i])), J(stage));
 		}
-		// Building sites going up near the side's bases, with their progress.
+		// Building sites going up (the builders' targets), with their progress.
 		string sites;
-		map<SCR_CampaignMilitaryBaseComponent, string> runs = new map<SCR_CampaignMilitaryBaseComponent, string>();
-		map<SCR_CampaignMilitaryBaseComponent, string> builds = new map<SCR_CampaignMilitaryBaseComponent, string>();
-		ZCR_Director.BaseTasks(runs, builds);
-		foreach (SCR_CampaignMilitaryBaseComponent base, string text : builds)
+		array<SCR_CampaignBuildingCompositionComponent> targets = {};
+		array<Faction> owners = {};
+		AICF_BaseBuilderService.AICF_Sites(targets, owners);
+		for (int si; si < targets.Count(); si++)
 		{
-			if (base && base.GetFaction() && base.GetFaction().GetFactionKey() == side)
-				sites += string.Format(",{\"base\":%1,\"what\":%2}", J(ZCR_Strategist.BaseName(base)), J(text));
+			SCR_CampaignBuildingCompositionComponent site = targets[si];
+			if (!site || !site.GetOwner() || !owners[si] || owners[si].GetFactionKey() != side)
+				continue;
+			int pct = -1;
+			SCR_CampaignBuildingLayoutComponent layout = site.GetCompositionLayout();
+			if (layout && layout.GetToBuildValue() > 0)
+				pct = Math.Round(100 * layout.GetCurrentBuildValue() / layout.GetToBuildValue());
+			string kind = "building";
+			if (site.GetOwner().GetPrefabData())
+				kind = ZCR_Director.BuildingKind(site.GetOwner().GetPrefabData().GetPrefabName());
+			sites += string.Format(",{\"base\":%1,\"what\":%2,\"pct\":%3}", J(NearestBase(site.GetOwner().GetOrigin())), J(kind), pct);
 		}
 		// Armour units.
 		string armour;
@@ -148,6 +168,87 @@ class ZCR_Efforts
 		string json = string.Format("{\"main\":%1,\"attack\":[%2],\"defend\":[%3],\"hold\":[%4],\"short\":[%5],", J(main), Strip(attack), Strip(defend), Strip(hold), Strip(low));
 		json += string.Format("\"trucks\":[%1],\"build\":[%2],\"sites\":[%3],\"armour\":[%4]}", Strip(trucks), Strip(build), Strip(sites), Strip(armour));
 		Print(string.Format("[ZCR][EFFORTS] t=%1 side=%2 json=%3", now, side, json), LogLevel.NORMAL);
+	}
+
+	// Soldiers of the group alive within radius of the spot.
+	protected static int MenNear(SCR_AIGroup group, vector at, float radius)
+	{
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+		int n;
+		foreach (AIAgent agent : agents)
+		{
+			IEntity e = agent.GetControlledEntity();
+			if (e && AICF_GroupRuntime.IsAliveCharacter(e) && vector.DistanceXZ(e.GetOrigin(), at) <= radius)
+				n++;
+		}
+		return n;
+	}
+
+	protected static int Step(string phase)
+	{
+		if (phase == "TO_SOURCE")
+			return 1;
+		if (phase == "LOADING")
+			return 2;
+		if (phase == "TO_DESTINATION")
+			return 3;
+		if (phase == "UNLOADING")
+			return 4;
+		return 0;
+	}
+
+	// How far along its current drive a truck is: 100 - the distance left in % of the most it had left on this leg.
+	protected static ref map<IEntity, float> s_mLegMax = new map<IEntity, float>();
+	protected static ref map<IEntity, string> s_mLegPhase = new map<IEntity, string>();
+
+	protected static int Leg(AICF_TruckView t)
+	{
+		if (!t.m_Vehicle)
+			return 0;
+		SCR_CampaignMilitaryBaseComponent goal;
+		if (t.m_sPhase == "TO_SOURCE")
+			goal = t.m_From;
+		else if (t.m_sPhase == "TO_DESTINATION")
+			goal = t.m_To;
+		else
+			return 100;
+		if (!goal || !goal.GetOwner())
+			return 0;
+		float left = vector.DistanceXZ(t.m_Vehicle.GetOrigin(), goal.GetOwner().GetOrigin());
+		if (s_mLegPhase.Get(t.m_Vehicle) != t.m_sPhase || !s_mLegMax.Contains(t.m_Vehicle))
+		{
+			s_mLegPhase.Set(t.m_Vehicle, t.m_sPhase);
+			s_mLegMax.Set(t.m_Vehicle, left);
+		}
+		float most = Math.Max(s_mLegMax.Get(t.m_Vehicle), left);
+		s_mLegMax.Set(t.m_Vehicle, most);
+		if (most < 1)
+			return 100;
+		return Math.ClampInt(Math.Round(100 * (1 - left / most)), 0, 100);
+	}
+
+	protected static string NearestBase(vector at)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		array<SCR_MilitaryBaseComponent> bases = {};
+		if (system)
+			system.GetBases(bases);
+		string name = "";
+		float best = 1e9;
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent cb = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!cb || !cb.GetOwner())
+				continue;
+			float d = vector.DistanceXZ(cb.GetOwner().GetOrigin(), at);
+			if (d < best)
+			{
+				best = d;
+				name = ZCR_Strategist.BaseName(cb);
+			}
+		}
+		return name;
 	}
 
 	// A list built as ",a,b" without its first comma.
