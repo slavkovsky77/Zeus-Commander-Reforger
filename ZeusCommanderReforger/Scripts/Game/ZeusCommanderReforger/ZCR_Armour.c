@@ -50,6 +50,10 @@ class ZCR_ArmourUnit
 	int m_iRecrewAt;
 	bool m_bRecrewKicked;
 	SCR_CampaignMilitaryBaseComponent m_RecrewBase;
+	int m_iBlockedS;
+	vector m_vGuardAt;
+	int m_iGiveWayUntil;
+	int m_iGiveWays;
 }
 
 class ZCR_Armour
@@ -104,7 +108,7 @@ class ZCR_Armour
 			{
 				if (Lost(unit, now))
 					continue;
-				if (!System.IsCLIParam("zcrArmourHold") && !Recrewing(unit, now) && !Remounting(unit, now))
+				if (!System.IsCLIParam("zcrArmourHold") && !GivingWay(unit, now) && !Recrewing(unit, now) && !Remounting(unit, now))
 					Order(unit, front, now);
 				Status(unit, front, now);
 			}
@@ -201,6 +205,98 @@ class ZCR_Armour
 			}
 			unit.m_bSlow = slow;
 		}
+		GiveWayCheck();
+	}
+
+	// Giving way (Martin's /bad, 21 Oct 21:41: "soviet t72 is stuck with other vehicle, that's terrible" - the T-72 and a
+	// USSR supply truck nose to nose in a one-lane gap between rock walls for 2 minutes; neither AI driver backs off).
+	// Every second: a hull that hasn't moved 1.5 m with a vehicle not the enemy's within 15 m ahead for BLOCKED_S seconds
+	// drives 30 m back the way it came and holds there GIVE_WAY_S game seconds, then takes its order again (at most
+	// 3 times a unit). Logs GIVEWAY.
+	static const int BLOCKED_S = 12;
+	static const int GIVE_WAY_S = 40;
+
+	protected static void GiveWayCheck()
+	{
+		int now = ZCR_LossLog.Seconds();
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (!unit.m_Vehicle || !unit.m_Group || unit.m_sPhase == "GIVEWAY" || unit.m_sPhase == "REMOUNT" || unit.m_sPhase == "RECREW")
+				continue;
+			vector at = unit.m_Vehicle.GetOrigin();
+			bool still = vector.DistanceXZ(at, unit.m_vGuardAt) < 1.5;
+			unit.m_vGuardAt = at;
+			if (still && VehicleAhead(unit, 15))
+				unit.m_iBlockedS++;
+			else
+				unit.m_iBlockedS = 0;
+			if (unit.m_iBlockedS >= BLOCKED_S && unit.m_iGiveWays < 3)
+				GiveWay(unit, now);
+		}
+	}
+
+	protected static bool VehicleAhead(ZCR_ArmourUnit unit, float range)
+	{
+		vector mat[4];
+		unit.m_Vehicle.GetTransform(mat);
+		vector forward = mat[2];
+		forward[1] = 0;
+		forward.Normalize();
+		s_aAhead = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * (range * 0.5), range * 0.6, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		foreach (IEntity e : s_aAhead)
+		{
+			if (!Vehicle.Cast(e) || e == unit.m_Vehicle || e.GetRootParent() == unit.m_Vehicle)
+				continue;
+			string owner = ZCR_LossLog.SideOf(e);
+			if ((owner == "US" || owner == "USSR") && owner != unit.m_sSide)
+				continue;
+			vector rel = e.GetOrigin() - mat[3];
+			rel[1] = 0;
+			float ahead = vector.Dot(rel, forward);
+			if (ahead > 0 && ahead < range && (rel - forward * ahead).Length() < 6)
+				return true;
+		}
+		return false;
+	}
+
+	protected static void GiveWay(ZCR_ArmourUnit unit, int now)
+	{
+		vector mat[4];
+		unit.m_Vehicle.GetTransform(mat);
+		vector forward = mat[2];
+		forward[1] = 0;
+		forward.Normalize();
+		vector back = mat[3] - forward * 30;
+		back[1] = GetGame().GetWorld().GetSurfaceY(back[0], back[2]);
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = back;
+		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+		if (!waypoint)
+			return;
+		waypoint.SetCompletionRadius(8);
+		ReplaceWaypoint(unit, waypoint);
+		unit.m_Waypoint = waypoint;
+		unit.m_vOrder = back;
+		unit.m_sPhase = "GIVEWAY";
+		unit.m_iGiveWayUntil = now + GIVE_WAY_S;
+		unit.m_iGiveWays++;
+		unit.m_iBlockedS = 0;
+		Log(unit, now, "GIVEWAY", string.Format("prefab=%1 x=%2 z=%3 back_x=%4 back_z=%5 count=%6", unit.m_sPrefab, Math.Round(mat[3][0]), Math.Round(mat[3][2]),
+			Math.Round(back[0]), Math.Round(back[2]), unit.m_iGiveWays));
+	}
+
+	// While giving way the unit takes no order; after it, its order is set again (the front forgotten, so Order re-issues).
+	protected static bool GivingWay(ZCR_ArmourUnit unit, int now)
+	{
+		if (unit.m_sPhase != "GIVEWAY")
+			return false;
+		if (now < unit.m_iGiveWayUntil)
+			return true;
+		unit.m_sPhase = "";
+		unit.m_vFront = vector.Zero;
+		return false;
 	}
 
 	protected static bool FriendAhead(ZCR_ArmourUnit unit)
@@ -378,6 +474,8 @@ class ZCR_Armour
 			return "crew boarding, front";
 		if (phase == "RECREW")
 			return "back to a base for a new crew, front";
+		if (phase == "GIVEWAY")
+			return "giving way to a vehicle, front";
 		return phase;
 	}
 
@@ -1233,7 +1331,7 @@ class ZCR_Armour
 		float holdM = 80;
 		if (unit.m_sPhase == "ASSAULT")
 			holdM = 200;     // in the fight at the base: holding a firing spot is not stuck
-		if (unit.m_sPhase != "REMOUNT" && unit.m_sPhase != "RECREW" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > holdM)
+		if (unit.m_sPhase != "REMOUNT" && unit.m_sPhase != "RECREW" && unit.m_sPhase != "GIVEWAY" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > holdM)
 			unit.m_iStill++;
 		else
 			unit.m_iStill = 0;
