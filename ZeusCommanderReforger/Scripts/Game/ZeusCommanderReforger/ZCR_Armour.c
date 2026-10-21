@@ -17,6 +17,7 @@
 //   -zcrArmourStress  up to 6 units a side (tanks and IFVs in turn), free, from 30 s, bought again 30 s after a loss;
 //   -zcrArmourKeepType  the vehicle keeps its own type (not made an APC);
 //   -zcrArmourVanilla  the game's own LAV-25 / BTR-70 only (not the mods' vehicles);
+//   -zcrArmourSet CIE  another author's vehicles (CIE T-72B, Leopard 2A6, Marder 1A3), nothing from WCS - the crash test;
 //   -zcrArmourHold  bought and crewed, but no orders (stays where it was bought);
 //   -zcrArmourOnly TANK|IFV  only the mods' tanks, or only their IFVs.
 class ZCR_ArmourUnit
@@ -551,15 +552,35 @@ class ZCR_Armour
 			tank = tank && side == tankSide;
 		else if (!System.IsCLIParam("zcrArmourTanks") && only != "TANK")
 			tank = false;
-		if (tank)
+		// -zcrArmourSet CIE (Martin, 21 Oct 21:35: "maybe another vehicle mod?"): another author's vehicles with
+		// nothing from WCS / SpaceCore, for the crash test - CIE T-72B for the USSR, CIE Leopard 2A6 as the US
+		// tank, the Marder 1A3 as both sides' IFV (the only non-WCS IFV downloaded). lab/stress.py --variant cie.
+		string armourSet;
+		System.GetCLIParam("zcrArmourSet", armourSet);
+		if (armourSet == "CIE")
 		{
-			prefabs.Insert(Pick(us, "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et", "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et"));
-			kinds.Insert("TANK");
-			costs.Insert(800);
+			if (tank)
+			{
+				prefabs.Insert(Pick(us, "{1C5FE7B7FF49BB8E}Prefabs/Vehicles/Tracked/Leopard/Leopard2A_Base.et", "{E87F0D0B1C88BFD7}Prefabs/Vehicles/Tracked/T72B_RU.et"));
+				kinds.Insert("TANK");
+				costs.Insert(800);
+			}
+			prefabs.Insert("{7D0A4C3F2E19B6A8}Prefabs/Vehicles/Tracked/Marder_1A3.et");
+			kinds.Insert("IFV");
+			costs.Insert(500);
 		}
-		prefabs.Insert(Pick(us, "{24223D0679CDD612}Prefabs/Vehicles/Tracked/M2A2/M2A2_OD.et", "{1DC01AAACFFA8B63}Prefabs/Vehicles/Tracked/BMP1/BMP1_Base.et"));
-		kinds.Insert("IFV");
-		costs.Insert(500);
+		else
+		{
+			if (tank)
+			{
+				prefabs.Insert(Pick(us, "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et", "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et"));
+				kinds.Insert("TANK");
+				costs.Insert(800);
+			}
+			prefabs.Insert(Pick(us, "{24223D0679CDD612}Prefabs/Vehicles/Tracked/M2A2/M2A2_OD.et", "{1DC01AAACFFA8B63}Prefabs/Vehicles/Tracked/BMP1/BMP1_Base.et"));
+			kinds.Insert("IFV");
+			costs.Insert(500);
+		}
 		prefabs.Insert(Pick(us, "{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et"));
 		kinds.Insert("APC");
 		costs.Insert(300);

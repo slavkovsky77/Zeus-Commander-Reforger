@@ -24,6 +24,7 @@ sys.path.insert(0, str(HERE))
 import metrics  # noqa: E402
 
 import config  # noqa: E402  - this machine's paths: lab/lab.toml + lab/lab.local.toml
+import cpu  # noqa: E402  - headless servers off the watched game's cores (note 279)
 
 STEAM = config.path("paths.steam")
 SERVER_ROOT = STEAM / "Arma Reforger Server"
@@ -57,7 +58,8 @@ READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 def command(a, profile: Path) -> list:
     project, extra, scenario, header = MAPS[a.map]
     armour = getattr(a, "armour", False)
-    addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "", ARMOUR_ADDONS if armour else "") if x)
+    armour_addons = getattr(a, "armour_addons", "") or ARMOUR_ADDONS   # --armour-addons: another family (the CIE set)
+    addons = ",".join(x for x in (CORE, extra, OUR_ADDON, DRONE_ADDONS if a.drones else "", armour_addons if armour else "") if x)
     # Solo: the game itself hosts the match (singleplayer, like Arma 3's watched games) - only there
     # the diagnostic build's Diag Menu > Cheats > "DTime multiplier" speeds the whole game up.
     solo = getattr(a, "solo", False)
@@ -131,6 +133,7 @@ def main() -> int:
     ap.add_argument("--solo", action="store_true", help="the game on screen hosting the match itself (singleplayer; the Diag Menu's time multiplier works here)")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--armour", action="store_true", help="load the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour")
+    ap.add_argument("--armour-addons", default="", help="other armour mods instead of the WCS family (addon ids), e.g. the CIE set of lab/stress.py")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")
     ap.add_argument("--ussr", default="", help="USSR strategist")
@@ -152,6 +155,8 @@ def main() -> int:
         window_settings(profile / "profile")
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
+    if not (a.client or getattr(a, "solo", False)):
+        cpu.pin_if_watched(proc.pid)   # note 279: a headless server stays off the watched game's cores
     if a.client:
         return 0
     t0, ready_at = time.time(), None

@@ -277,17 +277,53 @@ class ZCR_Watch
 	// Re-applied every 5 s (cheap) in case the game resets it; logs [ZCR][SPEED] once.
 	protected static float s_fNextSpeed;
 	protected static bool s_bSpeedLogged;
+	// The SPEED button (Martin, 21 Oct 21:40: "can I set the speed of the game? ... if the speed affects the
+	// crazy AI driving"): 3x -> 1x -> 2x -> 3x from the screen, over -zcrSpeed; each change logs [ZCR][SPEED].
+	protected static float s_fSpeedOverride;
+
+	static void CycleSpeed()
+	{
+		float cur = Speed();
+		if (cur >= 2.5)
+			s_fSpeedOverride = 1;
+		else if (cur >= 1.5)
+			s_fSpeedOverride = 3;
+		else
+			s_fSpeedOverride = 2;
+		s_fNextSpeed = 0;
+		s_bSpeedLogged = false;
+		SetSpeed();
+	}
+
+	static string SpeedLabel()
+	{
+		float s = Speed();
+		if (s <= 0)
+			return "SPEED 1x";
+		int r = Math.Round(s);
+		return string.Format("SPEED %1x", r);
+	}
+
+	// The speed wanted: the button's choice, else -zcrSpeed, else 0 (the game's own).
+	protected static float Speed()
+	{
+		if (s_fSpeedOverride > 0)
+			return s_fSpeedOverride;
+		string value;
+		if (!System.GetCLIParam("zcrSpeed", value) || value.IsEmpty())
+			return 0;
+		return Math.Clamp(value.ToFloat(), 0.1, 10);
+	}
 
 	protected static void SetSpeed()
 	{
-		string value;
-		if (!System.GetCLIParam("zcrSpeed", value) || value.IsEmpty())
+		float speed = Speed();
+		if (speed <= 0)
 			return;
 		float now = System.GetTickCount() / 1000.0;
 		if (now < s_fNextSpeed)
 			return;
 		s_fNextSpeed = now + 5;
-		float speed = Math.Clamp(value.ToFloat(), 0.1, 10);
 		if (DiagMenu.GetEngineValue(375) != 1)
 			DiagMenu.SetEngineValue(375, 1);
 		if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(376) - speed) > 0.01)

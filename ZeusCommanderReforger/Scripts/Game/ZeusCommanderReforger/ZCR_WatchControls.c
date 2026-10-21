@@ -175,6 +175,7 @@ class ZCR_WatchControls
 		Add("FREE LOOK", "free", 7, 0);
 		Add("REPORT", "report", 7, 1);
 		Add("DETAILS: OFF", "details", 8, 0);
+		Add("SPEED 3x", "speed", 8, 1);
 		Labels();
 	}
 
@@ -242,6 +243,8 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("FREE LOOK");
 			}
+			else if (b.m_sCmd == "speed")
+				b.m_wText.SetText(ZCR_Watch.SpeedLabel());
 			else if (b.m_sCmd == "kind")
 			{
 				string kind = m_sKind;
@@ -352,6 +355,14 @@ class ZCR_WatchControls
 				if (cmd == "free")
 				{
 					ZCR_Watch.SetFree(!ZCR_Watch.IsFree());
+					Labels();
+					return;
+				}
+				// The game speed from the screen (Martin: "can I set the speed? maybe it affects the crazy
+				// driving"): 3x -> 1x -> 2x -> 3x; the game's own time multiplier, solo matches only.
+				if (cmd == "speed")
+				{
+					ZCR_Watch.CycleSpeed();
 					Labels();
 					return;
 				}

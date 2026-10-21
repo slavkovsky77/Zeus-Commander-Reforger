@@ -51,16 +51,23 @@ VARIANTS = {
     "abrams": ("-zcrArmourStress -zcrArmourOnly TANK -zcrArmourTankSide US", True),
     "t72": ("-zcrArmourStress -zcrArmourOnly TANK -zcrArmourTankSide USSR", True),
     "default": ("-zcrArmourStress", True),
+    # cie (Martin, 21 Oct 21:35: "maybe another vehicle mod?"): another author's armour with nothing from WCS /
+    # SpaceCore - CIE T-72B, Leopard 2A6, Marder 1A3 (+ CIE Tracked Core, Thermal, ATGM, MG3) instead of the
+    # WCS family, tanks included. Clean where WCS crashes in 6-10 min -> the WCS framework is the trigger.
+    "cie": ("-zcrArmourStress -zcrArmourTanks -zcrArmourSet CIE", True,
+            "68CD35053063C6D5,68F8A813D7EF1E30,6A4545CCB3516E86,673F0C21BA119B52,6497438B19727E0D,6618D00B1C61A18A,685952488F7E3CBA,6446DDF41914A293"),
 }
 
 
 def one(variant: str, minutes: float, port: int) -> dict:
-    extra, drones = VARIANTS[variant]
+    v = VARIANTS[variant]
+    extra, drones = v[0], v[1]
+    addons = v[2] if len(v) > 2 else ""   # other armour mods than the WCS family
     label = f"stress-{variant}-p{port}"   # each server its own run folder (two started in one second shared one)
     started = time.time()
     cmd = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes),
            "--label", label, "--port", str(port), "--us", "phased", "--ussr", "phased", "--armour",
-           f"--extra=-zcrNoFIA {extra}"] + (["--drones"] if drones else [])
+           f"--extra=-zcrNoFIA {extra}"] + (["--drones"] if drones else []) + (["--armour-addons", addons] if addons else [])
     with open(ROOT / ".runtime" / f"{label}-{port}.out", "w", encoding="utf-8") as log:
         # Idle priority (the server inherits it): three at normal priority cut the watched game from ~40 to 15-20 FPS.
         subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=ROOT,

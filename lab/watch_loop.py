@@ -28,6 +28,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+import cpu  # noqa: E402
 import keys  # noqa: E402
 import metrics  # noqa: E402
 import reforger  # noqa: E402
@@ -285,6 +286,9 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             client, cprof = server, sprof
         else:
             client, cprof = start(opts(map_name, True, us, ussr, label), "client")
+        # Note 279: headless lab servers (stress tests, probes) cut this game from ~40 to 20-25 fps; while it
+        # runs they are pinned to the upper half of the cores (lab/cpu.py), and get all cores back at the end.
+        log(f"headless servers pinned to the upper cores: {cpu.pin_headless(True) or 'none running'}")
         if not wait_for(cprof, client, "[ZCR][CAM]", 300):
             meta["ended"] = "the game did not start the camera"
             return meta
@@ -334,6 +338,7 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         kill(client)
         kill(server)
         kill_crash_reporters()
+        cpu.pin_headless(False)
         if meta["ended"]:
             log(f"ended early: {meta['ended']}")
     server_log = read_log(sprof)
