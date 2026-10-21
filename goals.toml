@@ -70,8 +70,8 @@ status = "active"
 matches = "watched"
 met_when = "3 of 3"
   [[goal.measure]]
-  key = "minutes"
-  target = ">= 29"
+  key = "ended_early"
+  target = "== 0"
 
 [[goal]]
 id = "on-screen"

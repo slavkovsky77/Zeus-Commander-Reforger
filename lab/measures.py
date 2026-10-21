@@ -22,7 +22,8 @@ KV = re.compile(r"(\w+)=(\S*)")
 
 # key: (per, what it counts). Scorecard keys are added at the end of the file.
 MEASURES = {
-    "minutes": ("match", "game minutes the match ran (a crash or a lost connection ends it early)"),
+    "minutes": ("match", "game minutes the match ran - the watch loop's own record for watched matches, else the last commander log line"),
+    "ended_early": ("match", "1 when a watched match ended early (a crash, a dead process, a lost connection - the watch loop's record), else 0"),
     "drones_lost_water": ("match", "drones the drone mod lost over the sea (its 'lost ... WST_OCEAN' line)"),
     "drones_lost": ("match", "drones the drone mod lost without a detonation, anywhere"),
     "dry_routes": ("match", "drone teams sent round the sea by a dry via point ([ZCR][DRONES] dry_route=1)"),
@@ -111,6 +112,15 @@ def measure(run: Path) -> dict:
         _, fails = scorecard.report(card)
         out["scorecard_fails"] = fails
     out.update(extra(run))
+    # A watched match: the watch loop's own record of how long it ran and why it ended.
+    watched = scorecard.RUNS.parent / "watch_matches.jsonl"
+    if watched.exists():
+        for line in open(watched, encoding="utf-8", errors="replace"):
+            if run.name in line:
+                rec = json.loads(line)
+                if Path(rec.get("server_profile", "")).name == run.name:
+                    out["minutes"] = rec.get("minutes", out.get("minutes"))
+                    out["ended_early"] = 1 if rec.get("ended") else 0
     _cache[key] = out
     if log:
         disk.parent.mkdir(parents=True, exist_ok=True)
