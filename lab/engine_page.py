@@ -201,6 +201,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (28, "armour: crash suspects out, guns hold for their own men", "21 Oct, from 07:04 (Martin asleep)",
+     ["Watched matches crashed in the engine's entity update (heap corruption, access violations) in 6 of 15 matches with armour, 4 in a row 06:19-06:30; none in the 73 before, none in 2 matches 06:42-07:04 without armour units, never in headless tests. Two suspects taken out: a replaced armour waypoint is deleted 20 s later (a stuck unit's waypoint swap came 3-60 s before each crash), and the crew aboard is counted from the crew group instead of walking the vehicle's seats and turret attachments several times a second (most crashes followed an FPV drone going for the armour).",
+      "Armour gunners hold fire when their own soldiers are within 20 m of the target or 8 m of the line of fire: armour-6's T-72 killed 3 of its own at once, armour-11's Abrams 10 at 13-321 m.",
+      "Armour is bought at the side's base nearest its front (400 m+ short of it) when that base has the supplies and a road spot - from the HQ it drove 1-1.5 km and FPV drones took its crews on the way.",
+      "A tracked hull also slows for soldiers within 10 m round it (it turns on the spot); a unit that never moved off its spot tries another way after one still minute; labels read 'US TANK M1A1 Abrams - attacking Farm'."],
+     "Overnight evidence: crashes since armour went live, armour's own fire and crushing, long drives under drones.",
+     "Watched 07:04 with the changes: no crash (the first of the A/B after two clean matches without armour). Headless armour-11: all four into the assault, 7 enemy killed but 10 own (the line-of-fire hold came after it)."),
     (27, "armour mods in watched matches; crews stay aboard; more building", "21 Oct, from 05:17 (Martin asleep)",
      ["Watched matches load the armour mods: the M1A1 Abrams, M2A2 Bradley, T-72 and BMP-1 fight in the recordings (until 05:17 the game's LAV-25 / BTR-70).",
       "Crews stay aboard: the game takes a crew out of its vehicle through one behaviour for every reason (a failed move releases the vehicle, gunners leave the turret to look round, danger reactions); for our armour's crews it now waits while the vehicle has 35% health or more. In the first watched match with the mods the BMP-1's crew got out three times and the Bradley's and T-72's were lost out of intact vehicles - no armour kill.",
