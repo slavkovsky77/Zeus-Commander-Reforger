@@ -114,7 +114,7 @@ class ZCR_AntiDrone
 				{
 					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(c);
 					if (utility)
-						utility.AddAction(new SCR_AISuppressBehavior(utility, null, target.m_Volume, 3, 3, 80));
+						ZCR_Reserved.Add(utility, new SCR_AISuppressBehavior(utility, null, target.m_Volume, 3, 3, 80));
 					m_mFiringUntil.Set(c, now + 3);
 				}
 				float d = vector.Distance(c.EyePosition(), dp);

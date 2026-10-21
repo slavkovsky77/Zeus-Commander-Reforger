@@ -202,7 +202,7 @@ class ZCR_DroneThreat
 		{
 			// Above the attack (90) and the cover layer (98): a drone overhead comes first.
 			taken.Insert(spot);
-			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
+			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
 			return;
 		}
@@ -230,7 +230,7 @@ class ZCR_DroneThreat
 					continue;
 				run[1] = GetGame().GetWorld().GetSurfaceY(run[0], run[2]);
 				taken.Insert(run);
-				utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, run, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 2.0));
+				ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, run, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 2.0));
 				s_mRunningUntil.Set(c, now + 8);
 				s_mSpreadAt.Set(c, now);
 				return;
@@ -287,7 +287,7 @@ class ZCR_DroneThreat
 			vector aim = c.GetOrigin() + Vector(Math.Cos(r), 0, Math.Sin(r)) * Math.RandomFloat(20, 35);
 			vector spot = aim;
 			FindOverhead(c, at, 15, spot, aim);
-			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
+			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
 			s_mReactedAt.Set(c, now);
 			n++;
@@ -357,7 +357,7 @@ class ZCR_DroneThreat
 			if (!utility || !(FindShelter(c, p, 60, spot, taken) || FindOverhead(c, p, 40, spot, vector.Zero, taken)))
 				continue;
 			taken.Insert(spot);
-			utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 10, null, 1.0));
+			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 10, null, 1.0));
 			moved.Set(side, moved.Get(side) + 1);
 		}
 		foreach (string side, int n : idle)

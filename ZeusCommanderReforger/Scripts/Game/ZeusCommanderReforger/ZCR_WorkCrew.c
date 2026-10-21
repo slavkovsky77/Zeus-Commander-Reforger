@@ -148,7 +148,7 @@ class ZCR_WorkCrew
 					{
 						SCR_AIUtilityComponent utility = Utility(agentOf.Get(member));
 						if (utility)
-							utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 8, null, 1.0));
+							ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 8, null, 1.0));
 						m_mOrderedAt.Set(member, now);
 					}
 					continue;

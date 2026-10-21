@@ -153,7 +153,7 @@ class ZCR_Bound
 				SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(theirs[j].FindComponent(SCR_AIUtilityComponent));
 				if (!utility)
 					continue;
-				utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 40, null, 1.0));
+				ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 40, null, 1.0));
 				if (utility.m_CombatMoveState)
 					utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.CROUCH);
 				st.m_aMovers.Insert(mover);

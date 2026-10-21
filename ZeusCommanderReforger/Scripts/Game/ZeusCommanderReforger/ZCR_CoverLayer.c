@@ -140,7 +140,7 @@ class ZCR_CoverLayer
 					}
 					continue;
 				}
-				utility.AddAction(new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, LEVEL, null, 1.0));
+				ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, LEVEL, null, 1.0));
 				if (utility.m_CombatMoveState)
 					utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.CROUCH);
 				s_mMovedAt.Set(c, now);
