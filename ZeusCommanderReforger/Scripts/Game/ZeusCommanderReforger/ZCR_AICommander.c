@@ -10,6 +10,7 @@ modded class AICF_AICommander
 			ZCR_FortList.Tick();        // -zcrListFortifications (lab: what the builders could put up)
 			ZCR_SpotProbe.Tick();       // -zcrProbeSpots x,z;x,z (lab: what is at a map spot)
 			ZCR_SpotProbe.Roads();      // -zcrProbeRoads (lab: each base's nearest road)
+			ZCR_Efforts.Tick(); // [ZCR][EFFORTS] each side's efforts every 30 s (the lab app's Live tab)
 			ZCR_SpotProbe.SupplyProbe(); // -zcrSupplyProbe (lab: what refills the front bases)
 			ZCR_SpotProbe.DepotProbe(); // -zcrDepotProbe (lab: which vehicle depots exist)
 			ZCR_SpotProbe.DryPathProbe(); // -zcrDryPathProbe (lab: drones' way over land)

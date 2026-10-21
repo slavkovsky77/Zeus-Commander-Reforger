@@ -1543,7 +1543,7 @@ class ZCR_Director
 
 	// Supply runs heading to each point (a truck going to load for it, loading, on the way or unloading) and
 	// what is being built at each point (sites within 350 m).
-	protected static void BaseTasks(map<SCR_CampaignMilitaryBaseComponent, string> runs, map<SCR_CampaignMilitaryBaseComponent, string> builds)
+	static void BaseTasks(map<SCR_CampaignMilitaryBaseComponent, string> runs, map<SCR_CampaignMilitaryBaseComponent, string> builds)
 	{
 		array<ref AICF_TruckView> trucks = {};
 		AICF_LogisticsDepotRegistry.AICF_Trucks(trucks);
@@ -1654,7 +1654,7 @@ class ZCR_Director
 		return markers;
 	}
 
-	protected static string TruckDoing(AICF_TruckView t)
+	static string TruckDoing(AICF_TruckView t)
 	{
 		string from = "?";
 		if (t.m_From)

@@ -331,6 +331,8 @@ class ZCR_Armour
 			return "attacking";
 		if (phase == "REMOUNT")
 			return "crew boarding, front";
+		if (phase == "RECREW")
+			return "back to a base for a new crew, front";
 		return phase;
 	}
 

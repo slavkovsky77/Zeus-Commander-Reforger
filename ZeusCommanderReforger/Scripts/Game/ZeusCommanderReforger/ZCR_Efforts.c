@@ -1,0 +1,160 @@
+// What each side is doing now, for the lab app's Live tab (Martin, 21 Oct: "in live it would be nice to see
+// current efforts - defend, supply, attack efforts... I am missing supply runs, what are building efforts").
+// Every 30 game seconds, one line per side:
+//   [ZCR][EFFORTS] t= side= json={"main": base, "attack": [{base, teams, men, riding}], "defend": [...],
+//     "hold": [{base, enemies}], "short": [{base, have, max}], "trucks": [{doing, phase, from, to, cargo}],
+//     "build": [{what, base, stage}], "sites": [{base, what}], "armour": [label]}
+// From AI Conflict's team slots (role and target), the bases, its supply trucks and construction orders, the
+// side's knowledge of enemies near its bases, and the armour units. Server side; logging only.
+class ZCR_Efforts
+{
+	protected static int s_iNext;
+
+	static void Tick()
+	{
+		int now = ZCR_LossLog.Seconds();
+		if (now < s_iNext)
+			return;
+		s_iNext = now + 30;
+		Log("US", now);
+		Log("USSR", now);
+	}
+
+	protected static string J(string s)
+	{
+		s.Replace("\\", "\\\\");
+		s.Replace("\"", "'");
+		return "\"" + s + "\"";
+	}
+
+	protected static void Log(string side, int now)
+	{
+		// Teams by role and target base.
+		map<string, int> attackTeams = new map<string, int>();
+		map<string, int> attackMen = new map<string, int>();
+		map<string, int> attackRiding = new map<string, int>();
+		map<string, int> defendTeams = new map<string, int>();
+		map<string, int> defendMen = new map<string, int>();
+		AICF_FactionState state = ZCR_Strategist.s_mStates.Get(side);
+		if (state)
+		{
+			for (int s; s < state.GetSlotCount(); s++)
+			{
+				AICF_GroupSlot slot = state.GetSlot(s);
+				if (!slot || !slot.GetGroup() || !slot.GetTargetBase())
+					continue;
+				int men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
+				if (men <= 0)
+					continue;
+				string base = ZCR_Strategist.BaseName(slot.GetTargetBase());
+				if (slot.GetRole() == AICF_EGroupRole.ATTACK)
+				{
+					attackTeams.Set(base, attackTeams.Get(base) + 1);
+					attackMen.Set(base, attackMen.Get(base) + men);
+					attackRiding.Set(base, attackRiding.Get(base) + AICF_GroupRuntime.CountAliveAgentsInAnyVehicle(slot.GetGroup()));
+				}
+				else
+				{
+					defendTeams.Set(base, defendTeams.Get(base) + 1);
+					defendMen.Set(base, defendMen.Get(base) + men);
+				}
+			}
+		}
+		string attack;
+		string defend;
+		foreach (string base, int teams : attackTeams)
+			attack += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3,\"riding\":%4}", J(base), teams, attackMen.Get(base), attackRiding.Get(base));
+		foreach (string base, int teams : defendTeams)
+			defend += string.Format(",{\"base\":%1,\"teams\":%2,\"men\":%3}", J(base), teams, defendMen.Get(base));
+		// The side's bases: enemies known near (hold), short of supplies (resupply).
+		string hold;
+		string low;
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		array<SCR_MilitaryBaseComponent> bases = {};
+		if (system)
+			system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent cb = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!cb || !cb.GetOwner() || !cb.GetFaction() || cb.GetFaction().GetFactionKey() != side)
+				continue;
+			int near = ZCR_Sampler.KnownEnemiesNear(side, cb.GetOwner().GetOrigin(), 400);
+			if (near > 0)
+				hold += string.Format(",{\"base\":%1,\"enemies\":%2}", J(ZCR_Strategist.BaseName(cb)), near);
+			float max = cb.GetSuppliesMax();
+			if (max > 0 && cb.GetSupplies() < 0.4 * max)
+				low += string.Format(",{\"base\":%1,\"have\":%2,\"max\":%3}", J(ZCR_Strategist.BaseName(cb)), Math.Round(cb.GetSupplies()), Math.Round(max));
+		}
+		// Supply trucks on a job.
+		string trucks;
+		array<ref AICF_TruckView> views = {};
+		AICF_LogisticsDepotRegistry.AICF_Trucks(views);
+		foreach (AICF_TruckView t : views)
+		{
+			if (t.m_sSide != side)
+				continue;
+			string doing = ZCR_Director.TruckDoing(t);
+			if (doing.IsEmpty() || t.m_sPhase == "IDLE_AT_DEPOT")
+				continue;
+			string from = "";
+			string to = "";
+			if (t.m_From)
+				from = ZCR_Strategist.BaseName(t.m_From);
+			if (t.m_To)
+				to = ZCR_Strategist.BaseName(t.m_To);
+			trucks += string.Format(",{\"doing\":%1,\"phase\":%2,\"from\":%3,\"to\":%4,\"cargo\":%5}", J(doing), J(t.m_sPhase), J(from), J(to), Math.Round(t.m_fCargo));
+		}
+		// Engineers: AI Conflict's construction orders (choosing a site / building).
+		string build;
+		array<SCR_CampaignMilitaryBaseComponent> obases = {};
+		array<string> what = {};
+		array<bool> building = {};
+		AICF_ConstructionPlanner.AICF_Orders(side, obases, what, building);
+		for (int i; i < obases.Count(); i++)
+		{
+			string stage = "choosing a site";
+			if (building[i])
+				stage = "building";
+			build += string.Format(",{\"what\":%1,\"base\":%2,\"stage\":%3}", J(what[i]), J(ZCR_Strategist.BaseName(obases[i])), J(stage));
+		}
+		// Building sites going up near the side's bases, with their progress.
+		string sites;
+		map<SCR_CampaignMilitaryBaseComponent, string> runs = new map<SCR_CampaignMilitaryBaseComponent, string>();
+		map<SCR_CampaignMilitaryBaseComponent, string> builds = new map<SCR_CampaignMilitaryBaseComponent, string>();
+		ZCR_Director.BaseTasks(runs, builds);
+		foreach (SCR_CampaignMilitaryBaseComponent base, string text : builds)
+		{
+			if (base && base.GetFaction() && base.GetFaction().GetFactionKey() == side)
+				sites += string.Format(",{\"base\":%1,\"what\":%2}", J(ZCR_Strategist.BaseName(base)), J(text));
+		}
+		// Armour units.
+		string armour;
+		array<vector> at = {};
+		array<string> sides = {};
+		array<string> labels = {};
+		ZCR_Armour.List(at, sides, labels);
+		for (int k; k < labels.Count(); k++)
+		{
+			if (sides[k] != side)
+				continue;
+			array<string> parts = {};
+			labels[k].Split("|", parts, false);
+			armour += "," + J(parts[parts.Count() - 1]);
+		}
+		string main = "";
+		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
+		if (plan && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodeName.Contains(plan.GetMainEffort()))
+			main = ZCR_Strategist.s_mNodeName.Get(plan.GetMainEffort());
+		string json = string.Format("{\"main\":%1,\"attack\":[%2],\"defend\":[%3],\"hold\":[%4],\"short\":[%5],", J(main), Strip(attack), Strip(defend), Strip(hold), Strip(low));
+		json += string.Format("\"trucks\":[%1],\"build\":[%2],\"sites\":[%3],\"armour\":[%4]}", Strip(trucks), Strip(build), Strip(sites), Strip(armour));
+		Print(string.Format("[ZCR][EFFORTS] t=%1 side=%2 json=%3", now, side, json), LogLevel.NORMAL);
+	}
+
+	// A list built as ",a,b" without its first comma.
+	protected static string Strip(string list)
+	{
+		if (list.IsEmpty())
+			return "";
+		return list.Substring(1, list.Length() - 1);
+	}
+}
