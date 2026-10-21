@@ -71,6 +71,7 @@ BUILDS = [
     (24, "supplies, trucks and building on screen; gates off the roads; Yunakivka", "2026-10-21 02:00", "base labels with stock and need, supply truck tags, fortification and building-site markers, truck and building shots; 27 road gates removed, a side's first depot forced; AI Conflict runs on Yunakivka"),
     (25, "APC rides; truck drivers left alone; road blocks stay", "2026-10-21 03:56", "every 2nd armed ride an APC (LAV-25 / BTR-70); soldier layers leave truck drivers and builders alone; road blocks kept, minefields removed; Yunakivka storage caches"),
     (26, "armour units (game APCs)", "2026-10-21 04:28", "each side buys a crewed tank/IFV pair at its HQ and sends it to the front; without the armour mods the LAV-25 / BTR-70"),
+    (27, "armour mods watched; crews stay aboard; more building", "2026-10-21 05:17", "watched matches load the armour mods (Abrams, Bradley, T-72, BMP-1); crews stay in intact vehicles, slow for friendly soldiers ahead; one base a side searches for the first depot, the others build"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

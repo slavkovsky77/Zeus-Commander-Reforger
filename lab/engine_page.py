@@ -24,7 +24,7 @@ ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
     "Running now": "Night of 21 Oct (Martin asleep): watched Arland loop recording; headless armour tests (tanks and IFVs from the armour mods); the pages updated each build.",
-    "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 with the armour mods, else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless: bought and crewed at 2 min every test, the Abrams and Bradley drove to Farm and Moss Hill and killed with their guns, an FIA anti-tank soldier hit the Bradley. Open: crews getting out after a failed move, stuck spots on the HQs' exit roads, two watched-match crashes since armour went live (cause not proven).",
+    "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
     "Being built next": "Armour: fewer stuck runs out of the HQs; the watched loop with the armour mods; then trucks and building in watched matches, Yunakivka's navmesh.",
 }
 
@@ -201,6 +201,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (27, "armour mods in watched matches; crews stay aboard; more building", "21 Oct, from 05:17 (Martin asleep)",
+     ["Watched matches load the armour mods: the M1A1 Abrams, M2A2 Bradley, T-72 and BMP-1 fight in the recordings (until 05:17 the game's LAV-25 / BTR-70).",
+      "Crews stay aboard: the game takes a crew out of its vehicle through one behaviour for every reason (a failed move releases the vehicle, gunners leave the turret to look round, danger reactions); for our armour's crews it now waits while the vehicle has 35% health or more. In the first watched match with the mods the BMP-1's crew got out three times and the Bradley's and T-72's were lost out of intact vehicles - no armour kill.",
+      "Friendly soldiers in the way: every second, a soldier of the side on foot within 30 m ahead of a hull slows it to 5 km/h (35 km/h otherwise) - tanks and IFVs ran over their own MG gunners and medics; the game's AI driver doesn't steer round them.",
+      "In the assault a unit holding a firing spot within 200 m of its goal is not 'stuck' any more (it was re-ordered off it).",
+      "Building (AI Conflict fork): one base of a side searches for the side's first vehicle depot at a time, the others build - every base searched 7-11 minutes for a depot site first and fortifications came at minute 21-24 of 30 (1 a side a match); the first match after it: 8 bunkers for the US."],
+     "Martin: armour should fight; free soldiers should build much more. The first watched matches with armour: crews getting out, own soldiers run over, few fortifications.",
+     "Headless armour-5 and -6 (before the stay-aboard change): all four units into the assault, 14 and 10 enemy killed, none lost; 1 and 4 friendly kills. Watched 05:17 (mods, before the crew fixes): armour bought and crewed, no armour kill, crews lost out of intact vehicles; 8 US bunkers. The stay-aboard change is in the watched matches from 05:39."),
     (26, "armour units: tanks and IFVs that fight", "21 Oct, from 04:28 (Martin asleep)",
      ["Armour (Martin: 'usage of more types of vehicles - APC, tanks... maybe use some mods... make AI use them also for combat'): each side keeps a tank and an IFV, bought at its HQ for supplies (800 / 500 / 300 - the HQs sit full at 4000-4200 all match), crewed by the faction's crewmen in the driver and turret seats as a group of their own, and sent to its front: a support point 350 m short, then into the base. AI Conflict's rides drop their team and leave the vehicle empty; these fight.",
       "The armour mods (one Workshop family on SpaceCore and WCS_Armaments): M1A1 Abrams and M2A2 Bradley for the US, T-72 and BMP-1 for the USSR; without them the game's LAV-25 / BTR-70 (what watched matches have had since 04:28). The lab loads them with --armour (lab/pakread.py and the mods' resource databases gave the prefab GUIDs). APC rides take the Bradley / BMP-1 first too.",
