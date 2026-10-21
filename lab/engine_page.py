@@ -23,9 +23,9 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - paused while Martin uses the PC (21 Oct 00:20); continues tonight when he says.",
+    "Running now": "Night of 21 Oct (Martin asleep): recorded watched loop on Arland with the new watch view; headless tests; Yunakivka integration.",
     "Night of 20 Oct": "42 matches on r20: screen checks 91% (81% before); drone victims standing 40% (91%), prone 26% (0.5%); soldiers in high danger standing 10% (72%); 21 drones shot down by small arms per side per match; riding 69% (45%); losses 46 a side (56). The graphs are just below and on the night report.",
-    "Being built next": "Supplies, trucks and building visible in the watch view (supply state on the map, truck cargo tags, fortification and building-site markers); shorter supply runs; more building in watched matches; then Yunakivka.",
+    "Being built next": "Yunakivka: supply storage at bases (they hold no supplies without one), then a recorded match there; trucks and building in watched matches.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -198,6 +198,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (24, "supplies, trucks and building on screen; gates off the roads; Yunakivka", "21 Oct, from 02:00 (Martin asleep)",
+     ["Watch view (Martin: 'I should see the state of the supplies; whether trucks carry supplies and how much; I don't see defences being built'): base labels with stock/storage, 'asks for supplies' and SUPPLY DEPOT +150/min; a tag over every supply truck ('US SUPPLY TRUCK 0/315 - to load at Military Training Area'); markers on finished fortifications (BUNKER, MG NEST, SANDBAGS, TOWER) and on buildings going up with progress and crew; the camera cuts to supply trucks and building sites.",
+      "AI Conflict fork: closed gates and road blocks on roads off the map at the start - 27 on Arland; trucks stood minutes at a walled checkpoint gate east of the Airport that AI drivers can't open.",
+      "AI Conflict fork: a side's first vehicle depot gets the relaxed search of the mandatory barracks after 2 minutes and is completed when placed - one side had no depot (no trucks) in the first watched match.",
+      "Yunakivka (Martin: 'test it on Yunakivka, a lot of trenches'): SpearHead's 'SH UHC Yunakivka' is stock Conflict - AI Conflict now starts on it (lab: --map yunakivka with the map mod and its 6 dependencies; lab/pakread.py reads .pak files); bases' radio range 3 km (they were out of reach, nobody attacked); base names from the map labels.",
+      "Fixed on the way: a work-crew NULL error; building progress shows its % sign."],
+     "Martin's evening remarks (visibility of supplies, trucks, building) and the night's plan (Yunakivka).",
+     "Headless Arland, 20 min: both sides with a vehicle depot by 6 min, 21 truck jobs, 4 loads, 4 deliveries (both sides) - best so far. Watched: building and truck shots with tags confirmed on frames. Yunakivka: runs, plans attacks; its bases can't hold supplies without a storage building (next)."),
     (23, "supply depots, trucks every match, drones off the sea", "20 Oct, 16:30-21:18",
      ["Supply depots (Martin: 'if supply points are missing on the map, add them'): Arland's AI Conflict had none (0 of 8 bases a supply source) - the two bases nearest the middle (Beauregard, Military Training Area) gain 150 supplies a minute, any side's trucks load there while neutral (they stay FIA in the two-army setup), the holder loads there like at its main base; tagged SUPPLY DEPOT (green) on the watch labels.",
       "AI Conflict fork: 3 supply trucks run per vehicle depot (was 1 - more only from players' orders); bases ask below 60% and are filled to 80% (at 35% they stayed full for 15 minutes).",
