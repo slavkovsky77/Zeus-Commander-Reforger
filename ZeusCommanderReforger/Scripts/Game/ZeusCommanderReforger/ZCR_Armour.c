@@ -629,6 +629,11 @@ class ZCR_Armour
 		}
 		unit.m_Group = SCR_AIGroup.Cast(group);
 		unit.m_iCrew = pilots + turrets;
+		// The vehicle registered as the group's own (the game does it when soldiers join from inside a vehicle;
+		// made sure here, as AI Conflict does for its crews).
+		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(unit.m_Vehicle.FindComponent(SCR_AIVehicleUsageComponent));
+		if (unit.m_Group && usage && unit.m_Group.GetGroupUtilityComponent() && !unit.m_Group.GetGroupUtilityComponent().IsUsableVehicle(usage))
+			unit.m_Group.GetGroupUtilityComponent().AddUsableVehicle(usage);
 		if (unit.m_Group && unit.m_Group.GetGroupUtilityComponent())
 		{
 			unit.m_Group.GetGroupUtilityComponent().SetCombatMode(EAIGroupCombatMode.FIRE_AT_WILL);
@@ -740,7 +745,7 @@ class ZCR_Armour
 	}
 
 	// Crew out of an intact vehicle (a gunner gone to look, a failed move): the group is ordered back in
-	// (the game's Get In Nearest waypoint) - up to 3 times, 90 s each; then the orders go on.
+	// (the game's Get In waypoint on this vehicle) - up to 3 times, 90 s each; then the orders go on.
 	protected static bool Remounting(ZCR_ArmourUnit unit, int now)
 	{
 		if (!unit.m_Group)
@@ -768,9 +773,16 @@ class ZCR_Armour
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = unit.m_Vehicle.GetOrigin();
-		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{B049D4C74FBC0C4D}Prefabs/AI/Waypoints/AIWaypoint_GetInNearest.et", false, params: params));
+		// Get In on this very vehicle, registered with the group first (the game's own get-in command does it so):
+		// "Get In Nearest" could pick another vehicle the group doesn't use - the 07:35 watched crash's assert
+		// was "vehicle provided is not registered as used inside group".
+		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(unit.m_Vehicle.FindComponent(SCR_AIVehicleUsageComponent));
+		if (usage && unit.m_Group.GetGroupUtilityComponent())
+			unit.m_Group.GetGroupUtilityComponent().AddUsableVehicle(usage);
+		SCR_BoardingEntityWaypoint waypoint = SCR_BoardingEntityWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{8AD8C82346156494}Prefabs/AI/Waypoints/AIWaypoint_GetInSelected.et", false, params: params));
 		if (!waypoint)
 			return false;
+		waypoint.SetEntity(unit.m_Vehicle);
 		waypoint.SetCompletionRadius(25);
 		ReplaceWaypoint(unit, waypoint);
 		unit.m_Waypoint = waypoint;
