@@ -203,6 +203,12 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (33, "building timers at game speed; squads don't wait for vehicle pads", "21 Oct, from 16:45",
+     ["The building planner's search windows (2 min), decisions and cooldowns (60 s) ran on real time: at 3x a small barracks searched 6 game minutes, found no site, then the forced fallback found one in 13 s (w17) - and every depot waited for the barracks. They now scale with the speed-up: 40 s and 20 s at 3x (from 16:45).",
+      "A squad waiting for a free vehicle pad waited until its whole trip's deadline (10-30 minutes): 8-15 squads a side a match waited over a real minute, up to 594 s, and the side at Arland's cramped south harbour base kept ~40% of its soldiers there at minute 10 (north ~26%, headless the same). Now at most 45 game seconds, then on foot (from 17:07).",
+      "The live lab monitor (Martin: 'a monitoring GUI that's part of the process'): the loop's current step, goals, iterations, matches and a box to send it remarks - lab/monitor_page.html, lab/monitor.py."],
+     "Goals trucks and on-screen: the first truck at game minute 14-16; one side 40-68% at its main base at minute 10 in 8 of 19 matches.",
+     "w25 (timers): first truck at game minute 8.9 (US) and 10.7 (USSR), 8 loads, 5 delivered (w17: 13.8-16.4, 2 delivered). w26: 3 delivered by the US. w27 (pad limit): 15 real seconds a wait then on foot, about 20 times a squad; the USSR still 44% at its base - four attack squads were ordered to secure the main base area that minute (a defence decision, a separate cause). To judge over more matches."),
     (32, "building planner 4-10x faster; building keeps its orders", "21 Oct, from 15:16",
      ["AI Conflict's construction planner ran once a second with 4 candidate sites a tick, shared by every base's order - a depot site search checked about one candidate a second (the harbour main base: 117 in a 2-minute window), and on the watched matches' 3x it ran on real time, a third of that in game time. It now has its own tick: 250 ms, divided by the lab's speed-up (100 ms at 3x).",
       "Building's navmesh queries went through the side's first living squad; when that squad was wiped out every building order in progress was cancelled and searched again (NAVMESH_CONTEXT_CHANGED). An empty group of its own at the main base serves them now.",
