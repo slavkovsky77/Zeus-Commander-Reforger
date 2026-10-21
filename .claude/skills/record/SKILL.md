@@ -33,7 +33,9 @@ After every change or finding, all of these - in the same session:
 
 7. **Commit** the notes and pages' sources with the code they describe.
 
-8. **The live monitor** (`[pages] monitor`): after each finished iteration, log it -
+8. **The lab app and the live monitor**: after each finished iteration, log it - the lab app
+   (lab/app/server.py) reads the log and the current step directly; the artifact monitor
+   (`[pages] monitor`, optional) needs the push below -
    ```
    python lab/monitor.py log --goal trucks --title "Building planner checked ~1 site a second"        --finding "..." --change "..." --commit e639778 --before "..." --after "..." --verdict better
    ```

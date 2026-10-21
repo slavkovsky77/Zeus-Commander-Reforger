@@ -23,6 +23,12 @@ Server output goes to `.runtime/runs/<label>-<stamp>/`; the match log is `logs/*
   It imports `lab/reforger.py` at start - restart it (`python lab/switch_loops.py watch`) when the
   runner's own options change; script changes are picked up from the next match.
 
+**The lab app** - the owner's live view of all this (the watched match with a frame from its
+recording, graphs, goals, the loop's iterations, recordings, the engine/changelog/plan pages, and a
+box for remarks): start it once, detached, and publish it to the owner's tailnet only -
+`pythonw lab/app/server.py` (port 8790, 127.0.0.1) and `tailscale serve --bg --http 8790
+http://127.0.0.1:8790`; it is then at `http://<this PC>.<tailnet>.ts.net:8790/`.
+
 **Which matches judge a goal:** what the owner watches (`matches = "watched"` in goals.toml). Headless
 servers never crash the way a game client does and see no drones the way the screen does - use them
 to iterate, then confirm on watched matches.

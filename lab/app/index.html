@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121816">
+<title>Commander Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* An ops board for the improvement loop: tabs on top, the live match first. US blue, USSR red (BLUFOR/OPFOR). */
+:root {
+  --bg: #f2f4f1; --panel: #ffffff; --ink: #18211e; --muted: #56625d; --line: #d5dbd6; --field: #f7f9f7;
+  --accent: #2c5a86; --accent-soft: #e2ebf3;
+  --us: #2f6db5; --ussr: #c23b2e; --fia: #6f7d3c;
+  --good: #23743f; --good-soft: #e1f1e6; --bad: #a3322a; --bad-soft: #f7e3e1; --warn: #8a5a00; --warn-soft: #f6ecd6; --na: #b9c2bd;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121816; --panel: #1a2220; --ink: #e3e9e5; --muted: #9aa7a1; --line: #2c3833; --field: #151c1a;
+    --accent: #7fb0de; --accent-soft: #1d2d3b; --us: #6ea3e6; --ussr: #ef7b6e; --fia: #b3c071;
+    --good: #6fcf8f; --good-soft: #17301f; --bad: #f08a80; --bad-soft: #3a1d1a; --warn: #e7b85a; --warn-soft: #33290f; --na: #4a5651;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.brand { display: flex; align-items: baseline; gap: 10px; padding-top: 10px; }
+h1, h2 { font-family: var(--f-display); font-weight: 700; margin: 0; letter-spacing: .01em; }
+h1 { font-size: 26px; line-height: 1; }
+h2 { font-size: 21px; line-height: 1.1; }
+h3 { margin: 0; font-size: 15px; }
+p { margin: 0; }
+nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin-top: 6px; }
+nav button { font: 600 14px var(--f-body); color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 10px; cursor: pointer; white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 60px max(16px, env(safe-area-inset-left, 0px)); }
+.tab { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.tab > *, .match > *, .grid2 > *, .charts > * { min-width: 0; }
+.tab[hidden] { display: none; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; min-width: 0; align-content: start; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: 600 12px/1 var(--f-mono); padding: 6px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+.chip.ok { color: var(--good); background: var(--good-soft); border-color: transparent; }
+.chip.no { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.chip.wait { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.chip.step { color: var(--accent); background: var(--accent-soft); border-color: transparent; text-transform: uppercase; letter-spacing: .05em; }
+.live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--good); margin-right: 6px; }
+@media (prefers-reduced-motion: no-preference) { .live-dot { animation: pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { opacity: .3; } } }
+.now { border-left: 4px solid var(--accent); }
+.now .doing { font-size: 17px; }
+.match { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 760px) { .match { grid-template-columns: minmax(0, 1fr); } }
+.frame { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; background: #000; display: block; cursor: zoom-in; }
+.frame.big { position: fixed; inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; object-fit: contain; z-index: 20; border-radius: 0; cursor: zoom-out; }
+.score { display: flex; gap: 14px; align-items: baseline; font-family: var(--f-display); font-weight: 700; font-size: 34px; line-height: 1; }
+.score .us { color: var(--us); } .score .ussr { color: var(--ussr); } .score .fia { color: var(--fia); font-size: 22px; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.kv span { min-width: 0; overflow-wrap: anywhere; }
+.side { border-top: 3px solid var(--us); padding-top: 6px; display: grid; gap: 2px; }
+.side.ussr { border-top-color: var(--ussr); }
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.kv b { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+#matchline { overflow-wrap: anywhere; }
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 12px; font-size: 12.5px; }
+.legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+.events { display: grid; gap: 0; }
+.ev { display: grid; grid-template-columns: 44px 8px 1fr; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ev:last-child { border-bottom: 0; }
+.ev .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--na); align-self: center; }
+.ev .dot.US { background: var(--us); } .ev .dot.USSR { background: var(--ussr); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+th { font: 600 11px var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+tr:last-child td { border-bottom: 0; }
+.pct { display: inline-block; width: 70px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 6px; }
+.pct > i { display: block; height: 100%; }
+.d { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--na); }
+.d.ok { background: var(--good); } .d.no { background: var(--bad); }
+.strip { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.s { width: 13px; height: 13px; border-radius: 3px; background: var(--na); } .s.ok { background: var(--good); } .s.no { background: var(--bad); }
+form { display: grid; gap: 8px; }
+.kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.kinds label { font: 600 13px var(--f-body); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; background: var(--field); position: relative; }
+.kinds input { position: absolute; opacity: 0; pointer-events: none; }
+.kinds label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.kinds label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea { font: 15px/1.4 var(--f-body); color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 70px; resize: vertical; width: 100%; }
+button.go { font: 700 14px var(--f-body); color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.msg { display: grid; gap: 4px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+.text { overflow-wrap: anywhere; }
+.it .ba { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 14px; }
+.it .ba b { font: 600 11px var(--f-mono); color: var(--muted); text-transform: uppercase; padding-top: 3px; }
+iframe { width: 100%; height: calc(100vh - 150px); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+video { width: 100%; border-radius: 8px; background: #000; }
+.empty { padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>Commander Lab</h1><span class="mono muted" id="clock"></span></div>
+  <nav role="tablist" id="tabs">
+    <button role="tab" data-tab="live" aria-selected="true">Live</button>
+    <button role="tab" data-tab="goals">Goals</button>
+    <button role="tab" data-tab="loop">Loop</button>
+    <button role="tab" data-tab="matches">Matches</button>
+    <button role="tab" data-tab="progress">Progress</button>
+    <button role="tab" data-tab="changelog">Changelog</button>
+    <button role="tab" data-tab="plan">Plan</button>
+  </nav>
+</header>
+<main>
+  <section class="tab" id="tab-live">
+    <div id="broke"></div>
+    <div class="card now" id="now"><p class="muted">Loading…</p></div>
+    <div class="match">
+      <div class="card">
+        <img class="frame" id="frame" alt="The game window now (from the recording)">
+        <div id="matchline" class="mono muted"></div>
+        <div class="bar"><i id="progressbar" style="width:0%"></i></div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h2>Bases held</h2><span class="mono muted" id="gametime"></span></div>
+        <div class="score" id="score"></div>
+        <div class="sides" id="sides"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>This match</h2>
+        <div class="legend"><span><i style="background:var(--us)"></i>US</span><span><i style="background:var(--ussr)"></i>USSR</span></div></div>
+      <div class="charts" id="charts"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>What happened</h2><div class="events" id="events"></div></div>
+      <div class="card"><h2>Supplies at the bases</h2><div class="tbl" id="supply"></div></div>
+    </div>
+    <div class="card" id="tell">
+      <h2>Tell the loop</h2>
+      <form id="form">
+        <div class="kinds" role="radiogroup" aria-label="Kind">
+          <label><input type="radio" name="kind" value="wish" checked>Wish</label>
+          <label><input type="radio" name="kind" value="bad">Bad</label>
+          <label><input type="radio" name="kind" value="good">Good</label>
+          <label><input type="radio" name="kind" value="question">Question</label>
+        </div>
+        <textarea id="text" placeholder="What you want, or what you see in the match (team, place)" aria-label="Your remark"></textarea>
+        <div class="row"><button class="go" type="submit">Send to the loop</button><span class="muted" id="sendnote"></span></div>
+      </form>
+      <div id="inbox" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="mono muted" id="servers"></div>
+  </section>
+
+  <section class="tab" id="tab-goals" hidden><div id="goals" style="display:grid;gap:12px"></div></section>
+  <section class="tab" id="tab-loop" hidden>
+    <div class="grid2">
+      <div class="card"><h2>Changes</h2><div id="commits" style="display:grid;gap:6px"></div></div>
+      <div class="card"><h2>Review notes</h2><div id="notes" style="display:grid;gap:8px"></div></div>
+    </div>
+    <h2>What the loop did</h2><div id="log" style="display:grid;gap:12px"></div>
+  </section>
+  <section class="tab" id="tab-matches" hidden>
+    <div class="card tbl" id="matchtable"></div>
+    <h2>Recordings</h2>
+    <div id="player"></div>
+    <div class="card tbl" id="videos"></div>
+  </section>
+  <section class="tab" id="tab-progress" hidden><iframe title="Engine page with the progress graphs" data-src="/pages/engine"></iframe></section>
+  <section class="tab" id="tab-changelog" hidden><iframe title="Changelog" data-src="/pages/changelog"></iframe></section>
+  <section class="tab" id="tab-plan" hidden><iframe title="Plan by theme" data-src="/pages/plan"></iframe></section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const mmss = (t) => `${Math.floor((t || 0) / 60)}:${String((t || 0) % 60).padStart(2, "0")}`;
+  const ago = (iso) => { const t = Date.parse(iso); if (isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.floor(m / 60) + " h ago"; };
+  let tab = "live", slow = null;
+
+  // ------------------------------------------------------------ tabs
+  for (const b of document.querySelectorAll("nav button")) {
+    b.addEventListener("click", () => show(b.dataset.tab));
+  }
+  function show(name) {
+    tab = name;
+    for (const b of document.querySelectorAll("nav button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+    for (const s of document.querySelectorAll(".tab")) s.hidden = s.id !== "tab-" + name;
+    const frame = document.querySelector(`#tab-${name} iframe`);
+    if (frame && !frame.src) frame.src = frame.dataset.src;
+    try { localStorage.setItem("lab-tab", name); } catch (_) {}
+    if (name === "live") pollLive();
+  }
+  try { const t = localStorage.getItem("lab-tab"); if (t && $("tab-" + t)) show(t); } catch (_) {}
+
+  // ------------------------------------------------------------ charts (inline SVG, one scale per chart)
+  function chart(title, series, opts = {}) {
+    const W = 320, H = 150, L = 32, R = 10, T = 10, B = 24;
+    const pts = [].concat(...Object.values(series || {}));
+    if (!pts.length) return `<div class="chart"><h3>${esc(title)}</h3><p class="muted">No data yet.</p></div>`;
+    const xmax = Math.max(opts.xmax || 0, ...pts.map((p) => p[0]), 1);
+    const ymax = opts.ymax || Math.max(...pts.map((p) => p[1]), 1);
+    const x = (v) => L + (W - L - R) * v / xmax, y = (v) => T + (H - T - B) * (1 - v / ymax);
+    const ticksY = [0, ymax / 2, ymax].map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--f-mono)">${Math.round(v)}</text>`).join("");
+    const stepX = xmax > 20 ? 10 : 5;
+    let ticksX = "";
+    for (let v = 0; v <= xmax; v += stepX) ticksX += `<text x="${x(v)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="var(--f-mono)">${v}</text>`;
+    const lines = ["US", "USSR"].map((s) => {
+      const p = (series[s] || []).slice().sort((a, b) => a[0] - b[0]);
+      if (!p.length) return "";
+      const d = p.map((q, i) => `${i ? "L" : "M"}${x(q[0]).toFixed(1)},${y(q[1]).toFixed(1)}`).join("");
+      const last = p[p.length - 1];
+      return `<path d="${d}" fill="none" stroke="var(--${s.toLowerCase()})" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="${x(last[0])}" cy="${y(last[1])}" r="3.5" fill="var(--${s.toLowerCase()})" stroke="var(--panel)" stroke-width="2"/>`;
+    }).join("");
+    return `<div class="chart"><h3>${esc(title)}</h3><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${ticksY}${ticksX}${lines}</svg><span class="mono muted">game minutes</span></div>`;
+  }
+
+  // ------------------------------------------------------------ live
+  let frameTimer = 0;
+  function renderLive(d) {
+    const now = d.now || {}, w = d.watched || {};
+    $("clock").textContent = "updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    $("now").innerHTML = `<div class="row">${now.step ? `<span class="chip step">${esc(now.step)}</span>` : ""}${now.goal ? `<span class="chip">goal: ${esc(now.goal)}</span>` : ""}<span class="mono muted">${esc(ago(now.at))}</span></div>
+      <p class="doing">${esc(now.doing || "Idle.")}</p>${now.next ? `<p class="muted">Then: ${esc(now.next)}</p>` : ""}`;
+    if (w.match) {
+      const pct = w.running && w.length_min ? Math.min(100, Math.round(100 * (d.t || 0) / 60 / w.length_min)) : 100;
+      $("matchline").innerHTML = `${w.running ? '<span class="live-dot"></span>' : ""}Match ${esc(w.match)} · ${esc(w.sides)} · ${esc(w.map)} · ${w.running ? esc(w.speed) + "x" : (w.ended_early ? "ended early: " + esc(w.ended_early) : "finished")} · build ${esc(w.build)}`;
+      $("progressbar").style.width = pct + "%";
+    }
+    $("gametime").textContent = d.t ? `game ${mmss(d.t)} of ${w.length_min || 30}:00` : "";
+    const sc = d.score || {};
+    $("score").innerHTML = d.score ? `<span class="us">US ${esc(sc.US)}</span><span class="ussr">USSR ${esc(sc.USSR)}</span>${sc.FIA && sc.FIA !== "0" ? `<span class="fia">FIA ${esc(sc.FIA)}</span>` : ""}` : '<span class="muted" style="font-size:16px">No match running.</span>';
+    $("sides").innerHTML = ["US", "USSR"].map((s) => {
+      const c = (d.crowd || {})[s] || {}, a = (d.air || {})[s] || {};
+      return `<div class="side ${s.toLowerCase()}"><h3>${s}</h3>
+        <div class="kv"><span>soldiers</span><b>${esc(c.men ?? "–")}</b></div>
+        <div class="kv"><span>in the field</span><b>${esc(c.field ?? "–")}</b></div>
+        <div class="kv"><span>at the main base</span><b>${c.at_main != null ? esc(c.at_main) + "%" : "–"}</b></div>
+        <div class="kv"><span>drones up</span><b>${esc(a.air ?? "–")}</b></div>
+        <div class="kv"><span>riding</span><b>${esc((d.riding || {})[s] ?? "–")}</b></div>
+        <div class="kv"><span>lost</span><b>${esc((d.lost || {})[s] ?? "–")}</b></div>
+        <div class="kv"><span>front bases' supplies</span><b>${(d.front_pct || {})[s] != null ? esc(d.front_pct[s]) + "%" : "–"}</b></div></div>`;
+    }).join("");
+    const ser = d.series || {};
+    const xmax = (w.length_min || 30);
+    $("charts").innerHTML = chart("Front bases' supplies, %", ser.front_supply, { ymax: 100, xmax }) +
+      chart("Soldiers in the field", ser.in_field, { xmax }) + chart("Drones in the air", ser.drones_up, { xmax }) + chart("Soldiers lost", ser.lost, { xmax });
+    $("events").innerHTML = (d.events || []).map((e) => `<div class="ev"><span class="mono muted">${mmss(e.t)}</span><span class="dot ${esc(e.side)}"></span><span>${esc(e.text)}</span></div>`).join("") || '<p class="muted">Nothing yet.</p>';
+    const sup = (d.supply || []).slice().sort((a, b) => (a.side + a.base).localeCompare(b.side + b.base));
+    $("supply").innerHTML = sup.length ? `<table><thead><tr><th>Base</th><th>Side</th><th>Supplies</th></tr></thead><tbody>${sup.map((b) => {
+      const p = +b.pct || 0, col = p >= 60 ? "var(--good)" : p >= 30 ? "var(--warn)" : "var(--bad)";
+      return `<tr><td>${esc(b.base)}${b.main === "1" ? ' <span class="mono muted">HQ</span>' : ""}</td><td style="color:var(--${String(b.side).toLowerCase()})">${esc(b.side)}</td><td class="mono"><span class="pct"><i style="width:${p}%;background:${col}"></i></span>${esc(b.value)}/${esc(b.max)}</td></tr>`;
+    }).join("")}</tbody></table>` : '<p class="muted">No data yet.</p>';
+    $("inbox").innerHTML = (d.inbox || []).slice(0, 6).map((m) => {
+      const st = m.status === "filed" ? ["ok", m.note ? "filed as note " + m.note : "filed"] : m.status === "answered" ? ["ok", "answered"] : ["wait", "waiting for the loop"];
+      return `<div class="msg"><div class="row"><span class="chip">${esc(m.kind)}</span><span class="chip ${st[0]}">${esc(st[1])}</span><span class="mono muted">${esc(ago(m.at))}</span></div><span class="text">${esc(m.text)}</span>${m.reply ? `<span class="muted text">Loop: ${esc(m.reply)}</span>` : ""}</div>`;
+    }).join("");
+    const others = (d.servers || []).filter((s) => !/^w\d+-/.test(s));
+    $("servers").textContent = others.length ? "Also running: " + others.join(", ") : "";
+    if (Date.now() - frameTimer > 10000 && w.running) { frameTimer = Date.now(); $("frame").src = "/api/frame.jpg?" + Date.now(); }
+  }
+  $("frame").addEventListener("click", () => $("frame").classList.toggle("big"));
+  $("frame").addEventListener("error", () => { $("frame").removeAttribute("src"); });
+
+  let liveBusy = false;
+  async function pollLive() {
+    if (liveBusy) return;
+    liveBusy = true;
+    try { const r = await fetch("/api/live"); if (r.ok) renderLive(await r.json()); } catch (_) {}
+    liveBusy = false;
+  }
+  setInterval(() => { if (tab === "live" && !document.hidden) pollLive(); }, 5000);
+  pollLive();
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    if (!text) return;
+    const kind = (document.querySelector('input[name="kind"]:checked') || {}).value || "wish";
+    $("sendnote").textContent = "Sending…";
+    try {
+      const r = await fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text }) });
+      if (!r.ok) throw new Error();
+      $("text").value = "";
+      $("sendnote").textContent = "Sent - the loop picks it up now.";
+      pollLive();
+    } catch (_) { $("sendnote").textContent = "Not sent - is the PC on?"; }
+  });
+
+  // ------------------------------------------------------------ slow tabs
+  const LABELS = { truck_first_min: "1st truck (min)", truck_unloads: "loads delivered", front_supply_pct: "front bases %", depots: "depots", forts: "fortifications",
+    drones_lost_water: "drones in the sea", armour_assault: "armour in assault", armour_kills: "armour kills", scorecard_fails: "screen checks failed", lost: "soldiers lost", ended_early: "ended early", minutes: "minutes" };
+  const side = (v, never) => v === null || v === undefined ? (never ? "never" : "–") : typeof v === "object" ? side(v.US, never) + " / " + side(v.USSR, never) : String(v);
+  const verdict = (g) => g.status === "met" && g.met === false ? ["no", "broke (was met)"] : g.met === true ? ["ok", g.status === "met" ? "met - guarding" : "met"] : g.met === false ? ["no", "not met"] : ["wait", "too few matches"];
+
+  function renderSlow(s) {
+    const broke = (s.goals || []).filter((g) => g.status === "met" && g.met === false).map((g) => g.id);
+    $("broke").innerHTML = broke.length ? `<div class="banner">Broke: ${esc(broke.join(", "))} - a goal that was met fails again; the loop takes it first.</div>` : "";
+    $("goals").innerHTML = (s.goals || []).slice().sort((a, b) => a.order - b.order).map((g) => {
+      const [cls, text] = verdict(g), ms = g.matches || [];
+      const rows = (ms[0] ? ms[0].cells : []).map((c, i) => `<tr><td>${esc(LABELS[c.key] || c.key)} <span class="mono muted">${esc(c.target)}</span></td>` +
+        ms.map((m) => { const x = m.cells[i] || {}; return `<td class="mono"><span class="d ${x.ok === true ? "ok" : x.ok === false ? "no" : ""}"></span>${esc(x.shown)}</td>`; }).join("") + "</tr>").join("");
+      return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(g.title)}</h2><span class="chip ${cls}">${esc(text)} · ${esc(g.passed)} of ${esc(g.of)}</span></div>
+        <p class="muted">“${esc(g.wish)}” <span class="mono">· ${esc(g.id)} · notes ${esc((g.notes || []).join(", "))}</span></p>
+        ${rows ? `<div class="tbl"><table><thead><tr><th>Measure</th>${ms.map((m) => `<th>${esc(m.when)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+        <div class="strip">${(g.history || []).map((r) => `<span class="s ${r.ok ? "ok" : "no"}" title="${esc(r.when)}"></span>`).join("")}<span class="mono muted" style="margin-left:6px">last ${(g.history || []).length} matches</span></div></div>`;
+    }).join("") || '<div class="empty">No goals.</div>';
+    $("log").innerHTML = (s.log || []).map((it) => {
+      const v = (it.verdict || "").toLowerCase(), cls = v.startsWith("fixed") || v.startsWith("better") ? "ok" : v.startsWith("worse") || v.startsWith("no change") ? "no" : "wait";
+      return `<div class="card it"><div class="row"><span class="mono muted">${esc((it.at || "").slice(5, 16).replace("T", " "))}</span><span class="chip">${esc(it.goal)}</span>${it.verdict ? `<span class="chip ${cls}">${esc(it.verdict)}</span>` : ""}</div>
+        <h3>${esc(it.title)}</h3>${it.finding ? `<p>${esc(it.finding)}</p>` : ""}
+        <div class="ba">${it.change ? `<b>Change</b><span>${esc(it.change)} <span class="mono muted">${esc(it.commit)}</span></span>` : ""}${it.before ? `<b>Before</b><span>${esc(it.before)}</span>` : ""}${it.after ? `<b>After</b><span>${esc(it.after)}</span>` : ""}</div></div>`;
+    }).join("") || '<div class="empty">No iterations yet.</div>';
+    $("commits").innerHTML = (s.commits || []).map((c) => `<div><span class="mono muted">${esc(c.at)} · ${esc(c.repo)} · ${esc(c.hash)}</span><br><span class="text">${esc(c.text)}</span></div>`).join("");
+    $("notes").innerHTML = (s.notes || []).map((n) => `<div><span class="mono muted">note ${esc(n.no)}</span><br><span class="text">${esc(n.text)}</span><br><span class="muted text">${esc(n.status)}</span></div>`).join("");
+    const keys = ["truck_first_min", "truck_unloads", "front_supply_pct", "depots", "forts", "drones_lost_water", "armour_kills", "scorecard_fails"];
+    $("matchtable").innerHTML = (s.matches || []).length ? `<table><thead><tr><th>Match</th><th>ran</th>${keys.map((k) => `<th>${esc(LABELS[k])}</th>`).join("")}</tr></thead><tbody>` +
+      s.matches.map((m) => `<tr><td class="mono">${esc(m.when)}</td><td class="mono">${m.ended_early ? '<span class="d no"></span>crashed' : esc(m.minutes) + " min"}</td>${keys.map((k) => `<td class="mono">${esc(side(m[k], k === "truck_first_min"))}</td>`).join("")}</tr>`).join("") + "</tbody></table>" : '<div class="empty">No matches.</div>';
+    $("videos").innerHTML = (s.videos || []).length ? `<table><thead><tr><th>Recording</th><th></th><th>Size</th></tr></thead><tbody>` + s.videos.map((v) =>
+      `<tr><td><span class="mono">${esc(v.at)}</span> <span class="muted">${esc(v.title)}</span></td><td><button class="go" data-video="${esc(v.name)}" style="padding:4px 10px">Play</button></td><td class="mono">${esc(v.mb)} MB</td></tr>`).join("") + "</tbody></table>" : '<div class="empty">No recordings.</div>';
+  }
+  $("videos").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-video]");
+    if (!b) return;
+    $("player").innerHTML = `<video controls autoplay playsinline src="/video/${encodeURIComponent(b.dataset.video)}"></video>`;
+    $("player").scrollIntoView({ behavior: "smooth" });
+  });
+  async function pollSlow() {
+    try { const r = await fetch("/api/slow"); if (r.ok) { slow = await r.json(); renderSlow(slow); } } catch (_) {}
+  }
+  pollSlow();
+  setInterval(() => { if (!document.hidden) pollSlow(); }, 60000);
+})();
+</script>
+</body>
+</html>
