@@ -66,6 +66,10 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Todo] Test on Yunakivka - trenches (233) | Installed: SH-Yunakivka 8.2.4 (6A2C1C65791CE941) and all six dependencies (SH-Trenches, Ukraine Trenches, ...). It ships RAAS/AAS only; AI Conflict runs on Conflict worlds (CTI_Campaign_Arland/Eden). To do: an AIConflictYunakivka addon with a Conflict world on the Yunakivka terrain (game mode, two main bases, 6-8 bases with radio coverage, spawn points), AI Conflict's map key and content profile for it, then headless and watched tests.
 
 ## Vehicles
+- [Watching] Watched matches crash since armour went live (246) | The only 2 early ends in 73 watched matches came after 04:28 (access violation; 'bad matrix' assert); not proven to be armour. Armour now laid on the slope when bought, off spawn points and road blocks.
+- [Fixed, to verify] Armour runs over its own soldiers (247) | A friendly soldier on foot within 30 m ahead slows the tank to 5 km/h (35 km/h otherwise).
+- [Open] Armour's own fire kills friendly soldiers (250) | armour-6: the T-72 killed 3 of its own at once (8-42 m), the Abrams a dismounted crewman; the driving guard works (6-9 slowdowns a vehicle).
+- [Open] Recruits time out in headless tests with the armour mods (249) | 0-12 GROUP_SPAWN_TIMEOUT a run, none in watched matches so far; the mods or FIA suspected.
 - [Fixed] Vehicles stuck on an abandoned vehicle (237) | AI Conflict abandoned a stuck UAZ on a junction and kept it until its reuse pool was full; abandoned vehicles on a road are retired at once now.
 - [Fixed] They don't use vehicles at all (175) | Not one ride all day: AI Conflict refused every infantry team a vehicle. Infantry teams now ride light transport (M998, UAZ) on marches over 500 m: 20 teams rode in an 8-minute probe.
 - [In progress] Light vehicles, not only trucks and APCs (128) | AI Conflict's light transport (M998, UAZ-452); no motorcycles in the vanilla game.
@@ -73,6 +77,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Fixed] Vehicles have no tags - who is in them? (187) | A tag over each vehicle: side, vehicle, how many aboard; the camera cuts to vehicles on the move.
 - [Fixed] No supplies transported by trucks (203) | AI Conflict had made dispatch manual-only; the automatic scheduler is back for the AI sides.
 - [Done] Engineering and goals overview for each side (204) | GOALS in each panel: attack, hold, resupply, engineers now, built so far.
+- [Fixed, to verify] Fortifications came only at minute 21-24 (248) | Every base searched 7-11 min for a depot site first; now one base a side searches for the first depot, the others build.
 - [In progress] Build bunkers and defenses on points, used for cover; buildings for vehicles (186, 192, 204) | A FORTIFICATION type in our AI Conflict: Conflict's own bunker, two per base near the front; 800 starting supplies in the lab. To see in a match; sandbags, MG nests and defenders posted in them next. Was: AI Conflict's builders already build barracks, armory and vehicle depots with Conflict's building system; a fortification type (bunkers, sandbags, trenches) at points near the front is next, defenders posted in them.
 - [Todo] Fireteams and 4-seat cars | A team of 5 fits a UAZ-452; teams of 4 would fit every light car.
 

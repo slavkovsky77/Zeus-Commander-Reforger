@@ -27,6 +27,8 @@ class ZCR_ArmourUnit
 	int m_iDetour;
 	int m_iRemounts;
 	int m_iRemountAt;
+	bool m_bSlow;
+	int m_iSlowed;
 	string m_sPhase;
 	int m_iBoughtAt;
 	int m_iLostAt = -1;
@@ -53,6 +55,11 @@ class ZCR_Armour
 		if (!Replication.IsServer() || System.IsCLIParam("zcrNoArmour") || !faction)
 			return;
 		int now = ZCR_LossLog.Seconds();
+		if (!s_bGuard)
+		{
+			s_bGuard = true;
+			GetGame().GetCallqueue().CallLater(Guard, 1000, true);
+		}
 		if (now < START_S || now < s_mNextTick.Get(side))
 			return;
 		s_mNextTick.Set(side, now + 15);
@@ -144,6 +151,74 @@ class ZCR_Armour
 		return false;
 	}
 
+	// Friendly soldiers in the way: the T-72 and BMP-1 ran over their own MG gunner and medic in 15 minutes
+	// (21 Oct) - the game's AI driver doesn't steer round soldiers on foot. Every second: a friendly soldier
+	// on foot within 30 m ahead of the hull and 7 m of its line slows it to 5 km/h; clear, it cruises at
+	// CRUISE_KMH (the game's own cruise limit for an AI driver).
+	static const float CRUISE_KMH = 35;
+	protected static bool s_bGuard;
+	protected static ref array<IEntity> s_aAhead;
+
+	protected static void Guard()
+	{
+		foreach (ZCR_ArmourUnit unit : s_aUnits)
+		{
+			if (!unit.m_Vehicle || !unit.m_Group)
+				continue;
+			AICarMovementComponent car = AICarMovementComponent.Cast(unit.m_Vehicle.FindComponent(AICarMovementComponent));
+			if (!car)
+				continue;
+			bool slow = FriendAhead(unit);
+			if (slow == unit.m_bSlow && unit.m_iSlowed > 0)
+				continue;
+			if (slow)
+			{
+				car.SetCruiseSpeed(5);
+				unit.m_iSlowed++;
+			}
+			else
+			{
+				car.SetCruiseSpeed(CRUISE_KMH);
+				if (unit.m_iSlowed == 0)
+					unit.m_iSlowed = -1;     // the cruise limit is set (no slowdown yet)
+			}
+			unit.m_bSlow = slow;
+		}
+	}
+
+	protected static bool FriendAhead(ZCR_ArmourUnit unit)
+	{
+		vector mat[4];
+		unit.m_Vehicle.GetTransform(mat);
+		vector forward = mat[2];
+		forward[1] = 0;
+		forward.Normalize();
+		s_aAhead = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * 15, 18, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		foreach (IEntity e : s_aAhead)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(e);
+			if (!c || c.IsInVehicle() || !AICF_GroupRuntime.IsAliveCharacter(c) || ZCR_LossLog.SideOf(c) != unit.m_sSide)
+				continue;
+			vector rel = c.GetOrigin() - mat[3];
+			rel[1] = 0;
+			float along = vector.Dot(rel, forward);
+			if (along < 0 || along > 30)
+				continue;
+			vector off = rel - forward * along;
+			if (off.Length() < 7)
+				return true;
+		}
+		return false;
+	}
+
+	protected static bool CollectMan(IEntity e)
+	{
+		if (ChimeraCharacter.Cast(e))
+			s_aAhead.Insert(e);
+		return true;
+	}
+
 	static int Max()
 	{
 		string value;
@@ -199,6 +274,21 @@ class ZCR_Armour
 		vehicle = best.m_Vehicle;
 		label = string.Format("%1 %2 %3 - %4 %5, crew %6/%7", best.m_sSide, best.m_sKind, best.m_sPrefab, best.m_sPhase, FrontName(best.m_vOrder), Aboard(best), best.m_iCrew);
 		return true;
+	}
+
+	// The crew stays in an intact vehicle of ours (ZCR_AIGetOutVehicle below): over 35% health and not
+	// burning off below it.
+	static bool KeepAboard(IEntity vehicle)
+	{
+		if (!vehicle || System.IsCLIParam("zcrArmourLetOut"))
+			return false;
+		IEntity root = vehicle.GetRootParent();
+		if (!root)
+			root = vehicle;
+		ZCR_ArmourUnit unit;
+		if (!s_mVehicle.Find(root, unit) || !unit)
+			return false;
+		return Health(unit) >= 0.35;
 	}
 
 	// The soldier crews one of our armour units (the soldier layers leave him in his seat).
@@ -359,6 +449,8 @@ class ZCR_Armour
 		unit.m_iDetour = 0;
 		unit.m_iRemounts = 0;
 		unit.m_iRemountAt = 0;
+		unit.m_bSlow = false;
+		unit.m_iSlowed = 0;
 		unit.m_sPhase = "";
 		unit.m_iBoughtAt = now;
 		unit.m_iCrew = 0;
@@ -415,8 +507,12 @@ class ZCR_Armour
 			unit.m_Group.GetGroupUtilityComponent().SetCombatMode(EAIGroupCombatMode.FIRE_AT_WILL);
 			unit.m_Group.GetGroupUtilityComponent().EvaluateCombatMode();
 		}
-		Log(unit, ZCR_LossLog.Seconds(), "CREW", string.Format("prefab=%1 seats=%2 driver=%3 turret=%4 group=%5", unit.m_sPrefab, seats.Count(),
-			pilots, turrets, unit.m_Group != null));
+		// The hull's world bounds: AI Conflict keeps recruits 2 m off any vehicle's bounds - a mod hull with
+		// oversized bounds would block a base's spawn area (recruit timeouts came only with the mods loaded).
+		vector mins, maxs;
+		unit.m_Vehicle.GetWorldBounds(mins, maxs);
+		Log(unit, ZCR_LossLog.Seconds(), "CREW", string.Format("prefab=%1 seats=%2 driver=%3 turret=%4 group=%5 bounds=%6x%7x%8", unit.m_sPrefab, seats.Count(),
+			pilots, turrets, unit.m_Group != null, Math.Round(maxs[0] - mins[0]), Math.Round(maxs[1] - mins[1]), Math.Round(maxs[2] - mins[2])));
 	}
 
 	// Lost: the vehicle destroyed or gone, or nobody of the crew aboard any more.
@@ -640,11 +736,18 @@ class ZCR_Armour
 		float dist = -1;
 		if (front != vector.Zero)
 			dist = vector.DistanceXZ(at, front);
-		Log(unit, now, "STATUS", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 moved_m=%5 aboard=%6/%7 health=%8 x=%9", unit.m_sPrefab, unit.m_sPhase,
+		int slowedN = unit.m_iSlowed;
+		if (slowedN < 0)
+			slowedN = 0;
+		string slowedText = string.Format(" slowed=%1", slowedN);
+		Log(unit, now, "STATUS", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 moved_m=%5 aboard=%6/%7 health=%8" + slowedText + " x=%9", unit.m_sPrefab, unit.m_sPhase,
 			FrontName(front), Math.Round(dist), Math.Round(vector.DistanceXZ(at, unit.m_vWas)), Aboard(unit), unit.m_iCrew, Math.Round(100 * health),
 			string.Format("%1 z=%2", Math.Round(at[0]), Math.Round(at[2]))));
 		// Still (under 25 m a minute) for two minutes short of its order: re-ordered with another way in.
-		if (unit.m_sPhase != "REMOUNT" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > 80)
+		float holdM = 80;
+		if (unit.m_sPhase == "ASSAULT")
+			holdM = 200;     // in the fight at the base: holding a firing spot is not stuck
+		if (unit.m_sPhase != "REMOUNT" && vector.DistanceXZ(at, unit.m_vWas) < 25 && unit.m_Waypoint && vector.DistanceXZ(at, unit.m_vOrder) > holdM)
 			unit.m_iStill++;
 		else
 			unit.m_iStill = 0;
@@ -848,5 +951,21 @@ class ZCR_Armour
 	protected static void Log(ZCR_ArmourUnit unit, int now, string what, string details)
 	{
 		Print(string.Format("[ZCR][ARMOUR] t=%1 side=%2 unit=%3 event=%4 %5", now, unit.m_sSide, unit.m_iNo, what, details), LogLevel.NORMAL);
+	}
+}
+
+// Armour crews stay aboard (watched match 21 Oct 05:17: the BMP-1's crew got out three times, the
+// Bradley's and T-72's crews were lost out of intact vehicles - no armour kill in the match). The game
+// takes a crew out through this behaviour for every reason - a group move that failed releases the
+// vehicle, gunners leave the turret to look round, danger and fire reactions. For the crew of one of
+// our armour units it waits while the vehicle is intact (35%+ health); damaged below that, they get
+// out as before. -zcrArmourLetOut turns it off.
+modded class SCR_AIGetOutVehicle
+{
+	override float CustomEvaluate()
+	{
+		if (m_Vehicle && ZCR_Armour.KeepAboard(m_Vehicle.m_Value))
+			return 0;
+		return super.CustomEvaluate();
 	}
 }
