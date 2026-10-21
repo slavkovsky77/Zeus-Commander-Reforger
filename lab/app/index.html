@@ -119,6 +119,16 @@ video { width: 100%; border-radius: 8px; background: #000; }
 .seg button { font: 600 13px var(--f-body); color: var(--muted); background: var(--panel); border: 0; padding: 7px 12px; cursor: pointer; }
 .seg button[aria-pressed="true"] { color: #fff; background: var(--accent); }
 .livechart .ec { width: 100%; height: 200px; }
+.efforts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.efforts > * { min-width: 0; }
+.eside { border-top: 3px solid var(--us); padding-top: 8px; display: grid; gap: 10px; align-content: start; }
+.eside.ussr { border-top-color: var(--ussr); }
+.eblock { display: grid; gap: 3px; }
+.eblock .lbl { font: 600 11px var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.eitem { font-size: 14px; display: flex; gap: 8px; align-items: baseline; }
+.eitem .n { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+.eitem.warn { color: var(--bad); }
+.eitem .t { overflow-wrap: anywhere; }
 .banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
 </style>
 </head>
@@ -150,6 +160,10 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div class="score" id="score"></div>
         <div class="sides" id="sides"></div>
       </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Efforts now</h2><span class="mono muted" id="effortsat"></span></div>
+      <div class="efforts" id="efforts"><p class="muted">Waiting for the first report (every 30 game seconds, from the next match on).</p></div>
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2>This match</h2>
@@ -290,6 +304,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div class="kv"><span>lost</span><b>${esc((d.lost || {})[s] ?? "–")}</b></div>
         <div class="kv"><span>front bases' supplies</span><b>${(d.front_pct || {})[s] != null ? esc(d.front_pct[s]) + "%" : "–"}</b></div></div>`;
     }).join("");
+    renderEfforts(d.efforts || {}, d.efforts_t || {});
     const ser = d.series || {};
     const xmax = (w.length_min || 30);
     if (window.LabCharts && window.echarts) LabCharts.renderLive(ser, xmax);
@@ -306,6 +321,28 @@ video { width: 100%; border-radius: 8px; background: #000; }
     const others = (d.servers || []).filter((s) => !/^w\d+-/.test(s));
     $("servers").textContent = others.length ? "Also running: " + others.join(", ") : "";
     if (Date.now() - frameTimer > 10000 && w.running) { frameTimer = Date.now(); $("frame").src = "/api/frame.jpg?" + Date.now(); }
+  }
+  // What each side is doing now ([ZCR][EFFORTS], every 30 game seconds).
+  function renderEfforts(ef, at) {
+    const sides = ["US", "USSR"].filter((s) => ef[s]);
+    if (!sides.length) return;
+    const t = Math.max(...sides.map((s) => at[s] || 0));
+    $("effortsat").textContent = t ? `at game ${mmss(t)}` : "";
+    const item = (text, n, warn) => `<div class="eitem${warn ? " warn" : ""}"><span class="t">${text}</span>${n ? `<span class="n">${n}</span>` : ""}</div>`;
+    const block = (label, items) => `<div class="eblock"><span class="lbl">${label}</span>${items.length ? items.join("") : '<span class="muted" style="font-size:14px">–</span>'}</div>`;
+    $("efforts").innerHTML = sides.map((s) => {
+      const e = ef[s];
+      const attack = (e.attack || []).slice().sort((a, b) => b.men - a.men).map((a) =>
+        item(`${a.base === e.main ? "<b>" : ""}${esc(a.base)}${a.base === e.main ? "</b> · main effort" : ""}`, `${a.teams} teams · ${a.men} men${a.riding ? ` · ${a.riding} riding` : ""}`));
+      const defend = (e.defend || []).slice().sort((a, b) => b.men - a.men).map((a) => item(esc(a.base), `${a.teams} teams · ${a.men} men`));
+      const hold = (e.hold || []).map((h) => item(`${esc(h.base)} - enemies near`, `${h.enemies} seen`, true));
+      const supply = (e.short || []).map((b) => item(`${esc(b.base)} needs supplies`, `${b.have}/${b.max}`, b.have < 0.2 * b.max))
+        .concat((e.trucks || []).map((tr) => item(`truck ${esc(tr.doing)}`, tr.cargo ? `${tr.cargo} supplies` : "")));
+      const build = (e.build || []).map((b) => item(`${esc(b.what)} at ${esc(b.base)}`, esc(b.stage)))
+        .concat((e.sites || []).map((x) => item(`${esc(x.base)}: ${esc(x.what)}`, "")));
+      const armour = (e.armour || []).map((a) => item(esc(a), ""));
+      return `<div class="eside ${s.toLowerCase()}"><h3>${s}</h3>${block("Attack", attack)}${block("Defend", defend)}${hold.length ? block("Hold", hold) : ""}${block("Supply", supply)}${block("Building", build)}${armour.length ? block("Armour", armour) : ""}</div>`;
+    }).join("");
   }
   $("frame").addEventListener("click", () => $("frame").classList.toggle("big"));
   $("frame").addEventListener("error", () => { $("frame").removeAttribute("src"); });

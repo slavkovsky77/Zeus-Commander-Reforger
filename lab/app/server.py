@@ -118,6 +118,7 @@ class LiveState:
         self.series, self.supply, self.events = {}, {}, []
         self.score, self.crowd, self.air, self.riding = None, {}, {}, {}
         self.lost = {"US": 0, "USSR": 0}
+        self.efforts, self.efforts_t = {}, {}
 
     def update(self, log: Path):
         kv = re.compile(r"(\w+)=(\S*)")
@@ -155,6 +156,12 @@ class LiveState:
                 self.series.setdefault("drones_up", {}).setdefault(side, {})[minute] = int(d.get("air", 0) or 0)
             elif kind == "RIDING":
                 self.riding[side] = d
+            elif kind == "EFFORTS" and "json=" in l:
+                try:
+                    self.efforts[side] = json.loads(l.split("json=", 1)[1])
+                    self.efforts_t[side] = t
+                except ValueError:
+                    pass
             elif kind == "LOSS":
                 v = d.get("victim_side") or d.get("side")
                 if v in self.lost and d.get("kind") == "man":
@@ -187,6 +194,7 @@ class LiveState:
             "crowd": {s: {k: d.get(k) for k in ("men", "field", "at_main", "team")} for s, d in self.crowd.items()},
             "air": {s: {k: d.get(k) for k in ("air", "spotted")} for s, d in self.air.items()},
             "riding": {s: d.get("riding") for s, d in self.riding.items()},
+            "efforts": self.efforts, "efforts_t": self.efforts_t,
             "events": self.events[-18:][::-1],
             "series": {name: {s: sorted(pts.items()) for s, pts in by.items()} for name, by in self.series.items()},
         }
