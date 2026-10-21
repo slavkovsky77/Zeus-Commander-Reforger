@@ -44,7 +44,7 @@ VARIANTS = {
 
 def one(variant: str, minutes: float, port: int) -> dict:
     extra, drones = VARIANTS[variant]
-    label = f"stress-{variant}"
+    label = f"stress-{variant}-p{port}"   # each server its own run folder (two started in one second shared one)
     started = time.time()
     cmd = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes),
            "--label", label, "--port", str(port), "--us", "phased", "--ussr", "phased", "--armour",

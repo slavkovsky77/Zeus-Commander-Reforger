@@ -500,8 +500,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <span><b>${esc(x.day.slice(5))} ${esc(x.at)}</b> <span class="mono muted">${esc(x.run.replace(/-solo-\d+-\d+$/, ""))}</span></span>
         <span class="chip ${x.armour ? "no" : ""}">${x.armour ? "armour" : "no armour"}</span></div>
       <p>${esc(x.kind)} · after ${esc(x.minutes)} min (game ${mmss(x.game_t || 0)})</p>
-      ${(x.before || []).length ? `<details><summary class="muted">The last 30 s</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px">${esc(x.before.join("
-"))}</pre></details>` : ""}</div>`).join("") || '<div class="empty">No crashes.</div>';
+      ${(x.before || []).length ? `<details><summary class="muted">The last 30 s</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px">${esc(x.before.join(String.fromCharCode(10)))}</pre></details>` : ""}</div>`).join("") || '<div class="empty">No crashes.</div>';
   }
   async function pollCrashes() {
     try { const r = await fetch("/api/crashes"); if (r.ok) { const c = await r.json(); if (c.split) renderCrashes(c); } } catch (_) {}
