@@ -468,14 +468,37 @@ def screen_metrics(run: Path, lines: list) -> dict:
     return out
 
 
+CACHE = ROOT / ".runtime" / "progress_cache"
+
+
 def rows_all() -> list:
+    # Each match is measured once: .runtime/progress_cache/<run>.json, redone when its log or this file changes
+    # (the lab app refreshes the graphs every few minutes).
     out = []
+    CACHE.mkdir(parents=True, exist_ok=True)
+    me = int(Path(__file__).stat().st_mtime)
     for run, log in server_runs():
+        st = log.stat()
+        stamp = f"{st.st_size}-{int(st.st_mtime)}-{me}"
+        cached = CACHE / f"{run.name}.json"
+        if cached.exists():
+            try:
+                saved = json.loads(cached.read_text(encoding="utf-8"))
+                if saved.get("_stamp") == stamp:
+                    if saved.get("row"):
+                        out.append(saved["row"])
+                    continue
+            except Exception:
+                pass
         try:
             r = measure_run(run, log)
         except Exception as e:   # one broken log must not stop the page
             print(f"skip {run.name}: {type(e).__name__}: {e}", file=sys.stderr)
             continue
+        try:
+            cached.write_text(json.dumps({"_stamp": stamp, "row": r}, default=str), encoding="utf-8")
+        except Exception:
+            pass
         if r:
             out.append(r)
     return out

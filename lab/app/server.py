@@ -28,6 +28,8 @@ LAB = HERE.parent
 ROOT = LAB.parent
 sys.path.insert(0, str(LAB))
 import monitor  # noqa: E402
+sys.path.insert(0, str(HERE))
+import progress_specs  # noqa: E402
 import scorecard  # noqa: E402
 
 RUNTIME = ROOT / ".runtime"
@@ -52,7 +54,8 @@ class Slow:
     def refresh(cls):
         out = {}
         for key, fn in (("goals", monitor.goal_rows), ("matches", lambda: monitor.match_rows(15)),
-                        ("commits", monitor.commits), ("notes", lambda: monitor.notes(12)), ("videos", videos)):
+                        ("commits", monitor.commits), ("notes", lambda: monitor.notes(12)), ("videos", videos),
+                        ("progress", progress_specs.progress_data), ("goal_history", progress_specs.goal_history)):
             try:
                 out[key] = fn()
             except Exception as e:  # one broken source must not blank the others
@@ -205,7 +208,11 @@ def live() -> dict:
                 st = _state["live"] = LiveState(run.name)
             st.update(log)
             out.update(st.view())
-    out["watched"] = monitor.watched_now()
+    w = monitor.watched_now()
+    if w.get("running") and not any(re.match(r"w\d+-", s) for s in servers()):
+        w["running"] = False            # the loop was stopped without logging the end: no game is running
+        w["ended_early"] = w.get("ended_early") or "stopped"
+    out["watched"] = w
     out["now"] = json.loads(monitor.NOW.read_text(encoding="utf-8")) if monitor.NOW.exists() else {}
     _live_cache.update(at=time.time(), data=out)
     return out
@@ -290,7 +297,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({**live(), "servers": servers(), "inbox": inbox(12), "at": now_iso()})
             if path == "/api/slow":
                 with Slow.lock:
-                    return self.json({**Slow.data, "pages_updated": Slow.pages_updated, "log": loop_log()})
+                    small = {k: v for k, v in Slow.data.items() if k not in ("progress", "goal_history")}
+                    return self.json({**small, "pages_updated": Slow.pages_updated, "log": loop_log()})
+            if path == "/api/progress":
+                with Slow.lock:
+                    return self.json({**(Slow.data.get("progress") or {}), "goal_history": Slow.data.get("goal_history", [])})
+            if path == "/charts.js":
+                return self.send(200, (HERE / "charts.js").read_bytes(), "application/javascript; charset=utf-8")
+            if path == "/vendor/echarts.min.js":
+                return self.send(200, (HERE / "vendor" / "echarts.min.js").read_bytes(), "application/javascript",
+                                 {"Cache-Control": "max-age=86400"})
             if path == "/api/frame.jpg":
                 jpg = frame()
                 return self.send(200, jpg, "image/jpeg") if jpg else self.send(404, b"no recording running", "text/plain")

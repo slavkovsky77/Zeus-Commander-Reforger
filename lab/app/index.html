@@ -21,7 +21,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121816; --panel: #1a2220; --ink: #e3e9e5; --muted: #9aa7a1; --line: #2c3833; --field: #151c1a;
-    --accent: #7fb0de; --accent-soft: #1d2d3b; --us: #6ea3e6; --ussr: #ef7b6e; --fia: #b3c071;
+    --accent: #7fb0de; --accent-soft: #1d2d3b; --us: #5b95e0; --ussr: #e46a5c; --fia: #b3c071;
     --good: #6fcf8f; --good-soft: #17301f; --bad: #f08a80; --bad-soft: #3a1d1a; --warn: #e7b85a; --warn-soft: #33290f; --na: #4a5651;
     color-scheme: dark;
   }
@@ -108,6 +108,17 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 iframe { width: 100%; height: calc(100vh - 150px); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
 video { width: 100%; border-radius: 8px; background: #000; }
 .empty { padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 14px; }
+.pgrid > * { min-width: 0; }
+.pchart .ec { width: 100%; height: 270px; }
+.pchart .why { font-size: 13.5px; color: var(--muted); }
+.pchart .head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.pchart .better { font: 600 11px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.linkbtn { font: 600 12px var(--f-mono); color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: 600 13px var(--f-body); color: var(--muted); background: var(--panel); border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { color: #fff; background: var(--accent); }
+.livechart .ec { width: 100%; height: 200px; }
 .banner { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
 </style>
 </head>
@@ -180,11 +191,29 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <div id="player"></div>
     <div class="card tbl" id="videos"></div>
   </section>
-  <section class="tab" id="tab-progress" hidden><iframe title="Engine page with the progress graphs" data-src="/pages/engine"></iframe></section>
+  <section class="tab" id="tab-progress" hidden>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>Progress</h2>
+        <div class="seg" role="radiogroup" aria-label="Points">
+          <button type="button" data-view="build" aria-pressed="true">Per build</button>
+          <button type="button" data-view="match" aria-pressed="false">Every match</button>
+        </div>
+      </div>
+      <p class="muted" id="progressnote">Tap a point for its value, tap a name in the legend to hide or show it, pinch or drag the slider to zoom.</p>
+    </div>
+    <h2>Goals, match by match</h2>
+    <div class="pgrid" id="goalcharts"><div class="empty">Loading…</div></div>
+    <h2>Since the start</h2>
+    <div class="pgrid" id="progresscharts"><div class="empty">Loading…</div></div>
+    <p class="muted"><a href="/pages/engine" target="_blank" rel="noopener">The old engine page</a> (static graphs, the full text) stays available.</p>
+  </section>
   <section class="tab" id="tab-changelog" hidden><iframe title="Changelog" data-src="/pages/changelog"></iframe></section>
   <section class="tab" id="tab-plan" hidden><iframe title="Plan by theme" data-src="/pages/plan"></iframe></section>
 </main>
 
+<script src="/vendor/echarts.min.js"></script>
+<script src="/charts.js"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -203,10 +232,14 @@ video { width: 100%; border-radius: 8px; background: #000; }
     for (const s of document.querySelectorAll(".tab")) s.hidden = s.id !== "tab-" + name;
     const frame = document.querySelector(`#tab-${name} iframe`);
     if (frame && !frame.src) frame.src = frame.dataset.src;
+    if (name === "progress" && window.LabCharts && !show.progressLoaded) { show.progressLoaded = true; LabCharts.loadProgress(); }
+    if (window.LabCharts) setTimeout(() => LabCharts.resize(), 50);
     try { localStorage.setItem("lab-tab", name); } catch (_) {}
     if (name === "live") pollLive();
   }
-  try { const t = localStorage.getItem("lab-tab"); if (t && $("tab-" + t)) show(t); } catch (_) {}
+  const fromHash = location.hash.slice(1);
+  if (fromHash && $("tab-" + fromHash)) show(fromHash);
+  else { try { const t = localStorage.getItem("lab-tab"); if (t && $("tab-" + t)) show(t); } catch (_) {} }
 
   // ------------------------------------------------------------ charts (inline SVG, one scale per chart)
   function chart(title, series, opts = {}) {
@@ -259,8 +292,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     }).join("");
     const ser = d.series || {};
     const xmax = (w.length_min || 30);
-    $("charts").innerHTML = chart("Front bases' supplies, %", ser.front_supply, { ymax: 100, xmax }) +
-      chart("Soldiers in the field", ser.in_field, { xmax }) + chart("Drones in the air", ser.drones_up, { xmax }) + chart("Soldiers lost", ser.lost, { xmax });
+    if (window.LabCharts && window.echarts) LabCharts.renderLive(ser, xmax);
     $("events").innerHTML = (d.events || []).map((e) => `<div class="ev"><span class="mono muted">${mmss(e.t)}</span><span class="dot ${esc(e.side)}"></span><span>${esc(e.text)}</span></div>`).join("") || '<p class="muted">Nothing yet.</p>';
     const sup = (d.supply || []).slice().sort((a, b) => (a.side + a.base).localeCompare(b.side + b.base));
     $("supply").innerHTML = sup.length ? `<table><thead><tr><th>Base</th><th>Side</th><th>Supplies</th></tr></thead><tbody>${sup.map((b) => {
