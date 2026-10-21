@@ -140,6 +140,18 @@ class ZCR_Strategist
 	{
 		string key = base.GetBaseName();
 		string name = WidgetManager.Translate(key);
+		// Maps that name their bases on the map label only (SpearHead's Yunakivka: every base was
+		// "#AR-MapSymbol_Installation" -> "Base"): the map descriptor's display name.
+		if (name.IsEmpty() || name.StartsWith("#") || key.Contains("MapSymbol_"))
+		{
+			MapDescriptorComponent descriptor = MapDescriptorComponent.Cast(base.GetOwner().FindComponent(MapDescriptorComponent));
+			if (descriptor && descriptor.Item())
+			{
+				string label = WidgetManager.Translate(descriptor.Item().GetDisplayName());
+				if (!label.IsEmpty() && !label.StartsWith("#"))
+					return label;
+			}
+		}
 		if (!name.IsEmpty() && !name.StartsWith("#"))
 			return name;
 		int cut = key.LastIndexOf("MapLocation_");
