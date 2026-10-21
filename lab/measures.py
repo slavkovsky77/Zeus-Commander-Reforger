@@ -33,6 +33,8 @@ MEASURES = {
     "front_supply_pct": ("side", "the side's front bases (not its HQ), average supplies in % of their maximum at the end"),
     "scorecard_fails": ("match", "lab/scorecard.py hard checks failed, both sides (what the watcher sees)"),
 }
+# Measures with no value when the thing never happened (no truck all match): that fails a target, it isn't "no data".
+NO_VALUE_FAILS = {"truck_first_min"}
 SCORECARD_KEYS = ["out_min", "atbase10", "team10", "drone_teams", "drones_per4", "sky_pct", "rides", "riding_pct",
                   "panic_pct", "danger_standing", "shot_down", "truck_jobs", "truck_unloads", "forts", "armed_teams",
                   "drone_dead_standing", "drone_dead_prone", "lost", "armour", "armour_assault", "armour_kills",

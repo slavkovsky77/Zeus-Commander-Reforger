@@ -19,7 +19,7 @@
 id = "trucks"
 title = "The AI keeps its front bases supplied by truck"
 wish = "AI should learn to use supply trucks - logistics is very important (Martin, 20-21 Oct)"
-notes = [216, 224, 241, 244, 252]
+notes = [216, 224, 241, 244, 252, 256]
 status = "active"
 matches = "watched"
 met_when = "2 of 3"
@@ -37,7 +37,7 @@ met_when = "2 of 3"
 id = "drones-water"
 title = "Drones don't fly into the sea"
 wish = "fix drones crashing into water (Martin, 20 Oct)"
-notes = [236]
+notes = [236, 257]
 status = "active"
 matches = "watched"
 met_when = "2 of 3"

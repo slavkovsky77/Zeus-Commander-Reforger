@@ -64,10 +64,11 @@ def judge(goal: dict, runs: list) -> dict:
             key, target = spec["key"], spec["target"]
             per = measures.MEASURES.get(key, ("match",))[0]
             value = m.get(key)
+            never = key in measures.NO_VALUE_FAILS       # no value: it never happened - a fail, shown "never"
             if per == "side" and isinstance(value, dict):
-                results = [check(value.get(s), target) for s in measures.SIDES]
-                ok = None if None in results else all(results)
-                shown = " ".join(f"{s} {value.get(s) if value.get(s) is not None else '-'}" for s in measures.SIDES)
+                results = [False if (value.get(s) is None and never) else check(value.get(s), target) for s in measures.SIDES]
+                ok = False if False in results else (None if None in results else True)
+                shown = " ".join(f"{s} {value.get(s) if value.get(s) is not None else ('never' if never else '-')}" for s in measures.SIDES)
             else:
                 ok = check(value, target)
                 shown = "-" if value is None else str(value)
