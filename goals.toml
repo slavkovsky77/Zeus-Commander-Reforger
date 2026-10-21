@@ -66,7 +66,7 @@ id = "stable"
 title = "Watched matches run to the end"
 wish = "the game crashes during watched matches (21 Oct night, 6 of 15 armour matches)"
 notes = [246]
-status = "met"            # met 21 Oct 15:10
+status = "active"         # marked met 15:10 on 3 clean matches - too few for a 1-in-5 crash; w15, w16 crashed (note 246)
 matches = "watched"
 met_when = "3 of 3"
   [[goal.measure]]
