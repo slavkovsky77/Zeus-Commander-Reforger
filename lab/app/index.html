@@ -358,7 +358,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const hold = (e.hold || []).map((h) => item(`${esc(h.base)} - enemies near`, `${h.enemies} seen`, true));
       const supply = (e.short || []).map((b) => prog(`${esc(b.base)} needs supplies`, `${b.have}/${b.max}`, Math.round(100 * b.have / Math.max(1, b.max)), b.have < 0.2 * b.max ? "low" : ""))
         .concat((e.trucks || []).map((tr) => `<div class="prog"><div class="top"><span class="t">truck ${esc(tr.doing)}</span>${tr.cargo ? `<span class="n">${tr.cargo} supplies</span>` : ""}</div>${steps(tr.step || 0)}` +
-          (tr.step === 1 || tr.step === 3 ? `<div class="pbar ${side}"><i style="width:${Math.max(2, tr.leg || 0)}%"></i></div>` : "") + "</div>"));
+          (tr.step === 1 || tr.step === 3 ? `<div class="pbar ${side}"><i style="width:${Math.max(2, tr.leg || 0)}%"></i></div>` : "") + "</div>"))
+        .concat((e.trucks || []).length ? [] : [item('<span class="muted">no supply trucks on the road (they come from depots)</span>', "")]);
       const build = (e.sites || []).map((x) => prog(`${esc(x.what)} at ${esc(x.base)}`, x.pct >= 0 ? `${x.pct}% built` : "", x.pct >= 0 ? x.pct : null, side))
         .concat((e.build || []).filter((b) => b.stage !== "building").map((b) => prog(`${esc(b.what)} at ${esc(b.base)}`, esc(b.stage), null, side)));
       const armour = (e.armour || []).map((a) => item(esc(a), ""));
