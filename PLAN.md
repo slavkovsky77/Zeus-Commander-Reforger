@@ -31,6 +31,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Always sped up (144, 164) | Watched matches at 3x on Arland; headless servers can't (1x, several side by side).
 - [Done] Follow a drone until it reaches its target, and stay on the explosion (144, 152) | The drone shot lasts while the drone flies (up to 2 min), then the camera stays on the impact point 4 real seconds at 2x.
 - [Done] Try 3x (129, 164) | 3x on Arland: 2.99x at 54-60 fps, a match in 9.4 minutes, drones and soldiers as at 2x. The watched loop runs at 3x.
+- [Open] Watched matches drop to 20-25 fps when headless runs share the PC (279) | 21 Oct 21:12, w18: 40-42 fps at the start, 24 at the moment, 20-25 after, 2.6x on screen instead of 3x; CPU 96% on 16 threads, GPU 11%: 2-3 headless matches (armour stress tests, search-budget) beside the watched one. Measured today at equal AI count: ~40 fps alone, 25-28 with 1 headless server, 20-25 with 2, 16-18 with 3. Idle priority on the headless servers does not help (hyper-thread siblings). Martin's call: headless runs wait while a match is watched / at most one beside it / pin headless servers to 4 cores (CPU affinity, logical 8-15).
 
 ## The screen
 - [Done] Make clear what is happening (125) | Plans in plain words, drones, latest events.
