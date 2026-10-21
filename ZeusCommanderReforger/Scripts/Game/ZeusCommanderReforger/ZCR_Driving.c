@@ -23,6 +23,10 @@
 // nobody drives never moves, so the driven one backs. BACK_M back along its own track (5 m if that spot is taken),
 // at most every 30 game s and 3 times a vehicle - then the AI drivers find their way round each other. Logs
 // [ZCR][UNJAM] ... action=back. Off: -zcrNoUnjam.
+// 22 Oct 00:55, the first night's Everon match: the jams were rides against an abandoned UAZ (nobody aboard, no
+// side) on their way out - backing off 8 m brought them back against it 45 s later. A blocker nobody drives and
+// nobody sits in is parked off the road instead: 10-14 m to its side, a spot free of vehicles ([ZCR][UNJAM]
+// action=park), once a vehicle.
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -39,6 +43,7 @@ class ZCR_Driving
 	static const float BACK_M = 8;
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
+	protected static ref map<IEntity, bool> s_mParked = new map<IEntity, bool>();
 	protected float m_fLimit = 0;
 	protected int m_iNextLog;
 	protected int m_iNextClean;
@@ -267,7 +272,11 @@ class ZCR_Driving
 		if (System.IsCLIParam("zcrNoUnjam"))
 			return;
 		IEntity yielder = v;
-		if (s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10)
+		bool otherDriven = s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10;
+		// An abandoned vehicle in the way: park it off the road, the driven one goes on.
+		if (!otherDriven && !s_mParked.Contains(other) && !ZCR_Wrecks.Occupied(other) && ParkAside(other, side, now, v))
+			return;
+		if (otherDriven)
 		{
 			// Both driven: the one with the other in its front cone; head-on or neither, the lighter.
 			bool vInto = InFront(v, other);
@@ -338,6 +347,47 @@ class ZCR_Driving
 				partner = b;
 			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=back m=%4 other=%5 count=%6 x=%7 z=%8", now, side, ZCR_LossLog.ShortName(yielder),
 				dist, ZCR_LossLog.ShortName(partner), s_mBacks.Get(yielder), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			return true;
+		}
+		return false;
+	}
+
+	protected static bool ParkAside(IEntity blocker, string side, int now, IEntity jammed)
+	{
+		Vehicle vehicle = Vehicle.Cast(blocker);
+		if (!vehicle)
+			return false;
+		s_mParked.Set(blocker, true);
+		BaseWorld world = GetGame().GetWorld();
+		vector mat[4];
+		vehicle.GetWorldTransform(mat);
+		vector across = mat[0];
+		across[1] = 0;
+		across.Normalize();
+		// The side away from the jammed vehicle first.
+		vector away = jammed.GetOrigin() - mat[3];
+		float first = 1;
+		if (vector.Dot(away, across) > 0)
+			first = -1;
+		array<float> offsets = {10 * first, 14 * first, -10 * first, -14 * first};
+		foreach (float off : offsets)
+		{
+			vector spot = mat[3] + across * off;
+			spot[1] = world.GetSurfaceY(spot[0], spot[2]) + 0.3;
+			if (VehicleAt(spot, 5, blocker) || ChimeraWorldUtils.TryGetWaterSurfaceSimple(world, spot - "0 0.5 0"))
+				continue;
+			mat[3] = spot;
+			Physics physics = vehicle.GetPhysics();
+			if (physics)
+			{
+				physics.SetVelocity(vector.Zero);
+				physics.SetAngularVelocity(vector.Zero);
+			}
+			ZCR_Trace.Ent("move", vehicle, "unjam_park");
+			if (!vehicle.SetWorldTransform(mat))
+				return false;
+			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=park m=%4 for=%5 x=%6 z=%7", now, side, ZCR_LossLog.ShortName(blocker),
+				Math.AbsFloat(off), ZCR_LossLog.ShortName(jammed), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
 			return true;
 		}
 		return false;

@@ -46,7 +46,7 @@ class ZCR_Wrecks
 	}
 
 	// A living soldier still aboard.
-	protected static bool Occupied(IEntity v)
+	static bool Occupied(IEntity v)
 	{
 		IEntity child = v.GetChildren();
 		while (child)
