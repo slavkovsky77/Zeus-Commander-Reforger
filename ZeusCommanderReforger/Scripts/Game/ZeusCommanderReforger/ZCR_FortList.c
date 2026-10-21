@@ -26,6 +26,8 @@ class ZCR_FortList
 		foreach (ResourceName prefab : prefabs)
 		{
 			SCR_EditableEntityUIInfo info = SCR_EditableEntityUIInfo.ExtractEditableUIInfoFromPrefab(prefab);
+			if (info && info.HasEntityLabel(EEditableEntityLabel.SERVICE_SUPPLY_STORAGE))
+				Print(string.Format("[ZCR][FORTLIST] supply_storage faction=%1 prefab=%2", info.GetFactionKey(), prefab), LogLevel.NORMAL);
 			if (!info || !info.HasEntityLabel(EEditableEntityLabel.TRAIT_FORTIFICATION))
 				continue;
 			forts++;
