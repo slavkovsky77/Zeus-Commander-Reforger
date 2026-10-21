@@ -671,6 +671,26 @@ class ZCR_Armour
 		return n;
 	}
 
+	// The new order first, then the old one out of the group, deleted 20 s later: watched matches crashed in
+	// the engine's entity update 3-60 s after a stuck unit's waypoint was swapped (06:28, 06:30) - a deleted
+	// waypoint the moving vehicle's path may still have pointed at.
+	protected static void ReplaceWaypoint(ZCR_ArmourUnit unit, AIWaypoint waypoint)
+	{
+		AIWaypoint old = unit.m_Waypoint;
+		unit.m_Group.AddWaypoint(waypoint);
+		if (old)
+		{
+			unit.m_Group.RemoveWaypoint(old);
+			GetGame().GetCallqueue().CallLater(DeleteLater, 20000, false, old);
+		}
+	}
+
+	protected static void DeleteLater(AIWaypoint waypoint)
+	{
+		if (waypoint)
+			SCR_EntityHelper.DeleteEntityAndChildren(waypoint);
+	}
+
 	protected static float Health(ZCR_ArmourUnit unit)
 	{
 		if (!unit.m_Vehicle)
@@ -728,12 +748,7 @@ class ZCR_Armour
 		if (!waypoint)
 			return false;
 		waypoint.SetCompletionRadius(25);
-		if (unit.m_Waypoint)
-		{
-			unit.m_Group.RemoveWaypoint(unit.m_Waypoint);
-			SCR_EntityHelper.DeleteEntityAndChildren(unit.m_Waypoint);
-		}
-		unit.m_Group.AddWaypoint(waypoint);
+		ReplaceWaypoint(unit, waypoint);
 		unit.m_Waypoint = waypoint;
 		unit.m_sPhase = "REMOUNT";
 		unit.m_iRemounts++;
@@ -815,12 +830,7 @@ class ZCR_Armour
 		if (!waypoint)
 			return;
 		waypoint.SetCompletionRadius(radius);
-		if (unit.m_Waypoint)
-		{
-			unit.m_Group.RemoveWaypoint(unit.m_Waypoint);
-			SCR_EntityHelper.DeleteEntityAndChildren(unit.m_Waypoint);
-		}
-		unit.m_Group.AddWaypoint(waypoint);
+		ReplaceWaypoint(unit, waypoint);
 		unit.m_Waypoint = waypoint;
 		unit.m_vOrder = goal;
 		unit.m_sPhase = phase;
