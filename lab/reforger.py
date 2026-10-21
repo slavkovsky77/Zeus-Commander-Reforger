@@ -23,21 +23,22 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 import metrics  # noqa: E402
 
-STEAM = Path(r"E:\SteamLibrary\steamapps\common")
+import config  # noqa: E402  - this machine's paths: lab/lab.toml + lab/lab.local.toml
+
+STEAM = config.path("paths.steam")
 SERVER_ROOT = STEAM / "Arma Reforger Server"
 GAME_ROOT = STEAM / "Arma Reforger"
-AICF = Path(r"D:\work\reforger-ai-conflict")
+AICF = config.path("paths.ai_conflict")
 OUR_ADDON = "CA2CA4E14BB55417"
-# Martin's FPV AI Drones for Reforger (local release copy, see D:\work\fpv-ai-reforger\docs\LOCAL_USE.md)
-# and Realistic Combat Drones, which it needs.
-DRONE_DIRS = [r"D:\work\reforger-local-mods", r"E:\ArmaReforgerMods\addons"]
+# The FPV AI Drones for Reforger mod and Realistic Combat Drones, which it needs (paths.mod_dirs).
+DRONE_DIRS = config.paths("paths.mod_dirs")
 DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
 CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
 # Armour (Martin, 21 Oct: "more types of vehicles - APC, tanks... maybe use some mods"): one family of
 # Workshop mods on the same two bases (SpaceCore, WCS_Armaments) - M2A2 Bradley, BMP-1, M1A1 Abrams,
 # T-72. ZCR_Armour buys them for each side when they're loaded (else the game's LAV-25 / BTR-70).
 ARMOUR_ADDONS = "5E389BB9F58B79A6,629B2BA37EFFD577,63120AE07E6C0966,5E524E4FEECCA92B,5D1880C4AD410C14,5E0AB16BEB16D6A4"
-ARMOUR_DIR = DRONE_DIRS[1]     # the Workshop mods folder
+ARMOUR_DIR = str(config.path("paths.armour_dir")) if config.get("paths.armour_dir") else ""   # the Workshop mods folder
 # The strategist bridges (lab/bridge.py), shared by every match on this PC.
 BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768}
 MAPS = {

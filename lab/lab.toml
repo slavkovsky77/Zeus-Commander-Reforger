@@ -1,0 +1,29 @@
+# The lab's defaults. Your own machine's values go in lab/lab.local.toml (not committed), which
+# overrides these key by key - copy lab/lab.local.example.toml. Check with: python lab/config.py
+
+[paths]
+# The Steam library folder that holds "Arma Reforger", "Arma Reforger Server" and "Arma Reforger Tools".
+steam = "C:/Program Files (x86)/Steam/steamapps/common"
+# Your clone of AI Conflict (our fork: the branch the commander runs on). Relative to this repo.
+ai_conflict = "../reforger-ai-conflict"
+# Extra addon folders: the drone mods for --drones / watched matches, the Workshop folder for --armour.
+mod_dirs = []
+# The folder of mod_dirs that holds the Workshop armour mods (--armour).
+armour_dir = ""
+# Numbered review notes - every remark the watcher makes (the good/bad skills, the goal skill).
+notes = "notes/REVIEW_NOTES.md"
+# Bohemia's vanilla script reference (Script Diff), for reading the game's own AI code.
+reforger_api = ""
+
+[watch]
+# The watched loop's speed-up (the game's diagnostic build only) and the default rotation.
+speed = 3
+rotation = "arland:phased:phased"
+
+[pages]
+# claude.ai artifact links the record skill keeps current (empty: a page is created on first publish).
+engine = ""
+changelog = ""
+plan = ""
+goals = ""
+night = ""

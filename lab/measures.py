@@ -1,0 +1,132 @@
+"""The measures goals are judged by: numbers per match, read from a match's server log.
+
+    python lab/measures.py RUN_DIR            # every measure of one match
+    python lab/measures.py --list             # the measures and what each one counts
+
+A measure is per side (a value for US and for USSR) or per match (one value). Every per-side value of
+lab/scorecard.py is a measure too (out_min, atbase10, drones_per4, sky_pct, panic_pct, riding_pct,
+truck_jobs, truck_unloads, forts, armour_assault, armour_kills, ...). To add one: parse it in extra()
+below, describe it in MEASURES, and a goal in goals.toml can use it by its key.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import scorecard  # noqa: E402
+
+SIDES = scorecard.SIDES
+KV = re.compile(r"(\w+)=(\S*)")
+
+# key: (per, what it counts). Scorecard keys are added at the end of the file.
+MEASURES = {
+    "minutes": ("match", "game minutes the match ran (a crash or a lost connection ends it early)"),
+    "drones_lost_water": ("match", "drones the drone mod lost over the sea (its 'lost ... WST_OCEAN' line)"),
+    "drones_lost": ("match", "drones the drone mod lost without a detonation, anywhere"),
+    "dry_routes": ("match", "drone teams sent round the sea by a dry via point ([ZCR][DRONES] dry_route=1)"),
+    "truck_first_min": ("side", "game minute of the side's first supply truck job (none: no value)"),
+    "truck_loads": ("side", "supply truck loads at a source"),
+    "truck_drivers_killed": ("side", "supply truck jobs ended by the driver's death"),
+    "depots": ("side", "supply depots the side built (light and heavy)"),
+    "front_supply_pct": ("side", "the side's front bases (not its HQ), average supplies in % of their maximum at the end"),
+    "scorecard_fails": ("match", "lab/scorecard.py hard checks failed, both sides (what the watcher sees)"),
+}
+SCORECARD_KEYS = ["out_min", "atbase10", "team10", "drone_teams", "drones_per4", "sky_pct", "rides", "riding_pct",
+                  "panic_pct", "danger_standing", "shot_down", "truck_jobs", "truck_unloads", "forts", "armed_teams",
+                  "drone_dead_standing", "drone_dead_prone", "lost", "armour", "armour_assault", "armour_kills",
+                  "armour_lost"]
+for _k in SCORECARD_KEYS:
+    MEASURES.setdefault(_k, ("side", "lab/scorecard.py, see its header"))
+
+_cache = {}
+
+
+def extra(run: Path) -> dict:
+    log = scorecard.console(run)
+    out = {"drones_lost_water": 0, "drones_lost": 0, "dry_routes": 0,
+           "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
+           "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
+           "front_supply_pct": {s: None for s in SIDES}}
+    if not log:
+        return out
+    game_t = 0
+    supply = {}
+    for line in open(log, encoding="utf-8", errors="replace"):
+        g = re.search(r"\[ZCR\]\[\w+\] t=(\d+)", line)
+        if g:
+            game_t = int(g.group(1))
+        if "FPVAI: drone" in line and " lost (" in line:
+            out["drones_lost"] += 1
+            if "WST_OCEAN" in line:
+                out["drones_lost_water"] += 1
+            continue
+        if "dry_route=1" in line:
+            out["dry_routes"] += 1
+            continue
+        if "LOGISTICS_" in line or "CONSTRUCTION_COMPLETED" in line or "[ZCR][SUPPLY]" in line:
+            d = dict(KV.findall(line))
+            side = d.get("faction") or d.get("side")
+            if side not in SIDES:
+                continue
+            if "LOGISTICS_JOB_RESERVED" in line and out["truck_first_min"][side] is None:
+                out["truck_first_min"][side] = round(game_t / 60, 1)
+            elif "LOGISTICS_LOAD_COMMITTED" in line:
+                out["truck_loads"][side] += 1
+            elif "LOGISTICS_CONTROL_LOST" in line and d.get("driver_alive") == "0":
+                out["truck_drivers_killed"][side] += 1
+            elif "CONSTRUCTION_COMPLETED" in line and d.get("type", "").endswith("DEPOT"):
+                out["depots"][side] += 1
+            elif "[ZCR][SUPPLY]" in line and d.get("main") == "0" and d.get("pct"):
+                supply[(side, d.get("base"))] = float(d["pct"])
+    for s in SIDES:
+        vals = [v for (side, _), v in supply.items() if side == s]
+        out["front_supply_pct"][s] = round(sum(vals) / len(vals)) if vals else None
+    return out
+
+
+def measure(run: Path) -> dict:
+    """Every measure of a match: {key: value} for a match measure, {key: {side: value}} for a side one."""
+    key = str(run)
+    if key in _cache:
+        return _cache[key]
+    # Finished matches are measured once: .runtime/measures/<run>.json, redone when the log or this file changes.
+    log = scorecard.console(run)
+    stamp = f"{log.stat().st_size}-{int(log.stat().st_mtime)}-{int(Path(__file__).stat().st_mtime)}" if log else ""
+    disk = scorecard.RUNS.parent / "measures" / f"{run.name}.json"
+    if log and disk.exists():
+        saved = json.loads(disk.read_text(encoding="utf-8"))
+        if saved.get("_stamp") == stamp:
+            _cache[key] = saved["values"]
+            return saved["values"]
+    card = scorecard.measure(run)
+    out = {}
+    if card:
+        out["minutes"] = card["minutes"]
+        for k in SCORECARD_KEYS:
+            out[k] = {s: card["sides"][s].get(k) for s in SIDES}
+        _, fails = scorecard.report(card)
+        out["scorecard_fails"] = fails
+    out.update(extra(run))
+    _cache[key] = out
+    if log:
+        disk.parent.mkdir(parents=True, exist_ok=True)
+        disk.write_text(json.dumps({"_stamp": stamp, "values": out}), encoding="utf-8")
+    return out
+
+
+def main() -> int:
+    if "--list" in sys.argv:
+        for k, (per, what) in MEASURES.items():
+            print(f"{k:22} per {per:5}  {what}")
+        return 0
+    for a in sys.argv[1:]:
+        run = Path(a) if Path(a).is_dir() else scorecard.RUNS / a
+        print(run.name)
+        print(json.dumps(measure(run), indent=1))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -28,6 +28,14 @@ Plan and research: https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp
 Log lines start with `[ZCR]` (`PLAN`, `SNAPSHOT`, `LOSS`, `BRIDGE_MISS`, `STRATEGIST`); AI Conflict's
 own start with `[AICF]`. Game options: `-zcrPlanSeconds` (default 90), `-zcrBridge=<url>`.
 
+## The self-improvement loop
+
+The AI is improved by a loop of Claude Code skills (`.claude/skills/`): goals in `goals.toml`
+(a wish, the measure that shows it, a target), matches, measuring (`python lab/goals.py`), finding the
+cause in the logs, a fix, a verification in matches, and a written record. `docs/LOOP.md` explains
+it; to run your own goals, start with the `lab-setup` skill, then `goal` and `improve`.
+Machine paths live in `lab/lab.local.toml` (copy `lab/lab.local.example.toml`; `python lab/config.py`).
+
 ## The LLM strategist
 
 1. Put your OpenRouter key in a user environment variable, in your own terminal (never in a file

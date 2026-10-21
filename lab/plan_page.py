@@ -8,6 +8,7 @@ Writes <out_dir>/reforger_plan.html. PLAN.md lines: "## Theme", then "- [Status]
 import argparse
 import html
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -30,7 +31,9 @@ def parse(text: str) -> list:
     return themes
 
 
-NOTES = Path("D:/work/ac-lab/REVIEW_NOTES.md")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config  # noqa: E402
+NOTES = config.path("paths.notes")   # lab/lab.toml + lab/lab.local.toml
 FIRST_REFORGER_NOTE = 88
 BUG_WORDS = ("bug", "fell", "falling", "stuck", "stopped", "don't work", "crash", "can't connect", "broken", "desktop", "sucks", "lost")
 

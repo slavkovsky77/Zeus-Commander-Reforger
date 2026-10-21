@@ -26,7 +26,9 @@ RUNS = ROOT / ".runtime" / "runs"
 REPORTS = ROOT / ".runtime" / "reports"
 VIDEOS = ROOT / "videos"
 WATCH_LOG = ROOT / ".runtime" / "watch_day.out"
-NOTES = Path("D:/work/ac-lab/REVIEW_NOTES.md")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config  # noqa: E402
+NOTES = config.path("paths.notes")   # lab/lab.toml + lab/lab.local.toml
 CLOCK = re.compile(r"^(\d\d):(\d\d):(\d\d)\.\d+")
 
 

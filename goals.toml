@@ -1,0 +1,101 @@
+# The goals the self-improvement loop works toward, most important first. Each one is a wish in the
+# owner's words plus the numbers that say whether it is met, read from the matches' logs
+# (python lab/measures.py --list). `python lab/goals.py` judges every active goal on the latest
+# matches and names the next one to work on: the first active goal that is not met.
+#
+#   id        short name, used in commits, notes and pages
+#   wish      what the owner asked for, in their words (who, when)
+#   notes     review note numbers (paths.notes) and PLAN.md items it came from
+#   status    active (the loop works on it) | met (kept as a regression check) | paused
+#   matches   which matches judge it: watched (on screen, what the owner sees - the default),
+#             headless (the batch), any
+#   needs     options the matches must run with for the measure to mean anything (e.g. armour)
+#   [[goal.measure]]
+#     key     a measure from lab/measures.py
+#     target  ">= 3", "<= 2", "== 0"; a side measure must pass for every side
+#   met_when  "2 of 3": the goal is met when every measure passes in 2 of the last 3 matches
+
+[[goal]]
+id = "trucks"
+title = "The AI keeps its front bases supplied by truck"
+wish = "AI should learn to use supply trucks - logistics is very important (Martin, 20-21 Oct)"
+notes = [216, 224, 241, 244, 252]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "truck_first_min"
+  target = "<= 8"
+  [[goal.measure]]
+  key = "truck_unloads"
+  target = ">= 3"
+  [[goal.measure]]
+  key = "front_supply_pct"
+  target = ">= 35"
+
+[[goal]]
+id = "drones-water"
+title = "Drones don't fly into the sea"
+wish = "fix drones crashing into water (Martin, 20 Oct)"
+notes = [236]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "drones_lost_water"
+  target = "<= 2"
+
+[[goal]]
+id = "armour"
+title = "APCs and tanks fight, crewed, in the assault"
+wish = "more vehicle types - APC, tanks, maybe use some mods - make AI use them also for combat, that's important (Martin, 20 Oct)"
+notes = [243, 247, 250]
+status = "active"
+matches = "watched"
+needs = ["armour"]
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "armour_assault"
+  target = ">= 2"
+  [[goal.measure]]
+  key = "armour_kills"
+  target = ">= 2"
+
+[[goal]]
+id = "stable"
+title = "Watched matches run to the end"
+wish = "the game crashes during watched matches (21 Oct night, 6 of 15 armour matches)"
+notes = [246]
+status = "active"
+matches = "watched"
+met_when = "3 of 3"
+  [[goal.measure]]
+  key = "minutes"
+  target = ">= 29"
+
+[[goal]]
+id = "on-screen"
+title = "What the watcher sees: teams out early, drones up, soldiers riding and careful"
+wish = "the 19 Oct regression - teams of one man waiting at base, no drones, nobody in a vehicle (Martin)"
+notes = [173, 201, 212]
+status = "met"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "scorecard_fails"
+  target = "== 0"
+
+[[goal]]
+id = "building"
+title = "Both sides fortify and build depots"
+wish = "found overnight: fortifications only at minute 21-24 of 30, one a side; the AI should build defences (Martin, 19 Oct)"
+notes = [192, 248]
+status = "active"
+matches = "watched"
+met_when = "2 of 3"
+  [[goal.measure]]
+  key = "forts"
+  target = ">= 3"
+  [[goal.measure]]
+  key = "depots"
+  target = ">= 1"

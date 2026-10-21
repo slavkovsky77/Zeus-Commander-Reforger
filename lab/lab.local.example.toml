@@ -1,0 +1,12 @@
+# Copy to lab/lab.local.toml (not committed) and fill in your machine's values; anything left out
+# falls back to lab/lab.toml. Check with: python lab/config.py
+
+[paths]
+steam = "D:/SteamLibrary/steamapps/common"
+ai_conflict = "D:/work/reforger-ai-conflict"
+mod_dirs = ["D:/work/reforger-local-mods", "D:/ArmaReforgerMods/addons"]
+armour_dir = "D:/ArmaReforgerMods/addons"
+notes = "notes/REVIEW_NOTES.md"
+
+[pages]
+# engine = "https://claude.ai/artifact/..."

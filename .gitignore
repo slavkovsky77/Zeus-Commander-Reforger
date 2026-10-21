@@ -6,3 +6,6 @@ __pycache__/
 # The LLM bridge's own settings hold an API key
 lab/bridge.local.json
 videos/
+
+# This machine's lab settings (paths, page links)
+lab/lab.local.toml
