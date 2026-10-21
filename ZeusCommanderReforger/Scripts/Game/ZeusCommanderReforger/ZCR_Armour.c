@@ -325,6 +325,41 @@ class ZCR_Armour
 		return phase;
 	}
 
+	// Own soldiers within 20 m of a gunner's target (ZCR_AIAttackBehavior below holds the gun): the main
+	// gun's rounds burst among them - armour-6: a T-72 killed 3 of its own at once 8-42 m away, another at
+	// 93 m. Only our armour's gunners; checked at most every 0.5 s a gunner.
+	protected static ref map<IEntity, int> s_mHoldCheckAt = new map<IEntity, int>();
+	protected static ref map<IEntity, bool> s_mHold = new map<IEntity, bool>();
+	protected static int s_iHeld;
+
+	static bool FriendsNearTarget(IEntity gunner, vector target)
+	{
+		if (!gunner || target == vector.Zero || System.IsCLIParam("zcrArmourFreeFire") || !IsCrew(gunner))
+			return false;
+		int now = System.GetTickCount();
+		int at;
+		if (s_mHoldCheckAt.Find(gunner, at) && now - at < 500)
+			return s_mHold.Get(gunner);
+		s_mHoldCheckAt.Set(gunner, now);
+		string side = ZCR_LossLog.SideOf(gunner);
+		s_aAhead = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(target, 20, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		bool hold;
+		foreach (IEntity e : s_aAhead)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(e);
+			if (c && !c.IsInVehicle() && AICF_GroupRuntime.IsAliveCharacter(c) && ZCR_LossLog.SideOf(c) == side)
+			{
+				hold = true;
+				break;
+			}
+		}
+		if (hold && !s_mHold.Get(gunner))
+			s_iHeld++;
+		s_mHold.Set(gunner, hold);
+		return hold;
+	}
+
 	// The soldier crews one of our armour units (the soldier layers leave him in his seat).
 	static bool IsCrew(IEntity soldier)
 	{
@@ -810,7 +845,7 @@ class ZCR_Armour
 		int slowedN = unit.m_iSlowed;
 		if (slowedN < 0)
 			slowedN = 0;
-		string slowedText = string.Format(" slowed=%1", slowedN);
+		string slowedText = string.Format(" slowed=%1 held_total=%2", slowedN, s_iHeld);
 		Log(unit, now, "STATUS", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 moved_m=%5 aboard=%6/%7 health=%8" + slowedText + " x=%9", unit.m_sPrefab, unit.m_sPhase,
 			FrontName(front), Math.Round(dist), Math.Round(vector.DistanceXZ(at, unit.m_vWas)), Aboard(unit), unit.m_iCrew, Math.Round(100 * health),
 			string.Format("%1 z=%2", Math.Round(at[0]), Math.Round(at[2]))));
@@ -1039,5 +1074,21 @@ modded class SCR_AIGetOutVehicle
 		if (m_Vehicle && ZCR_Armour.KeepAboard(m_Vehicle.m_Value))
 			return 0;
 		return super.CustomEvaluate();
+	}
+}
+
+// Armour gunners hold fire at a target with their own soldiers within 20 m of it (see FriendsNearTarget).
+// -zcrArmourFreeFire turns it off.
+modded class SCR_AIAttackBehavior
+{
+	override float CustomEvaluate()
+	{
+		float value = super.CustomEvaluate();
+		if (value <= 0 || !m_Utility || !m_Utility.m_AIInfo || !m_Utility.m_AIInfo.HasUnitState(EUnitState.IN_TURRET))
+			return value;
+		BaseTarget target = m_Target.m_Value;
+		if (target && ZCR_Armour.FriendsNearTarget(m_Utility.m_OwnerEntity, target.GetLastSeenPosition()))
+			return 0;
+		return value;
 	}
 }
