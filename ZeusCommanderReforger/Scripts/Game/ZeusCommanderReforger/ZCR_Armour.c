@@ -446,17 +446,26 @@ class ZCR_Armour
 			Skip(unit, now, "NO_PREFAB");
 			return;
 		}
-		if (hq.GetSupplies() < costs[pick] + RESERVE)
-		{
-			Skip(unit, now, string.Format("NO_SUPPLIES have=%1 need=%2", Math.Round(hq.GetSupplies()), costs[pick] + RESERVE));
-			return;
-		}
+		// Bought at the side's base nearest its front, 400 m+ short of it, when it has the supplies (keeping
+		// FORWARD_RESERVE) and a road spot; else at the HQ (keeping RESERVE). From the HQ the armour drove
+		// 1-1.5 km to its front and FPV drones took its crews on the way (watched match 05:38).
 		vector pose[4];
-		if (!FindSpot(hq.GetOwner().GetOrigin(), front, pose))
+		SCR_CampaignMilitaryBaseComponent from = Forward(unit.m_sSide, hq, front, costs[pick]);
+		if (!from || !FindSpot(from.GetOwner().GetOrigin(), front, pose))
 		{
-			Skip(unit, now, "NO_SPOT " + s_sSpotWhy);
-			return;
+			from = hq;
+			if (hq.GetSupplies() < costs[pick] + RESERVE)
+			{
+				Skip(unit, now, string.Format("NO_SUPPLIES have=%1 need=%2", Math.Round(hq.GetSupplies()), costs[pick] + RESERVE));
+				return;
+			}
+			if (!FindSpot(hq.GetOwner().GetOrigin(), front, pose))
+			{
+				Skip(unit, now, "NO_SPOT " + s_sSpotWhy);
+				return;
+			}
 		}
+		hq = from;
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		for (int axis; axis < 4; axis++)
@@ -492,10 +501,37 @@ class ZCR_Armour
 		unit.m_vBoughtAt = pose[3];
 		unit.m_iNextStatus = now + 60;
 		s_mVehicle.Set(vehicle, unit);
-		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 hq_after=%5 x=%6 z=%7 type_was=%8", unit.m_sPrefab, unit.m_sKind,
+		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 stock_after=%5 x=%6 z=%7 type_was=%8", unit.m_sPrefab, unit.m_sKind,
 			costs[pick], ZCR_Strategist.BaseName(hq), Math.Round(hq.GetSupplies()), Math.Round(pose[3][0]), Math.Round(pose[3][2]), typeWas));
 		// The turrets are slotted entities: their seats are there a moment after the hull.
 		GetGame().GetCallqueue().CallLater(Crew, 1500, false, unit);
+	}
+
+	static const int FORWARD_RESERVE = 500;
+
+	protected static SCR_CampaignMilitaryBaseComponent Forward(FactionKey side, SCR_CampaignMilitaryBaseComponent hq, vector front, int cost)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system || front == vector.Zero)
+			return null;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		SCR_CampaignMilitaryBaseComponent best;
+		float bestDist = vector.DistanceXZ(hq.GetOwner().GetOrigin(), front) - 300;
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || base == hq || !base.GetOwner() || !base.GetFaction() || base.GetFaction().GetFactionKey() != side ||
+				base.GetType() == SCR_ECampaignBaseType.RELAY || base.GetSupplies() < cost + FORWARD_RESERVE)
+				continue;
+			float d = vector.DistanceXZ(base.GetOwner().GetOrigin(), front);
+			if (d >= 400 && d < bestDist)
+			{
+				bestDist = d;
+				best = base;
+			}
+		}
+		return best;
 	}
 
 	protected static void Skip(ZCR_ArmourUnit unit, int now, string reason)
