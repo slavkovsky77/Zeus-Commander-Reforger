@@ -343,7 +343,7 @@ class ZCR_Armour
 			return s_mHold.Get(gunner);
 		s_mHoldCheckAt.Set(gunner, now);
 		string side = ZCR_LossLog.SideOf(gunner);
-		// Near the target (20 m) or near the line of fire (8 m either side, from 5 m out to 20 m past the
+		// Near the target (20 m) or near the line of fire (8 m either side, from 5 m out to 60 m past the
 		// target): armour-11's Abrams killed 10 of its own at 13-321 m - soldiers between it and its target.
 		vector from = gunner.GetOrigin();
 		vector line = target - from;
@@ -368,7 +368,7 @@ class ZCR_Armour
 				break;
 			}
 			float along = vector.Dot(rel, dir);
-			if (along < 5 || along > length + 20)
+			if (along < 5 || along > length + 60)     // rounds that miss fly on: armour-16 killed a friendly 68 m out, its target 35 m
 				continue;
 			if ((rel - dir * along).Length() < 8)
 			{
