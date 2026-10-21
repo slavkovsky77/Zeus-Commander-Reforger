@@ -38,7 +38,7 @@ id = "drones-water"
 title = "Drones don't fly into the sea"
 wish = "fix drones crashing into water (Martin, 20 Oct)"
 notes = [236, 257]
-status = "active"
+status = "met"            # met 21 Oct 15:10 (w11-w14: 0 drones lost over the sea; were 12-30)
 matches = "watched"
 met_when = "2 of 3"
   [[goal.measure]]
@@ -66,7 +66,7 @@ id = "stable"
 title = "Watched matches run to the end"
 wish = "the game crashes during watched matches (21 Oct night, 6 of 15 armour matches)"
 notes = [246]
-status = "active"
+status = "met"            # met 21 Oct 15:10
 matches = "watched"
 met_when = "3 of 3"
   [[goal.measure]]
