@@ -250,7 +250,8 @@ class ZCR_Armour
 				doing = Doing(unit.m_sPhase) + " " + FrontName(unit.m_vFront);
 			at.Insert(unit.m_Vehicle.GetOrigin());
 			sides.Insert(unit.m_sSide);
-			labels.Insert(string.Format("%1 %2 %3 - %4, crew %5/%6, ", unit.m_sSide, unit.m_sKind, Display(unit.m_sPrefab), doing, Aboard(unit), unit.m_iCrew) +
+			// "M1A1 Abrams" on the screen; with DETAILS "US TANK M1A1 Abrams - attacking Farm, crew 3/3, 100%".
+			labels.Insert(Display(unit.m_sPrefab) + "|" + string.Format("%1 %2 %3 - %4, crew %5/%6, ", unit.m_sSide, unit.m_sKind, Display(unit.m_sPrefab), doing, Aboard(unit), unit.m_iCrew) +
 				string.Format("%1", Math.Round(100 * health)) + "%");
 		}
 	}

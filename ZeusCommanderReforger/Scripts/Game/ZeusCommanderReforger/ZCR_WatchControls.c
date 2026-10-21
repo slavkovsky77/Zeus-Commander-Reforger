@@ -174,6 +174,7 @@ class ZCR_WatchControls
 		Add("TEAMS", "kind", 6, 1);
 		Add("FREE LOOK", "free", 7, 0);
 		Add("REPORT", "report", 7, 1);
+		Add("DETAILS: OFF", "details", 8, 0);
 		Labels();
 	}
 
@@ -227,6 +228,13 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("BOTH SIDES");
 			}
+			else if (b.m_sCmd == "details")
+			{
+				if (ZCR_Watch.Details())
+					b.m_wText.SetText("DETAILS: ON");
+				else
+					b.m_wText.SetText("DETAILS: OFF");
+			}
 			else if (b.m_sCmd == "free")
 			{
 				if (ZCR_Watch.IsFree())
@@ -276,6 +284,8 @@ class ZCR_WatchControls
 				c = new Color(0.18, 0.35, 0.75, 0.85);
 			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
 				c = new Color(0.7, 0.18, 0.15, 0.85);
+			else if (b.m_sCmd == "details" && ZCR_Watch.Details())
+				c = new Color(0.15, 0.55, 0.22, 0.8);
 			else if (b.m_sCmd == "free" && ZCR_Watch.IsFree())
 				c = new Color(0.15, 0.55, 0.22, 0.8);
 			else if (b.m_sCmd == "kind" && m_sKind == "vehicles")
@@ -330,6 +340,13 @@ class ZCR_WatchControls
 					else
 						m_sFocus = "";
 					cmd = "side-" + m_sFocus;
+				}
+				// DETAILS: the full label texts on this screen (short ones otherwise).
+				if (cmd == "details")
+				{
+					ZCR_Watch.ToggleDetails();
+					Labels();
+					return;
 				}
 				// Free look: the camera is the watcher's (on this machine only; the director keeps going).
 				if (cmd == "free")

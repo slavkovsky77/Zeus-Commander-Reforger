@@ -1499,15 +1499,109 @@ class ZCR_Director
 		return true;
 	}
 
-	protected static string BaseLabel(SCR_CampaignMilitaryBaseComponent base)
+	protected static string BaseLabel(SCR_CampaignMilitaryBaseComponent base, string run, string build)
 	{
 		float max = base.GetSuppliesMax();
-		string text = string.Format("%1  %2/%3", ZCR_Strategist.BaseName(base), Math.Round(base.GetSupplies()), Math.Round(max));
+		float have = base.GetSupplies();
+		string name = ZCR_Strategist.BaseName(base);
+		string brief = string.Format("%1  %2/%3", name, Math.Round(have), Math.Round(max));
+		string full = string.Format("%1  %2/%3 supplies", name, Math.Round(have), Math.Round(max));
 		if (AICF_SupplyDepots.Is(base))
-			text += string.Format("  SUPPLY DEPOT +%1/min", AICF_SupplyDepots.IncomePerMinute());
-		else if (max > 0 && base.GetSupplies() < 0.6 * max)
-			text += "  asks for supplies";
-		return text;
+		{
+			brief += "  DEPOT";
+			full += string.Format(" - SUPPLY DEPOT +%1/min", AICF_SupplyDepots.IncomePerMinute());
+		}
+		else if (max > 0 && have < 0.6 * max)
+			full += " - asks for supplies";
+		if (!run.IsEmpty())
+		{
+			brief += "  - truck coming";
+			full += " - " + run;
+		}
+		if (!build.IsEmpty())
+		{
+			brief += "  - building";
+			full += " - building " + build;
+		}
+		return brief + "|" + full;
+	}
+
+	// The point's supply level as a dot colour: green 60%+ (AI Conflict asks for trucks below 60%), amber
+	// 30-60%, red under 30%.
+	protected static string SupplyColour(SCR_CampaignMilitaryBaseComponent base)
+	{
+		float max = base.GetSuppliesMax();
+		float share = 1;
+		if (max > 0)
+			share = base.GetSupplies() / max;
+		if (share >= 0.6)
+			return "0.25 0.85 0.35";
+		if (share >= 0.3)
+			return "0.95 0.72 0.15";
+		return "0.92 0.22 0.15";
+	}
+
+	// Supply runs heading to each point (a truck going to load for it, loading, on the way or unloading) and
+	// what is being built at each point (sites within 350 m).
+	protected static void BaseTasks(map<SCR_CampaignMilitaryBaseComponent, string> runs, map<SCR_CampaignMilitaryBaseComponent, string> builds)
+	{
+		array<ref AICF_TruckView> trucks = {};
+		AICF_LogisticsDepotRegistry.AICF_Trucks(trucks);
+		foreach (AICF_TruckView t : trucks)
+		{
+			if (!t.m_To || (t.m_sPhase != "TO_SOURCE" && t.m_sPhase != "LOADING" && t.m_sPhase != "TO_DESTINATION" && t.m_sPhase != "UNLOADING"))
+				continue;
+			string what = string.Format("%1 truck %2", t.m_sSide, TruckDoing(t));
+			if (runs.Contains(t.m_To))
+				what = runs.Get(t.m_To) + ", " + what;
+			runs.Set(t.m_To, what);
+		}
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		array<SCR_CampaignBuildingCompositionComponent> sites = {};
+		array<Faction> factions = {};
+		AICF_BaseBuilderService.AICF_Sites(sites, factions);
+		foreach (SCR_CampaignBuildingCompositionComponent site : sites)
+		{
+			if (!site || !site.GetOwner())
+				continue;
+			SCR_CampaignMilitaryBaseComponent nearest;
+			float best = 350;
+			foreach (SCR_MilitaryBaseComponent b : bases)
+			{
+				SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+				if (!base || !base.GetOwner())
+					continue;
+				float d = vector.DistanceXZ(base.GetOwner().GetOrigin(), site.GetOwner().GetOrigin());
+				if (d < best)
+				{
+					best = d;
+					nearest = base;
+				}
+			}
+			if (!nearest)
+				continue;
+			string what = SiteText(site);
+			if (builds.Contains(nearest))
+				what = builds.Get(nearest) + ", " + what;
+			builds.Set(nearest, what);
+		}
+	}
+
+	// "BUNKER 45%".
+	protected static string SiteText(SCR_CampaignBuildingCompositionComponent site)
+	{
+		string what = "building";
+		EntityPrefabData data = site.GetOwner().GetPrefabData();
+		if (data)
+			what = BuildingKind(data.GetPrefabName());
+		SCR_CampaignBuildingLayoutComponent layout = site.GetCompositionLayout();
+		if (layout && layout.GetToBuildValue() > 0)
+			what += string.Format(" %1", Math.Round(100 * layout.GetCurrentBuildValue() / layout.GetToBuildValue())) + "%";
+		return what;
 	}
 
 	// Supply trucks with what they carry and do, finished fortifications, and buildings going up with their
@@ -1524,7 +1618,7 @@ class ZCR_Director
 			if (!t.m_Vehicle || doing.IsEmpty())
 				continue;
 			markers += Marker("S", t.m_Vehicle.GetOrigin() + Vector(0, 7, 0), Colour(t.m_sSide), 1,
-				string.Format("%1 SUPPLY TRUCK %2/%3 - %4", t.m_sSide, Math.Round(t.m_fCargo), Math.Round(t.m_fCapacity), doing));
+				string.Format("TRUCK %1|%2 SUPPLY TRUCK %3/%4 - %5", Math.Round(t.m_fCargo), t.m_sSide, Math.Round(t.m_fCargo), Math.Round(t.m_fCapacity), doing));
 		}
 		// Armour units (ZCR_Armour): what each tank / IFV is doing.
 		array<vector> armourAt = {};
@@ -1538,7 +1632,7 @@ class ZCR_Director
 		array<string> kinds = {};
 		AICF_Fortifications.List(forts, sides, kinds);
 		foreach (int i, IEntity f : forts)
-			markers += Marker("F", f.GetOrigin() + Vector(0, 5, 0), Colour(sides[i]), 1, sides[i] + " " + kinds[i]);
+			markers += Marker("F", f.GetOrigin() + Vector(0, 5, 0), Colour(sides[i]), 1, kinds[i] + "|" + sides[i] + " " + kinds[i]);
 		array<SCR_CampaignBuildingCompositionComponent> sites = {};
 		array<Faction> factions = {};
 		AICF_BaseBuilderService.AICF_Sites(sites, factions);
@@ -1555,7 +1649,7 @@ class ZCR_Director
 			if (data)
 				what = BuildingKind(data.GetPrefabName());
 			markers += Marker("C", site.GetOwner().GetOrigin() + Vector(0, 8, 0), Colour(factions[k].GetFactionKey()), 1,
-				string.Format("%1 BUILDING %2%3 - crew %4", factions[k].GetFactionKey(), what, progress, ZCR_WorkCrew.CrewAt(site) + 1));
+				string.Format("%1%2|%3 BUILDING %1%2 - crew %4", what, progress, factions[k].GetFactionKey(), ZCR_WorkCrew.CrewAt(site) + 1));
 		}
 		return markers;
 	}
@@ -1607,9 +1701,18 @@ class ZCR_Director
 		// Bases with their supplies (Martin, 21 Oct: "I should see on the map overview the state of the
 		// supplies"): stock/storage, "asks for supplies" below AI Conflict's request level (60%), and AI
 		// Conflict's supply depots - "SUPPLY DEPOT", green while neutral (FIA's colour), any side loads there.
+		// Martin, 21 Oct: "make clear over the points how many supplies are there, and the current supply and
+		// fortification tasks - a details button so the GUI is not overfilled". Each point: its supply number and
+		// a dot by level (green 60%+, amber 30-60%, red under 30%), "truck coming" while a supply run heads there,
+		// "building" while a site goes up there; DETAILS (watch buttons) shows the full text.
+		map<SCR_CampaignMilitaryBaseComponent, string> runs = new map<SCR_CampaignMilitaryBaseComponent, string>();
+		map<SCR_CampaignMilitaryBaseComponent, string> builds = new map<SCR_CampaignMilitaryBaseComponent, string>();
+		BaseTasks(runs, builds);
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 		{
-			markers += Marker("B", base.GetOwner().GetOrigin() + Vector(0, 40, 0), Colour(owner), 1, BaseLabel(base));
+			vector at = base.GetOwner().GetOrigin() + Vector(0, 40, 0);
+			markers += Marker("B", at, Colour(owner), 1, BaseLabel(base, runs.Get(base), builds.Get(base)));
+			markers += Marker("Y", at, SupplyColour(base), 1, "");
 		}
 		markers += LogisticsMarkers();
 		// The followed team's goal.

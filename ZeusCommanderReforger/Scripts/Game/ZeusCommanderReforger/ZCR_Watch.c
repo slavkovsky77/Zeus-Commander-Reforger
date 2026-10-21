@@ -159,6 +159,20 @@ class ZCR_Watch
 		return s_Instance && s_Instance.m_bFree;
 	}
 
+	// DETAILS (a watch button): the full label texts; off, the short ones (Martin, 21 Oct: "a details button
+	// so the GUI is not overfilled with text"). Markers carry "short|full".
+	protected static bool s_bDetails;
+
+	static void ToggleDetails()
+	{
+		s_bDetails = !s_bDetails;
+	}
+
+	static bool Details()
+	{
+		return s_bDetails;
+	}
+
 	// With the mouse an action fires only every second frame (the game's own camera does the same).
 	protected float m_aLastIn[2];
 	protected float Smoothed(float v, int i)
@@ -547,8 +561,19 @@ class ZCR_Watch
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		int used;
+		// High up (the overview, the map of the points): only the points with their supplies and tasks and the
+		// buildings going up, at their spot (Martin: "in the map just supply, if a supply run is expected on a
+		// point, or if fortifications are being built"); DETAILS shows everything.
+		bool overview;
+		if (m_Camera)
+		{
+			vector eye = m_Camera.GetOrigin();
+			overview = eye[1] - world.GetSurfaceY(eye[0], eye[2]) > 450;
+		}
 		foreach (ZCR_WatchMarker m : m_aMarkers)
 		{
+			if (overview && !s_bDetails && (m.m_sKind == "S" || m.m_sKind == "A" || m.m_sKind == "F" || m.m_sKind == "L" || m.m_sKind == "T"))
+				continue;
 			vector screen = workspace.ProjWorldToScreen(m.m_vPos, world);
 			if (screen[2] <= 0)
 				continue;
@@ -562,7 +587,16 @@ class ZCR_Watch
 			if (label)
 			{
 				TextWidget t = TextWidget.Cast(w);
-				t.SetText(m.m_sText);
+				string text = m.m_sText;
+				int bar = text.IndexOf("|");
+				if (bar >= 0)
+				{
+					if (s_bDetails)
+						text = text.Substring(bar + 1, text.Length() - bar - 1);
+					else
+						text = text.Substring(0, bar);
+				}
+				t.SetText(text);
 				t.SetColor(m.m_Colour);
 				t.SetExactFontSize(18);
 				if (m.m_sKind == "G")
@@ -573,6 +607,8 @@ class ZCR_Watch
 					t.SetExactFontSize(15);
 					width = 420;
 				}
+				if (s_bDetails && m.m_sKind == "B")
+					width = 640;
 				if (m.m_sKind == "F")
 					t.SetExactFontSize(13);
 				FrameSlot.SetPos(t, screen[0] - 60, screen[1] - 12);
@@ -583,6 +619,14 @@ class ZCR_Watch
 				float px = 9;
 				if (m.m_sKind == "T")
 					px = 6 + 10 * m.m_fSize;
+				// The point's supply dot, just left of its label (green / amber / red by level).
+				if (m.m_sKind == "Y")
+				{
+					w.SetColor(m.m_Colour);
+					FrameSlot.SetPos(w, screen[0] - 80, screen[1] - 4);
+					FrameSlot.SetSize(w, 14, 14);
+					continue;
+				}
 				if (m.m_sKind == "L")
 					px = 12;
 				Color c = new Color(m.m_Colour.R(), m.m_Colour.G(), m.m_Colour.B(), 1);
