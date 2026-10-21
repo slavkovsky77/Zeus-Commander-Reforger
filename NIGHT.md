@@ -24,8 +24,8 @@ Baseline (w19-w21, before the night's changes): no-crash 8 of 10; armour_still 3
 2. Compile-check the written changes (ZCR: ZCR_Driving jam watch, run-overs, armour give-way; the fork: roadside depot
    spots, candidates inside the radius, slot lanes, covered march legs, covered staging); one focused headless test
    each where a log shows it (site searches: gave-up %, CONSTRUCTION_ROAD_SEEDS); commit.
-3. keepawake for 50 h; the watched loop (Arland, 3x, IFVs, no mod tanks) with the recordings; the remark waiter; a
-   self-waking check every <= 25 min.
+3. keepawake for 52 h; the watched loop (Arland and Everon in turn - Martin: 'test it on at least two scenarios'; 3x,
+   IFVs, no mod tanks) with the recordings, started 22 Oct 00:20; the remark waiter; a self-waking check every <= 30 min.
 4. Every few matches: lab/goals.py; the first failing goal by severity -> evidence (frames, logs) -> a fix ->
    compile-check -> commit -> verify on the next matches (one change at a time, no repeat runs). Review notes,
    PLAN.md, the pages and the app kept current.
