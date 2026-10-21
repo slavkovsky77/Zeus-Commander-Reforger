@@ -24,6 +24,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / ".runtime" / "runs"
+CACHE = ROOT / ".runtime" / "crashes_cache"
+STRESS = ROOT / ".runtime" / "stress.jsonl"
 STAMP = re.compile(r"^\s*(\d\d):(\d\d):(\d\d)\.(\d+)")
 GAME_T = re.compile(r"\[ZCR\]\[[A-Z]+\] t=(\d+)")
 
@@ -69,10 +71,28 @@ def kind_of(crash_log: Path, console_tail: str) -> str:
 
 
 def read_run(run: Path) -> dict | None:
+    """One run's crash facts; a finished run's (log untouched for 3 minutes) are kept in .runtime/crashes_cache."""
     logs = sorted(run.glob("logs/*/console.log"))
     if not logs:
         return None
     console = logs[-1]
+    st = console.stat()
+    key = CACHE / f"{run.name}.json"
+    if key.exists():
+        try:
+            cached = json.loads(key.read_text(encoding="utf-8"))
+            if cached.get("size") == st.st_size:
+                return cached.get("row")
+        except (OSError, ValueError):
+            pass
+    row = scan_run(run, console)
+    if time.time() - st.st_mtime > 180:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        key.write_text(json.dumps({"size": st.st_size, "row": row}), encoding="utf-8")
+    return row
+
+
+def scan_run(run: Path, console: Path) -> dict | None:
     crashed = bool(list(console.parent.glob("*.mdmp")))
     lines = console.read_text(encoding="utf-8", errors="replace").splitlines()
     stamped = [(seconds(l), l) for l in lines]
@@ -84,7 +104,15 @@ def read_run(run: Path) -> dict | None:
         last += 86400
     events = {k: [] for k in EVENTS}
     game_t = None
+    speed, armour, drones = 1.0, False, False
     for t, l in stamped:
+        if "[ZCR][SPEED]" in l and "switch=1" in l:
+            m = re.search(r"multiplier=([\d.]+)", l)
+            speed = float(m.group(1)) if m else speed
+        if not armour and "[ZCR][ARMOUR]" in l and "event=BOUGHT" in l:
+            armour = True
+        if not drones and "FPVAI:" in l:
+            drones = True
         if t < first:
             t += 86400
         g = GAME_T.search(l)
@@ -94,7 +122,8 @@ def read_run(run: Path) -> dict | None:
             if test(l):
                 events[k].append(t)
     out = {"run": run.name, "crashed": crashed, "first": first, "last": last, "minutes": (last - first) / 60,
-           "game_t": game_t, "events": events}
+           "game_t": game_t, "events": events, "speed": speed, "armour": armour, "drones": drones,
+           "watched": bool(re.match(r"w\d+-", run.name)), "day": time.strftime("%Y-%m-%d", time.localtime(console.stat().st_mtime))}
     if crashed:
         tail = "\n".join(l for _, l in stamped[-40:])
         out["kind"] = kind_of(console.parent / "crash.log", tail)
@@ -125,6 +154,67 @@ def lift(rows: list[dict], window: float = 10) -> list[tuple]:
         rate = hit / len(crashed) if crashed else 0
         table.append((k, hit, len(crashed), base, rate / base if base else (float("inf") if hit else 0)))
     return table
+
+
+def split(rows: list[dict]) -> list[dict]:
+    """Crashes per game hour by speed-up, armour and drones (runs of 3+ minutes)."""
+    by = {}
+    for r in rows:
+        if r["minutes"] < 3:
+            continue
+        k = (r.get("speed", 1), r.get("armour", False), r.get("drones", False))
+        s = by.setdefault(k, {"speed": k[0], "armour": k[1], "drones": k[2], "runs": 0, "crashes": 0, "game_h": 0.0})
+        s["runs"] += 1
+        s["crashes"] += 1 if r["crashed"] else 0
+        s["game_h"] += r["minutes"] / 60 * k[0]
+    out = sorted(by.values(), key=lambda s: (s["armour"], s["drones"], s["speed"]))
+    for s in out:
+        s["game_h"] = round(s["game_h"], 1)
+        s["per_game_h"] = round(s["crashes"] / s["game_h"], 3) if s["game_h"] else 0
+    return out
+
+
+def stress_rows() -> list[dict]:
+    if not STRESS.exists():
+        return []
+    return [json.loads(l) for l in STRESS.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def stress_summary(rows: list[dict]) -> list[dict]:
+    by = {}
+    for r in rows:
+        s = by.setdefault(r["variant"], {"variant": r["variant"], "matches": 0, "crashes": 0, "hours": 0.0, "first_crash_min": []})
+        s["matches"] += 1
+        s["hours"] += (r.get("minutes") or 0) / 60
+        if r.get("crashed"):
+            s["crashes"] += 1
+            s["first_crash_min"].append(r.get("minutes"))
+    for s in by.values():
+        s["hours"] = round(s["hours"], 2)
+        s["per_h"] = round(s["crashes"] / s["hours"], 2) if s["hours"] else 0
+    return list(by.values())
+
+
+def report(days: float = 4) -> dict:
+    """Everything the lab app's Crashes tab shows."""
+    since = time.time() - days * 86400
+    runs = [r for r in RUNS.iterdir() if r.is_dir() and r.stat().st_mtime >= since]
+    rows = [x for x in (read_run(r) for r in sorted(runs, key=lambda p: p.stat().st_mtime)) if x]
+    watched = [r for r in rows if r["watched"]]
+    stress = [r for r in rows if r["run"].startswith("stress-")]
+    fmt = lambda t: time.strftime("%H:%M", time.gmtime(t % 86400))
+    shown = [r for r in rows if r["crashed"] and (r["watched"] or r["run"].startswith("stress-"))]
+    crashes = [{"run": r["run"], "day": r["day"], "at": fmt(r["last"]), "minutes": round(r["minutes"], 1), "game_t": r["game_t"],
+                "kind": r.get("kind", ""), "armour": r["armour"], "speed": r["speed"], "before": r.get("before", [])[-12:]}
+               for r in shown]
+    kinds = {}
+    for c in crashes:
+        kinds[c["kind"]] = kinds.get(c["kind"], 0) + 1
+    srows = stress_rows()
+    return {"days": days, "watched": len(watched), "crashes": crashes[::-1], "kinds": kinds,
+            "split": split(rows), "lift": [{"event": k, "hit": h, "of": n, "base": round(b, 3), "lift": (None if l == float("inf") else round(l, 2))}
+                                           for k, h, n, b, l in lift(watched)],
+            "stress": stress_summary(srows), "stress_runs": srows[-30:][::-1], "stress_running": len(stress) > 0}
 
 
 def main() -> int:

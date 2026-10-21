@@ -9,7 +9,8 @@
 
 Tabs: Live (the loop's step, the watched match running - a frame from its recording, score, supplies, events,
 graphs over the match - and the remark box), Goals, Loop (each iteration, before -> after), Matches (with their
-recordings), Progress / Changelog / Plan (the engine, changelog and plan pages, rebuilt every 10 minutes).
+recordings), Crashes (lab/crashes.py and the armour stress test, lab/stress.py), Progress / Changelog / Plan (the
+engine, changelog and plan pages, rebuilt every 10 minutes).
 Remarks go to .runtime/inbox.jsonl; the improve skill files them at the start of each iteration.
 """
 import json
@@ -27,6 +28,7 @@ HERE = Path(__file__).resolve().parent
 LAB = HERE.parent
 ROOT = LAB.parent
 sys.path.insert(0, str(LAB))
+import crashes  # noqa: E402
 import monitor  # noqa: E402
 sys.path.insert(0, str(HERE))
 import progress_specs  # noqa: E402
@@ -55,7 +57,8 @@ class Slow:
         out = {}
         for key, fn in (("goals", monitor.goal_rows), ("matches", lambda: monitor.match_rows(15)),
                         ("commits", monitor.commits), ("notes", lambda: monitor.notes(12)), ("videos", videos),
-                        ("progress", progress_specs.progress_data), ("goal_history", progress_specs.goal_history)):
+                        ("progress", progress_specs.progress_data), ("goal_history", progress_specs.goal_history),
+                        ("crashes", lambda: crashes.report(4))):
             try:
                 out[key] = fn()
             except Exception as e:  # one broken source must not blank the others
@@ -307,11 +310,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({**live(), "servers": servers(), "inbox": inbox(12), "at": now_iso()})
             if path == "/api/slow":
                 with Slow.lock:
-                    small = {k: v for k, v in Slow.data.items() if k not in ("progress", "goal_history")}
+                    small = {k: v for k, v in Slow.data.items() if k not in ("progress", "goal_history", "crashes")}
                     return self.json({**small, "pages_updated": Slow.pages_updated, "log": loop_log()})
             if path == "/api/progress":
                 with Slow.lock:
                     return self.json({**(Slow.data.get("progress") or {}), "goal_history": Slow.data.get("goal_history", [])})
+            if path == "/api/crashes":
+                with Slow.lock:
+                    return self.json({**(Slow.data.get("crashes") or {}), "updated": Slow.data.get("updated")})
             if path == "/charts.js":
                 return self.send(200, (HERE / "charts.js").read_bytes(), "application/javascript; charset=utf-8")
             if path == "/vendor/echarts.min.js":

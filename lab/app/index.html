@@ -162,6 +162,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <button role="tab" data-tab="goals">Goals</button>
     <button role="tab" data-tab="loop">Loop</button>
     <button role="tab" data-tab="matches">Matches</button>
+    <button role="tab" data-tab="crashes">Crashes</button>
     <button role="tab" data-tab="progress">Progress</button>
     <button role="tab" data-tab="changelog">Changelog</button>
     <button role="tab" data-tab="plan">Plan</button>
@@ -227,6 +228,15 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <div id="player"></div>
     <div class="card tbl" id="videos"></div>
   </section>
+  <section class="tab" id="tab-crashes" hidden>
+    <div class="card" id="crashhead"><div class="empty">Loading… (the first scan of the run logs takes a minute or two)</div></div>
+    <div class="grid2">
+      <div class="card"><h2>Stress test</h2><p class="muted">Headless matches packed with armour (6 a side, free, bought again 30 s after a loss), one thing switched off per variant. The variant whose crashes stop points at the cause.</p><div id="stress"></div></div>
+      <div class="card"><h2>What comes before a crash</h2><p class="muted">Crashes with the event in the 10 s before, against the share of a clean match's 10-s windows that have one. About 1x is background.</p><div class="tbl" id="lift"></div></div>
+    </div>
+    <h2>Every crash</h2>
+    <div id="crashlist" style="display:grid;gap:10px"></div>
+  </section>
   <section class="tab" id="tab-progress" hidden>
     <div class="card">
       <div class="row" style="justify-content:space-between">
@@ -272,6 +282,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     if (window.LabCharts) setTimeout(() => LabCharts.resize(), 50);
     try { localStorage.setItem("lab-tab", name); } catch (_) {}
     if (name === "live") pollLive();
+    if (name === "crashes") pollCrashes();
   }
   const fromHash = location.hash.slice(1);
   if (fromHash && $("tab-" + fromHash)) show(fromHash);
@@ -463,6 +474,39 @@ video { width: 100%; border-radius: 8px; background: #000; }
   }
   pollSlow();
   setInterval(() => { if (!document.hidden) pollSlow(); }, 60000);
+
+  // ------------------------------------------------------------ crashes (lab/crashes.py, lab/stress.py)
+  const VARIANT = { control: "the stress alone", keeptype: "vehicles keep their own type", vanilla: "the game's LAV-25 / BTR-70, not the mods'",
+    hold: "bought and crewed, never ordered", nodrones: "no FPV drones", keepwrecks: "wrecks not removed" };
+  function renderCrashes(c) {
+    const split = c.split || [], sum = (f) => split.filter(f).reduce((a, s) => ({ n: a.n + s.crashes, h: a.h + s.game_h }), { n: 0, h: 0 });
+    const withA = sum((s) => s.armour), without = sum((s) => !s.armour);
+    const per10 = (x) => x.h ? 10 * x.n / x.h : 0, top = Math.max(per10(withA), per10(without), 0.01);
+    const bar = (label, x, cls) => `<div class="prog"><div class="top"><span class="t">${label}</span><span class="n">${x.n} crashes in ${x.h.toFixed(0)} game hours · ${per10(x).toFixed(1)} per 10 h</span></div>
+      <div class="pbar ${cls}"><i style="width:${Math.max(1, 100 * per10(x) / top)}%"></i></div></div>`;
+    $("crashhead").innerHTML = `<h2>Armour crashes the game</h2>
+      <p>Since armour went live the watched matches crash about one in four. Over ${c.days} days of runs (watched and headless) the crashes sit almost all in matches with armour; nothing our scripts do lines up with the moment of a crash.</p>
+      <div style="display:grid;gap:4px;max-width:720px">${bar("With armour", withA, "low")}${bar("Without armour", without, "us")}</div>
+      <details style="margin-top:8px"><summary class="muted">By speed-up, armour and drones</summary><div class="tbl"><table><thead><tr><th>Speed</th><th>Armour</th><th>Drones</th><th>Runs</th><th>Crashes</th><th>Game hours</th><th>Per 10 h</th></tr></thead><tbody>${
+        split.map((s) => `<tr><td class="mono">${s.speed}x</td><td>${s.armour ? "yes" : "no"}</td><td>${s.drones ? "yes" : "no"}</td><td class="mono">${s.runs}</td><td class="mono">${s.crashes}</td><td class="mono">${s.game_h}</td><td class="mono">${(10 * s.per_game_h).toFixed(1)}</td></tr>`).join("")}</tbody></table></div></details>`;
+    const st = c.stress || [];
+    $("stress").innerHTML = (st.length ? `<div class="tbl"><table><thead><tr><th>Variant</th><th>Matches</th><th>Crashes</th><th>Hours</th><th>Per hour</th></tr></thead><tbody>${
+      st.map((s) => `<tr><td><b>${esc(s.variant)}</b> <span class="muted">${esc(VARIANT[s.variant] || "")}</span></td><td class="mono">${s.matches}</td><td class="mono">${s.crashes}</td><td class="mono">${s.hours}</td><td class="mono">${s.per_h}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">First matches running - results come when one ends.</div>') +
+      ((c.stress_runs || []).length ? `<h3 style="margin-top:10px">Latest matches</h3><div style="display:grid;gap:3px">${c.stress_runs.slice(0, 12).map((r) =>
+        `<div class="eitem"><span class="d ${r.crashed ? "no" : "ok"}"></span><span class="t">${esc(r.variant)} · ${esc(r.started.slice(11))}</span><span class="n">${r.crashed ? "crashed after " + esc(r.minutes) + " min" : esc(r.minutes) + " min, no crash"}</span></div>`).join("")}</div>` : "");
+    $("lift").innerHTML = `<table><thead><tr><th>Event</th><th>Crashes</th><th>Clean</th><th>Lift</th></tr></thead><tbody>${(c.lift || []).slice().sort((a, b) => (b.lift || 0) - (a.lift || 0)).map((l) =>
+      `<tr><td>${esc(l.event)}</td><td class="mono">${l.hit}/${l.of}</td><td class="mono">${Math.round(100 * l.base)}%</td><td class="mono">${l.hit ? (l.lift == null ? "new" : l.lift + "x") : "–"}</td></tr>`).join("")}</tbody></table>`;
+    $("crashlist").innerHTML = (c.crashes || []).map((x) => `<div class="card"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <span><b>${esc(x.day.slice(5))} ${esc(x.at)}</b> <span class="mono muted">${esc(x.run.replace(/-solo-\d+-\d+$/, ""))}</span></span>
+        <span class="chip ${x.armour ? "no" : ""}">${x.armour ? "armour" : "no armour"}</span></div>
+      <p>${esc(x.kind)} · after ${esc(x.minutes)} min (game ${mmss(x.game_t || 0)})</p>
+      ${(x.before || []).length ? `<details><summary class="muted">The last 30 s</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px">${esc(x.before.join("
+"))}</pre></details>` : ""}</div>`).join("") || '<div class="empty">No crashes.</div>';
+  }
+  async function pollCrashes() {
+    try { const r = await fetch("/api/crashes"); if (r.ok) { const c = await r.json(); if (c.split) renderCrashes(c); } } catch (_) {}
+  }
+  setInterval(() => { if (tab === "crashes" && !document.hidden) pollCrashes(); }, 60000);
 })();
 </script>
 </body>
