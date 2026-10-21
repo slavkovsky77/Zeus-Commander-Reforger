@@ -34,6 +34,7 @@ class ZCR_ArmourUnit
 	int m_iLostAt = -1;
 	int m_iCrew;
 	vector m_vWas;
+	vector m_vBoughtAt;
 	int m_iNextStatus;
 }
 
@@ -194,7 +195,7 @@ class ZCR_Armour
 		forward[1] = 0;
 		forward.Normalize();
 		s_aAhead = {};
-		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * 15, 18, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * 10, 22, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
 		foreach (IEntity e : s_aAhead)
 		{
 			ChimeraCharacter c = ChimeraCharacter.Cast(e);
@@ -202,6 +203,10 @@ class ZCR_Armour
 				continue;
 			vector rel = c.GetOrigin() - mat[3];
 			rel[1] = 0;
+			// Anyone within 10 m round the hull too: a tracked hull turns on the spot (the BMP-1 killed its
+			// side's squad leader 5 m away 18 s after it was bought, before moving off).
+			if (rel.Length() < 10)
+				return true;
 			float along = vector.Dot(rel, forward);
 			if (along < 0 || along > 30)
 				continue;
@@ -240,10 +245,10 @@ class ZCR_Armour
 				health = damage.GetHealthScaled();
 			string doing = "at base";
 			if (!unit.m_sPhase.IsEmpty())
-				doing = unit.m_sPhase + " " + FrontName(unit.m_vOrder);
+				doing = Doing(unit.m_sPhase) + " " + FrontName(unit.m_vFront);
 			at.Insert(unit.m_Vehicle.GetOrigin());
 			sides.Insert(unit.m_sSide);
-			labels.Insert(string.Format("%1 %2 %3 - %4, crew %5/%6, ", unit.m_sSide, unit.m_sKind, unit.m_sPrefab, doing, Aboard(unit), unit.m_iCrew) +
+			labels.Insert(string.Format("%1 %2 %3 - %4, crew %5/%6, ", unit.m_sSide, unit.m_sKind, Display(unit.m_sPrefab), doing, Aboard(unit), unit.m_iCrew) +
 				string.Format("%1", Math.Round(100 * health)) + "%");
 		}
 	}
@@ -272,7 +277,7 @@ class ZCR_Armour
 		if (!best)
 			return false;
 		vehicle = best.m_Vehicle;
-		label = string.Format("%1 %2 %3 - %4 %5, crew %6/%7", best.m_sSide, best.m_sKind, best.m_sPrefab, best.m_sPhase, FrontName(best.m_vOrder), Aboard(best), best.m_iCrew);
+		label = string.Format("%1 %2 %3 - %4 %5, crew %6/%7", best.m_sSide, best.m_sKind, Display(best.m_sPrefab), Doing(best.m_sPhase), FrontName(best.m_vFront), Aboard(best), best.m_iCrew);
 		return true;
 	}
 
@@ -289,6 +294,35 @@ class ZCR_Armour
 		if (!s_mVehicle.Find(root, unit) || !unit)
 			return false;
 		return Health(unit) >= 0.35;
+	}
+
+	// What the watcher reads: the vehicle's common name and what it is doing.
+	protected static string Display(string prefab)
+	{
+		if (prefab.Contains("M1A1"))
+			return "M1A1 Abrams";
+		if (prefab.Contains("M2A2"))
+			return "M2A2 Bradley";
+		if (prefab.Contains("T72"))
+			return "T-72";
+		if (prefab.Contains("BMP1"))
+			return "BMP-1";
+		if (prefab.Contains("LAV25"))
+			return "LAV-25";
+		if (prefab.Contains("BTR70"))
+			return "BTR-70";
+		return prefab;
+	}
+
+	protected static string Doing(string phase)
+	{
+		if (phase == "APPROACH")
+			return "moving up to";
+		if (phase == "ASSAULT")
+			return "attacking";
+		if (phase == "REMOUNT")
+			return "crew boarding, front";
+		return phase;
 	}
 
 	// The soldier crews one of our armour units (the soldier layers leave him in his seat).
@@ -455,6 +489,7 @@ class ZCR_Armour
 		unit.m_iBoughtAt = now;
 		unit.m_iCrew = 0;
 		unit.m_vWas = pose[3];
+		unit.m_vBoughtAt = pose[3];
 		unit.m_iNextStatus = now + 60;
 		s_mVehicle.Set(vehicle, unit);
 		Log(unit, now, "BOUGHT", string.Format("prefab=%1 kind=%2 cost=%3 base=%4 hq_after=%5 x=%6 z=%7 type_was=%8", unit.m_sPrefab, unit.m_sKind,
@@ -752,7 +787,8 @@ class ZCR_Armour
 		else
 			unit.m_iStill = 0;
 		unit.m_vWas = at;
-		if (unit.m_iStill >= 2)
+		// Never moved off since bought (a first order it can't drive to): another way after one still minute.
+		if (unit.m_iStill >= 2 || (unit.m_iStill >= 1 && vector.DistanceXZ(at, unit.m_vBoughtAt) < 40))
 		{
 			unit.m_iStill = 0;
 			unit.m_iDetour++;
