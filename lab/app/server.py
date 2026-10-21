@@ -19,7 +19,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -276,9 +276,13 @@ def inbox(n: int = 30) -> list:
     return rows[-n:][::-1]
 
 
-def add_remark(kind: str, text: str) -> dict:
+def add_remark(kind: str, text: str, typing_s: float = 0) -> dict:
+    """A remark into the inbox. seen_at: the moment it is about - when the owner started typing it (typing_s before now)."""
     RUNTIME.mkdir(parents=True, exist_ok=True)
-    row = {"id": datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:-3], "at": now_iso(), "kind": kind[:20], "text": text[:2000], "status": "new"}
+    now = datetime.now()
+    row = {"id": now.strftime("%Y%m%d-%H%M%S-%f")[:-3], "at": now_iso(), "kind": kind[:20], "text": text[:2000], "status": "new"}
+    if 0 < typing_s < 1800:
+        row["seen_at"] = (now - timedelta(seconds=typing_s)).strftime("%Y-%m-%dT%H:%M:%S")
     with open(INBOX, "a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
     return row
@@ -384,7 +388,11 @@ class Handler(BaseHTTPRequestHandler):
             text = str(body.get("text", "")).strip()
             if not text:
                 return self.json({"error": "empty"}, 400)
-            return self.json(add_remark(str(body.get("kind", "wish")), text))
+            try:
+                typing_s = float(body.get("typing_s") or 0)
+            except (TypeError, ValueError):
+                typing_s = 0
+            return self.json(add_remark(str(body.get("kind", "wish")), text, typing_s))
         except Exception as e:
             return self.json({"error": str(e)}, 400)
 

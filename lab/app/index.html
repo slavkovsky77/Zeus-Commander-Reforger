@@ -440,16 +440,28 @@ video { width: 100%; border-radius: 8px; background: #000; }
   setInterval(() => { if (tab === "live" && !document.hidden) pollLive(); }, 5000);
   pollLive();
 
+  // The moment a remark is about: when its first letter was typed, not when it was sent (typing takes 20-30 s and
+  // the camera moves on). Sent as seconds of typing, so the phone's clock doesn't matter; the PC works back from now.
+  let typingSince = 0;
+  $("text").addEventListener("input", () => {
+    if (!$("text").value.trim()) { typingSince = 0; return; }
+    if (!typingSince) {
+      typingSince = Date.now();
+      $("sendnote").textContent = `Moment noted: ${new Date().toLocaleTimeString()} - what was on screen when you started typing.`;
+    }
+  });
   $("form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = $("text").value.trim();
     if (!text) return;
     const kind = (document.querySelector('input[name="kind"]:checked') || {}).value || "wish";
+    const typing_s = typingSince ? Math.round((Date.now() - typingSince) / 1000) : 0;
     $("sendnote").textContent = "Sending…";
     try {
-      const r = await fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text }) });
+      const r = await fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text, typing_s }) });
       if (!r.ok) throw new Error();
       $("text").value = "";
+      typingSince = 0;
       $("sendnote").textContent = "Sent - the loop picks it up now.";
       pollLive();
     } catch (_) { $("sendnote").textContent = "Not sent - is the PC on?"; }
