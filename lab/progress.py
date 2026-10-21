@@ -78,6 +78,8 @@ BUILDS = [
     (31, "drones round the sea; depots that count; main base races for the first depot", "2026-10-21 14:32", "drone teams fly a way over land (grid search) when the straight line crosses the sea; depots that belong to no base don't switch a side's first-depot rules off; the main base searches for a depot alongside one other base"),
     (32, "building planner 4-10x faster; building keeps its orders", "2026-10-21 15:16", "AI Conflict's construction planner on its own tick (250 ms, divided by the watched matches' speed-up, at least 100 ms; was once a second); building's navmesh queries through an empty group of its own, so a wiped-out squad no longer cancels building orders"),
     (33, "building timers at game speed; squads don't wait for vehicle pads", "2026-10-21 17:07", "the building planner's search windows, decisions and cooldowns scale with the speed-up (40 s / 20 s at 3x); a squad waits at most 45 game seconds for a free vehicle pad, then walks"),
+    (34, "armour back for a new crew; depots off the road", "2026-10-21 18:34", "a tank or IFV whose crew was killed inside goes back to a base for a new crew; depots stay off roads with a road near; the lab app shows each side's efforts with progress"),
+    (35, "site searches 3x faster; armour without the mod tanks", "2026-10-21 21:50", "the building planner's query budget and candidates per tick raised (searches computed 0.18 s per 40-s window); the mods' tanks off - they crash the game; armour slows for vehicles ahead"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
