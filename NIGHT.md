@@ -34,6 +34,12 @@ the winner. Morning report: `.runtime/drivenight/REPORT.md`, the lab app's Progr
 has the best average rank over its tracks (ties: fewer mods). Then 3 h of watched matches with it, on the same settings
 as the 22 Oct baseline (armour off, no armed rides).
 
+**New since the plan was written (23 Oct 00:30):** our vehicle mod's first version is in the night - `ZCR_Traffic`, the
+speed arbiter (every rule asks, the vehicle gets the lowest request) with the **spacing rule** (no rear-ending: stop under
+9 m, 12 km/h under 16 m, match the one ahead under 28 m; a stop held 10 s becomes a 6 km/h creep) and the oncoming rule
+under it. Variant `nospacing` on the head-on track tells what it is worth. Every run also lands in the **driving
+sub-lab** (`lab/sublabs/driving.toml`, the lab app's Sub-labs tab, `python lab/sublab.py report driving`).
+
 **The verdict - Martin's "last chance":**
 - **Pass**, vehicles stay: in the watched matches with the winner, Arland jams <= 3 and long stops <= 2 a match (baseline
   ~6 / ~5), vehicles hitting each other <= 1 a match, no more game crashes than the push block (1 in 11) - and on the

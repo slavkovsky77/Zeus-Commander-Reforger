@@ -1,0 +1,17 @@
+# Sub-lab "driving" - the first one (23 Oct 2026). Martin: "cars blocking each other is the biggest issue"; "they still
+# crash into each other"; "it's one last chance, if it doesn't help I will probably drop vehicles" (review notes 289,
+# 303-307). The runner is the driving test track (crewed vehicles shuttling on the game's own maps, no commander).
+name = "driving"
+question = "Can AI vehicles get through a narrow lane, a trap and head-on meetings without jams, stuck cars or crashes into each other - with which of our rules and which mods?"
+issue = "jams at base exits and traps, vehicles stuck off the road, head-on crashes on narrow roads"
+pass_rule = "the candidate loses at most 1 car a run where raw loses 2+ and has no more jams; then in watched matches on Arland jams <= 3, long stops <= 2, cars hitting each other <= 1 a match (NIGHT.md)"
+runner = "lab/drivetest.py"
+minutes = 10
+units = 6
+scenarios = ["headon", "mosshill-conflict", "trucks", "northfarm", "everonexit"]
+variants = ["raw", "default", "nooncoming", "nospacing", "price", "competent", "crx", "jmvai", "best"]
+baseline = "raw"
+candidate = "default"
+score = "legs - 4*lost - 3*car_hits - jams - 2*(oldest_open_s > 300)"
+higher_is_better = true
+keys = ["legs", "lost", "car_hits", "jams", "stops", "oncoming", "offroad_pct", "median_leg_s"]

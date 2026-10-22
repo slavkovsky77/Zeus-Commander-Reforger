@@ -4,6 +4,7 @@
 // Every half second: two AI-driven vehicles each with the other ahead within 90 m, less than 8 m off its line and
 // driving towards it, both over 8 km/h -> both cruise at 15 km/h (the game's own avoidance steers round at that speed)
 // until the other is behind or 100 m away, then the game's own speed again. Not our armour (its guard sets its speed).
+// The cap goes through ZCR_Traffic's speed arbiter (the lowest of all rules' requests).
 //   [ZCR][ONCOMING] t= side= vehicle= other= other_side= m= kmh= other_kmh= x= z=      (slowing starts)
 //   [ZCR][ONCOMING] t= side= vehicle= event=passed slow_s=                             (back to normal)
 // -zcrNoOncoming turns it off.
@@ -76,16 +77,15 @@ class ZCR_Oncoming
 		foreach (IEntity v, IEntity other : s_mSlowFor)
 		{
 			float d;
-			if (!v || !other || !Towards(v, other, d) && (vector.DistanceXZ(v.GetOrigin(), other.GetOrigin()) > CLEAR_M || !Ahead(v, other)))
+			// Passed (the other behind), or gone, or far away.
+			if (!v || !other || !Ahead(v, other) || vector.DistanceXZ(v.GetOrigin(), other.GetOrigin()) > CLEAR_M)
 				done.Insert(v);
 		}
 		foreach (IEntity v : done)
 		{
 			if (v)
 			{
-				AICarMovementComponent car = AICarMovementComponent.Cast(v.FindComponent(AICarMovementComponent));
-				if (car)
-					car.ResetCruiseSpeed();
+				ZCR_Traffic.Release(v, "oncoming");
 				Print(string.Format("[ZCR][ONCOMING] t=%1 side=%2 vehicle=%3 event=passed slow_s=%4", now, ZCR_LossLog.SideOf(v), ZCR_LossLog.ShortName(v),
 					now - s_mSlowAt.Get(v)), LogLevel.NORMAL);
 			}
@@ -125,10 +125,8 @@ class ZCR_Oncoming
 	{
 		if (s_mSlowFor.Contains(v))
 			return;
-		AICarMovementComponent car = AICarMovementComponent.Cast(v.FindComponent(AICarMovementComponent));
-		if (!car)
+		if (!ZCR_Traffic.Limit(v, "oncoming", SLOW_KMH))
 			return;
-		car.SetCruiseSpeed(SLOW_KMH);
 		s_mSlowFor.Set(v, other);
 		s_mSlowAt.Set(v, now);
 		string otherSide = ZCR_LossLog.SideOf(other);

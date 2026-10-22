@@ -27,6 +27,11 @@ watch one in the window with `reforger.py --solo --watch` (the director follows 
 - Road price 0.1 vs 0.3 (Arland, 12 min): moving vehicles off the road 4% vs 13%, "unreachable" log lines 25 vs 73.
 - Push: 8-m back-offs moved 5.3 and 7.7 m in 3.5 s (Arland, 10 min).
 
+## The driving sub-lab (lab/sublabs/driving.toml)
+Every track run is one row in `.runtime/sublab/driving/results.jsonl`, scored `legs - 4*lost - 3*car_hits - jams - 2*(a
+leg open over 5 min)`; `python lab/sublab.py report driving` and the lab app's Sub-labs tab compare the variants per
+scenario. The night runner records into it too.
+
 ## Next: the driving night (NIGHT.md, lab/drivenight.py)
 5 tracks (headon, mosshill-conflict, trucks, northfarm, everonexit) x raw / ours / no oncoming / road price /
 Competent AI driving / CRX / JMVehicleAI / best, twice each; the winner in 3 h of watched matches.

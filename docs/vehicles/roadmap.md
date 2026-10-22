@@ -15,9 +15,9 @@ settings, a log line, a measure and a test track.
 | Block | Job | Built on | Status |
 |---|---|---|---|
 | Traffic manager | one 4 Hz tick over all AI vehicles: position, speed, heading, neighbours (grid), stuck timer | `ZCR_Driving` | partly |
-| Speed arbiter | each car's cruise speed = the lowest request of all rules; released when none asks | new (rules now set speed each on their own) | to build |
-| Oncoming yield | both to 15 km/h when meeting head-on on one lane | `ZCR_Oncoming` | built 22 Oct, untested |
-| Spacing governor | speed from the gap to the car ahead (stop / crawl / match / free) | Advanced AI Command's technique, our code | to build |
+| Speed arbiter | each car's cruise speed = the lowest request of all rules; released when none asks | `ZCR_Traffic` | built 23 Oct, untested |
+| Oncoming yield | both to 15 km/h when meeting head-on on one lane | `ZCR_Oncoming`, through the arbiter | built 22 Oct, untested (night: `nooncoming` vs `default`) |
+| Spacing governor | speed from the gap to the car ahead (stop / crawl / match / free; a 10-s stop becomes a creep) | Advanced AI Command's technique, our code in `ZCR_Traffic` | built 23 Oct, untested (night: `nospacing` vs `default`) |
 | Departure gate | cars leave a base or pad a few seconds apart, only with the way clear | Advanced AI Command's staggered start, our test track | to build |
 | Stuck ladder | push at 20 s -> re-order once -> reverse pulses -> park aside -> crew walks on, vehicle cleared off camera | `ZCR_Push`, DCO transport, BlackReign | push / park done |
 | Route shaping | road price, per-class turn radius, our own road route with waypoints every ~150 m | ZCR Road Price, Competent AI driving's values, `RoadNetworkManager` | road price built |

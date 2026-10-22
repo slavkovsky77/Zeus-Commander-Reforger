@@ -18,6 +18,7 @@ class ZCR_DriveCar
 	bool m_bToB;
 	int m_iLeg;
 	int m_iLegStart;
+	int m_iSpawnedAt;
 	bool m_bLost;
 }
 
@@ -133,7 +134,9 @@ class ZCR_DriveTest
 		{
 			if (car.m_bLost)
 				continue;
-			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || !Driven(car))
+			// The driver is seated a moment after the spawn: the "crew out" check waits 10 s (23 Oct: both test cars were
+			// marked lost in the second they spawned).
+			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || (now - car.m_iSpawnedAt > 10 && !Driven(car)))
 			{
 				car.m_bLost = true;
 				vector at;
@@ -310,6 +313,7 @@ class ZCR_DriveTest
 		car.m_Vehicle = vehicle;
 		car.m_Group = SCR_AIGroup.Cast(group);
 		car.m_bToB = !fromB;
+		car.m_iSpawnedAt = now;
 		m_aCars.Insert(car);
 		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(vehicle.FindComponent(SCR_AIVehicleUsageComponent));
 		if (car.m_Group && usage && car.m_Group.GetGroupUtilityComponent() && !car.m_Group.GetGroupUtilityComponent().IsUsableVehicle(usage))

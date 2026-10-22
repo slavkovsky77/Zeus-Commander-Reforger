@@ -172,6 +172,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <button role="tab" data-tab="matches">Matches</button>
     <button role="tab" data-tab="crashes">Crashes</button>
     <button role="tab" data-tab="progress">Progress</button>
+    <button role="tab" data-tab="sublab">Sub-labs</button>
     <button role="tab" data-tab="changelog">Changelog</button>
     <button role="tab" data-tab="plan">Plan</button>
   </nav>
@@ -261,6 +262,10 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <h2>Since the start</h2>
     <div class="pgrid" id="progresscharts"><div class="empty">Loading…</div></div>
     <p class="muted"><a href="/pages/engine" target="_blank" rel="noopener">The old engine page</a> (static graphs, the full text) stays available.</p>
+  </section>
+  <section class="tab" id="tab-sublab" hidden>
+    <p class="muted">One small experiment per issue: the smallest scenario that reproduces it, played with each variant (our rules, mods), scored per run. <span class="mono">lab/sublab.py</span>, definitions in <span class="mono">lab/sublabs/</span>.</p>
+    <div id="sublab" style="display:grid;gap:12px"></div>
   </section>
   <section class="tab" id="tab-changelog" hidden><iframe title="Changelog" data-src="/pages/changelog"></iframe></section>
   <section class="tab" id="tab-plan" hidden><iframe title="Plan by theme" data-src="/pages/plan"></iframe></section>
@@ -498,6 +503,19 @@ video { width: 100%; border-radius: 8px; background: #000; }
       s.matches.map((m) => `<tr><td class="mono">${esc(m.when)}</td><td class="mono">${m.ended_early ? '<span class="d no"></span>crashed' : esc(m.minutes) + " min"}</td>${keys.map((k) => `<td class="mono">${esc(side(m[k], k === "truck_first_min"))}</td>`).join("")}</tr>`).join("") + "</tbody></table>" : '<div class="empty">No matches.</div>';
     $("videos").innerHTML = (s.videos || []).length ? `<table><thead><tr><th>Recording</th><th></th><th>Size</th></tr></thead><tbody>` + s.videos.map((v) =>
       `<tr><td><span class="mono">${esc(v.at)}</span> <span class="muted">${esc(v.title)}</span></td><td><button class="go" data-video="${esc(v.name)}" style="padding:4px 10px">Play</button></td><td class="mono">${esc(v.mb)} MB</td></tr>`).join("") + "</tbody></table>" : '<div class="empty">No recordings.</div>';
+    renderSublab(s.sublab || []);
+  }
+  function renderSublab(labs) {
+    $("sublab").innerHTML = labs.map((l) => {
+      const vs = l.variants || [], keys = (l.keys || []).slice(0, 4);
+      const cell = (c) => c ? `<b>${esc(c.score)}</b> <span class="muted">n${esc(c.n)}</span><br><span class="muted">${keys.map((k) => `${esc(k)} ${esc(c[k] == null ? "-" : c[k])}`).join(" · ")}</span>` : "";
+      const table = (l.table || []).length ? `<div class="tbl"><table><thead><tr><th>scenario</th>${vs.map((v) => `<th class="${v === l.candidate ? "ok" : v === l.baseline ? "muted" : ""}">${esc(v)}</th>`).join("")}</tr></thead><tbody>` +
+        l.table.map((r) => `<tr><td class="mono">${esc(r.scenario)}</td>${vs.map((v) => `<td class="mono">${cell(r.cells[v])}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>" : '<div class="empty">No runs yet.</div>';
+      const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> <span class="chip">${esc(r.scenario)}</span> <span class="chip ${r.variant === l.candidate ? "ok" : ""}">${esc(r.variant)}</span> <span class="mono">score ${esc(r.score)}</span> <span class="muted mono">${keys.map((k) => `${esc(k)} ${esc(r[k] == null ? "-" : r[k])}`).join(" · ")}</span></div>`).join("");
+      return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
+        <p>${esc(l.question)}</p><p class="muted">${esc(l.issue)}</p><p class="muted"><b>Pass:</b> ${esc(l.pass_rule)} <span class="mono">· score higher is better · baseline ${esc(l.baseline)} · candidate ${esc(l.candidate)}</span></p>
+        ${table}${recent ? `<h3 style="margin-top:10px">Last runs</h3><div style="display:grid;gap:4px">${recent}</div>` : ""}</div>`;
+    }).join("") || '<div class="empty">No sub-labs.</div>';
   }
   $("videos").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-video]");

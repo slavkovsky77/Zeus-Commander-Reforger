@@ -89,6 +89,7 @@ class ZCR_Driving
 		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
 		ZCR_DriveTest.Start();     // lab: the driving test track (-zcrDriveTest)
 		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
+		ZCR_Traffic.Start();       // the speed arbiter and the spacing rule (-zcrNoTraffic / -zcrNoSpacing off)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off
@@ -121,7 +122,21 @@ class ZCR_Driving
 		Print(string.Format("[ZCR][OFFROAD] t=%1 side=%2 moving=%3 offroad=%4 pct=%5", now, side, moving, off, pct), LogLevel.NORMAL);
 	}
 
-	// The AI-driven vehicles seen this tick or the last one (for ZCR_Oncoming).
+	// The lab's speed cap (-zcrCruiseSpeed), 0 when none.
+	static float CruiseLimit()
+	{
+		if (!s_Instance)
+			return 0;
+		return s_Instance.m_fLimit;
+	}
+
+	// The side of a vehicle seen driven (its driver's faction), "" when unknown.
+	static string DrivenSide(IEntity v)
+	{
+		return s_mSide.Get(v);
+	}
+
+	// The AI-driven vehicles seen this tick or the last one (for ZCR_Oncoming and ZCR_Traffic).
 	static void DrivenNow(notnull array<IEntity> cars)
 	{
 		int now = ZCR_LossLog.Seconds();
@@ -186,7 +201,7 @@ class ZCR_Driving
 			float kmh = v.GetPhysics().GetVelocity().Length() * 3.6;
 			s_mSpeed.Set(v, kmh);
 			s_mSeen.Set(v, now);
-			if (m_fLimit > 0)
+			if (m_fLimit > 0 && !ZCR_Traffic.Active())   // with the traffic manager the cap is its "lab" rule
 			{
 				AICarMovementComponent car = AICarMovementComponent.Cast(v.FindComponent(AICarMovementComponent));
 				if (car)

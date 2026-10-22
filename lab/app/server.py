@@ -32,6 +32,7 @@ import crashes  # noqa: E402
 import monitor  # noqa: E402
 sys.path.insert(0, str(HERE))
 import progress_specs  # noqa: E402
+import sublab  # noqa: E402
 import scorecard  # noqa: E402
 
 RUNTIME = ROOT / ".runtime"
@@ -58,7 +59,7 @@ class Slow:
         for key, fn in (("goals", monitor.goal_rows), ("matches", lambda: monitor.match_rows(15)),
                         ("commits", monitor.commits), ("notes", lambda: monitor.notes(12)), ("videos", videos),
                         ("progress", progress_specs.progress_data), ("goal_history", progress_specs.goal_history),
-                        ("crashes", lambda: crashes.report(4))):
+                        ("crashes", lambda: crashes.report(4)), ("sublab", sublab.app_data)):
             try:
                 out[key] = fn()
             except Exception as e:  # one broken source must not blank the others

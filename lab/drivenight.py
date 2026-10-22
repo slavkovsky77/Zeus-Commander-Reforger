@@ -33,6 +33,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 import drivetest  # noqa: E402
+import sublab  # noqa: E402
 
 OUT = ROOT / ".runtime" / "drivenight"
 MINUTES = 10
@@ -40,7 +41,7 @@ REPEATS = 2
 
 # track: variants (each run REPEATS times)
 MATRIX = {
-    "headon": ["raw", "default", "nooncoming", "price", "crx", "jmvai", "best"],
+    "headon": ["raw", "default", "nooncoming", "nospacing", "price", "crx", "jmvai", "best"],
     "mosshill-conflict": ["raw", "default", "price", "crx", "jmvai", "best"],
     "trucks": ["raw", "default", "competent", "price", "best"],
     "northfarm": ["raw", "default", "price", "best"],
@@ -109,6 +110,10 @@ def track_matrix(runs: list) -> list:
                     r[k] = v
             r["score"] = score(r)
             results.append(r)
+            try:
+                sublab.record("driving", r)   # the sub-lab's results and the lab app's Sub-labs tab
+            except Exception as e:
+                log(f"sublab record failed: {e}")
             with open(done, "a", encoding="utf-8") as f:
                 f.write(json.dumps(r) + "\n")
             log(f"{track} {variant} #{rep + 1}: legs={r.get('legs')} lost={r.get('lost')} car_hits={r.get('car_hits')} jams={r.get('jams')} score={r['score']}")

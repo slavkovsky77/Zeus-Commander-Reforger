@@ -42,14 +42,15 @@ TRACKS = {
 
 VARIANTS = {
     # name: (extra server parameters, extra mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming", ""),                # the game's driver alone
-    "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
+    "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
+    "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
     "nooncoming": ("-zcrNoOncoming", ""),
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
     "competent": ("", "68FCF11534562F2E"),                                    # + Competent AI driving (turn radius, trucks/APCs)
     "crx": ("", "5F268647F8A1A1F4"),                                          # + CRX Enfusion A.I. (column driving, vehicle combat)
-    "jmvai": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming", "6A8490E1621E7B3C,7A3C51E0D2B94F61"),   # JMVehicleAI, tuned, alone
+    "jmvai": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", "6A8490E1621E7B3C,7A3C51E0D2B94F61"),   # JMVehicleAI, tuned, alone
     "best": ("", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),                         # ours + road price + Competent AI driving
 }
 
@@ -66,7 +67,14 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                    creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
-    log = next(iter(sorted(runs[-1].glob("logs/*/console.log"))), None) if runs else None
+    if not runs:
+        return {"track": track, "variant": variant, "error": "no run folder"}
+    return summarize(runs[-1], track, variant)
+
+
+def summarize(run_dir: Path, track: str, variant: str) -> dict:
+    """One flat summary of a finished track run (also for backfilling old runs into the sub-lab)."""
+    log = next(iter(sorted(run_dir.glob("logs/*/console.log"))), None)
     out = {"track": track, "variant": variant}
     if not log:
         out["error"] = "no log"
@@ -85,9 +93,10 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .*error=UNREACHABLE", text)), "pushes": text.count("[ZCR][PUSH]"),
         "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
+        "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
-        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": runs[-1].name,
+        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,
     })
     return out
 
