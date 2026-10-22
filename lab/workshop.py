@@ -83,7 +83,7 @@ def unpack(mod_id: str) -> Path:
         files = pakread.tree(f.read(size))
         n = 0
         for path, offset, stored, original, _flag in files:
-            if path.endswith((".c", ".conf", ".et", ".ct", ".layout", ".gproj", ".txt", ".json", ".st")):
+            if path.endswith((".c", ".conf", ".et", ".ct", ".layout", ".gproj", ".txt", ".json", ".st", ".bt", ".ent", ".layer", ".md")):
                 dst = out / path
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(pakread.read_file(f, offset, stored, original))
