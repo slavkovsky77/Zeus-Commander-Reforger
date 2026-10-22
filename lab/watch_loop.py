@@ -52,8 +52,12 @@ def git_commit() -> str:
 
 
 def opts(map_name: str, client: bool, us: str, ussr: str, label: str, solo: bool = False, extra: str = "") -> Namespace:
-    # armour: the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour's tanks and IFVs (21 Oct).
-    return Namespace(map=map_name, port=PORT, client=client, drones=True, armour=True, watch=True, plan_seconds=90,
+    # armour: the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour's tanks and IFVs (21 Oct). Read before each
+    # match: .runtime/watch_armour_mods.txt "off" leaves them out (22 Oct: the mods' tanks crash the game and their IFVs
+    # drive badly - AI Conflict also rides them when they are loaded; without them all armour is the game's LAV-25 / BTR-70).
+    mods_file = ROOT / ".runtime" / "watch_armour_mods.txt"
+    armour = not (mods_file.exists() and mods_file.read_text(encoding="utf-8").strip().lower() == "off")
+    return Namespace(map=map_name, port=PORT, client=client, drones=True, armour=armour, watch=True, plan_seconds=90,
                      bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo, extra=extra)
 
 
