@@ -72,6 +72,8 @@ CHARTS = [
      [("targets taken", "veh_engagements"), ("enemy killed", "veh_kills_enemy"), ("own killed", "veh_kills_own")], "", None, None, "higher"),
     ("vehshots", "family", "Vehicle weapons: shots fired", "Per match, both sides: shots fired from vehicle turrets, and how many AI gunners fired at all. From 22 Oct evening; earlier matches show nothing.",
      [("shots", "veh_shots"), ("gunners firing", "veh_gunners")], "", None, None, "higher"),
+    ("vehempty", "family", "Vehicle guns standing empty", "Per match, both sides: minutes that manned vehicle and static guns stood with no rounds loaded. AI gunners fire their first magazine and never reload (AI Turret Reload Fix, Workshop 72DB162D129C40D9). From 22 Oct evening.",
+     [("gun-minutes empty", "veh_empty_min")], "", None, None, "lower"),
     ("drive", "family", "Driving speed", "Median speed of the AI-driven vehicles while moving (km/h). The game's drivers run 8-25 km/h; lower means queues and crawling.",
      [("moving speed", "drive_kmh")], " km/h", None, (18, "18 km/h"), "higher"),
     ("fps", "family", "Game frame rate", "Median frames per second during each match: in a watched match the game window itself (it hosts the match), headless the server. Normal about 40; three of my stress servers alongside cut it to 15-20 (21 Oct 20:10).",
