@@ -62,6 +62,8 @@ class ZCR_Driving
 	protected static ref map<IEntity, int> s_mRoads = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mMoveFailAt = new map<IEntity, int>();
 	static const float FOLLOW_M = 14;
+	static const int MOVED_S = 10;
+	protected static ref map<IEntity, int> s_mMovedAt = new map<IEntity, int>();
 	protected static ref map<IEntity, bool> s_mFollowing = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
@@ -296,6 +298,12 @@ class ZCR_Driving
 	protected void Follow(IEntity v, string side)
 	{
 		if (m_fLimit > 0 || System.IsCLIParam("zcrNoFollow") || ZCR_Armour.IsUnit(v))
+			return;
+		// 22 Oct 07:35: the watched matches crashed with hand moves and following both on (6 of 18), not with either
+		// alone - Watch can move a vehicle and Follow then change its cruise speed in the same frame. Not within
+		// MOVED_S of a hand move.
+		int moved;
+		if (s_mMovedAt.Find(v, moved) && ZCR_LossLog.Seconds() - moved < MOVED_S)
 			return;
 		AICarMovementComponent car = AICarMovementComponent.Cast(v.FindComponent(AICarMovementComponent));
 		if (!car)
@@ -633,6 +641,7 @@ class ZCR_Driving
 		// every vehicle is also interpolated for the local client; the headless stress server, with none, moved APCs
 		// 35 times in 24 minutes without a crash where the watched matches crashed three times.
 		vector previous = vehicle.GetOrigin();
+		s_mMovedAt.Set(vehicle, ZCR_LossLog.Seconds());
 		ZCR_Trace.Ent("move", vehicle, why);
 		BaseGameEntity game = BaseGameEntity.Cast(vehicle);
 		if (game)
