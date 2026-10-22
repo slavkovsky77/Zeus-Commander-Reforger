@@ -350,6 +350,12 @@ class ZCR_Armour
 		return true;
 	}
 
+	// One of our armour units (its own guard sets its cruise speed).
+	static bool IsUnit(IEntity vehicle)
+	{
+		return vehicle && s_mVehicle.Contains(vehicle);
+	}
+
 	static int Max()
 	{
 		string value;

@@ -33,6 +33,10 @@
 // 22 Oct 03:00: stuck alone (no vehicle near) lasted a median 88 game s, 27 of 96 spells 2 min+ - an AI driver hung on
 // rocks, trees, a gate or a slope. Stuck alone UNSTICK_S: it backs off the same way (the way it came is drivable)
 // and plans again.
+// Following (22 Oct 03:40, Everon: 16 jams in one match at a farm by the US route - a queue of rides squeezing past each
+// other into the field): a vehicle with one of its side's vehicles within FOLLOW_M ahead going under 5 km/h creeps at
+// 4 km/h behind it; the way clear, the game's own cruise speed again. Not our armour (its guard does it). [ZCR][DRIVE]
+// following=. Off: -zcrNoFollow.
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -48,6 +52,8 @@ class ZCR_Driving
 	static const float GOAL_M = 30;
 	static const float BACK_M = 8;
 	static const int UNSTICK_S = 90;
+	static const float FOLLOW_M = 14;
+	protected static ref map<IEntity, bool> s_mFollowing = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mParked = new map<IEntity, int>();     // when it was last parked aside
@@ -130,6 +136,7 @@ class ZCR_Driving
 			string side = ZCR_LossLog.SideOf(c);
 			s_mSide.Set(v, side);
 			Watch(v, side, now, agent);
+			Follow(v, side);
 			if (!speeds.Contains(side))
 				speeds.Set(side, {});
 			speeds.Get(side).Insert(kmh);
@@ -173,9 +180,15 @@ class ZCR_Driving
 				int movingKmh = -1;
 				if (!moving.IsEmpty())
 					movingKmh = Math.Round(moving[moving.Count() / 2]);
+				int followN;
+				foreach (IEntity fv, bool following : s_mFollowing)
+				{
+					if (fv && following && s_mSide.Get(fv) == side)
+						followN++;
+				}
 				Print(string.Format("[ZCR][DRIVE] t=%1 side=%2 driven=%3 median_kmh=%4 max_kmh=%5 over60=%6 limit=%7",
 					now, side, s.Count(), Math.Round(s[s.Count() / 2]), Math.Round(s[s.Count() - 1]), over, m_fLimit) +
-					string.Format(" stuck=%1 jammed=%2 moving_kmh=%3", stuckN, jamN, movingKmh), LogLevel.NORMAL);
+					string.Format(" stuck=%1 jammed=%2 moving_kmh=%3 following=%4", stuckN, jamN, movingKmh, followN), LogLevel.NORMAL);
 			}
 		}
 		if (now >= m_iNextClean)
@@ -265,6 +278,51 @@ class ZCR_Driving
 			s_mStuck.Set(v, "STUCK");
 			Print(string.Format("[ZCR][STUCKVEH] t=%1 side=%2 vehicle=%3 x=%4 z=%5", now, side, ZCR_LossLog.ShortName(v), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 		}
+	}
+
+	// Creep behind a slow vehicle of the side right ahead instead of squeezing past it.
+	protected void Follow(IEntity v, string side)
+	{
+		if (m_fLimit > 0 || System.IsCLIParam("zcrNoFollow") || ZCR_Armour.IsUnit(v))
+			return;
+		AICarMovementComponent car = AICarMovementComponent.Cast(v.FindComponent(AICarMovementComponent));
+		if (!car)
+			return;
+		bool behind = SlowFriendAhead(v, side);
+		bool was = s_mFollowing.Get(v);
+		if (behind && !was)
+			car.SetCruiseSpeed(4);
+		else if (!behind && was)
+			car.ResetCruiseSpeed();
+		s_mFollowing.Set(v, behind);
+	}
+
+	protected static bool SlowFriendAhead(IEntity v, string side)
+	{
+		vector mat[4];
+		v.GetWorldTransform(mat);
+		vector forward = mat[2];
+		forward[1] = 0;
+		forward.Normalize();
+		s_aNear = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(mat[3] + forward * (FOLLOW_M * 0.5), FOLLOW_M * 0.6, CollectVehicle, null, EQueryEntitiesFlags.DYNAMIC);
+		foreach (IEntity e : s_aNear)
+		{
+			if (e == v || e.GetRootParent() == v)
+				continue;
+			string owner = s_mSide.Get(e);
+			if (owner != side)
+				continue;
+			vector rel = e.GetOrigin() - mat[3];
+			rel[1] = 0;
+			float ahead = vector.Dot(rel, forward);
+			if (ahead <= 0 || ahead > FOLLOW_M || (rel - forward * ahead).Length() > 4)
+				continue;
+			float kmh;
+			if (!s_mSpeed.Find(e, kmh) || kmh < 5)
+				return true;
+		}
+		return false;
 	}
 
 	// Metres from the vehicle to where its driver's group's current waypoint counts as reached (its centre less its
