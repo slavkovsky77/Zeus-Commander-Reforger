@@ -82,6 +82,7 @@ BUILDS = [
     (35, "site searches 3x faster; armour without the mod tanks", "2026-10-21 21:50", "the building planner's query budget and candidates per tick raised (searches computed 0.18 s per 40-s window); the mods' tanks off - they crash the game; armour slows for vehicles ahead"),
     (36, "cars that don't block each other; all vanilla; two maps", "2026-10-22 00:17", "jam watch and unjam (back off, park aside abandoned/waiting blockers, unstick); AI Conflict cleans up vehicles with a dead body aboard; armour mods out; Arland and Everon in turn"),
     (37, "cars follow and go back onto the road; trucks on Everon", "2026-10-22 04:56", "following behind slow vehicles; stuck alone or a queue's front one back onto the road; one safe placement; truck searches finish on big maps, 8 trucks a side, spread load points; failed vehicle moves logged"),
+    (38, "no crashes; trucks out of depots; rides round unreachable spots", "2026-10-22 10:40", "following off (with hand moves it crashed the game); truck waypoints 8 m and depot exits counted once passed; unreachable ride points remembered per match; armour moved again when stuck; AI Conflict's commander tick fast on Everon"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
