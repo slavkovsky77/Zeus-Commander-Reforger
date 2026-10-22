@@ -155,6 +155,9 @@ class ZCR_Director
 
 	protected void Tick()
 	{
+		// Lab (22 Oct, crash hunt): -zcrNoDirector - the camera stays where it starts, no shots across the map.
+		if (System.IsCLIParam("zcrNoDirector"))
+			return;
 		int now = ZCR_LossLog.Seconds();
 		WatchCaptures(now);
 		// FPV teams hit 8-20 s after launch - too quick for the shot rhythm: cut to them at once.
