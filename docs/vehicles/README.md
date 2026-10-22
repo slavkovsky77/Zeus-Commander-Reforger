@@ -11,6 +11,7 @@ already exists, who proved it, and how it did on our tracks.
 | [problems.md](problems.md) | Problem by problem (head-on, rear-end, stuck, corner cutting, off-road, arrival crowds, departures, combat, gunnery): every known technique, who has it, our status |
 | [mods.md](mods.md) | Each vehicle mod: mechanism, numbers, hooks, licence, our test result |
 | [tests.md](tests.md) | Our test tracks and their results so far |
+| [roadmap.md](roadmap.md) | Our own vehicle mod (ZCR Traffic): blocks, order, exit rule |
 
 ## Rules for using it
 
