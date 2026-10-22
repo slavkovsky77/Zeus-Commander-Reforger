@@ -627,14 +627,27 @@ class ZCR_Driving
 					return false;
 			}
 		}
+		// The way the game's own Game Master moves a vehicle (SCR_EditableEntityComponent.SetTransformOwner): Teleport,
+		// not a bare SetWorldTransform, then tell replication the node jumped - in the watched game (a listen server)
+		// every vehicle is also interpolated for the local client; the headless stress server, with none, moved APCs
+		// 35 times in 24 minutes without a crash where the watched matches crashed three times.
+		vector previous = vehicle.GetOrigin();
+		ZCR_Trace.Ent("move", vehicle, why);
+		BaseGameEntity game = BaseGameEntity.Cast(vehicle);
+		if (game)
+			game.Teleport(pose);
+		else if (!vehicle.SetWorldTransform(pose))
+			return false;
 		Physics physics = vehicle.GetPhysics();
 		if (physics)
 		{
 			physics.SetVelocity(vector.Zero);
 			physics.SetAngularVelocity(vector.Zero);
 		}
-		ZCR_Trace.Ent("move", vehicle, why);
-		return vehicle.SetWorldTransform(pose);
+		RplComponent rpl = RplComponent.Cast(vehicle.FindComponent(RplComponent));
+		if (rpl)
+			rpl.ForceNodeMovement(previous);
+		return true;
 	}
 
 	// 22 Oct 05:06: w14 and w16 both crashed 7 s and 1.6 s after a road recovery moved a LAV-25 (turret, gunner aboard);
