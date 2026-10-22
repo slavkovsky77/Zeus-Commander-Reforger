@@ -70,3 +70,9 @@ stuck vehicle to drive back 15 m instead: the AI drivers don't back up to a poin
 from w30: hand moves back on, the following rule off - the moves ran 13 matches without a crash before following came
 in at 03:27, so the two together may be the trigger. Lag: in the watched Everon match w27 AI Conflict's commander was
 slow on 5 ticks of 252 (all of them before).
+
+**08:15 - crash cause found.** Experiment 2 (hand moves on, the following rule off): 6 of 6 matches clean with 100
+moves (w30-w35); before, with both on, 6 of 18 crashed; without the moves 4 of 4 clean. The two together were the
+trigger. The following rule is now off by default - it showed no clear gain in jams. The hand moves (back off, park
+aside) stay; the road recovery stays off. Also fixed this morning: supply trucks overshooting their depot's exit and
+then failing to turn back (the driver got out) - truck waypoints 8 m, the exit counted once passed.
