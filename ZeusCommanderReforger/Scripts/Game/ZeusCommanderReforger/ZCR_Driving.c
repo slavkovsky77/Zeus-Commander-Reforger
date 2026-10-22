@@ -527,7 +527,8 @@ class ZCR_Driving
 		foreach (float step : steps)
 		{
 			vector spot = bestQ + dir * step;
-			spot[1] = world.GetSurfaceY(spot[0], spot[2]);
+			// The road's own height - a bridge deck, not the gorge under it (Everon w11: a LAV-25 by a bridge).
+			spot[1] = Math.Max(bestQ[1], world.GetSurfaceY(spot[0], spot[2]));
 			if (VehicleAt(spot, 5, v) || ChimeraWorldUtils.TryGetWaterSurfaceSimple(world, spot - "0 0.5 0"))
 				continue;
 			vector pose[4];
