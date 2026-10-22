@@ -483,6 +483,37 @@ class ZCR_Driving
 			+ string.Format(" to_x=%1 to_z=%2", Math.Round(location[0]), Math.Round(location[2])), LogLevel.NORMAL);
 	}
 
+	protected static ref map<string, int> s_mCollisionAt = new map<string, int>();
+
+	static void Collision(IEntity vehicle, IEntity source, float damage, float kmh)
+	{
+		if (!vehicle)
+			return;
+		IEntity other = source;
+		if (other)
+			other = other.GetRootParent();
+		bool withVehicle = Vehicle.Cast(other) != null && other != vehicle;
+		string otherName = "object";
+		if (withVehicle)
+			otherName = ZCR_LossLog.ShortName(other);
+		string key = vehicle.GetID().ToString() + "/" + otherName;
+		int now = ZCR_LossLog.Seconds();
+		int last;
+		if (s_mCollisionAt.Find(key, last) && now - last < 10)
+			return;
+		s_mCollisionAt.Set(key, now);
+		string side = ZCR_LossLog.SideOf(vehicle);
+		if (side.IsEmpty())
+			side = "none";
+		string otherSide = "none";
+		if (withVehicle && !ZCR_LossLog.SideOf(other).IsEmpty())
+			otherSide = ZCR_LossLog.SideOf(other);
+		bool driven = s_mSeen.Contains(vehicle) && now - s_mSeen.Get(vehicle) < 10;
+		vector at = vehicle.GetOrigin();
+		Print(string.Format("[ZCR][COLLISION] t=%1 side=%2 vehicle=%3 other=%4 other_side=%5 kmh=%6 damage=%7 driven=%8 x=%9", now, side,
+			ZCR_LossLog.ShortName(vehicle), otherName, otherSide, Math.Round(kmh), Math.Round(damage), driven, Math.Round(at[0])) + string.Format(" z=%1", Math.Round(at[2])), LogLevel.NORMAL);
+	}
+
 	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
 	protected static bool OntoRoad(IEntity v, AIAgent driver, string side, int now)
 	{
@@ -759,6 +790,19 @@ class ZCR_Driving
 		if (Vehicle.Cast(e))
 			s_aNear.Insert(e);
 		return true;
+	}
+}
+
+// [ZCR][COLLISION] (22 Oct, Martin: "they crash and block each other - is that trackable?"): a vehicle damaged in a
+// collision - with another vehicle (other=, other_side=) or with something else (other=object). Once per vehicle and
+// what it hit in 10 game s.
+modded class SCR_VehicleDamageManagerComponent
+{
+	override protected void OnDamage(notnull BaseDamageContext damageContext)
+	{
+		super.OnDamage(damageContext);
+		if (damageContext.damageType == EDamageType.COLLISION && Replication.IsServer())
+			ZCR_Driving.Collision(GetOwner(), damageContext.damageSource, damageContext.damageValue, damageContext.impactVelocity.Length() * 3.6);
 	}
 }
 
