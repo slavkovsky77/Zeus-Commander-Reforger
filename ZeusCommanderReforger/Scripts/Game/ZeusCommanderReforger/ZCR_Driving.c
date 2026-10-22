@@ -666,12 +666,13 @@ class ZCR_Driving
 		return true;
 	}
 
-	// 22 Oct 05:06: w14 and w16 both crashed 7 s and 1.6 s after a road recovery moved a LAV-25 (turret, gunner aboard);
-	// unarmed rides were moved 50+ times in w11-w13 without one. No vehicle with a turret is moved by hand (armour has
-	// its own still-and-reorder logic). -zcrMoveTurrets: move them anyway (to test).
+	// 22 Oct 05:06: vehicles with a turret were kept from hand moves after crashes that turned out to need the following
+	// rule as well (now off). 10:30, experiment 4: with turret vehicles moved, 1 freeze in 6 matches (not seconds after a
+	// move) and half the long stops and jams (2.8 and 2.0 a match against 5.9 and 5.3). Moved again by default;
+	// -zcrNoMoveTurrets keeps them out.
 	protected static bool HasTurret(Vehicle vehicle)
 	{
-		if (System.IsCLIParam("zcrMoveTurrets"))
+		if (!System.IsCLIParam("zcrNoMoveTurrets"))
 			return false;
 		BaseCompartmentManagerComponent manager = BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(BaseCompartmentManagerComponent));
 		if (!manager)
