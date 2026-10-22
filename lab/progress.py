@@ -90,6 +90,8 @@ FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland w
             ("arland-headless-2a-dd", "Arland headless, doctrine v doctrine"), ("arland-watched-2a-dd", "Arland watched, doctrine v doctrine")]
 KEYS = ["sc_pass", "sc_out", "sc_atbase", "sc_drones", "sc_sky", "sc_riding", "sc_danger", "sc_panic", "sc_dd_standing", "sc_dd_prone", "sc_shot", "sc_lost", "sc_armed", "sc_jobs", "sc_unloads", "sc_forts", "sc_wrecks", "sc_veh_lost", "sc_armour", "sc_armour_assault", "sc_armour_kills", "pace", "deaths_prone", "drone_near_covered", "drone_near_running", "drone_near_prone", "drone_victims_open", "drone_victims_standing", "field_open", "loss_ratio", "team", "spacing", "walk", "rode", "fight_m", "fps", "aichar", "cover", "incover", "ducks", "stacked", "drone_kills_ours", "lost_to_drones", "margin", "caps", "first_cap", "assault", "storm", "close6", "exchange", "intensity", "stuck",
         "drone_teams", "drone_strikes", "drone_kills", "cause_drone", "cause_direct", "cause_unknown", "trips"]
+TRAFFIC_KEYS = ["jams", "stuck_vehicles", "stuck_long", "drive_kmh", "move_fails", "runovers", "armour_still"]
+KEYS += TRAFFIC_KEYS
 STAMP = re.compile(r"-(\d{8})-(\d{6})$")
 
 
@@ -433,6 +435,16 @@ def measure_run(run: Path, log: Path):
                 pass
         row.update(approach_metrics(snaps, side))
     row.update(screen_metrics(run, lines))
+    # Driving and armour (Martin, 22 Oct: "commander lab doesn't show stuck vehicles, vehicles drive well"):
+    # lab/measures.py's per-match traffic numbers, for the Progress charts.
+    try:
+        import measures
+        ex = measures.extra(run)
+        for k in TRAFFIC_KEYS:
+            if ex.get(k) is not None:
+                row[k] = ex[k]
+    except Exception as e:
+        print(f"traffic {run.name}: {type(e).__name__}: {e}", file=sys.stderr)
     return row
 
 

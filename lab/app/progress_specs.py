@@ -62,6 +62,12 @@ CHARTS = [
     ("walk", "family", "How far the infantry walks", "Median distance an attacking squad covers on foot to its objective (Arma 3's measure; from r11).",
      [("walked", "walk")], " m", None, (300, "300 m"), "lower"),
     ("fight", "family", "Fighting distance", "Median distance between killer and victim of the kills by enemy soldiers.", [("distance", "fight_m")], " m", None, None, None),
+    ("traffic", "family", "Vehicles drive well: jams and long stops", "Per match, both sides: jams (a driven vehicle still 45 game s with another vehicle within 10 m) and long stops (a vehicle still 2 game minutes or more). Martin: 'cars blocking each other is the biggest issue'. Goal: jams 2 or fewer, long stops 3 or fewer.",
+     [("jams", "jams"), ("long stops (2 min+)", "stuck_long")], "", None, (3, "3"), "lower"),
+    ("stuck", "family", "Vehicles stuck and failed drives", "Per match: stuck spells (a vehicle still 45 game s with somewhere to go), drives the game gave up (stuck or unreachable - the crew then gets out and walks) and armour standing still in its approach or assault.",
+     [("stuck spells", "stuck_vehicles"), ("failed drives", "move_fails"), ("armour still", "armour_still")], "", None, None, "lower"),
+    ("drive", "family", "Driving speed", "Median speed of the AI-driven vehicles while moving (km/h). The game's drivers run 8-25 km/h; lower means queues and crawling.",
+     [("moving speed", "drive_kmh")], " km/h", None, (18, "18 km/h"), "higher"),
     ("fps", "family", "Game frame rate", "Median frames per second during each match: in a watched match the game window itself (it hosts the match), headless the server. Normal about 40; three of my stress servers alongside cut it to 15-20 (21 Oct 20:10).",
      [("fps", "fps")], " fps", None, (30, "30 fps"), "higher"),
 ]
