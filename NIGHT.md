@@ -82,3 +82,6 @@ from before the crash cause was found). Six matches with them moved: one freeze 
 the long stops and jams (2.8 and 2.0 a match against 5.9 and 5.3). They are moved again. Since 06:23: one freeze and no
 crash in 23 matches. Rides now also avoid road points no vehicle could reach earlier in the match (farm roads behind
 fences on Everon).
+
+**10:55 - reversed.** w50 crashed seconds after back-offs (one of them a BTR-70's). With armour and armed rides moved,
+2 of 8 matches failed; kept out, 0 of 13. Crashes come first: they are kept out again, long stops stay higher.
