@@ -66,6 +66,8 @@ CHARTS = [
      [("jams", "jams"), ("long stops (2 min+)", "stuck_long")], "", None, (3, "3"), "lower"),
     ("stuck", "family", "Vehicles stuck and failed drives", "Per match: stuck spells (a vehicle still 45 game s with somewhere to go), drives the game gave up (stuck or unreachable - the crew then gets out and walks) and armour standing still in its approach or assault.",
      [("stuck spells", "stuck_vehicles"), ("failed drives", "move_fails"), ("armour still", "armour_still")], "", None, None, "lower"),
+    ("bumps", "family", "Vehicles hitting things", "Per match, both sides: AI-driven vehicles damaged in a collision with another vehicle, or with a rock, wall, tree or building (one count per vehicle and thing per 10 game s). Counted from 22 Oct evening; earlier matches show nothing. Martin: 'they still crash and block each other'.",
+     [("hit a vehicle", "bumps_vehicle"), ("hit an object", "bumps_object")], "", None, None, "lower"),
     ("drive", "family", "Driving speed", "Median speed of the AI-driven vehicles while moving (km/h). The game's drivers run 8-25 km/h; lower means queues and crawling.",
      [("moving speed", "drive_kmh")], " km/h", None, (18, "18 km/h"), "higher"),
     ("fps", "family", "Game frame rate", "Median frames per second during each match: in a watched match the game window itself (it hosts the match), headless the server. Normal about 40; three of my stress servers alongside cut it to 15-20 (21 Oct 20:10).",

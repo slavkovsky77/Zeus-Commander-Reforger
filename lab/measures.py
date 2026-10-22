@@ -43,6 +43,8 @@ MEASURES = {
     "road_recoveries": ("match", "vehicles stuck alone put back on the road ([ZCR][UNJAM] action=road)"),
     "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
+    "bumps_vehicle": ("match", "collisions between two vehicles that damaged an AI-driven one ([ZCR][COLLISION] other= a vehicle, driven=1; from 22 Oct), both sides"),
+    "bumps_object": ("match", "AI-driven vehicles damaged hitting rocks, walls, trees or buildings ([ZCR][COLLISION] other=object, driven=1; from 22 Oct), both sides"),
     "stuck_long": ("match", "stuck spells of 2 game minutes or more ([ZCR][UNJAM] stuck_s >= 120), both sides - what the watcher sees as a block"),
     "drive_kmh": ("match", "median speed of AI-driven vehicles while moving (over 3 km/h; [ZCR][DRIVE] moving_kmh, older logs median_kmh), both sides"),
     "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
@@ -68,7 +70,7 @@ def extra(run: Path) -> dict:
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
            "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
-           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "move_fails": 0, "road_recoveries": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
+           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "move_fails": 0, "road_recoveries": 0, "giveways": 0, "armour_still": 0, "bumps_vehicle": 0, "bumps_object": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
@@ -100,6 +102,10 @@ def extra(run: Path) -> dict:
             ss = re.search(r"stuck_s=(\d+)", line)
             if ss and int(ss.group(1)) >= 120:
                 out["stuck_long"] += 1
+            continue
+        if "[ZCR][COLLISION]" in line:
+            if " driven=1" in line:
+                out["bumps_object" if " other=object " in line else "bumps_vehicle"] += 1
             continue
         if "[ZCR][LOSS]" in line and " runover=" in line:
             out["runovers"] += 1
