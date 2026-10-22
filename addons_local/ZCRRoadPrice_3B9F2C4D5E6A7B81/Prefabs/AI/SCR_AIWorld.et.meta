@@ -1,0 +1,9 @@
+MetaFileClass {
+ Name "{E0A05C76552E7F58}Prefabs/AI/SCR_AIWorld.et"
+ Configurations {
+  EntityTemplateResourceClass PC {
+  }
+  EntityTemplateResourceClass HEADLESS : PC {
+  }
+ }
+}

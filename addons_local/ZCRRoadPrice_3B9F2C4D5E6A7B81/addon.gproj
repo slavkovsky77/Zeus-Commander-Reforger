@@ -1,0 +1,18 @@
+GameProject
+{
+	ID "ZCRRoadPrice"
+	GUID "3B9F2C4D5E6A7B81"
+	TITLE "ZCR Road Price"
+	Dependencies
+	{
+		"58D0FB3206B6F859"
+	}
+	Configurations
+	{
+		GameProjectConfig PC {}
+		GameProjectConfig HEADLESS {}
+		GameProjectConfig XBOX_ONE {}
+		GameProjectConfig XBOX_SERIES {}
+		GameProjectConfig PS4 {}
+	}
+}

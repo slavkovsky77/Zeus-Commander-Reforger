@@ -53,6 +53,9 @@ class ZCR_Driving
 	protected static ref map<IEntity, string> s_mSide = new map<IEntity, string>();
 	protected static ref array<IEntity> s_aNear;
 	static const int STUCK_S = 45;
+	// 22 Oct 22:10 (Martin: "is there any way to make those jams better?"): with moves now a gentle push, a pair standing
+	// nose to nose is unjammed after 20 s instead of waiting the 45 s that make it a jam. -zcrNoEarlyUnjam turns it off.
+	static const int EARLY_S = 20;
 	static const float JAM_M = 10;
 	static const float GOAL_M = 30;
 	static const float BACK_M = 8;
@@ -67,7 +70,8 @@ class ZCR_Driving
 	protected static ref map<IEntity, bool> s_mFollowing = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
-	protected static ref map<IEntity, int> s_mParked = new map<IEntity, int>();     // when it was last parked aside
+	protected static ref map<IEntity, int> s_mParked = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mEarly = new map<IEntity, int>();     // still-spell (its start) unjammed early     // when it was last parked aside
 	protected static ref map<IEntity, bool> s_mWaiting = new map<IEntity, bool>();  // driven, but its goal is near
 	protected float m_fLimit = 0;
 	protected int m_iNextLog;
@@ -83,6 +87,36 @@ class ZCR_Driving
 			s_Instance.m_fLimit = value.ToFloat();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
 		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
+	}
+
+	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off
+	// the road in fenced fields, the route planner cutting across): AI-driven vehicles moving over 3 km/h, and how many
+	// of them are more than 8 m outside the nearest road's edge.
+	protected static void OffRoadLog(int now, string side)
+	{
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (!aiWorld || !aiWorld.GetRoadNetworkManager())
+			return;
+		RoadNetworkManager roads = aiWorld.GetRoadNetworkManager();
+		int moving, off;
+		foreach (IEntity v, float kmh : s_mSpeed)
+		{
+			if (!v || kmh <= 3 || s_mSide.Get(v) != side || s_mSeen.Get(v) != now)
+				continue;
+			moving++;
+			BaseRoad road;
+			float distance;
+			roads.GetClosestRoad(v.GetOrigin(), road, distance, true);
+			float edge = 0;
+			if (road)
+				edge = road.GetWidth() / 2;
+			if (!road || distance - edge > 8)
+				off++;
+		}
+		int pct = -1;
+		if (moving > 0)
+			pct = Math.Round(100.0 * off / moving);
+		Print(string.Format("[ZCR][OFFROAD] t=%1 side=%2 moving=%3 offroad=%4 pct=%5", now, side, moving, off, pct), LogLevel.NORMAL);
 	}
 
 	// " runover=<vehicle>" for a soldier killed with no killer next to a moving vehicle of his side, else "".
@@ -165,6 +199,7 @@ class ZCR_Driving
 					Print(string.Format("[ZCR][DRIVE] t=%1 side=%2 driven=0 limit=%3", now, side, m_fLimit), LogLevel.NORMAL);
 					continue;
 				}
+				OffRoadLog(now, side);
 				s.Sort();
 				int over;
 				foreach (float k : s)
@@ -259,7 +294,20 @@ class ZCR_Driving
 			s_mStuck.Set(v, "");
 			return;
 		}
-		if (now - s_mMarkAt.Get(v) < STUCK_S)
+		int stillS = now - s_mMarkAt.Get(v);
+		if (stillS >= EARLY_S && stillS < STUCK_S && s_mStuck.Get(v).IsEmpty() && s_mEarly.Get(v) != s_mMarkAt.Get(v)
+			&& !System.IsCLIParam("zcrNoEarlyUnjam") && !System.IsCLIParam("zcrNoUnjam"))
+		{
+			IEntity early = OtherVehicleNear(v, JAM_M);
+			if (early)
+			{
+				s_mEarly.Set(v, s_mMarkAt.Get(v));
+				Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=early still_s=%4 other=%5 x=%6 z=%7", now, side, ZCR_LossLog.ShortName(v), stillS,
+					ZCR_LossLog.ShortName(early), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+				Unjam(v, early, side, now, driver);
+			}
+		}
+		if (stillS < STUCK_S)
 			return;
 		if (!s_mStuck.Get(v).IsEmpty())
 		{
@@ -425,7 +473,7 @@ class ZCR_Driving
 	protected static bool BackOff(IEntity yielder, string side, int now, IEntity a, IEntity b)
 	{
 		Vehicle vehicle = Vehicle.Cast(yielder);
-		if (!vehicle || s_mBacks.Get(yielder) >= 3 || now - s_mBackAt.Get(yielder) < 30)
+		if (!vehicle || s_mBacks.Get(yielder) >= 4 || now - s_mBackAt.Get(yielder) < 30)
 			return false;
 		BaseWorld world = GetGame().GetWorld();
 		vector mat[4];
