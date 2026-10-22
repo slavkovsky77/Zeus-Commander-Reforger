@@ -297,7 +297,10 @@ class ZCR_Driving
 	// Creep behind a slow vehicle of the side right ahead instead of squeezing past it.
 	protected void Follow(IEntity v, string side)
 	{
-		if (m_fLimit > 0 || System.IsCLIParam("zcrNoFollow") || ZCR_Armour.IsUnit(v))
+		// 22 Oct 08:20: OFF unless -zcrFollow. With the hand moves and following both on, 6 of 18 watched matches
+		// crashed; moves without following 6 of 6 clean (100 moves), following without moves 4 of 4 clean - and no
+		// clear gain in jams to set against the risk.
+		if (m_fLimit > 0 || !System.IsCLIParam("zcrFollow") || System.IsCLIParam("zcrNoFollow") || ZCR_Armour.IsUnit(v))
 			return;
 		// 22 Oct 07:35: the watched matches crashed with hand moves and following both on (6 of 18), not with either
 		// alone - Watch can move a vehicle and Follow then change its cruise speed in the same frame. Not within
