@@ -45,6 +45,11 @@ MEASURES = {
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
     "bumps_vehicle": ("match", "collisions between two vehicles that damaged an AI-driven one ([ZCR][COLLISION] other= a vehicle, driven=1; from 22 Oct), both sides"),
     "bumps_object": ("match", "AI-driven vehicles damaged hitting rocks, walls, trees or buildings ([ZCR][COLLISION] other=object, driven=1; from 22 Oct), both sides"),
+    "veh_shots": ("match", "shots fired from vehicle turrets - armour, armed rides, any crewed gun ([ZCR][VEHGUNS] shots, last line a side; from 22 Oct evening), both sides"),
+    "veh_gunners": ("match", "AI gunners who fired from a vehicle turret at least once ([ZCR][VEHGUNS] gunners), both sides"),
+    "veh_engagements": ("match", "targets taken by vehicle turret gunners ([ZCR][GUNNERS] engagements, last line a side), both sides"),
+    "veh_kills_enemy": ("match", "enemy soldiers and vehicles killed by gunners in vehicle turrets ([ZCR][LOSS] turret=, killer_side not the victim's; from 22 Oct evening)"),
+    "veh_kills_own": ("match", "own side killed by gunners in vehicle turrets ([ZCR][LOSS] turret=, same side; from 22 Oct evening)"),
     "stuck_long": ("match", "stuck spells of 2 game minutes or more ([ZCR][UNJAM] stuck_s >= 120), both sides - what the watcher sees as a block"),
     "drive_kmh": ("match", "median speed of AI-driven vehicles while moving (over 3 km/h; [ZCR][DRIVE] moving_kmh, older logs median_kmh), both sides"),
     "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
@@ -70,7 +75,7 @@ def extra(run: Path) -> dict:
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
            "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
-           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "move_fails": 0, "road_recoveries": 0, "giveways": 0, "armour_still": 0, "bumps_vehicle": 0, "bumps_object": 0, "site_search_s": None, "search_gave_up_pct": None}
+           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "move_fails": 0, "road_recoveries": 0, "giveways": 0, "armour_still": 0, "bumps_vehicle": 0, "bumps_object": 0, "veh_shots": 0, "veh_gunners": 0, "veh_engagements": 0, "veh_kills_enemy": 0, "veh_kills_own": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
@@ -79,6 +84,7 @@ def extra(run: Path) -> dict:
     speed = 1.0
     decided, placed_s, gave_up = {}, [], 0
     kmh = []
+    veh_last = {}
     for line in open(log, encoding="utf-8", errors="replace"):
         if "[ZCR][DRIVE]" in line and "median_kmh=" in line:
             # The moving vehicles' median (from 21 Oct night); older logs: the median of all driven vehicles.
@@ -103,6 +109,23 @@ def extra(run: Path) -> dict:
             if ss and int(ss.group(1)) >= 120:
                 out["stuck_long"] += 1
             continue
+        if "[ZCR][VEHGUNS]" in line or "[ZCR][GUNNERS]" in line:
+            vs = re.search(r"side=(\w+)", line)
+            if vs:
+                if "[ZCR][VEHGUNS]" in line:
+                    for k, field in (("shots", "shots"), ("gunners", "gunners")):
+                        m = re.search(field + r"=(\d+)", line)
+                        if m:
+                            veh_last[(k, vs.group(1))] = int(m.group(1))
+                else:
+                    m = re.search(r"engagements=(\d+)", line)
+                    if m:
+                        veh_last[("engagements", vs.group(1))] = int(m.group(1))
+            continue
+        if "[ZCR][LOSS]" in line and " turret=" in line:
+            vs, ks = re.search(r" side=(\w+)", line), re.search(r" killer_side=(\w+)", line)
+            if vs and ks:
+                out["veh_kills_own" if vs.group(1) == ks.group(1) else "veh_kills_enemy"] += 1
         if "[ZCR][COLLISION]" in line:
             if " driven=1" in line:
                 out["bumps_object" if " other=object " in line else "bumps_vehicle"] += 1
@@ -165,6 +188,8 @@ def extra(run: Path) -> dict:
         out["front_supply_pct"][s] = round(sum(vals) / len(vals)) if vals else None
     if kmh:
         out["drive_kmh"] = sorted(kmh)[len(kmh) // 2]
+    for k in ("shots", "gunners", "engagements"):
+        out["veh_" + k] = sum(v for (kk, _), v in veh_last.items() if kk == k)
     if placed_s:
         out["site_search_s"] = round(sorted(placed_s)[len(placed_s) // 2])
     if placed_s or gave_up:

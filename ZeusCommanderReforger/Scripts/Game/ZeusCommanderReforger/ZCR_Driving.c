@@ -82,6 +82,7 @@ class ZCR_Driving
 		if (System.GetCLIParam("zcrCruiseSpeed", value) && !value.IsEmpty())
 			s_Instance.m_fLimit = value.ToFloat();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
+		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
 	}
 
 	// " runover=<vehicle>" for a soldier killed with no killer next to a moving vehicle of his side, else "".

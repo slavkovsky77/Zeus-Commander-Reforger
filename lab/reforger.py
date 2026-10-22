@@ -67,11 +67,15 @@ def command(a, profile: Path) -> list:
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
     mod_dirs = DRONE_DIRS if a.drones or a.map == "yunakivka" else ([ARMOUR_DIR] if armour else [])
     # --mods / watch_mods.txt: extra Workshop mods by id (driving mods, 22 Oct), found by lab/workshop.py.
+    # workshop.py is reloaded each time: a long watched loop must see a new local addon (22 Oct: the loop stopped).
+    import importlib
+    import workshop
+    importlib.reload(workshop)
     for mod_id in [m for m in (getattr(a, "mods", "") or "").split(",") if m]:
-        import workshop
         d = workshop.find(mod_id)
         if not d:
-            raise SystemExit(f"mod {mod_id} not found - python lab/workshop.py get {mod_id}")
+            print(f"WARNING: mod {mod_id} not found - this match runs without it (python lab/workshop.py get {mod_id})", flush=True)
+            continue
         addons += "," + mod_id
         if str(d.parent) not in mod_dirs:
             mod_dirs = mod_dirs + [str(d.parent)]
