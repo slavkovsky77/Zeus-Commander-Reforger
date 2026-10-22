@@ -265,7 +265,7 @@ class ZCR_Driving
 			{
 				IEntity still = OtherVehicleNear(v, JAM_M);
 				if (still)
-					Unjam(v, still, side, now);
+					Unjam(v, still, side, now, driver);
 			}
 			else if (now - s_mMarkAt.Get(v) >= UNSTICK_S && !System.IsCLIParam("zcrNoUnjam"))
 			{
@@ -283,7 +283,7 @@ class ZCR_Driving
 				otherSide = "none";
 			Print(string.Format("[ZCR][JAM] t=%1 side=%2 vehicle=%3 other=%4 other_side=%5 x=%6 z=%7 goal_m=%8", now, side, ZCR_LossLog.ShortName(v),
 				ZCR_LossLog.ShortName(other), otherSide, Math.Round(at[0]), Math.Round(at[2]), Math.Round(goal)), LogLevel.NORMAL);
-			Unjam(v, other, side, now);
+			Unjam(v, other, side, now, driver);
 		}
 		else
 		{
@@ -353,12 +353,17 @@ class ZCR_Driving
 	}
 
 	// The jammed pair: which one backs off, then back it.
-	protected static void Unjam(IEntity v, IEntity other, string side, int now)
+	protected static void Unjam(IEntity v, IEntity other, string side, int now, AIAgent driver)
 	{
 		if (System.IsCLIParam("zcrNoUnjam"))
 			return;
 		IEntity yielder = v;
 		bool otherDriven = s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10;
+		// The front one of a queue (the other behind, facing it; nothing in its own way): it is hung on something of its
+		// own - a boulder by a sunken track (Arland w12: 10 jams of US rides in one 4-m lane at 1515,1020) - and the
+		// ones behind only wait. Onto the road ahead; backing the one behind off frees nothing.
+		if (otherDriven && InFront(other, v) && !InFront(v, other) && OntoRoad(v, driver, side, now))
+			return;
 		bool otherWaiting = otherDriven && s_mWaiting.Get(other);
 		bool mayPark = !s_mParked.Contains(other) || now - s_mParked.Get(other) >= 120;
 		// An abandoned vehicle in the way, or one waiting there for its team: park it aside, the driven one goes on.
