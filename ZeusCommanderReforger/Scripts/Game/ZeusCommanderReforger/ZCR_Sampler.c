@@ -436,6 +436,9 @@ class ZCR_Sampler
 			int field;
 			int fieldStacked;
 			int fieldAbove;
+			int fieldMoving;
+			int fieldMovingAbove;
+			int fieldStillAbove;
 			int byGround;
 			int byObject;
 			int byAbove;
@@ -482,6 +485,15 @@ class ZCR_Sampler
 						fieldStacked++;
 					if (over != "none")
 						fieldAbove++;
+					// 22 Oct: which field soldiers lack overhead - on the march or standing (Martin: teams 'exposed').
+					if (me.m_bMoving)
+					{
+						fieldMoving++;
+						if (over != "none")
+							fieldMovingAbove++;
+					}
+					else if (over != "none")
+						fieldStillAbove++;
 				}
 				IEntity enemy = NearestEnemy(e);
 				if (!enemy)
@@ -542,7 +554,8 @@ class ZCR_Sampler
 			}
 			Print(string.Format("[ZCR][CROWD] t=%1 side=%2 men=%3 near=%4 stacked=%5 field=%6 field_stacked=%7 field_above=%8", now, side, men.Count(),
 				Math.Round(10.0 * near / men.Count()) / 10.0, Math.Round(100.0 * stacked / men.Count()), field, fieldPct, fieldAbovePct)
-				+ string.Format(" team=%1 spacing=%2 at_main=%3 pace=%4", Math.Round(team * 10) / 10.0, spacing, Math.Round(100.0 * (men.Count() - field) / men.Count()), pace), LogLevel.NORMAL);
+				+ string.Format(" team=%1 spacing=%2 at_main=%3 pace=%4", Math.Round(team * 10) / 10.0, spacing, Math.Round(100.0 * (men.Count() - field) / men.Count()), pace)
+				+ string.Format(" field_moving=%1 moving_above=%2 still_above=%3", fieldMoving, Pct(fieldMovingAbove, fieldMoving), Pct(fieldStillAbove, field - fieldMoving)), LogLevel.NORMAL);
 			// Soldiers at their main base (Martin: "they just chill on the bases, doing push-ups").
 			ZCR_Feed.s_mAtBase.Set(side, Math.Round(100.0 * (men.Count() - field) / men.Count()));
 			if (fieldPct >= 0)
@@ -554,6 +567,13 @@ class ZCR_Sampler
 					Math.Round(100.0 * covered / engaged), Math.Round(100.0 * prone / engaged), Math.Round(100.0 * byGround / engaged),
 					Math.Round(100.0 * byObject / engaged), Math.Round(100.0 * byAbove / engaged)) + string.Format(" incover=%1", Math.Round(100.0 * inGame / engaged)), LogLevel.NORMAL);
 		}
+	}
+
+	protected static int Pct(int part, int whole)
+	{
+		if (whole <= 0)
+			return -1;
+		return Math.Round(100.0 * part / whole);
 	}
 
 	protected vector MainBase(string side)
