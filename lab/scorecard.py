@@ -67,7 +67,7 @@ def measure(run: Path) -> dict:
     wrecks = 0
     veh_lost = 0
     # Armour (ZCR_Armour): units bought, units that got to the assault, enemy killed by armour, armour lost.
-    armour = {k: {s: 0 for s in SIDES} for k in ("bought", "lost", "kills")}
+    armour = {k: {s: 0 for s in SIDES} for k in ("bought", "lost", "kills", "friendly")}
     armour_assault = {s: set() for s in SIDES}
     drone_dead = {s: [] for s in SIDES}
     lost = {s: 0 for s in SIDES}
@@ -125,6 +125,9 @@ def measure(run: Path) -> dict:
             k = d.get("killer_side")
             if "armour=" in line and k in SIDES and k != (d.get("victim_side") or d.get("side")):
                 armour["kills"][k] += 1
+            # Own soldiers killed by our armour's guns (22 Oct: 50 of the 63 deaths armour caused that day).
+            elif "armour=" in line and k in SIDES and k == (d.get("victim_side") or d.get("side")):
+                armour["friendly"][k] += 1
             v = d.get("victim_side") or d.get("side")
             if v in SIDES:
                 lost[v] += 1
@@ -168,6 +171,7 @@ def measure(run: Path) -> dict:
             "armour": armour["bought"][s],
             "armour_assault": len(armour_assault[s]),
             "armour_kills": armour["kills"][s],
+            "armour_friendly": armour["friendly"][s],
             "armour_lost": armour["lost"][s],
         }
     return out
