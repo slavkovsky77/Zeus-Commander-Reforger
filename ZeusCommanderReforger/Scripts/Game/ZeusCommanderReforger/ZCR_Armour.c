@@ -951,7 +951,7 @@ class ZCR_Armour
 	protected static void DeleteLater(AIWaypoint waypoint)
 	{
 		if (waypoint)
-			SCR_EntityHelper.DeleteEntityAndChildren(waypoint);
+			RplComponent.DeleteRplEntity(waypoint, false);
 	}
 
 	// Where the side fights near its front: the middle of the last 150 s's losses (either side) within 700 m

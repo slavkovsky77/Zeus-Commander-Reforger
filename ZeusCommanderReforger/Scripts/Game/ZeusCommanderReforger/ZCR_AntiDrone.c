@@ -186,7 +186,7 @@ class ZCR_AntiDrone
 				return;
 		}
 		ZCR_Trace.Ent("delete", drone, "shot_down");
-		SCR_EntityHelper.DeleteEntityAndChildren(drone);
+		RplComponent.DeleteRplEntity(drone, false);
 	}
 }
 

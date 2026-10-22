@@ -185,7 +185,7 @@ class ZCR_Setup
 			if (e && ChimeraCharacter.Cast(e) && ZCR_LossLog.SideOf(e) == "FIA")
 			{
 				ZCR_Trace.Ent("delete", e, "no_fia");
-				SCR_EntityHelper.DeleteEntityAndChildren(e);
+				RplComponent.DeleteRplEntity(e, false);
 				removed++;
 			}
 		}

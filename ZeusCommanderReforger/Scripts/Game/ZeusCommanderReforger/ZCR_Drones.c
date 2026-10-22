@@ -206,7 +206,7 @@ class ZCR_Drones
 				foreach (IEntity d : hovering)
 				{
 					ZCR_Trace.Ent("delete", d, "drone_home");
-					SCR_EntityHelper.DeleteEntityAndChildren(d);
+					RplComponent.DeleteRplEntity(d, false);
 				}
 				s_mTeamGoalAt.Set(team, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 home hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);

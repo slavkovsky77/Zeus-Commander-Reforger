@@ -41,7 +41,7 @@ class ZCR_Wrecks
 			m_aWrecks.Remove(i);
 			m_aAt.Remove(i);
 			ZCR_Trace.Ent("delete", v, "wreck");
-			SCR_EntityHelper.DeleteEntityAndChildren(v);
+			RplComponent.DeleteRplEntity(v, false);
 		}
 	}
 
