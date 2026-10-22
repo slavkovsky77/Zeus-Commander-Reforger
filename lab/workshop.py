@@ -28,7 +28,7 @@ PORT = 2199
 
 
 def find(mod_id: str):
-    for root in (DOWNLOADS, OWNER_MODS):
+    for root in (DOWNLOADS / "addons", DOWNLOADS, OWNER_MODS):   # the server puts downloads in <dir>/addons
         if root and root.is_dir():
             for d in root.iterdir():
                 if d.is_dir() and d.name.upper().endswith("_" + mod_id.upper()) and (d / "data.pak").is_file():

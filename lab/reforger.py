@@ -66,6 +66,15 @@ def command(a, profile: Path) -> list:
     game = a.client or solo
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
     mod_dirs = DRONE_DIRS if a.drones or a.map == "yunakivka" else ([ARMOUR_DIR] if armour else [])
+    # --mods / watch_mods.txt: extra Workshop mods by id (driving mods, 22 Oct), found by lab/workshop.py.
+    for mod_id in [m for m in (getattr(a, "mods", "") or "").split(",") if m]:
+        import workshop
+        d = workshop.find(mod_id)
+        if not d:
+            raise SystemExit(f"mod {mod_id} not found - python lab/workshop.py get {mod_id}")
+        addons += "," + mod_id
+        if str(d.parent) not in mod_dirs:
+            mod_dirs = mod_dirs + [str(d.parent)]
     roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
@@ -133,6 +142,7 @@ def main() -> int:
     ap.add_argument("--solo", action="store_true", help="the game on screen hosting the match itself (singleplayer; the Diag Menu's time multiplier works here)")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--armour", action="store_true", help="load the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour")
+    ap.add_argument("--mods", default="", help="extra Workshop mods by id, comma-separated (found or fetched by lab/workshop.py), e.g. 6A8490E1621E7B3C")
     ap.add_argument("--armour-addons", default="", help="other armour mods instead of the WCS family (addon ids), e.g. the CIE set of lab/stress.py")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")

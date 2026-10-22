@@ -57,8 +57,12 @@ def opts(map_name: str, client: bool, us: str, ussr: str, label: str, solo: bool
     # drive badly - AI Conflict also rides them when they are loaded; without them all armour is the game's LAV-25 / BTR-70).
     mods_file = ROOT / ".runtime" / "watch_armour_mods.txt"
     armour = not (mods_file.exists() and mods_file.read_text(encoding="utf-8").strip().lower() == "off")
+    # Extra Workshop mods for the next match (22 Oct: driving mods, e.g. JMVehicleAI 6A8490E1621E7B3C), ids separated by
+    # commas or lines in .runtime/watch_mods.txt; each is found with lab/workshop.py (the owner's mods folder or our downloads).
+    wm = ROOT / ".runtime" / "watch_mods.txt"
+    mods = ",".join(x.strip() for x in wm.read_text(encoding="utf-8").replace(chr(10), ",").split(",") if x.strip() and not x.strip().startswith("#")) if wm.exists() else ""
     return Namespace(map=map_name, port=PORT, client=client, drones=True, armour=armour, watch=True, plan_seconds=90,
-                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo, extra=extra)
+                     bridge=False, bridge_url="", us=us, ussr=ussr, label=label, minutes=0, dry_run=False, solo=solo, extra=extra, mods=mods)
 
 
 def start(o: Namespace, tag: str):
