@@ -423,15 +423,7 @@ class ZCR_Driving
 			spot[1] = world.GetSurfaceY(spot[0], spot[2]) + lift;
 			if (VehicleAt(spot, 4, yielder))
 				continue;
-			mat[3] = spot;
-			Physics physics = vehicle.GetPhysics();
-			if (physics)
-			{
-				physics.SetVelocity(vector.Zero);
-				physics.SetAngularVelocity(vector.Zero);
-			}
-			ZCR_Trace.Ent("move", vehicle, "unjam_back");
-			if (!vehicle.SetWorldTransform(mat))
+			if (!SafeMove(vehicle, mat[2], spot + "0 0.3 0", "unjam_back"))
 				return false;
 			s_mBackAt.Set(yielder, now);
 			s_mBacks.Set(yielder, s_mBacks.Get(yielder) + 1);
@@ -538,7 +530,7 @@ class ZCR_Driving
 				continue;
 			vector pose[4];
 			Math3D.DirectionAndUpMatrix(dir, "0 1 0", pose);
-			pose[3] = spot + "0 0.4 0";
+			pose[3] = spot + "0 0.6 0";
 			// Nothing solid where the body would stand (rocks, walls, trees, other vehicles).
 			TraceOBB body = new TraceOBB();
 			for (int axis; axis < 3; axis++)
@@ -551,14 +543,7 @@ class ZCR_Driving
 			body.Exclude = vehicle;
 			if (world.TracePosition(body, null) < 0)
 				continue;
-			Physics physics = vehicle.GetPhysics();
-			if (physics)
-			{
-				physics.SetVelocity(vector.Zero);
-				physics.SetAngularVelocity(vector.Zero);
-			}
-			ZCR_Trace.Ent("move", vehicle, "unstick_road");
-			if (!vehicle.SetWorldTransform(pose))
+			if (!SafeMove(vehicle, dir, pose[3], "unstick_road"))
 				return false;
 			s_mBackAt.Set(v, now);
 			s_mRoads.Set(v, s_mRoads.Get(v) + 1);
@@ -580,6 +565,8 @@ class ZCR_Driving
 		vehicle.GetWorldTransform(mat);
 		vector across = mat[0];
 		across[1] = 0;
+		if (across.Length() < 0.1)
+			return false;
 		across.Normalize();
 		// The side away from the jammed vehicle first.
 		vector away = jammed.GetOrigin() - mat[3];
@@ -593,21 +580,90 @@ class ZCR_Driving
 			spot[1] = world.GetSurfaceY(spot[0], spot[2]) + 0.3;
 			if (VehicleAt(spot, 5, blocker) || ChimeraWorldUtils.TryGetWaterSurfaceSimple(world, spot - "0 0.5 0"))
 				continue;
-			mat[3] = spot;
-			Physics physics = vehicle.GetPhysics();
-			if (physics)
-			{
-				physics.SetVelocity(vector.Zero);
-				physics.SetAngularVelocity(vector.Zero);
-			}
-			ZCR_Trace.Ent("move", vehicle, "unjam_park");
-			if (!vehicle.SetWorldTransform(mat))
+			if (!SafeMove(vehicle, mat[2], spot, "unjam_park"))
 				return false;
 			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=park m=%4 for=%5 x=%6 z=%7", now, side, ZCR_LossLog.ShortName(blocker),
 				Math.AbsFloat(off), ZCR_LossLog.ShortName(jammed), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
 			return true;
 		}
 		return false;
+	}
+
+	// Every move by hand goes here (22 Oct: w7's park-aside and w14's road recovery were each followed by the engine
+	// asserting on a bad matrix - in w14 a crash 7 s later): an upright pose from a flat heading, not a tipped-over
+	// vehicle, nobody in or round it half through a door (a soldier getting in or out is attached to the vehicle mid
+	// animation), and no NaN.
+	protected static bool SafeMove(Vehicle vehicle, vector forward, vector at, string why)
+	{
+		vector mat[4];
+		vehicle.GetWorldTransform(mat);
+		if (mat[1][1] < 0.5 || Boarding(vehicle))
+			return false;
+		forward[1] = 0;
+		if (forward.Length() < 0.1)
+			return false;
+		forward.Normalize();
+		vector pose[4];
+		Math3D.DirectionAndUpMatrix(forward, "0 1 0", pose);
+		pose[3] = at;
+		for (int row; row < 4; row++)
+		{
+			for (int col; col < 3; col++)
+			{
+				float value = pose[row][col];
+				if (value != value || Math.AbsFloat(value) > 100000)
+					return false;
+			}
+		}
+		Physics physics = vehicle.GetPhysics();
+		if (physics)
+		{
+			physics.SetVelocity(vector.Zero);
+			physics.SetAngularVelocity(vector.Zero);
+		}
+		ZCR_Trace.Ent("move", vehicle, why);
+		return vehicle.SetWorldTransform(pose);
+	}
+
+	// Someone getting in or out of it: an occupant, or any soldier within 8 m.
+	protected static bool Boarding(Vehicle vehicle)
+	{
+		BaseCompartmentManagerComponent manager = BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(BaseCompartmentManagerComponent));
+		if (manager)
+		{
+			array<BaseCompartmentSlot> slots = {};
+			manager.GetCompartments(slots);
+			foreach (BaseCompartmentSlot slot : slots)
+			{
+				if (slot && Transferring(slot.GetOccupant()))
+					return true;
+			}
+		}
+		s_aMen = {};
+		GetGame().GetWorld().QueryEntitiesBySphere(vehicle.GetOrigin(), 8, CollectMan, null, EQueryEntitiesFlags.DYNAMIC);
+		foreach (IEntity man : s_aMen)
+		{
+			if (Transferring(man))
+				return true;
+		}
+		return false;
+	}
+
+	protected static bool Transferring(IEntity man)
+	{
+		if (!man)
+			return false;
+		CompartmentAccessComponent access = CompartmentAccessComponent.Cast(man.FindComponent(CompartmentAccessComponent));
+		return access && (access.IsGettingIn() || access.IsGettingOut());
+	}
+
+	protected static ref array<IEntity> s_aMen;
+
+	protected static bool CollectMan(IEntity e)
+	{
+		if (ChimeraCharacter.Cast(e))
+			s_aMen.Insert(e);
+		return true;
 	}
 
 	protected static bool VehicleAt(vector spot, float radius, IEntity except)
