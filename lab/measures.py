@@ -39,6 +39,8 @@ MEASURES = {
     "jams": ("match", "vehicles jammed - a driven vehicle still 45 game s with another vehicle within 10 m ([ZCR][JAM]), both sides"),
     "stuck_vehicles": ("match", "driven vehicles still 45 game s with no vehicle near ([ZCR][STUCKVEH]), both sides"),
     "runovers": ("match", "soldiers killed with no killer next to a moving vehicle of their side (runover= on [ZCR][LOSS])"),
+    "move_fails": ("match", "group moves in a vehicle the game gave up ([ZCR][MOVEFAIL]: stuck, unreachable) - the group then gets out to walk"),
+    "road_recoveries": ("match", "vehicles stuck alone put back on the road ([ZCR][UNJAM] action=road)"),
     "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
     "stuck_long": ("match", "stuck spells of 2 game minutes or more ([ZCR][UNJAM] stuck_s >= 120), both sides - what the watcher sees as a block"),
@@ -66,7 +68,7 @@ def extra(run: Path) -> dict:
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
            "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
-           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
+           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "move_fails": 0, "road_recoveries": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
@@ -87,6 +89,12 @@ def extra(run: Path) -> dict:
             continue
         if "[ZCR][STUCKVEH]" in line:
             out["stuck_vehicles"] += 1
+            continue
+        if "[ZCR][MOVEFAIL]" in line:
+            out["move_fails"] += 1
+            continue
+        if "[ZCR][UNJAM]" in line and "action=road" in line:
+            out["road_recoveries"] += 1
             continue
         if "[ZCR][UNJAM]" in line and " ended=" in line:
             ss = re.search(r"stuck_s=(\d+)", line)
