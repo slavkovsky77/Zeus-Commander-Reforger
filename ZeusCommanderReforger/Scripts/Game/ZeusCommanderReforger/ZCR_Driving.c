@@ -379,7 +379,15 @@ class ZCR_Driving
 			else if (vInto == oInto && Mass(other) < Mass(v))
 				yielder = other;
 		}
-		BackOff(yielder, side, now, v, other);
+		if (BackOff(yielder, side, now, v, other) || !otherDriven)
+			return;
+		// It can't be moved (a turret aboard, someone getting in or out, its back-offs used up): the other one - on
+		// along the road if it has room, else back (never onto a vehicle: both check the spot).
+		IEntity alt = v;
+		if (yielder == v)
+			alt = other;
+		if (!OntoRoad(alt, null, side, now))
+			BackOff(alt, side, now, v, other);
 	}
 
 	protected static bool InFront(IEntity a, IEntity b)
@@ -463,6 +471,10 @@ class ZCR_Driving
 	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
 	protected static bool OntoRoad(IEntity v, AIAgent driver, string side, int now)
 	{
+		// 22 Oct 05:31: OFF - w14, w16 and w19 crashed 7 s, 1.6 s and 0.6 s after a road recovery (LAV-25, LAV-25, an
+		// unarmed UAZ-452 moved 28 m); back-off and park-aside ran for hours without one. -zcrRoadRecovery: on (to test).
+		if (!System.IsCLIParam("zcrRoadRecovery"))
+			return false;
 		Vehicle vehicle = Vehicle.Cast(v);
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
 		if (!vehicle || !aiWorld || !aiWorld.GetRoadNetworkManager() || s_mRoads.Get(v) >= 4 || now - s_mBackAt.Get(v) < 30)
