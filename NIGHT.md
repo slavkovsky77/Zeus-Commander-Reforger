@@ -63,3 +63,10 @@ budget (no faster, twice the CPU - reverted), without the base access lanes (the
 and roads; next idea: use the map's own flat building slots first.
 
 **Not started:** teams exposed on the march (cover), armour standing still in the assault.
+
+**07:05 update.** Without hand moves w26, w27, w28 ran clean (3 of 3); before a crash, a hand move in the last 10 s
+was 5 times likelier than chance. But stuck vehicles now stay stuck longer (6-10 long stops a match). Tried telling a
+stuck vehicle to drive back 15 m instead: the AI drivers don't back up to a point behind them - dropped. Experiment 2
+from w30: hand moves back on, the following rule off - the moves ran 13 matches without a crash before following came
+in at 03:27, so the two together may be the trigger. Lag: in the watched Everon match w27 AI Conflict's commander was
+slow on 5 ticks of 252 (all of them before).
