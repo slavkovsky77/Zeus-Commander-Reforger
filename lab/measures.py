@@ -41,6 +41,7 @@ MEASURES = {
     "runovers": ("match", "soldiers killed with no killer next to a moving vehicle of their side (runover= on [ZCR][LOSS])"),
     "giveways": ("match", "armour that backed off for a vehicle blocking it head-on ([ZCR][ARMOUR] event=GIVEWAY)"),
     "armour_still": ("match", "armour stuck on its way two minutes ([ZCR][ARMOUR] event=STILL), both sides"),
+    "stuck_long": ("match", "stuck spells of 2 game minutes or more ([ZCR][UNJAM] stuck_s >= 120), both sides - what the watcher sees as a block"),
     "drive_kmh": ("match", "median speed of AI-driven vehicles while moving (over 3 km/h; [ZCR][DRIVE] moving_kmh, older logs median_kmh), both sides"),
     "site_search_s": ("match", "median game seconds from a building order to its site placed (both sides; AI Conflict's real ms x the speed-up)"),
     "search_gave_up_pct": ("match", "% of building site searches that found no site (SEARCH_BUDGET_EXHAUSTED) of those that ended"),
@@ -65,7 +66,7 @@ def extra(run: Path) -> dict:
            "truck_first_min": {s: None for s in SIDES}, "truck_loads": {s: 0 for s in SIDES},
            "truck_drivers_killed": {s: 0 for s in SIDES}, "depots": {s: 0 for s in SIDES},
            "front_supply_pct": {s: None for s in SIDES}, "fps": None, "fps_low": None,
-           "jams": 0, "stuck_vehicles": 0, "drive_kmh": None, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
+           "jams": 0, "stuck_vehicles": 0, "stuck_long": 0, "drive_kmh": None, "runovers": 0, "giveways": 0, "armour_still": 0, "site_search_s": None, "search_gave_up_pct": None}
     if not log:
         return out
     game_t = 0
@@ -86,6 +87,11 @@ def extra(run: Path) -> dict:
             continue
         if "[ZCR][STUCKVEH]" in line:
             out["stuck_vehicles"] += 1
+            continue
+        if "[ZCR][UNJAM]" in line and " ended=" in line:
+            ss = re.search(r"stuck_s=(\d+)", line)
+            if ss and int(ss.group(1)) >= 120:
+                out["stuck_long"] += 1
             continue
         if "[ZCR][LOSS]" in line and " runover=" in line:
             out["runovers"] += 1

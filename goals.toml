@@ -45,8 +45,8 @@ met_when = "2 of 3"
   key = "armour_still"
   target = "<= 2"
   [[goal.measure]]
-  key = "stuck_vehicles"
-  target = "<= 5"
+  key = "stuck_long"
+  target = "<= 3"
   [[goal.measure]]
   key = "drive_kmh"
   target = ">= 18"
