@@ -466,6 +466,9 @@ class ZCR_Driving
 	{
 		if (!vehicle || result == EMoveError.WAITING_ON_NAVLINK)
 			return;
+		// The point itself, for AI Conflict's ride routing: avoided by later rides this match.
+		if (result == EMoveError.UNREACHABLE)
+			AICF_BadRoadPoints.Add(location);
 		int now = ZCR_LossLog.Seconds();
 		int last;
 		if (s_mMoveFailAt.Find(vehicle, last) && now - last < 20)
