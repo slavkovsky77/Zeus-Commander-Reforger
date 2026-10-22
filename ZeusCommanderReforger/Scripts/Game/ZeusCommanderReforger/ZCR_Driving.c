@@ -60,6 +60,7 @@ class ZCR_Driving
 	static const float ROAD_M = 40;
 	static const float ROAD_MIN_W = 3;
 	protected static ref map<IEntity, int> s_mRoads = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mMoveFailAt = new map<IEntity, int>();
 	static const float FOLLOW_M = 14;
 	protected static ref map<IEntity, bool> s_mFollowing = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
@@ -442,6 +443,26 @@ class ZCR_Driving
 		return false;
 	}
 
+	// The game gave up a group's move in a vehicle (stuck, unreachable...) - it then takes the whole group out to go on
+	// foot, supply truck drivers included (AI Conflict: LOGISTICS_DRIVER_INTERACTION_STARTED EXIT_CAUSE_UNRECOGNIZED, 22
+	// in w8). [ZCR][MOVEFAIL] t= side= vehicle= error= x= z= to_m= - once in 20 s a vehicle.
+	static void MoveFailed(int result, IEntity vehicle, vector location)
+	{
+		if (!vehicle || result == EMoveError.WAITING_ON_NAVLINK)
+			return;
+		int now = ZCR_LossLog.Seconds();
+		int last;
+		if (s_mMoveFailAt.Find(vehicle, last) && now - last < 20)
+			return;
+		s_mMoveFailAt.Set(vehicle, now);
+		vector at = vehicle.GetOrigin();
+		string side = ZCR_LossLog.SideOf(vehicle);
+		if (side.IsEmpty())
+			side = "none";
+		Print(string.Format("[ZCR][MOVEFAIL] t=%1 side=%2 vehicle=%3 error=%4 x=%5 z=%6 to_m=%7", now, side, ZCR_LossLog.ShortName(vehicle),
+			typename.EnumToString(EMoveError, result), Math.Round(at[0]), Math.Round(at[2]), Math.Round(vector.DistanceXZ(at, location))), LogLevel.NORMAL);
+	}
+
 	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
 	protected static bool OntoRoad(IEntity v, AIAgent driver, string side, int now)
 	{
@@ -612,5 +633,15 @@ class ZCR_Driving
 		if (Vehicle.Cast(e))
 			s_aNear.Insert(e);
 		return true;
+	}
+}
+
+// [ZCR][MOVEFAIL]: every failed group move in a vehicle (ZCR_Driving.MoveFailed).
+modded class SCR_AIGroupUtilityComponent
+{
+	override void OnMoveFailed(int moveResult, IEntity vehicleUsed, bool isWaypointRelated, vector moveLocation)
+	{
+		ZCR_Driving.MoveFailed(moveResult, vehicleUsed, moveLocation);
+		super.OnMoveFailed(moveResult, vehicleUsed, isWaypointRelated, moveLocation);
 	}
 }
