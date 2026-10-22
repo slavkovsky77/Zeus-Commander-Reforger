@@ -101,6 +101,7 @@ class ZCR_DriveTest
 	protected void Tick()
 	{
 		int now = ZCR_LossLog.Seconds();
+		ZCR_LabWeather.Apply();   // clear midday with -zcrLabWeather (the stock Conflict map starts at night)
 		if (m_vA[1] == 0 && now >= 10)
 		{
 			m_vA = OnRoad(m_vA);
@@ -162,6 +163,51 @@ class ZCR_DriveTest
 			Print(string.Format("[ZCR][DRIVETEST_SUM] t=%1 cars=%2 legs=%3 median_leg_s=%4 max_leg_s=%5 open_legs=%6 oldest_open_s=%7", now, m_aCars.Count(),
 				m_aLegs.Count(), median, longest, open, oldest), LogLevel.NORMAL);
 		}
+	}
+
+	// For the watch camera (22 Oct: on the test map the director had no teams to show - a black picture): the car to
+	// follow - one within 200 m of the trap first, else the next car in turn.
+	protected int m_iCamTurn;
+
+	static bool Active()
+	{
+		return s_Instance != null;
+	}
+
+	static IEntity CameraCar(out string label)
+	{
+		if (!s_Instance)
+			return null;
+		ZCR_DriveCar pick;
+		float best = 200;
+		if (s_Instance.m_vVia != vector.Zero)
+		{
+			foreach (ZCR_DriveCar c : s_Instance.m_aCars)
+			{
+				if (c.m_bLost || !c.m_Vehicle)
+					continue;
+				float d = vector.DistanceXZ(c.m_Vehicle.GetOrigin(), s_Instance.m_vVia);
+				if (d < best)
+				{
+					best = d;
+					pick = c;
+				}
+			}
+		}
+		for (int i; !pick && i < s_Instance.m_aCars.Count(); i++)
+		{
+			s_Instance.m_iCamTurn++;
+			ZCR_DriveCar next = s_Instance.m_aCars[s_Instance.m_iCamTurn % s_Instance.m_aCars.Count()];
+			if (!next.m_bLost && next.m_Vehicle)
+				pick = next;
+		}
+		if (!pick)
+			return null;
+		string where = "";
+		if (pick.m_Vehicle && s_Instance.m_vVia != vector.Zero && vector.DistanceXZ(pick.m_Vehicle.GetOrigin(), s_Instance.m_vVia) < 200)
+			where = " - AT THE MOSS HILL TRAP";
+		label = string.Format("TEST CAR %1 to %2, leg %3, %4 s%5", pick.m_iIndex, ToName(pick.m_bToB), pick.m_iLeg, ZCR_LossLog.Seconds() - pick.m_iLegStart, where);
+		return pick.m_Vehicle;
 	}
 
 	protected bool StartBusy()

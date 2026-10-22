@@ -48,7 +48,7 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     spec = f"{a};{b};{cars};{kind}" + (f";{via}" if via else "")
     label = f"drivetest-{track}-{variant}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
+            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

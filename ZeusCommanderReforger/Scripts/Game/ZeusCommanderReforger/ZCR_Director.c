@@ -440,6 +440,18 @@ class ZCR_Director
 
 	protected void NextShot(int now)
 	{
+		// The driving test track (-zcrDriveTest): only its cars move - follow them (near the trap first).
+		if (ZCR_DriveTest.Active())
+		{
+			string carLabel;
+			IEntity car = ZCR_DriveTest.CameraCar(carLabel);
+			if (car)
+			{
+				Show(car.GetOrigin(), 30, 14, car, carLabel, false);
+				m_iShotEnd = now + 25;
+				return;
+			}
+		}
 		string force = m_sForce;   // "action": the best fight now; "front": the hot zone
 		m_sForce = "";
 		m_iShot++;
