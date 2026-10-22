@@ -670,9 +670,11 @@ class ZCR_Driving
 	// rule as well (now off). 10:30, experiment 4: with turret vehicles moved, 1 freeze in 6 matches (not seconds after a
 	// move) and half the long stops and jams (2.8 and 2.0 a match against 5.9 and 5.3). Moved again by default;
 	// -zcrNoMoveTurrets keeps them out.
+	// 11:00: back to kept out - with turret vehicles moved, 2 of 8 matches failed (w42 froze, w50 crashed 7 s after a
+	// BTR-70 back-off); with them kept out 0 of 13. -zcrMoveTurrets moves them (to test).
 	protected static bool HasTurret(Vehicle vehicle)
 	{
-		if (!System.IsCLIParam("zcrNoMoveTurrets"))
+		if (System.IsCLIParam("zcrMoveTurrets"))
 			return false;
 		BaseCompartmentManagerComponent manager = BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(BaseCompartmentManagerComponent));
 		if (!manager)
