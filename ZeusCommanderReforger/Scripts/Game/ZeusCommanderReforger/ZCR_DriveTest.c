@@ -1,7 +1,8 @@
 // The driving test track (22 Oct, Martin: "if you know where the bug happens on Moss Hill, do a simple scenario that
-// reproduces it ... to optimise it faster"). Lab only, -zcrDriveTest "ax,az;bx,bz;count[;kind]": count crewed vehicles
+// reproduces it ... to optimise it faster"). Lab only, -zcrDriveTest "ax,az;bx,bz;count[;kind[;vx,vz]]": count crewed vehicles
 // (kind m998 - the US M998, default - or uaz - the USSR UAZ-452) leave A one at a time, 12 s apart, and drive A -> B ->
-// A ... on the game's own routes. A and B are snapped to the nearest road. Every vehicle is watched by ZCR_Driving like
+// A ... on the game's own routes, through V both ways when given (a waypoint on the trap itself, so the route can't
+// go round it). A, B and V are snapped to the nearest road. Every vehicle is watched by ZCR_Driving like
 // any other ([ZCR][JAM] / [STUCKVEH] / [MOVEFAIL] / [PUSH] / [OFFROAD]), so a fix can be tried on the same stretch in
 // minutes instead of waiting for a match to send rides through it.
 //   [ZCR][DRIVETEST] t= car= event=SPAWN|ARRIVE|LOST leg= leg_s= to= x= z=
@@ -12,6 +13,7 @@ class ZCR_DriveCar
 	Vehicle m_Vehicle;
 	SCR_AIGroup m_Group;
 	AIWaypoint m_Waypoint;
+	AIWaypoint m_Via;
 	bool m_bToB;
 	int m_iLeg;
 	int m_iLegStart;
@@ -25,6 +27,7 @@ class ZCR_DriveTest
 	protected ref array<int> m_aLegs = {};
 	protected vector m_vA;
 	protected vector m_vB;
+	protected vector m_vVia;
 	protected int m_iCount = 6;
 	protected string m_sPrefab = "{9B1BF9644E0378D6}Prefabs/Vehicles/Wheeled/M998/M998_covered_long.et";
 	protected string m_sCrew = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
@@ -47,6 +50,8 @@ class ZCR_DriveTest
 		s_Instance.m_vB = Point(parts[1]);
 		if (parts.Count() > 2)
 			s_Instance.m_iCount = Math.Max(1, parts[2].ToInt());
+		if (parts.Count() > 4)
+			s_Instance.m_vVia = Point(parts[4]);
 		if (parts.Count() > 3 && parts[3] == "uaz")
 		{
 			s_Instance.m_sPrefab = "{01F65EFB8D767A91}Prefabs/Vehicles/Wheeled/UAZ452/UAZ452_cargo.et";
@@ -100,6 +105,8 @@ class ZCR_DriveTest
 		{
 			m_vA = OnRoad(m_vA);
 			m_vB = OnRoad(m_vB);
+			if (m_vVia != vector.Zero)
+				m_vVia = OnRoad(m_vVia);
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 track a=%2,%3 b=%4,%5 straight_m=%6 cars=%7 prefab=%8", now, Math.Round(m_vA[0]), Math.Round(m_vA[2]),
 				Math.Round(m_vB[0]), Math.Round(m_vB[2]), Math.Round(vector.DistanceXZ(m_vA, m_vB)), m_iCount, m_sPrefab), LogLevel.NORMAL);
 		}
@@ -229,11 +236,26 @@ class ZCR_DriveTest
 			return;
 		waypoint.SetCompletionRadius(20);
 		AIWaypoint old = car.m_Waypoint;
-		car.m_Group.AddWaypoint(waypoint);
-		if (old)
+		AIWaypoint oldVia = car.m_Via;
+		car.m_Via = null;
+		if (m_vVia != vector.Zero)
 		{
-			car.m_Group.RemoveWaypoint(old);
-			RplComponent.DeleteRplEntity(old, false);
+			params.Transform[3] = m_vVia;
+			car.m_Via = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+			if (car.m_Via)
+			{
+				car.m_Via.SetCompletionRadius(12);
+				car.m_Group.AddWaypoint(car.m_Via);
+			}
+		}
+		car.m_Group.AddWaypoint(waypoint);
+		array<AIWaypoint> gone = {old, oldVia};
+		foreach (AIWaypoint w : gone)
+		{
+			if (!w)
+				continue;
+			car.m_Group.RemoveWaypoint(w);
+			RplComponent.DeleteRplEntity(w, false);
 		}
 		car.m_Waypoint = waypoint;
 		car.m_iLeg++;

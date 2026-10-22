@@ -542,6 +542,10 @@ class ZCR_Driving
 		IEntity other = source;
 		if (other)
 			other = other.GetRootParent();
+		// The game gives no source for many vehicle-on-vehicle hits (22 Oct test track: two UAZs met head-on at 1947,1185,
+		// both drivers dead, both logged "object"): with none, a vehicle within 7 m is the other one.
+		if (!other)
+			other = OtherVehicleNear(vehicle, 7);
 		bool withVehicle = Vehicle.Cast(other) != null && other != vehicle;
 		string otherName = "object";
 		if (withVehicle)
