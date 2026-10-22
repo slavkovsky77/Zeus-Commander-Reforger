@@ -16,6 +16,7 @@ bought again 30 s after a loss - many times the armour of a normal match. Each v
     tanks_keeptype  tanks only, keeping their own type (only the tanks were made APCs - type_was=TANK)
     abrams / t72    one side's tanks (the other side IFVs): which tank mod crashes
     default     the armour as matches run it now (IFVs, no tanks)
+    moveturrets the game's APCs, with the jam watch's hand moves for vehicles with a turret back on
     (control and nodrones add -zcrArmourTanks: from 21 Oct 21:50 tanks are off unless asked for)
 
 Runs matches of --minutes each until --hours have passed, one line per match into .runtime/stress.jsonl
@@ -51,6 +52,9 @@ VARIANTS = {
     "abrams": ("-zcrArmourStress -zcrArmourOnly TANK -zcrArmourTankSide US", True),
     "t72": ("-zcrArmourStress -zcrArmourOnly TANK -zcrArmourTankSide USSR", True),
     "default": ("-zcrArmourStress", True),
+    # moveturrets (22 Oct 05:10): w14 and w16 crashed seconds after a road recovery moved a LAV-25; the jam watch now
+    # leaves vehicles with a turret alone - this puts the moves back (-zcrMoveTurrets) under many stuck APCs.
+    "moveturrets": ("-zcrArmourStress -zcrArmourVanilla -zcrMoveTurrets", True),
     # cie (Martin, 21 Oct 21:35: "maybe another vehicle mod?"): another author's armour with nothing from WCS /
     # SpaceCore - CIE T-72B, Leopard 2A6, Marder 1A3 (+ CIE Tracked Core, Thermal, ATGM, MG3) instead of the
     # WCS family, tanks included. Clean where WCS crashes in 6-10 min -> the WCS framework is the trigger.
