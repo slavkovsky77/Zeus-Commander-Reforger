@@ -25,6 +25,8 @@ TRACKS = {
     # Moss Hill: a farm lane squeezed between a supply cache and a static car wreck with brick piles (2292,1277);
     # 155 stuck/unreachable reports there on 22 Oct, rides of both sides queueing behind. USSR ground.
     "mosshill": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277"),
+    # The same stretch with the Conflict bases in place (Moss Hill's supply cache by the lane).
+    "mosshill-conflict": ("arland-conflict-test", "1700,1000", "2800,1600", "uaz", "2292,1277"),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
     # US main base and can't find a way out (UNREACHABLE). US ground.
     "northfarm": ("arland-test", "2450,2950", "1200,3250", "m998", ""),
@@ -46,7 +48,7 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     spec = f"{a};{b};{cars};{kind}" + (f";{via}" if via else "")
     label = f"drivetest-{track}-{variant}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
+            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

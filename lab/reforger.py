@@ -55,6 +55,9 @@ MAPS = {
     # map, roads and vehicle navmesh, no Conflict and no AI Conflict war - for the driving test track (lab/drivetest.py).
     "arland-test": ("AIConflictArland", "", "{2BBBE828037C6F4B}Missions/22_GM_Arland.conf", "Missions/22_GM_Arland.conf"),
     "everon-test": ("AIConflictEveron", "A4B2E62595F645A4", "{59AD59368755F41A}Missions/21_GM_Eden.conf", "Missions/21_GM_Eden.conf"),
+    # The game's own Conflict on Arland: the Conflict bases and their supply caches (the Moss Hill trap is a cache 7 m
+    # off a farm lane, not on the Game Master map), with no AI armies.
+    "arland-conflict-test": ("AIConflictArland", "", "{C41618FD18E9D714}Missions/23_Campaign_Arland.conf", "Missions/23_Campaign_Arland.conf"),
 }
 READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
 TEST_READY = "[ZCR][DRIVETEST] t="
@@ -86,7 +89,7 @@ def command(a, profile: Path) -> list:
             mod_dirs = mod_dirs + [str(d.parent)]
     roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
-    systems = "Configs/Systems/GameMasterSystems.conf" if a.map.endswith("-test") else "Configs/Systems/ConflictSystems.conf"
+    systems = "Configs/Systems/GameMasterSystems.conf" if "_GM_" in scenario else "Configs/Systems/ConflictSystems.conf"
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", systems,
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
     # -noThrow: the debug builds' assertions (e.g. a smoking animation's thread check in vanilla)
