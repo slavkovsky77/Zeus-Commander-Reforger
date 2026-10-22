@@ -76,3 +76,9 @@ moves (w30-w35); before, with both on, 6 of 18 crashed; without the moves 4 of 4
 trigger. The following rule is now off by default - it showed no clear gain in jams. The hand moves (back off, park
 aside) stay; the road recovery stays off. Also fixed this morning: supply trucks overshooting their depot's exit and
 then failing to turn back (the driver got out) - truck waypoints 8 m, the exit counted once passed.
+
+**10:40 - armour and armed rides unstuck again.** From 05:10 vehicles with a turret were never moved by hand (a theory
+from before the crash cause was found). Six matches with them moved: one freeze (w42, not right after a move), and half
+the long stops and jams (2.8 and 2.0 a match against 5.9 and 5.3). They are moved again. Since 06:23: one freeze and no
+crash in 23 matches. Rides now also avoid road points no vehicle could reach earlier in the match (farm roads behind
+fences on Everon).
