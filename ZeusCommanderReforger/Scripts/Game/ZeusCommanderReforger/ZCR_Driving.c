@@ -87,6 +87,7 @@ class ZCR_Driving
 			s_Instance.m_fLimit = value.ToFloat();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
 		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
+		ZCR_DriveTest.Start();     // lab: the driving test track (-zcrDriveTest)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off

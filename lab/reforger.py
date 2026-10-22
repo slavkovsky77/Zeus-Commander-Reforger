@@ -51,8 +51,13 @@ MAPS = {
     # AI Conflict's bootstrap (in AIConflictArland) runs on it. The map mod and its dependencies.
     "yunakivka": ("AIConflictArland", "6A2C1C65791CE941,68D6FA70573ED4FE,6A46B8CB8111095A,66D60C6AD1621BF0,69770D09755CE1DC,646518DA09B1E283,673AD67900BE5E70",
                   "{869411EFF47B7AF5}Missions/SH UHC Yunakivka.conf", "Missions/SH UHC Yunakivka.conf"),
+    # Test maps (22 Oct, Martin: "test it on a completely different level"): the game's own Game Master missions - the
+    # map, roads and vehicle navmesh, no Conflict and no AI Conflict war - for the driving test track (lab/drivetest.py).
+    "arland-test": ("AIConflictArland", "", "{2BBBE828037C6F4B}Missions/22_GM_Arland.conf", "Missions/22_GM_Arland.conf"),
+    "everon-test": ("AIConflictEveron", "A4B2E62595F645A4", "{59AD59368755F41A}Missions/21_GM_Eden.conf", "Missions/21_GM_Eden.conf"),
 }
 READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
+TEST_READY = "[ZCR][DRIVETEST] t="
 
 
 def command(a, profile: Path) -> list:
@@ -81,7 +86,8 @@ def command(a, profile: Path) -> list:
             mod_dirs = mod_dirs + [str(d.parent)]
     roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
-    cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", "Configs/Systems/ConflictSystems.conf",
+    systems = "Configs/Systems/GameMasterSystems.conf" if a.map.endswith("-test") else "Configs/Systems/ConflictSystems.conf"
+    cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", systems,
             "-addr", f"127.0.0.1:{a.port}"] if not a.client else ["-client", f"127.0.0.1:{a.port}"]
     # -noThrow: the debug builds' assertions (e.g. a smoking animation's thread check in vanilla)
     # don't stop the game with a dialog; they are still logged.
@@ -178,7 +184,8 @@ def main() -> int:
         while proc.poll() is None:
             time.sleep(5)
             log = console_log(profile)
-            if ready_at is None and log and READY in log.read_text(encoding="utf-8", errors="replace"):
+            marker = TEST_READY if a.map.endswith("-test") else READY
+            if ready_at is None and log and marker in log.read_text(encoding="utf-8", errors="replace"):
                 ready_at = time.time()
                 print(f"both sides' squads are deployed after {round(ready_at - t0)} s; the match runs {a.minutes} min", flush=True)
             if ready_at is None and time.time() - t0 > 600:
