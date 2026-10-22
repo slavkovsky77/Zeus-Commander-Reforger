@@ -37,6 +37,7 @@ them: write your wishes into `goals.toml`, or tell Claude and it writes them the
    is a regression and comes first; then the first active goal that is not met.
 2. **investigate** - from the failing number to the cause: which log lines, which unit, which code
    decided it. Measure before calling anything a bug; add a probe when the logs don't say.
+   Then: has a Workshop mod already solved it? (`lab/workshop.py` gets and unpacks one to read.)
 3. **fix** - the smallest change at the right place (this addon, or the AI Conflict fork), a compile
    check, a commit on the working branch. Never a push.
 4. **verify** - matches with the change, the goal's measure before and after, and what the owner
@@ -53,6 +54,9 @@ which the loop files at the start of its next iteration.
 
 - **Judge what the owner sees.** Watched matches and hard checks per match, not batch averages.
   A headless batch can look fine while the watched matches collapse.
+- **Look for an existing solution first.** Before building a fix, search the Workshop and Bohemia's
+  trackers for the issue: a mod that solves it can be tested as it is, or its approach used (with
+  credit); a known engine bug is worked around, not hunted.
 - **Measure first.** A remark is a thing to verify in the logs; say clearly when it is verified.
 - **One change, then verify it.** Before/after numbers in the note and the changelog; a fix that
   doesn't move its measure is not a fix.

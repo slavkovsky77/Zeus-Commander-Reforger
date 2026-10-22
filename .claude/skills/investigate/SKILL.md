@@ -26,7 +26,19 @@ description: Find why a goal's measure fails or why the AI did something wrong -
 5. **Measure before calling it a bug.** How often does it happen across matches? Is it the cause of the
    failing measure, or one of several? Check the other cases the same way until the pattern is clear.
 
-6. **Write the finding down now** - into the goal's review note: what happened (unit, place, time),
+6. **Has someone solved it already?** (the owner, 22 Oct: "find existing mods if they tackle one of our
+   issues, maybe the solution is already there"). Before writing our own fix, search the Reforger
+   Workshop (reforger.armaplatform.com/workshop, by the problem in players' words: "AI driving stuck",
+   "AI convoy", "AI cover") and Bohemia's trackers (feedback.bistudio.com, report.bistudio.com) for the
+   issue. For each mod that fits: its id, what it says it does, game version, size, downloads, licence
+   (APL / APL-SA: we may read and learn from it). Read how it does it: `python lab/workshop.py unpack
+   <id>` (downloads it between watched matches, unpacks scripts and configs into
+   `paths.workshop_dir/_src/<id>`). Then either test the mod itself in a block of watched matches
+   against the goal's measure (fewest mods: the vanilla set plus that one), or use its approach in our
+   code, crediting it in the commit and the review note. A known engine bug in the tracker is a finding
+   too: work around it, don't hunt it.
+
+7. **Write the finding down now** - into the goal's review note: what happened (unit, place, time),
    which code decided it, why that is wrong, how many cases. Then fix it (`fix` skill), or put it in
    PLAN.md when it is bigger than one change.
 

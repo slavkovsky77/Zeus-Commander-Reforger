@@ -33,7 +33,8 @@ or nothing is left to do. Each step has its own skill - follow it.
    wishes (`goal` skill) - don't invent goals.
 
 2. **Why it fails** (`investigate` skill): one failing measure, one match, down to the log lines and
-   the code that decided it. Write the finding into the goal's review note before you change code.
+   the code that decided it. Then check whether a Workshop mod already solves it (investigate
+   step 6) before building our own. Write the finding into the goal's review note before you change code.
 
 3. **The change** (`fix` skill): the smallest change at the right place, compile check, commit on
    the working branch.

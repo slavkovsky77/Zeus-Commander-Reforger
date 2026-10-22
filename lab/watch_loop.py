@@ -147,12 +147,14 @@ def client_rect(hwnd) -> tuple:
 
 
 def crash_dialogs(pids: set) -> list:
-    """Error or crash-report windows: a dialog of one of our processes, or the crash reporter."""
+    """Error or crash-report windows: a dialog of one of our processes, or the crash reporter. Only our
+    own game and server count: another Reforger server's dialog (a Workshop download, another chat's
+    test) ended a watched match on 22 Oct (w5 of the 03:16 rerun)."""
     found = []
     for hwnd, p, title, cls in windows():
         name = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-Process -Id {p} -ErrorAction SilentlyContinue).ProcessName"],
                               capture_output=True, text=True).stdout.strip() if cls == "#32770" or "crash" in title.lower() else ""
-        if (cls == "#32770" and (p in pids or name.lower().startswith(("armareforger", "crashreporter")))) or name.lower() == "crashreporter":
+        if (cls == "#32770" and p in pids) or name.lower() == "crashreporter":
             found.append((p, name, title))
     return found
 
