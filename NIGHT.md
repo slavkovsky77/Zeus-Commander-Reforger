@@ -1,3 +1,52 @@
+# The driving night - prepared 22 Oct 23:55, not started
+
+Martin (22 Oct 23:50): "prepare a nightly plan for trying everything for improving driving - it's one last chance; if it
+doesn't help I will probably drop vehicles. Just prepare the simulation, don't run it yet."
+
+**Start:** `python lab/drivenight.py` (prints nothing new with `--plan`; `--tracks-only` skips the watched block).
+Runs ~7.5 h: compile gate, 52 headless track runs (~4.3 h, two at a time, idle priority), 3 h of watched matches with
+the winner. Morning report: `.runtime/drivenight/REPORT.md`, the lab app's Progress tab for the watched part.
+
+**The tracks** (lab/drivetest.py; crewed vehicles shuttling A -> B -> A on the game's own maps, no commander):
+
+| Track | Map | What it reproduces |
+|---|---|---|
+| headon | Game Master Arland | cars from both ends of the Moss Hill route - head-on meetings on the farm lane (2 crashes in 2 runs, both drivers dead) |
+| mosshill-conflict | vanilla Conflict Arland, AI Conflict off | the Moss Hill trap (supply cache + static wreck by the lane): the game's driver alone did 0 trips in 8 min |
+| trucks | Game Master Arland | Ural trucks both ways through the trap (supply trucks; Competent AI driving's wider turns) |
+| northfarm | Game Master Arland | M998s past the fenced fields where rides cut across and get UNREACHABLE |
+| everonexit | Game Master Eden | the Everon US base exit road |
+
+**The variants** (everything we have or found):
+
+| Variant | What |
+|---|---|
+| raw | the game's driver alone (no unjam, no oncoming slow-down) |
+| default | ours: push back-offs, unjam after 20 s, oncoming slow-down (both to 15 km/h, new 22 Oct) |
+| nooncoming | ours without the oncoming slow-down |
+| price | + ZCR Road Price (roads 10x cheaper than fields) |
+| competent | + Competent AI driving (turn radius 25 m APCs / 40 m trucks) |
+| crx | + CRX Enfusion A.I. (column driving, drive-and-attack) |
+| jmvai | JMVehicleAI (tuned) alone |
+| best | ours + road price + Competent AI driving |
+
+**Score per run:** legs driven - 4 x lost cars - 3 x car-on-car hits - jams - 2 if a leg is open over 5 min. The winner
+has the best average rank over its tracks (ties: fewer mods). Then 3 h of watched matches with it, on the same settings
+as the 22 Oct baseline (armour off, no armed rides).
+
+**The verdict - Martin's "last chance":**
+- **Pass**, vehicles stay: in the watched matches with the winner, Arland jams <= 3 and long stops <= 2 a match (baseline
+  ~6 / ~5), vehicles hitting each other <= 1 a match, no more game crashes than the push block (1 in 11) - and on the
+  tracks the winner loses at most 1 car a run where raw lost 2+.
+- **Fail**, plan B: rides only for long marches from the main bases, fewer supply trucks, or no vehicles at all (Martin's
+  call) - written up with the numbers.
+
+Known before the night: on vanilla Conflict with AI Conflict off, the first two cars were lost 36-49 s after the start
+in all 4 runs (at 1906,1126); the track now logs why a car is lost (destroyed / driver dead / crew out), the night's
+first mosshill-conflict runs will say.
+
+---
+
 # Two unattended days, 21-23 Oct: the day's complaints, by severity
 
 Martin (21 Oct 22:40): "rate them on severity ... next cycle you will focus on these issues ... improve the commander

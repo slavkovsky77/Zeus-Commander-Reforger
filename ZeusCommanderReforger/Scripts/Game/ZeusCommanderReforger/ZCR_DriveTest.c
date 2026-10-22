@@ -1,5 +1,6 @@
 // The driving test track (22 Oct, Martin: "if you know where the bug happens on Moss Hill, do a simple scenario that
-// reproduces it ... to optimise it faster"). Lab only, -zcrDriveTest "ax,az;bx,bz;count[;kind[;vx,vz]]": count crewed vehicles
+// reproduces it ... to optimise it faster"). Lab only, -zcrDriveTest "ax,az;bx,bz;count[;kind[;vx,vz[;both]]]": count crewed
+// vehicles (kind m998, uaz, ural or m923 trucks; "both": every second car starts at B, so they meet head-on on the way)
 // (kind m998 - the US M998, default - or uaz - the USSR UAZ-452) leave A one at a time, 12 s apart, and drive A -> B ->
 // A ... on the game's own routes, through V both ways when given (a waypoint on the trap itself, so the route can't
 // go round it). A, B and V are snapped to the nearest road. Every vehicle is watched by ZCR_Driving like
@@ -29,6 +30,7 @@ class ZCR_DriveTest
 	protected vector m_vB;
 	protected vector m_vVia;
 	protected int m_iCount = 6;
+	protected bool m_bBoth;
 	protected string m_sPrefab = "{9B1BF9644E0378D6}Prefabs/Vehicles/Wheeled/M998/M998_covered_long.et";
 	protected string m_sCrew = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
 	protected int m_iNextSpawn = 15;
@@ -50,13 +52,22 @@ class ZCR_DriveTest
 		s_Instance.m_vB = Point(parts[1]);
 		if (parts.Count() > 2)
 			s_Instance.m_iCount = Math.Max(1, parts[2].ToInt());
-		if (parts.Count() > 4)
+		if (parts.Count() > 4 && parts[4] != "-")
 			s_Instance.m_vVia = Point(parts[4]);
+		s_Instance.m_bBoth = parts.Count() > 5 && parts[5] == "both";
+		string ussrCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 		if (parts.Count() > 3 && parts[3] == "uaz")
 		{
 			s_Instance.m_sPrefab = "{01F65EFB8D767A91}Prefabs/Vehicles/Wheeled/UAZ452/UAZ452_cargo.et";
-			s_Instance.m_sCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
+			s_Instance.m_sCrew = ussrCrew;
 		}
+		else if (parts.Count() > 3 && parts[3] == "ural")
+		{
+			s_Instance.m_sPrefab = "{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et";
+			s_Instance.m_sCrew = ussrCrew;
+		}
+		else if (parts.Count() > 3 && parts[3] == "m923")
+			s_Instance.m_sPrefab = "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et";
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
 	}
 
@@ -122,10 +133,14 @@ class ZCR_DriveTest
 		{
 			if (car.m_bLost)
 				continue;
-			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0)
+			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || !Driven(car))
 			{
 				car.m_bLost = true;
-				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=LOST leg=%3", now, car.m_iIndex, car.m_iLeg), LogLevel.NORMAL);
+				vector at;
+				if (car.m_Vehicle)
+					at = car.m_Vehicle.GetOrigin();
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=LOST leg=%3 why=%4 x=%5 z=%6", now, car.m_iIndex, car.m_iLeg, LostWhy(car),
+					Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 				continue;
 			}
 			vector target = m_vA;
@@ -210,11 +225,39 @@ class ZCR_DriveTest
 		return pick.m_Vehicle;
 	}
 
+	// The driver still in the driver's seat (a crew that got out leaves the car standing - lost too).
+	protected static bool Driven(ZCR_DriveCar car)
+	{
+		array<AIAgent> agents = {};
+		car.m_Group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(agent.GetControlledEntity());
+			if (c && c.IsInVehicle() && CompartmentAccessComponent.GetVehicleIn(c) == car.m_Vehicle)
+				return true;
+		}
+		return false;
+	}
+
+	protected static string LostWhy(ZCR_DriveCar car)
+	{
+		if (!car.m_Vehicle)
+			return "vehicle_gone";
+		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(car.m_Vehicle.FindComponent(SCR_DamageManagerComponent));
+		if (damage && damage.GetState() == EDamageState.DESTROYED)
+			return "vehicle_destroyed";
+		if (!car.m_Group)
+			return "group_gone";
+		if (AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0)
+			return "driver_dead";
+		return "crew_out";
+	}
+
 	protected bool StartBusy()
 	{
 		foreach (ZCR_DriveCar c : m_aCars)
 		{
-			if (c.m_Vehicle && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vA) < 10)
+			if (c.m_Vehicle && (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vA) < 10 || (m_bBoth && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vB) < 10)))
 				return true;
 		}
 		return false;
@@ -229,12 +272,21 @@ class ZCR_DriveTest
 
 	protected void Spawn(int now)
 	{
-		vector dir = m_vB - m_vA;
+		// "both": every second car starts at B heading for A.
+		bool fromB = m_bBoth && m_aCars.Count() % 2 == 1;
+		vector start = m_vA;
+		vector goal = m_vB;
+		if (fromB)
+		{
+			start = m_vB;
+			goal = m_vA;
+		}
+		vector dir = goal - start;
 		dir[1] = 0;
 		dir.Normalize();
 		vector pose[4];
 		Math3D.DirectionAndUpMatrix(dir, "0 1 0", pose);
-		pose[3] = m_vA + "0 0.5 0";
+		pose[3] = start + "0 0.5 0";
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		for (int axis; axis < 4; axis++)
@@ -257,7 +309,7 @@ class ZCR_DriveTest
 		car.m_iIndex = m_aCars.Count() + 1;
 		car.m_Vehicle = vehicle;
 		car.m_Group = SCR_AIGroup.Cast(group);
-		car.m_bToB = true;
+		car.m_bToB = !fromB;
 		m_aCars.Insert(car);
 		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(vehicle.FindComponent(SCR_AIVehicleUsageComponent));
 		if (car.m_Group && usage && car.m_Group.GetGroupUtilityComponent() && !car.m_Group.GetGroupUtilityComponent().IsUsableVehicle(usage))

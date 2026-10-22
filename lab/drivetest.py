@@ -22,30 +22,42 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # name: (map, A, B, kind) - A and B snap to the nearest road in the game.
 TRACKS = {
+    # name: (map, A, B, kind, via or "", both) - A, B and the via point snap to the nearest road in the game.
     # Moss Hill: a farm lane squeezed between a supply cache and a static car wreck with brick piles (2292,1277);
     # 155 stuck/unreachable reports there on 22 Oct, rides of both sides queueing behind. USSR ground.
-    "mosshill": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277"),
-    # The same stretch with the Conflict bases in place (Moss Hill's supply cache by the lane).
-    "mosshill-conflict": ("arland-conflict-test", "1700,1000", "2800,1600", "uaz", "2292,1277"),
+    "mosshill": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", False),
+    # The same stretch with the Conflict bases in place (Moss Hill's supply cache by the lane) - the trap catches here.
+    "mosshill-conflict": ("arland-conflict-test", "1700,1000", "2800,1600", "uaz", "2292,1277", False),
+    # Head-on: the Moss Hill route with every second car starting at B - they meet on the narrow lane all the time
+    # (two head-on crashes in two runs on 22 Oct, both drivers dead).
+    "headon": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", True),
+    # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
+    "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
     # US main base and can't find a way out (UNREACHABLE). US ground.
-    "northfarm": ("arland-test", "2450,2950", "1200,3250", "m998", ""),
+    "northfarm": ("arland-test", "2450,2950", "1200,3250", "m998", "", False),
     # Everon: the US main base's exit road (5350,9960, 16 m off the road by farm fences).
-    "everonexit": ("everon-test", "5700,9650", "4700,9900", "m998", ""),
+    "everonexit": ("everon-test", "5700,9650", "4700,9900", "m998", "", False),
 }
 
 VARIANTS = {
-    "default": ("", ""),
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam", ""),
-    "price": ("", "3B9F2C4D5E6A7B81"),
-    "late": ("-zcrNoEarlyUnjam", ""),
+    # name: (extra server parameters, extra mods)
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming", ""),                # the game's driver alone
+    "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down
+    "nooncoming": ("-zcrNoOncoming", ""),
+    "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
+    "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
+    "competent": ("", "68FCF11534562F2E"),                                    # + Competent AI driving (turn radius, trucks/APCs)
+    "crx": ("", "5F268647F8A1A1F4"),                                          # + CRX Enfusion A.I. (column driving, vehicle combat)
+    "jmvai": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming", "6A8490E1621E7B3C,7A3C51E0D2B94F61"),   # JMVehicleAI, tuned, alone
+    "best": ("", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),                         # ours + road price + Competent AI driving
 }
 
 
 def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
-    map_name, a, b, kind, via = TRACKS[track]
+    map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
-    spec = f"{a};{b};{cars};{kind}" + (f";{via}" if via else "")
+    spec = f"{a};{b};{cars};{kind};{via or '-'}" + (";both" if both else "")
     label = f"drivetest-{track}-{variant}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
@@ -71,6 +83,8 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
         "oldest_open_s": int(last[-1][1]) if last else None,
         "jams": text.count("[ZCR][JAM]"), "stuck": text.count("[ZCR][STUCKVEH]"), "move_fails": text.count("[ZCR][MOVEFAIL]"),
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .*error=UNREACHABLE", text)), "pushes": text.count("[ZCR][PUSH]"),
+        "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
+        "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
         "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": runs[-1].name,

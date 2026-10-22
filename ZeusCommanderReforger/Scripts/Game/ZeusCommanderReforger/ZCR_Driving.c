@@ -88,6 +88,7 @@ class ZCR_Driving
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
 		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
 		ZCR_DriveTest.Start();     // lab: the driving test track (-zcrDriveTest)
+		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off
@@ -118,6 +119,17 @@ class ZCR_Driving
 		if (moving > 0)
 			pct = Math.Round(100.0 * off / moving);
 		Print(string.Format("[ZCR][OFFROAD] t=%1 side=%2 moving=%3 offroad=%4 pct=%5", now, side, moving, off, pct), LogLevel.NORMAL);
+	}
+
+	// The AI-driven vehicles seen this tick or the last one (for ZCR_Oncoming).
+	static void DrivenNow(notnull array<IEntity> cars)
+	{
+		int now = ZCR_LossLog.Seconds();
+		foreach (IEntity v, int at : s_mSeen)
+		{
+			if (v && now - at <= 3)
+				cars.Insert(v);
+		}
 	}
 
 	// " runover=<vehicle>" for a soldier killed with no killer next to a moving vehicle of his side, else "".
