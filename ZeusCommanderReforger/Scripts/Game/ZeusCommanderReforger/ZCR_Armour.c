@@ -80,6 +80,7 @@ class ZCR_Armour
 
 	static void Tick(FactionKey side, SCR_CampaignFaction faction, vector front)
 	{
+		GunnersLog();
 		if (!Replication.IsServer() || System.IsCLIParam("zcrNoArmour") || !faction)
 			return;
 		int now = ZCR_LossLog.Seconds();
@@ -500,6 +501,51 @@ class ZCR_Armour
 	protected static ref map<IEntity, int> s_mHoldCheckAt = new map<IEntity, int>();
 	protected static ref map<IEntity, bool> s_mHold = new map<IEntity, bool>();
 	protected static int s_iHeld;
+
+	// 22 Oct (Martin: "if the AI can shoot from the tank, make it work"): what the turret gunners engage - a new
+	// target taken, its distance, held by our hold-fire. [ZCR][GUNNERS] t= side= engagements= held= target_m= a minute.
+	protected static ref map<IEntity, IEntity> s_mGunnerTarget = new map<IEntity, IEntity>();
+	protected static ref map<string, int> s_mEngaged = new map<string, int>();
+	protected static ref map<string, int> s_mEngagedHeld = new map<string, int>();
+	protected static ref map<string, ref array<float>> s_mEngagedM = new map<string, ref array<float>>();
+	protected static int s_iGunnersLogAt;
+
+	static void GunnerTarget(IEntity gunner, BaseTarget target, bool held)
+	{
+		if (!gunner || !target || !target.GetTargetEntity())
+			return;
+		IEntity was;
+		if (s_mGunnerTarget.Find(gunner, was) && was == target.GetTargetEntity())
+			return;
+		s_mGunnerTarget.Set(gunner, target.GetTargetEntity());
+		string side = ZCR_LossLog.SideOf(gunner);
+		s_mEngaged.Set(side, s_mEngaged.Get(side) + 1);
+		if (held)
+			s_mEngagedHeld.Set(side, s_mEngagedHeld.Get(side) + 1);
+		if (!s_mEngagedM.Contains(side))
+			s_mEngagedM.Set(side, {});
+		s_mEngagedM.Get(side).Insert(vector.Distance(gunner.GetOrigin(), target.GetLastSeenPosition()));
+	}
+
+	static void GunnersLog()
+	{
+		int now = ZCR_LossLog.Seconds();
+		if (now - s_iGunnersLogAt < 60)
+			return;
+		s_iGunnersLogAt = now;
+		array<string> sides = {"US", "USSR"};
+		foreach (string side : sides)
+		{
+			array<float> m = s_mEngagedM.Get(side);
+			int median = -1;
+			if (m && !m.IsEmpty())
+			{
+				m.Sort();
+				median = Math.Round(m[m.Count() / 2]);
+			}
+			Print(string.Format("[ZCR][GUNNERS] t=%1 side=%2 engagements=%3 held=%4 target_m=%5", now, side, s_mEngaged.Get(side), s_mEngagedHeld.Get(side), median), LogLevel.NORMAL);
+		}
+	}
 
 	static bool FriendsNearTarget(IEntity gunner, vector target)
 	{
@@ -1637,7 +1683,9 @@ modded class SCR_AIAttackBehavior
 		if (value <= 0 || !m_Utility || !m_Utility.m_AIInfo || !m_Utility.m_AIInfo.HasUnitState(EUnitState.IN_TURRET))
 			return value;
 		BaseTarget target = m_Target.m_Value;
-		if (target && ZCR_Armour.FriendsNearTarget(m_Utility.m_OwnerEntity, target.GetLastSeenPosition()))
+		bool hold = target && ZCR_Armour.FriendsNearTarget(m_Utility.m_OwnerEntity, target.GetLastSeenPosition());
+		ZCR_Armour.GunnerTarget(m_Utility.m_OwnerEntity, target, hold);
+		if (hold)
 			return 0;
 		return value;
 	}
