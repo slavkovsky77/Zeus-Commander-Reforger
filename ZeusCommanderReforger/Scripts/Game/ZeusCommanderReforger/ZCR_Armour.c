@@ -61,6 +61,15 @@ class ZCR_Armour
 	static const int START_S = 120;
 	static const int REBUY_S = 300;
 	static const float SHORT_M = 350;
+	// The support point's distance short of the front (lab: -zcrArmourShortM N; 22 Oct headless baseline at 350: 75% of
+	// the time approaching, the assault from ~430 m, 2 enemy killed by 12 APCs in 20 minutes).
+	static float ShortM()
+	{
+		string value;
+		if (System.GetCLIParam("zcrArmourShortM", value) && !value.IsEmpty())
+			return Math.Clamp(value.ToFloat(), 80, 600);
+		return SHORT_M;
+	}
 	static const int RESERVE = 1200;     // the HQ keeps this much for its recruits and builders
 
 	protected static ref array<ref ZCR_ArmourUnit> s_aUnits = {};
@@ -1258,11 +1267,11 @@ class ZCR_Armour
 		// In the assault the goal follows the fight (re-aimed when it moved 200 m+, at most once a minute).
 		bool reaim = sameFront && unit.m_sPhase == "ASSAULT" && now - unit.m_iOrderedAt >= 60 &&
 			vector.DistanceXZ(FightNear(front, now), unit.m_vOrder) > 200;
-		if (sameFront && unit.m_Waypoint && !arrived && !reaim && (unit.m_sPhase == "ASSAULT" || dist > SHORT_M + 100))
+		if (sameFront && unit.m_Waypoint && !arrived && !reaim && (unit.m_sPhase == "ASSAULT" || dist > ShortM() + 100))
 			return;
 		string phase = "APPROACH";
 		vector goal;
-		if (dist <= SHORT_M + 100 || arrived || (unit.m_sPhase == "ASSAULT" && sameFront))
+		if (dist <= ShortM() + 100 || arrived || (unit.m_sPhase == "ASSAULT" && sameFront))
 		{
 			phase = "ASSAULT";
 			goal = FightNear(front, now);
@@ -1280,7 +1289,7 @@ class ZCR_Armour
 					turn = -turn;
 				way = Vector(way[0] * Math.Cos(turn) - way[2] * Math.Sin(turn), 0, way[0] * Math.Sin(turn) + way[2] * Math.Cos(turn));
 			}
-			goal = front + way * SHORT_M;
+			goal = front + way * ShortM();
 		}
 		goal = OnRoad(at, goal);
 		goal[1] = GetGame().GetWorld().GetSurfaceY(goal[0], goal[2]);
