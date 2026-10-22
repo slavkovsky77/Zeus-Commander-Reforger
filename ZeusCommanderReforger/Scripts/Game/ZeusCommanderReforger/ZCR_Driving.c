@@ -465,7 +465,8 @@ class ZCR_Driving
 		if (side.IsEmpty())
 			side = "none";
 		Print(string.Format("[ZCR][MOVEFAIL] t=%1 side=%2 vehicle=%3 error=%4 x=%5 z=%6 to_m=%7", now, side, ZCR_LossLog.ShortName(vehicle),
-			typename.EnumToString(EMoveError, result), Math.Round(at[0]), Math.Round(at[2]), Math.Round(vector.DistanceXZ(at, location))), LogLevel.NORMAL);
+			typename.EnumToString(EMoveError, result), Math.Round(at[0]), Math.Round(at[2]), Math.Round(vector.DistanceXZ(at, location)))
+			+ string.Format(" to_x=%1 to_z=%2", Math.Round(location[0]), Math.Round(location[2])), LogLevel.NORMAL);
 	}
 
 	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
