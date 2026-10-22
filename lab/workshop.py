@@ -28,10 +28,11 @@ PORT = 2199
 
 
 def find(mod_id: str):
-    for root in (DOWNLOADS / "addons", DOWNLOADS, OWNER_MODS):   # the server puts downloads in <dir>/addons
+    # Our own small addons next to the mods (addons_local: e.g. the JMVehicleAI settings, unpacked, no data.pak).
+    for root in (DOWNLOADS / "addons", DOWNLOADS, OWNER_MODS, ROOT / "addons_local"):   # the server puts downloads in <dir>/addons
         if root and root.is_dir():
             for d in root.iterdir():
-                if d.is_dir() and d.name.upper().endswith("_" + mod_id.upper()) and (d / "data.pak").is_file():
+                if d.is_dir() and d.name.upper().endswith("_" + mod_id.upper()) and ((d / "data.pak").is_file() or any(d.glob("*.gproj"))):
                     return d
     return None
 
