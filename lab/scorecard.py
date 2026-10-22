@@ -125,8 +125,9 @@ def measure(run: Path) -> dict:
             k = d.get("killer_side")
             if "armour=" in line and k in SIDES and k != (d.get("victim_side") or d.get("side")):
                 armour["kills"][k] += 1
-            # Own soldiers killed by our armour's guns (22 Oct: 50 of the 63 deaths armour caused that day).
-            elif "armour=" in line and k in SIDES and k == (d.get("victim_side") or d.get("side")):
+            # Own soldiers killed by our armour (22 Oct: 12 that day, against 8 enemy) - not its crew dying with
+            # their own vehicle (credited to a crewmate, 1-5 m away: 38 of the 50 'friendly' deaths that day).
+            elif "armour=" in line and k in SIDES and k == (d.get("victim_side") or d.get("side")) and                     not ("Crew" in (d.get("victim") or "") and num(d.get("distance"), 99) <= 5):
                 armour["friendly"][k] += 1
             v = d.get("victim_side") or d.get("side")
             if v in SIDES:

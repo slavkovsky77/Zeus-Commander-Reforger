@@ -38,7 +38,7 @@ CHARTS = [
      [("jobs", "sc_jobs"), ("unloads", "sc_unloads")], "", None, None, "higher"),
     ("forts", "multi", "Defences built", "Fortifications both sides' engineers finished per match (from r20).",
      [("fortifications", "sc_forts")], "", None, None, "higher"),
-    ("armour", "multi", "Armour in combat", "Tanks and IFVs per match, both sides (from r26): bought, got into the assault on their front, enemy killed by their guns - and their own soldiers killed by them (22 Oct: 50 own, 8 enemy). Martin: 'if the AI can shoot from the tank, make it work and watch the progress'.",
+    ("armour", "multi", "Armour in combat", "Tanks and IFVs per match, both sides (from r26): bought, got into the assault on their front, enemy killed by their guns - and their own side's soldiers killed by them, not counting their crew dying with the vehicle (22 Oct: 12 own, 8 enemy). Martin: 'if the AI can shoot from the tank, make it work and watch the progress'.",
      [("bought", "sc_armour"), ("into the assault", "sc_armour_assault"), ("enemy killed by armour", "sc_armour_kills"), ("own killed by armour", "sc_armour_friendly")], "", None, None, "higher"),
     ("shot", "multi", "Fire at drones", "Drones a side's soldiers shot down with small arms, per side per match (from r20).",
      [("shot down", "sc_shot")], "", None, None, "higher"),
