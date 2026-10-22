@@ -679,6 +679,15 @@ class ZCR_Driving
 		// every vehicle is also interpolated for the local client; the headless stress server, with none, moved APCs
 		// 35 times in 24 minutes without a crash where the watched matches crashed three times.
 		vector previous = vehicle.GetOrigin();
+		// 22 Oct evening: a physics push (ZCR_Push, JMVehicleAI's way) instead of the teleport; -zcrTeleportMoves for the old way.
+		if (!System.IsCLIParam("zcrTeleportMoves"))
+		{
+			if (!ZCR_Push.Start(vehicle, at, why))
+				return false;
+			s_mMovedAt.Set(vehicle, ZCR_LossLog.Seconds());
+			ZCR_Trace.Ent("push", vehicle, why);
+			return true;
+		}
 		s_mMovedAt.Set(vehicle, ZCR_LossLog.Seconds());
 		ZCR_Trace.Ent("move", vehicle, why);
 		BaseGameEntity game = BaseGameEntity.Cast(vehicle);
