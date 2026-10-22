@@ -30,6 +30,9 @@
 // 22 Oct 01:40, Arland: the rides leaving the harbour main base jammed against the next ride waiting at the pad (its
 // driver aboard, its team on the way) and backed off three times for nothing. A blocker that is driven but waiting
 // (its goal within GOAL_M) is parked aside too; a vehicle can be parked again after 120 game s.
+// 22 Oct 03:00: stuck alone (no vehicle near) lasted a median 88 game s, 27 of 96 spells 2 min+ - an AI driver hung on
+// rocks, trees, a gate or a slope. Stuck alone UNSTICK_S: it backs off the same way (the way it came is drivable)
+// and plans again.
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -44,6 +47,7 @@ class ZCR_Driving
 	static const float JAM_M = 10;
 	static const float GOAL_M = 30;
 	static const float BACK_M = 8;
+	static const int UNSTICK_S = 90;
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBacks = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mParked = new map<IEntity, int>();     // when it was last parked aside
@@ -241,6 +245,8 @@ class ZCR_Driving
 				if (still)
 					Unjam(v, still, side, now);
 			}
+			else if (now - s_mMarkAt.Get(v) >= UNSTICK_S && !System.IsCLIParam("zcrNoUnjam"))
+				BackOff(v, side, now, v, null);
 			return;
 		}
 		IEntity other = OtherVehicleNear(v, JAM_M);
@@ -357,8 +363,11 @@ class ZCR_Driving
 			IEntity partner = a;
 			if (yielder == a)
 				partner = b;
+			string partnerName = "none";
+			if (partner)
+				partnerName = ZCR_LossLog.ShortName(partner);
 			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=back m=%4 other=%5 count=%6 x=%7 z=%8", now, side, ZCR_LossLog.ShortName(yielder),
-				dist, ZCR_LossLog.ShortName(partner), s_mBacks.Get(yielder), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+				dist, partnerName, s_mBacks.Get(yielder), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
 			return true;
 		}
 		return false;
