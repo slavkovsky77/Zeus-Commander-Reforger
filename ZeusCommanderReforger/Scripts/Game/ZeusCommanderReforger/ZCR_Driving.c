@@ -37,6 +37,11 @@
 // other into the field): a vehicle with one of its side's vehicles within FOLLOW_M ahead going under 5 km/h creeps at
 // 4 km/h behind it; the way clear, the game's own cruise speed again. Not our armour (its guard does it). [ZCR][DRIVE]
 // following=. Off: -zcrNoFollow.
+// Onto the road (22 Oct 04:10, Arland w8: one Soviet ride stuck 4 times at the same granite stones 10-15 m off an 8-m
+// road - backed off 8 m, it drove the same line again, and after the third back-off sat there 10 minutes until its crew
+// left; supply trucks bunched at their depot's exit): stuck alone UNSTICK_S (60), a vehicle is put on the nearest road
+// at least ROAD_MIN_W wide within ROAD_M, a few metres on toward its waypoint, facing along the road - if the spot is
+// clear of anything solid; else it backs off. Up to 4 times a vehicle. [ZCR][UNJAM] action=road m= (how far it moved).
 class ZCR_Driving
 {
 	protected static ref ZCR_Driving s_Instance;
@@ -51,7 +56,10 @@ class ZCR_Driving
 	static const float JAM_M = 10;
 	static const float GOAL_M = 30;
 	static const float BACK_M = 8;
-	static const int UNSTICK_S = 90;
+	static const int UNSTICK_S = 60;
+	static const float ROAD_M = 40;
+	static const float ROAD_MIN_W = 3;
+	protected static ref map<IEntity, int> s_mRoads = new map<IEntity, int>();
 	static const float FOLLOW_M = 14;
 	protected static ref map<IEntity, bool> s_mFollowing = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mBackAt = new map<IEntity, int>();
@@ -259,7 +267,10 @@ class ZCR_Driving
 					Unjam(v, still, side, now);
 			}
 			else if (now - s_mMarkAt.Get(v) >= UNSTICK_S && !System.IsCLIParam("zcrNoUnjam"))
-				BackOff(v, side, now, v, null);
+			{
+				if (!OntoRoad(v, driver, side, now))
+					BackOff(v, side, now, v, null);
+			}
 			return;
 		}
 		IEntity other = OtherVehicleNear(v, JAM_M);
@@ -426,6 +437,106 @@ class ZCR_Driving
 				partnerName = ZCR_LossLog.ShortName(partner);
 			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=back m=%4 other=%5 count=%6 x=%7 z=%8", now, side, ZCR_LossLog.ShortName(yielder),
 				dist, partnerName, s_mBacks.Get(yielder), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			return true;
+		}
+		return false;
+	}
+
+	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
+	protected static bool OntoRoad(IEntity v, AIAgent driver, string side, int now)
+	{
+		Vehicle vehicle = Vehicle.Cast(v);
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (!vehicle || !aiWorld || !aiWorld.GetRoadNetworkManager() || s_mRoads.Get(v) >= 4 || now - s_mBackAt.Get(v) < 30)
+			return false;
+		BaseWorld world = GetGame().GetWorld();
+		vector mat[4];
+		vehicle.GetWorldTransform(mat);
+		vector at = mat[3];
+		vector goal = at + mat[2] * 100;
+		if (driver && driver.GetParentGroup() && driver.GetParentGroup().GetCurrentWaypoint())
+			goal = driver.GetParentGroup().GetCurrentWaypoint().GetOrigin();
+		array<BaseRoad> roads = {};
+		aiWorld.GetRoadNetworkManager().GetRoadsInAABB(at - Vector(ROAD_M, 50, ROAD_M), at + Vector(ROAD_M, 50, ROAD_M), roads);
+		float best = ROAD_M;
+		vector bestA;
+		vector bestB;
+		vector bestQ;
+		bool any;
+		array<vector> points = {};
+		foreach (BaseRoad road : roads)
+		{
+			if (!road || road.GetWidth() < ROAD_MIN_W)
+				continue;
+			points.Clear();
+			road.GetPoints(points);
+			for (int i = 0; i + 1 < points.Count(); i++)
+			{
+				vector a = points[i];
+				vector b = points[i + 1];
+				vector ab = b - a;
+				ab[1] = 0;
+				float len2 = ab[0] * ab[0] + ab[2] * ab[2];
+				if (len2 < 0.01)
+					continue;
+				float f = Math.Clamp(((at[0] - a[0]) * ab[0] + (at[2] - a[2]) * ab[2]) / len2, 0, 1);
+				vector q = a + (b - a) * f;
+				float d = vector.DistanceXZ(q, at);
+				if (d < best)
+				{
+					best = d;
+					bestA = a;
+					bestB = b;
+					bestQ = q;
+					any = true;
+				}
+			}
+		}
+		if (!any)
+			return false;
+		vector dir = bestB - bestA;
+		dir[1] = 0;
+		dir.Normalize();
+		if (vector.DistanceXZ(bestQ - dir * 5, goal) < vector.DistanceXZ(bestQ + dir * 5, goal))
+			dir = -dir;
+		vector mins;
+		vector maxs;
+		vehicle.GetBounds(mins, maxs);
+		array<float> steps = {4.0, 0.0, 9.0};
+		foreach (float step : steps)
+		{
+			vector spot = bestQ + dir * step;
+			spot[1] = world.GetSurfaceY(spot[0], spot[2]);
+			if (VehicleAt(spot, 5, v) || ChimeraWorldUtils.TryGetWaterSurfaceSimple(world, spot - "0 0.5 0"))
+				continue;
+			vector pose[4];
+			Math3D.DirectionAndUpMatrix(dir, "0 1 0", pose);
+			pose[3] = spot + "0 0.4 0";
+			// Nothing solid where the body would stand (rocks, walls, trees, other vehicles).
+			TraceOBB body = new TraceOBB();
+			for (int axis; axis < 3; axis++)
+				body.Mat[axis] = pose[axis];
+			body.Start = pose[3];
+			body.Mins = Vector(mins[0], mins[1] + 0.5, mins[2]);
+			body.Maxs = maxs;
+			body.Flags = TraceFlags.ENTS;
+			body.LayerMask = EPhysicsLayerPresets.Vehicle;
+			body.Exclude = vehicle;
+			if (world.TracePosition(body, null) < 0)
+				continue;
+			Physics physics = vehicle.GetPhysics();
+			if (physics)
+			{
+				physics.SetVelocity(vector.Zero);
+				physics.SetAngularVelocity(vector.Zero);
+			}
+			ZCR_Trace.Ent("move", vehicle, "unstick_road");
+			if (!vehicle.SetWorldTransform(pose))
+				return false;
+			s_mBackAt.Set(v, now);
+			s_mRoads.Set(v, s_mRoads.Get(v) + 1);
+			Print(string.Format("[ZCR][UNJAM] t=%1 side=%2 vehicle=%3 action=road m=%4 count=%5 x=%6 z=%7", now, side, ZCR_LossLog.ShortName(v),
+				Math.Round(vector.DistanceXZ(at, spot)), s_mRoads.Get(v), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
 			return true;
 		}
 		return false;
