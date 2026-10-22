@@ -597,7 +597,7 @@ class ZCR_Driving
 	{
 		vector mat[4];
 		vehicle.GetWorldTransform(mat);
-		if (mat[1][1] < 0.5 || Boarding(vehicle))
+		if (mat[1][1] < 0.5 || Boarding(vehicle) || HasTurret(vehicle))
 			return false;
 		forward[1] = 0;
 		if (forward.Length() < 0.1)
@@ -623,6 +623,26 @@ class ZCR_Driving
 		}
 		ZCR_Trace.Ent("move", vehicle, why);
 		return vehicle.SetWorldTransform(pose);
+	}
+
+	// 22 Oct 05:06: w14 and w16 both crashed 7 s and 1.6 s after a road recovery moved a LAV-25 (turret, gunner aboard);
+	// unarmed rides were moved 50+ times in w11-w13 without one. No vehicle with a turret is moved by hand (armour has
+	// its own still-and-reorder logic). -zcrMoveTurrets: move them anyway (to test).
+	protected static bool HasTurret(Vehicle vehicle)
+	{
+		if (System.IsCLIParam("zcrMoveTurrets"))
+			return false;
+		BaseCompartmentManagerComponent manager = BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(BaseCompartmentManagerComponent));
+		if (!manager)
+			return false;
+		array<BaseCompartmentSlot> slots = {};
+		manager.GetCompartments(slots);
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (TurretCompartmentSlot.Cast(slot))
+				return true;
+		}
+		return false;
 	}
 
 	// Someone getting in or out of it: an occupant, or any soldier within 8 m.
