@@ -2,7 +2,9 @@
 // found by the door probe); test cars queued at them for whole runs - 0-4 trips and 2-4 cars lost in 10 minutes, in every
 // setup. Mostly nobody even asks to open them (the game's navlink-door goal below came in one run of three). With both
 // gate areas opened at the start: 7 trips, no car lost. So at the start every door whose prefab is a gate is opened - base
-// gates and farm gates on the fenced fields where rides got trapped - and checked again every minute. -zcrNoOpenGates off.
+// gates and farm gates on the fenced fields where rides got trapped - and checked again every minute.
+// LAB ONLY, opt-in -zcrOpenGates: Martin decided on 21 Oct that gates and road blocks stay on the map - "improve the
+// driving" - and liked seeing the AI open a gate (review notes 241, 242). This proves the cause; the fix is the driving's.
 //   [ZCR][GATES] t= opened= checked=
 class ZCR_OpenGates
 {
@@ -12,7 +14,7 @@ class ZCR_OpenGates
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoOpenGates"))
+		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrOpenGates"))
 			return;
 		s_Instance = new ZCR_OpenGates();
 		GetGame().GetCallqueue().CallLater(s_Instance.Find, 3000, false);
@@ -76,7 +78,7 @@ class ZCR_OpenGates
 // (SCR_AIUtilityComponent.WrapBehaviorOutsideOfVehicle). The get-out probe caught it: 2 of 6 test cars at the Everon US
 // base exit lost their driver this way within 70 s of starting, and one stood there 50 s later, blocking the road
 // ([ZCR][JAM]). Now the gate is opened from the seat, the way the AI would open it by hand (SCR_AIOpenDoor's actions),
-// and nobody gets out. On foot nothing changes. -zcrNoAutoGate turns it off.
+// and nobody gets out. On foot nothing changes. Lab only, opt-in -zcrAutoGate (it replaces the gate opening Martin likes to see).
 //   [ZCR][GATE] t= vehicle= x= z= doors=
 modded class SCR_AIGoalReaction_OpenNavlinkDoor
 {
@@ -90,7 +92,7 @@ modded class SCR_AIGoalReaction_OpenNavlinkDoor
 			Print(string.Format("[ZCR][GATEMSG] t=%1 door=%2 x=%3 z=%4 in_vehicle=%5", ZCR_LossLog.Seconds(), ZCR_LossLog.ShortName(msg.m_DoorEntity),
 				Math.Round(d[0]), Math.Round(d[2]), soldier && soldier.IsInVehicle()), LogLevel.NORMAL);
 		}
-		if (!msg || !msg.m_DoorEntity || !soldier || !soldier.IsInVehicle() || System.IsCLIParam("zcrNoAutoGate"))
+		if (!msg || !msg.m_DoorEntity || !soldier || !soldier.IsInVehicle() || !System.IsCLIParam("zcrAutoGate"))
 		{
 			super.PerformReaction(utility, message);
 			return;

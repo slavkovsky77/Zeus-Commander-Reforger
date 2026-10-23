@@ -32,6 +32,7 @@ class ZCR_DriveCar
 	int m_iSpawnedAt;
 	bool m_bLost;
 	int m_iOutSince;        // the driver out of the seat since (0 = in)
+	int m_iWaterLogged;     // last [ZCR][WATER] line
 	int m_iConvoy = 1;
 	bool m_bDone;           // convoy: arrived at B and taken off the map
 	int m_iArrivedAt;
@@ -194,6 +195,7 @@ class ZCR_DriveTest
 					Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 				continue;
 			}
+			Water(car, now);
 			vector target = m_vA;
 			if (car.m_bToB)
 				target = m_vB;
@@ -410,6 +412,24 @@ class ZCR_DriveTest
 		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 crew=%4 x=%5 z=%6 convoy=%7", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
 			car.m_Group != null, Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy), LogLevel.NORMAL);
 		Order(car, now);
+	}
+
+	// Under water (23 Oct night: on the Conflict map drivers died where the route crosses water east of A, with no killer -
+	// the game's drowning). A car whose body is under water logs every 10 s: [ZCR][WATER] t= car= depth= x= z=
+	protected void Water(ZCR_DriveCar car, int now)
+	{
+		if (now - car.m_iWaterLogged < 10)
+			return;
+		vector at = car.m_Vehicle.GetOrigin();
+		vector surface;
+		EWaterSurfaceType type;
+		vector transform[4];
+		vector extents;
+		if (!ChimeraWorldUtils.TryGetWaterSurface(GetGame().GetWorld(), at + "0 0.5 0", surface, type, transform, extents))
+			return;
+		car.m_iWaterLogged = now;
+		Print(string.Format("[ZCR][WATER] t=%1 car=%2 depth=%3 x=%4 z=%5", now, car.m_iIndex, Math.Round((surface[1] - at[1]) * 10) / 10, Math.Round(at[0]),
+			Math.Round(at[2])), LogLevel.NORMAL);
 	}
 
 	// Convoy: every car of this convoy arrived or lost (or 10 minutes gone) - the summary, then the next convoy.

@@ -52,7 +52,7 @@ TRACKS = {
 
 VARIANTS = {
     # name: (extra server parameters, extra mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic -zcrNoAutoGate", ""),  # the game's driver alone
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),

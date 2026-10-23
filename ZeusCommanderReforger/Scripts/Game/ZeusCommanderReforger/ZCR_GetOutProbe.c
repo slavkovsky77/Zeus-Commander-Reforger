@@ -108,3 +108,27 @@ modded class SCR_AIGetOutActivity
 			ZCR_GetOutProbe.Log("group", vehicle, priority, relatedWaypoint != null);
 	}
 }
+
+// -zcrDamageProbe (23 Oct night): every hit on a soldier sitting in a vehicle - on the Conflict map test drivers died at
+// the same spot east of A with no killer ("No instigator type is set on Character death"), no crash and no water logged.
+//   [ZCR][CREWHIT] t= type= value= source= vehicle= kmh= impact_kmh= x= z=
+modded class SCR_CharacterDamageManagerComponent
+{
+	override protected void OnDamage(notnull BaseDamageContext damageContext)
+	{
+		super.OnDamage(damageContext);
+		if (!System.IsCLIParam("zcrDamageProbe") || !Replication.IsServer())
+			return;
+		ChimeraCharacter soldier = ChimeraCharacter.Cast(GetOwner());
+		if (!soldier || !soldier.IsInVehicle())
+			return;
+		IEntity vehicle = CompartmentAccessComponent.GetVehicleIn(soldier);
+		float kmh;
+		if (vehicle && vehicle.GetPhysics())
+			kmh = vehicle.GetPhysics().GetVelocity().Length() * 3.6;
+		vector at = soldier.GetOrigin();
+		Print(string.Format("[ZCR][CREWHIT] t=%1 type=%2 value=%3 source=%4 vehicle=%5 kmh=%6 impact_kmh=%7 x=%8 z=%9", ZCR_LossLog.Seconds(),
+			typename.EnumToString(EDamageType, damageContext.damageType), Math.Round(damageContext.damageValue * 10) / 10, ZCR_LossLog.ShortName(damageContext.damageSource),
+			ZCR_LossLog.ShortName(vehicle), Math.Round(kmh), Math.Round(damageContext.impactVelocity.Length() * 3.6), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+	}
+}
