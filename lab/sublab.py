@@ -111,6 +111,8 @@ def matrix(name: str) -> dict:
     rs = rows(name)
     cells = {}
     for r in rs:
+        if r.get("watched"):
+            continue   # runs watched in the window (often sped up) aren't comparable: the charts show them, the table doesn't
         cells.setdefault(r.get("scenario"), {}).setdefault(r.get("variant"), []).append(r)
     table = []
     for s in d["scenarios"] + sorted(set(cells) - set(d["scenarios"])):
@@ -125,10 +127,12 @@ def matrix(name: str) -> dict:
             row["cells"][v] = cell
         if row["cells"]:
             table.append(row)
-    return {"name": name, "question": d.get("question", ""), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""),
+    return {"name": name, "question": d.get("question", ""), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""), "score_text": d["score"],
             "scenarios": d["scenarios"], "variants": d["variants"], "baseline": d.get("baseline"), "candidate": d.get("candidate"),
             "keys": d["keys"], "higher_is_better": d["higher_is_better"], "runs": len(rs), "last_at": rs[-1]["at"] if rs else None,
-            "table": table, "recent": [{k: r.get(k) for k in ["at", "scenario", "variant", "score"] + d["keys"] + ["run"]} for r in rs[-12:]][::-1]}
+            "table": table, "recent": [{k: r.get(k) for k in ["at", "scenario", "variant", "score"] + d["keys"] + ["run"]} for r in rs[-12:]][::-1],
+            # every run, oldest first, for the app's charts (the last 400)
+            "all": [{k: r.get(k) for k in ["at", "scenario", "variant", "score", "watched"] + d["keys"]} for r in rs[-400:]]}
 
 
 def report(name: str) -> Path:

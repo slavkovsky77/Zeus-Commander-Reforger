@@ -505,8 +505,12 @@ video { width: 100%; border-radius: 8px; background: #000; }
       `<tr><td><span class="mono">${esc(v.at)}</span> <span class="muted">${esc(v.title)}</span></td><td><button class="go" data-video="${esc(v.name)}" style="padding:4px 10px">Play</button></td><td class="mono">${esc(v.mb)} MB</td></tr>`).join("") + "</tbody></table>" : '<div class="empty">No recordings.</div>';
     renderSublab(s.sublab || []);
   }
+  let sublabSeen = "";
   function renderSublab(labs) {
-    $("sublab").innerHTML = labs.map((l) => {
+    const key = JSON.stringify(labs);
+    if (key === sublabSeen) return;   // redraw only when a run was added
+    sublabSeen = key;
+    $("sublab").innerHTML = labs.map((l, li) => {
       const vs = l.variants || [], keys = (l.keys || []).slice(0, 4);
       const cell = (c) => c ? `<b>${esc(c.score)}</b> <span class="muted">n${esc(c.n)}</span><br><span class="muted">${keys.map((k) => `${esc(k)} ${esc(c[k] == null ? "-" : c[k])}`).join(" · ")}</span>` : "";
       const table = (l.table || []).length ? `<div class="tbl"><table><thead><tr><th>scenario</th>${vs.map((v) => `<th class="${v === l.candidate ? "ok" : v === l.baseline ? "muted" : ""}">${esc(v)}</th>`).join("")}</tr></thead><tbody>` +
@@ -514,8 +518,10 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> <span class="chip">${esc(r.scenario)}</span> <span class="chip ${r.variant === l.candidate ? "ok" : ""}">${esc(r.variant)}</span> <span class="mono">score ${esc(r.score)}</span> <span class="muted mono">${keys.map((k) => `${esc(k)} ${esc(r[k] == null ? "-" : r[k])}`).join(" · ")}</span></div>`).join("");
       return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
         <p>${esc(l.question)}</p><p class="muted">${esc(l.issue)}</p><p class="muted"><b>Pass:</b> ${esc(l.pass_rule)} <span class="mono">· score higher is better · baseline ${esc(l.baseline)} · candidate ${esc(l.candidate)}</span></p>
+        <div class="sublab-charts" data-lab="${li}" style="display:grid;gap:12px;margin-top:10px"></div>
         ${table}${recent ? `<h3 style="margin-top:10px">Last runs</h3><div style="display:grid;gap:4px">${recent}</div>` : ""}</div>`;
     }).join("") || '<div class="empty">No sub-labs.</div>';
+    if (window.LabCharts) for (const el of document.querySelectorAll(".sublab-charts")) LabCharts.renderSublab(el, labs[+el.dataset.lab]);
   }
   $("videos").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-video]");
