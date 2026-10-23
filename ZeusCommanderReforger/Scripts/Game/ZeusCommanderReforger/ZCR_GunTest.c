@@ -43,6 +43,7 @@ class ZCR_GunUnit
 	ZCR_GunUnit m_Carrier;   // riders: the APC they sit in
 	bool m_bDismounted;
 	int m_iStillSince;       // riders: the carrier standing still since
+	string m_sRole;
 }
 
 class ZCR_GunSpec
@@ -433,6 +434,7 @@ class ZCR_GunTest
 		unit.m_iSpawnedAt = now;
 		unit.m_sSide = side;
 		unit.m_sKind = kind;
+		unit.m_sRole = spec.m_sRole;
 		int crew;
 		if (kind == "squad")
 		{
@@ -696,8 +698,26 @@ class ZCR_GunTest
 			if (!e)
 				continue;
 			units.Insert(e);
-			labels.Insert(string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots));
+			labels.Insert(Caption(u, e));
 		}
+	}
+
+	// The camera caption: squads (the infantry tests) by what they do, how many are alive and how far the objective is;
+	// vehicles by their rounds fired.
+	protected static string Caption(ZCR_GunUnit u, IEntity e)
+	{
+		if (!u.m_Group || u.m_Vehicle)
+			return string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
+		string doing = "holding";
+		if (u.m_sRole == "attack" || u.m_sKind == "riders")
+			doing = "attacking";
+		else if (u.m_sRole == "defend")
+			doing = "defending";
+		string where;
+		vector objective;
+		if (s_Instance && s_Instance.m_mObjective.Find(u.m_sSide, objective) && u.m_sRole != "defend")
+			where = string.Format(", %1 m to the objective", Math.Round(vector.DistanceXZ(e.GetOrigin(), objective)));
+		return string.Format("INFANTRY: %1 squad %2 %3 - %4 men alive%5", u.m_sSide, u.m_iIndex, doing, AICF_GroupRuntime.CountAliveAgents(u.m_Group), where);
 	}
 
 	// For the watch camera: the units by turns, living ones only.
@@ -721,7 +741,7 @@ class ZCR_GunTest
 			}
 			if (!e)
 				continue;
-			label = string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
+			label = Caption(u, e);
 			return e;
 		}
 		return null;

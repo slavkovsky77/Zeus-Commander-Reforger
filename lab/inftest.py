@@ -81,7 +81,10 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     sums = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST_SUM]" in l]
     men = lambda row, side: int(row.get(f"{side}_men", 0) or 0)
     start = {s: max((men(r, s) for r in sums[:2]), default=0) for s in ("us", "ussr")}
-    lost = {s: max(0, start[s] - men(sums[-1], s)) if sums else None for s in ("us", "ussr")}
+    # Losses from the death log, not the squad's head count: DCO moves soldiers into groups of its own (23 Oct: the
+    # head count said 8 US lost, the death log 4, and 5 US soldiers stood on the farm at the end).
+    all_deaths = [kv(l) for l in text.splitlines() if "[ZCR][LOSS]" in l and " kind=man " in l]
+    lost = {s: sum(1 for d in all_deaths if d.get("side") == s.upper()) for s in ("us", "ussr")}
     out.update({
         "us_men": start["us"], "ussr_men": start["ussr"], "us_lost": lost["us"], "ussr_lost": lost["ussr"],
         "taken_s": out.get("taken_us_s", 0),

@@ -32,6 +32,20 @@ def game_pid(tag: str):
     return None
 
 
+def describe(mp4: Path, a, tag: str) -> None:
+    """<video>.md: what the test was and how it ended (the lab app's recordings list shows its 'Map' line)."""
+    import importlib
+    mod = importlib.import_module(a.runner)
+    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{tag}-*"))
+    r = mod.summarize(runs[-1], a.scenario, a.variant) if runs else {}
+    words = getattr(mod, "SCENARIO_WORDS", {}).get(a.scenario, "")
+    setup = (getattr(mod, "VARIANTS", {}).get(a.variant) or ("", "", a.variant))[-1]
+    keys = [k for k in ("taken", "taken_s", "us_lost", "ussr_lost", "us_cover", "ussr_cover", "died_open_pct", "fight_m", "legs", "car_hits", "lost") if k in r]
+    lines = [f"# {a.runner} {a.scenario} - {a.variant}", f"Map Arland - {a.scenario}, {a.variant} ({setup})", "", words, "",
+             "| measure | value |", "|---|---|"] + [f"| {k} | {r.get(k)} |" for k in keys] + ["", f"Run: {r.get('run', '')}"]
+    mp4.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("runner", choices=["inftest", "guntest", "drivetest"])
@@ -64,6 +78,7 @@ def main() -> int:
         if r.returncode == 0 and mp4.exists() and mp4.stat().st_size > 0:
             mkv.unlink(missing_ok=True)
             print(f"video: {mp4}", flush=True)
+            describe(mp4, a, tag)
     else:
         print("no game window found - nothing recorded", flush=True)
     return runner.returncode or 0
