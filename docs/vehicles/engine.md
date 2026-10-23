@@ -13,6 +13,12 @@
 - **No real reversing.** A waypoint behind is often UNREACHABLE; setting reverse gear once is overridden by the AI
   driver on the next frame (JMVehicleAI's author tested it). It must be re-applied every ~100 ms (BlackReign) or
   replaced by a physics push (JMVehicleAI, ours).
+- **Gates.** A closed gate on the route stops the car. Sometimes the game sends one of the crew the "open the navlink
+  door" goal (`SCR_AIGoalReaction_OpenNavlinkDoor`); for a soldier in a vehicle that becomes get out - open - get back
+  in (`SCR_AIUtilityComponent.WrapBehaviorOutsideOfVehicle`). Mostly nobody asks and the cars queue at the gate. The
+  Everon US base exit (two `DoorSet_MetalGate_01` gates): 0-4 trips and 2-4 cars lost in 10 minutes; every gate opened
+  at the start by script (`BaseDoorComponent.SetControlValue(1, ...)`, 934 gates on Everon): 8 trips, none lost, no jam
+  (23 Oct night, get-out and door probes).
 - **Giving up.** When a drive fails (`EMoveError` STUCK / UNREACHABLE), `SCR_AIProcessFailedMovementResult` orders the
   whole group out (`SCR_AIGetOutActivity`) - the vehicle stays on the road as a blocker.
 - **Speed-up hurts.** At the watched game's 3x time multiplier the drivers wobble (Martin, 22 Oct): steering corrections
@@ -27,6 +33,7 @@
 | Push the vehicle | `Physics.SetVelocity`, `SetAngularVelocity`, re-applied every 100-250 ms | The AI driver doesn't override it. JMVehicleAI's anti-stuck, our back-offs (`ZCR_Push`). No transform jump, so no replication trouble. |
 | Gear / throttle / steering | `VehicleWheeledSimulation.SetGear/SetThrottle/SetSteering/SetBreak` (tracked: `VehicleTrackedSimulation`) | Overridden by the AI unless re-applied every ~100 ms (BlackReign: 22 pulses = 2.2 s). Reverse gear index = gears - forward gears - 2 (JMVehicleAI, from `SCR_ToggleHandbrakeAction`). |
 | Teleport | `BaseGameEntity.Teleport` + `RplComponent.ForceNodeMovement` | Works, but our watched matches crashed more with hand moves; replaced by the push. |
+| Gates and doors | `BaseDoorComponent.SetControlValue(value, RplId)`, `GetNormalizedDoorState()`; `SCR_AIOpenDoor.FindDoorActions` + `ScriptedUserAction.PerformAction` (the AI's own way) | Opening every gate at the start took the Everon base exit from 0-4 trips to 8. |
 | Waypoints | `AIGroup.AddWaypoint/RemoveWaypoint`, `AIWaypoint.SetCompletionRadius` | Several waypoints along the road keep it on the road (forum); a via waypoint forces a route through a point (our test track). |
 | Road network | `SCR_AIWorld.GetRoadNetworkManager()`: `GetClosestRoad`, `GetRoadsInAABB`, `GetReachableWaypointInRoad`; `BaseRoad.GetPoints/GetWidth` | No route-finding along roads; our own graph would be needed. `RequestRoadNetworkRebuild(min, max)` exists. |
 | Navmesh | `AIPathfindingComponent.SetAreaCosts(config)`, `GetClosestPositionOnNavmesh`; `AIWorld.RequestNavmeshRebuild/RequestNavmeshLoad` | Area costs take a config resource; not tried yet. |
