@@ -17,8 +17,16 @@ score = "10*taken + ussr_lost - us_lost + (us_cover or 0)/10 - (died_open_pct or
 higher_is_better = true
 keys = ["taken", "taken_s", "us_lost", "ussr_lost", "us_cover", "ussr_cover", "died_standing_pct", "died_open_pct", "fight_m"]
 main = "us_lost"
-conclusion_at = "23 Oct 21:40, from 18 clean runs (3 a setup and scenario) and 10 first runs"
-conclusion = """With DCO on both sides the defence wins. Attackers took the position 2 times in 6 with DCO, 5 in 6 with the game's AI alone and 5 in 6 with our soldier layer; with DCO the attackers lost 5 of 9 on average (game 3.3, ours 3.2) and the defenders far fewer. DCO soldiers fight more like soldiers: on the farm the attackers were in cover 8-41% of their fighting time (the game's AI 0-25%, ours 0-8%), in the village they opened fire from 54-144 m (the game 35-92 m). Our soldier layer (hold 60 m from a seen enemy, never stand in danger) changes little against the game's AI: the same results, fights a little further out. The outcome of one 12-minute storm is close to a coin flip in every setup (each had a run where the whole attack died), so more runs per setup are needed before the results are firm; cover and fighting distance are the steadier signs. DCO cannot be limited to one side (its config tunes factions but has no per-faction off switch), so a match with DCO has it on both sides - attacks then need more men or support. Next: watch the clean runs (videos), then our commander with DCO in a watched match."""
+conclusion_at = "23 Oct 21:40 · 18 clean runs (3 a setup and scenario) + 10 first runs"
+conclusion = """With DCO on both sides, the defence wins.
+- **Position taken:** 2 of 6 with DCO - 5 of 6 with the game's AI, 5 of 6 with our soldier layer.
+- **Attackers lost:** 5.0 of 9 on average with DCO - 3.3 with the game's AI, 3.2 with ours. Defenders lose far fewer with DCO.
+- **Cover:** on the farm DCO attackers fought from cover 8-41% of the time - the game's AI 0-25%, ours 0-8%.
+- **Range:** in the village DCO soldiers opened fire from 54-144 m - the game's AI 35-92 m.
+- **Our soldier layer** (hold 60 m from a seen enemy, never stand in danger) changes little: the same results, fights a little further out.
+- **Caveat:** one 12-minute storm is close to a coin flip in every setup (each had a run where the whole attack died) - more runs needed; cover and range are the steadier signs.
+- **DCO is always on both sides:** its config tunes factions but has no per-faction off switch - attacks then need more men or support.
+Next: watch the clean DCO videos, then our commander with DCO in a watched match."""
 score_words = "10 points if the attackers take the position, plus each defender killed, minus each attacker lost, plus 1 point per 10% of the attackers' fighting time in cover, minus 1 point per 20% of the dead killed in the open"
 baseline_words = "the game's own soldier AI"
 candidate_words = "the DCO_AI Reforger mod"

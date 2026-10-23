@@ -4,8 +4,16 @@
 name = "driving"
 title = "Driving"
 main = "car_hits"
-conclusion_at = "23 Oct 13:30, from 79 night runs and 16 watched matches"
-conclusion = """Our vehicle mod alone is the best. On the narrow lane, cars meeting head-on crashed 5 times a run with the game's own driver and 0 times with our mod - its head-on slow-down does it: switch only that rule off and it is 3 again. Ural trucks both ways: 6.5 crashes a run, 1.5 with our mod. None of the Workshop mods adds anything: CRX no gain (and slower), JMVehicleAI 4 crashes, roads preferred 3. The Moss Hill base track lost cars to mines and the Everon base exit to closed gates - not driving. In full matches (16 watched): jams 8 -> 4.8 and long stops 4.8 -> 1.4 a match, but still about 4 crashes between cars a match - the next thing to fix."""
+conclusion_at = "23 Oct 22:30 · 79 night runs, 16 watched matches, 20 evening runs"
+conclusion = """Our vehicle mod alone is the best.
+- **Head-on on the narrow lane:** 5 crashes a run with the game's driver, 0 with our mod (its head-on slow-down - switch only that off and it is 3 again).
+- **Trucks both ways:** 6.5 crashes a run -> 1.5.
+- **Workshop mods add nothing:** CRX no gain and slower, JMVehicleAI 4 crashes, roads preferred 3.
+- **Junctions (evening):** the give-way rule made it worse (a crash in every supply-route run) - off. The junction slow-down (two vehicles heading for the same junction both 20 km/h): 0 crashes in 5 runs, slightly fewer trips - on.
+- **A car standing in the lane (22:00):** the head-on rule ignored it (both had to be moving) and a UAZ hit one at 51 km/h - now it reacts; next run 0 crashes.
+- **Not driving:** the Moss Hill losses were the world's road mines, the Everon base exit is closed gates.
+- **Full matches (16 watched):** jams 8 -> 4.8 and long stops 4.8 -> 1.4 a match - still ~4 crashes between cars a match.
+Next: the junction slow-down in watched matches."""
 question = "Can AI vehicles get through a narrow lane, a trap and head-on meetings without jams, getting stuck or crashing into each other - and which setup does it best?"
 issue = "jams at base exits and traps, vehicles stuck off the road, head-on crashes on narrow roads"
 pass_rule = "our mod loses at most 1 car a run where the game's driver alone loses 2 or more, with no more jams; then in watched matches on Arland at most 3 jams, 2 long stops and 1 crash between cars per match (NIGHT.md)"

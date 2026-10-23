@@ -275,6 +275,8 @@ class ZCR_Director
 	// the latest decisions.
 	protected string SidePanel(string side, int now)
 	{
+		if (LabTest())
+			return TestPanel(side);
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(side);
 		string source = plan.GetSource();
 		string intent = plan.GetIntent();
@@ -320,6 +322,52 @@ class ZCR_Director
 			text += "  sites: " + ZCR_DroneSites.Text(side) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "SUPPLIES") + ZCR_Logistics.Text(side, now, m_mOwners) + br;
 		text += ZCR_Feed.Col(ZCR_Feed.GREY, "LATEST DECISIONS") + br + ZCR_Feed.Latest(side);
+		return text;
+	}
+
+	// A lab test (no commander at all - AI Conflict is off): the panels say what the test is (Martin, 23 Oct 22:20,
+	// watching the DCO storm: "what is that? AI Conflict alone against AI Conflict alone?").
+	protected static bool LabTest()
+	{
+		return System.IsCLIParam("aicfOff") && (System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim"));
+	}
+
+	// -zcrTestTitle from the runner: the sub-lab's names for the track and the setup (underscores for spaces).
+	protected static string TestTitle()
+	{
+		string title;
+		if (!System.GetCLIParam("zcrTestTitle", title) || title.IsEmpty())
+			return "a small test scenario";
+		title.Replace("_", " ");
+		return title;
+	}
+
+	protected string TestPanel(string side)
+	{
+		string name = "BLUFOR";
+		if (side == "USSR")
+			name = "OPFOR";
+		string br = "<br/>";
+		string ai = "the game's own soldier AI";
+		typename dco = String("DCO_Log").ToType();
+		if (dco)
+			ai = "the DCO_AI mod";
+		string text = "<b>" + ZCR_Feed.SideCol(side, side + "  " + name) + "</b>  LAB TEST - no commander" + br;
+		text += ZCR_Feed.Col(ZCR_Feed.GREY, "SOLDIERS") + "  " + ai + br;
+		array<IEntity> units = {};
+		array<string> labels = {};
+		ZCR_DriveTest.Units(units, labels);
+		ZCR_GunTest.Units(units, labels);
+		ZCR_TrafficSim.Units(units, labels);
+		string mine = string.Format(": %1 ", side);
+		int shown;
+		foreach (string l : labels)
+		{
+			if (!l.Contains(mine) || shown >= 6)
+				continue;
+			text += "  " + l + br;
+			shown++;
+		}
 		return text;
 	}
 
@@ -1506,6 +1554,8 @@ class ZCR_Director
 
 	protected string Score()
 	{
+		if (LabTest())
+			return "LAB TEST: " + TestTitle();
 		map<string, int> held = new map<string, int>();
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 			held.Set(owner, held.Get(owner) + 1);

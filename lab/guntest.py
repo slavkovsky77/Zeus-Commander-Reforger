@@ -41,6 +41,12 @@ VARIANTS = {
 }
 
 
+def _title(name: str, scenario: str, variant: str) -> str:
+    sys.path.insert(0, str(ROOT / "lab"))
+    import sublab
+    return sublab.title(name, scenario, variant)
+
+
 def run(scenario: str, variant: str, minutes: float, units: int, port: int) -> dict:
     us, ussr = SCENARIOS[scenario]
     extra, mods = VARIANTS[variant]
@@ -48,7 +54,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int) -> d
     label = f"guntest-{scenario}-{variant}-p{port}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none",
-            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrGunTest {spec} {extra}".strip()]
+            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('guns', scenario, variant)} -zcrGunTest {spec} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     if any(g.split(":")[0] in WORKSHOP for k in (us, ussr) for g in k.split("+")):

@@ -15,8 +15,15 @@ higher_is_better = true
 keys = ["fired_pct", "sight_m", "detect_m", "first_m", "rounds", "turret_kills", "vehicles_lost", "squad_men_lost"]
 title = "Vehicle guns"
 main = "first_m"
-conclusion_at = "23 Oct 18:40, from 35 runs on Arland's airfield"
-conclusion = """Spotting 3x faster is the best setup, on every scenario: every tank and APC fired (with the game's own spotting only half did against infantry), and from further out - APCs against APCs first shot at ~535 m (415-450 m otherwise), tanks against tanks ~515 m (340-380 m), APCs against a squad ~495 m, IFVs against a squad ~285 m. The guns were never the limit: the AI notices an enemy vehicle at about 490 m though it can see it from 750-800 m, and fires 3-5 s after noticing; with spotting 3x it notices at ~610 m. The 'reload' fix changed nothing (0 shots in one scenario). Since 15:43 crews of armed vehicles stay aboard while it is intact (they used to get out when a move failed and were shot on foot) - integration test crews-stay-aboard. Pass rule met on 3 of 4 scenarios: IFVs against a squad still open fire under 300 m. Not in matches yet - spot-far is a lab switch (-zcrCrewPerception 3); next: on for armour crews in the watched matches."""
+conclusion_at = "23 Oct 18:40 · 35 runs on Arland's airfield"
+conclusion = """Spotting 3x faster is the best setup on every scenario.
+- **Everyone fires:** every tank and APC fired - with the game's own spotting only half did against infantry.
+- **First shot further out:** APCs against APCs ~535 m (415-450 otherwise), tanks against tanks ~515 m (340-380), APCs against a squad ~495 m, IFVs against a squad ~285 m.
+- **Spotting is the limit, not the guns:** the AI notices an enemy vehicle at ~490 m though it can see it from 750-800 m, and fires 3-5 s after noticing; spotting 3x: ~610 m.
+- **The reload fix mod** changed nothing (0 shots in one scenario).
+- **Crews stay aboard** since 15:43 (they used to get out when a move failed and were shot on foot) - integration test crews-stay-aboard.
+- **Pass rule** met on 3 of 4 scenarios: IFVs against a squad still open fire under 300 m.
+Next: spot-far is still a lab switch (-zcrCrewPerception 3) - switch it on for armour crews in the watched matches."""
 score_words = "the share of vehicles that fired (10 points for all), plus 1 point per 100 m of the first shot's distance, plus 1 for each kill by a turret gunner"
 baseline_words = "the game's own AI, with nothing of ours"
 candidate_words = "our mod as it is now"

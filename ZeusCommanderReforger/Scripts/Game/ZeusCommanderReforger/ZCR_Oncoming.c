@@ -2,7 +2,7 @@
 // AI drivers don't slow down for a car coming the other way - on a farm lane both keep the middle at ~50 km/h until they
 // hit (two head-on crashes in two track runs, both drivers dead each time). No Workshop mod does this either.
 // Every half second: two AI-driven vehicles each with the other ahead within 90 m, less than 8 m off its line and
-// driving towards it, both over 8 km/h -> both cruise at 15 km/h (the game's own avoidance steers round at that speed)
+// facing it, at least one of them over 8 km/h (a standing one counts, since 23 Oct 22:00) -> both cruise at 15 km/h (the game's own avoidance steers round at that speed)
 // until the other is behind or 100 m away, then the game's own speed again. Not our armour (its guard sets its speed).
 // The cap goes through ZCR_Traffic's speed arbiter (the lowest of all rules' requests).
 //   [ZCR][ONCOMING] t= side= vehicle= other= other_side= m= kmh= other_kmh= x= z=      (slowing starts)
@@ -93,15 +93,17 @@ class ZCR_Oncoming
 			s_mSlowAt.Remove(v);
 		}
 		// New pairs.
+		// One of the two may be standing or crawling (23 Oct 22:00: on the head-on lane a UAZ stopped in a queue facing
+		// north at 2514,1607 was ignored - both had to be over 8 km/h - and one came at it at 51 km/h).
 		for (int i = 0; i < cars.Count(); i++)
 		{
 			IEntity a = cars[i];
-			if (!a || ZCR_Armour.IsUnit(a) || Kmh(a) < MIN_KMH)
+			if (!a || ZCR_Armour.IsUnit(a))
 				continue;
 			for (int k = i + 1; k < cars.Count(); k++)
 			{
 				IEntity b = cars[k];
-				if (!b || ZCR_Armour.IsUnit(b) || Kmh(b) < MIN_KMH)
+				if (!b || ZCR_Armour.IsUnit(b) || (Kmh(a) < MIN_KMH && Kmh(b) < MIN_KMH))
 					continue;
 				if (vector.DistanceXZ(a.GetOrigin(), b.GetOrigin()) > SEE_M)
 					continue;

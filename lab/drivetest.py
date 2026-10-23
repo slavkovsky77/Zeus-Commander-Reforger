@@ -86,7 +86,13 @@ VARIANTS = {
 ARMOUR_KINDS = {"t72", "m1a1", "bmp1", "bradley"}   # Workshop vehicles: lab/reforger.py --armour loads them
 
 
-def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
+def _title(name: str, scenario: str, variant: str) -> str:
+    sys.path.insert(0, str(ROOT / "lab"))
+    import sublab
+    return sublab.title(name, scenario, variant)
+
+
+def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: bool = False) -> dict:
     map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
     mode = ("both" if both else "") if isinstance(both, bool) else both
@@ -96,15 +102,17 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
         test = f"-zcrTrafficSim {a} -zcrTrafficCars {cars} -zcrTrafficKinds {kind}" + (" -zcrTrafficShuttle" if mode == "shuttle" else "")
     # The port in the name: two runs of the same track and setup start in the same second on the night's two ports, and
     # run folders are named label + second (23 Oct: every second run of a pair came back empty).
-    label = f"drivetest-{track}-{variant}-p{port}"
+    label = f"drivetest-{track}-{variant}-p{port}" if not watch else f"drivetest-{track}-{variant}-watch"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour {test} {extra}".strip()]
+            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('driving', track, variant)} {test} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     if kind in ARMOUR_KINDS:
         argv += ["--armour"]   # the Workshop tanks and IFVs
-    subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                   creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
+    if watch:
+        argv += ["--watch", "--solo"]   # in the game window (lab/watch_test.py records it)
+    subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
+                   creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
     if not runs:
         return {"track": track, "variant": variant, "error": "no run folder"}
@@ -160,9 +168,10 @@ def main():
     ap.add_argument("--minutes", type=float, default=8)
     ap.add_argument("--cars", type=int, default=6)
     ap.add_argument("--port", type=int, default=2148)
+    ap.add_argument("--watch", action="store_true", help="in the game window (only when nobody else uses the game)")
     a = ap.parse_args()
     for track in a.tracks:
-        r = run(track, a.variant, a.minutes, a.cars, a.port)
+        r = run(track, a.variant, a.minutes, a.cars, a.port, a.watch)
         print(" ".join(f"{k}={v}" for k, v in r.items()), flush=True)
 
 

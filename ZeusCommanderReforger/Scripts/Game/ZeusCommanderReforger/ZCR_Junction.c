@@ -5,6 +5,9 @@
 // were at the same junction. So, as drivers do: two vehicles heading for the same junction both slow down there.
 //   junctions - where three or more road branches meet (road ends within 6 m, or a road's end on the middle of
 //               another), found from the game's road network per 200-m map cell the first time a car is in it;
+//               and sharp bends (21:55: the head-on lane's one hit of the evening was at the blind bend at 2512,1600 -
+//               the same place as the watched supply run's three - a bend, not a junction): a road turning more than
+//               40 degrees between 25 m before and 25 m after a point (50 within 15 m missed that one);
 //   caution   - a driven vehicle (not our armour) with a junction ahead within 50 m, while another driven vehicle is
 //               within 60 m of that junction and not past it: 20 km/h (the "junction" cap) until it is 12 m past the
 //               junction or the other one is gone, past it or away. The head-on and crossing rules then have time.
@@ -22,6 +25,8 @@ class ZCR_Junction
 	static const float PAST_M = 12;
 	static const float SLOW_KMH = 20;
 	static const float MIN_KMH = 5;
+	static const float BEND_M = 25;
+	static const float BEND_COS = 0.77;   // cos 40 degrees
 
 	protected static ref ZCR_Junction s_Instance;
 	protected static ref map<int, ref array<vector>> s_mCells = new map<int, ref array<vector>>();
@@ -145,9 +150,59 @@ class ZCR_Junction
 					found.Insert(end);
 			}
 		}
+		int junctions = found.Count();
+		// Sharp bends.
+		foreach (array<vector> line : lines)
+		{
+			for (int b = 1; b < line.Count() - 1; b++)
+			{
+				vector at = line[b];
+				if (Math.Floor(at[0] / CELL_M) != cx || Math.Floor(at[2] / CELL_M) != cz)
+					continue;
+				vector before = Along(line, b, -BEND_M);
+				vector after = Along(line, b, BEND_M);
+				vector d1 = at - before;
+				vector d2 = after - at;
+				d1[1] = 0;
+				d2[1] = 0;
+				if (d1.Length() < 8 || d2.Length() < 8)
+					continue;
+				d1.Normalize();
+				d2.Normalize();
+				if (vector.Dot(d1, d2) > BEND_COS)
+					continue;
+				bool near;
+				foreach (vector q : found)
+				{
+					if (vector.DistanceXZ(q, at) < 25)
+						near = true;
+				}
+				if (!near)
+				{
+					found.Insert(at);
+					Print(string.Format("[ZCR][JUNCTIONS] bend x=%1 z=%2 turn=%3", Math.Round(at[0]), Math.Round(at[2]), Math.Round(Math.Acos(vector.Dot(d1, d2)) * Math.RAD2DEG)), LogLevel.NORMAL);
+				}
+			}
+		}
 		m_iJunctions += found.Count();
-		Print(string.Format("[ZCR][JUNCTIONS] cell=%1,%2 roads=%3 junctions=%4", cx, cz, roads.Count(), found.Count()), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][JUNCTIONS] cell=%1,%2 roads=%3 junctions=%4 bends=%5", cx, cz, roads.Count(), junctions, found.Count() - junctions), LogLevel.NORMAL);
 		return found;
+	}
+
+	// The road point about 'metres' along the line from point i (negative: back), on the line's own points.
+	protected static vector Along(array<vector> line, int i, float metres)
+	{
+		float gone = 0;
+		int k = i;
+		int step = 1;
+		if (metres < 0)
+			step = -1;
+		while (k + step >= 0 && k + step < line.Count() && gone < Math.AbsFloat(metres))
+		{
+			gone += vector.DistanceXZ(line[k], line[k + step]);
+			k += step;
+		}
+		return line[k];
 	}
 
 	// The nearest junction within AHEAD_M ahead of v (not more than PAST_M behind it); false when none.

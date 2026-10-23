@@ -56,7 +56,10 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .sublab-card h3 { margin: 6px 0 0; }
 .sublab-card .question { font-size: 17px; margin: 0; }
 .ended { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; display: grid; gap: 4px; }
-.ended p { margin: 0; line-height: 1.5; }
+.ended p { margin: 0; line-height: 1.55; max-width: 80ch; }
+.ended .lead { font-weight: 600; font-size: 1.05em; }
+.ended ul { margin: 2px 0 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80ch; }
+.ended li { line-height: 1.5; }
 .eyebrow { font: 600 11px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 table.heat td { text-align: center; }
 table.heat td:first-child { text-align: left; }
@@ -533,6 +536,21 @@ video { width: 100%; border-radius: 8px; background: #000; }
   // Each sub-lab reads top to bottom (Martin, 23 Oct: "make it so clear how the experiment ended - self-explanatory, hard
   // data, nice charts"): how it ended in words, the result per track (the game alone against our mod, and the best setup),
   // every setup on every track at a glance, then the graphs per track; the score, the definitions and the last runs fold away.
+  // A conclusion in short points (Martin, 23 Oct: "a little bit better formatted so I can read it more easily"): the first
+  // line is the headline, lines starting "- " are points, **words** are bold.
+  function prose(text) {
+    const lines = String(text).split(/\n+/).map((x) => x.trim()).filter(Boolean);
+    const fmt = (x) => esc(x).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    let out = "", list = [];
+    const flush = () => { if (list.length) { out += "<ul>" + list.map((x) => `<li>${fmt(x)}</li>`).join("") + "</ul>"; list = []; } };
+    lines.forEach((x, i) => {
+      if (x.startsWith("- ")) list.push(x.slice(2));
+      else { flush(); out += `<p${i === 0 ? ' class="lead"' : ""}>${fmt(x)}</p>`; }
+    });
+    flush();
+    return out;
+  }
+
   function renderSublab(labs) {
     const key = JSON.stringify(labs);
     if (key === sublabSeen) return;   // redraw only when a run was added
@@ -569,7 +587,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
           <td>${change ? `<span class="chip ${cls}">${esc(change)}</span>` : "–"}</td>
           <td>${best ? `${esc(V(best[0]))} <span class="mono muted">${fmt(best[1][main])}</span>` : "–"}</td></tr>`;
       }).join("");
-      const tally = better + worse + same ? `Our mod against the game alone: <b>better on ${better}</b>, worse on ${worse}, the same on ${same} of ${better + worse + same} tracks.` : "";
+      const tally = better + worse + same ? `${esc(V(l.candidate))} against ${esc(V(l.baseline))}: <b>better on ${better}</b>, worse on ${worse}, the same on ${same} of ${better + worse + same} tracks.` : "";
       const result = rows ? `<h3>Result per track: ${esc(q.title.toLowerCase())}</h3>
         <p class="muted">Average per run, ${esc(unit)}${lower ? " (lower is better)" : " (higher is better)"}. ${tally}</p>
         <div class="tbl"><table><thead><tr><th>Track</th><th>${esc(V(l.baseline))}</th><th>${esc(V(l.candidate))}</th><th>Change</th><th>Best setup here</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty">No runs yet.</div>';
@@ -591,7 +609,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> · <b>${esc(S(r.scenario))}</b> · ${esc(V(r.variant))} · <span class="muted">${nums(r)}</span></div>`).join("");
       const setups = ran.map((v) => `<li><b>${esc(V(v))}</b>: ${esc((l.vwords || {})[v] || "")}</li>`).join("");
       const trackList = (l.table || []).map((r) => `<li><b>${esc(S(r.scenario))}</b>: ${esc((l.swords || {})[r.scenario] || "")}</li>`).join("");
-      const ended = l.conclusion ? `<div class="ended"><div class="eyebrow">How it ended${l.conclusion_at ? " · " + esc(l.conclusion_at) : ""}</div><p>${esc(l.conclusion)}</p></div>` : `<div class="ended"><div class="eyebrow">How it ended</div><p class="muted">No conclusion yet - the runs are still coming in.</p></div>`;
+      const ended = l.conclusion ? `<div class="ended"><div class="eyebrow">How it ended${l.conclusion_at ? " · " + esc(l.conclusion_at) : ""}</div>${prose(l.conclusion)}</div>` : `<div class="ended"><div class="eyebrow">How it ended</div><p class="muted">No conclusion yet - the runs are still coming in.</p></div>`;
       return `<div class="card sublab-card"><div class="row" style="justify-content:space-between"><h2>${esc(l.title || l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
         <p class="question">${esc(l.question)}</p>
         ${ended}

@@ -44,6 +44,16 @@ def load(name: str) -> dict:
     return d
 
 
+def title(name: str, scenario: str, variant: str) -> str:
+    """'Storm a village - DCO_AI mod': the sub-lab's names for a run, for the game screen (-zcrTestTitle, underscores)."""
+    try:
+        d = load(name)
+    except Exception:
+        d = {}
+    t = f"{(d.get('scenario_labels') or {}).get(scenario, scenario)} - {(d.get('variant_labels') or {}).get(variant, variant)}"
+    return t.replace(" ", "_")
+
+
 def runner(d: dict):
     path = ROOT / d["runner"]
     spec = importlib.util.spec_from_file_location(path.stem, path)

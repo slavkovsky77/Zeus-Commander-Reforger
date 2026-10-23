@@ -49,13 +49,19 @@ VARIANTS = {
 }
 
 
+def _title(name: str, scenario: str, variant: str) -> str:
+    sys.path.insert(0, str(ROOT / "lab"))
+    import sublab
+    return sublab.title(name, scenario, variant)
+
+
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False) -> dict:
     us, ussr = SCENARIOS[scenario]
     extra, mods, _ = VARIANTS[variant]
     label = f"inftest-{scenario}-{variant}-p{port}" if not watch else f"inftest-{scenario}-{variant}-watch"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none",
-            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrGunTest {us};{ussr} {extra}".strip()]
+            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('infantry', scenario, variant)} -zcrGunTest {us};{ussr} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     if watch:
