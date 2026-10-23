@@ -129,7 +129,8 @@ modded class SCR_AIGoalReaction_OpenNavlinkDoor
 // that has stood still for 6 s with closed gates within 15 m ahead gets what the game's own open-the-gate reaction gives a
 // soldier (SCR_AIGoalReaction_OpenNavlinkDoor): its driver gets out, opens them and gets back in. (Sending him the goal
 // message did nothing - no reaction ran; and the nearest gate was the pedestrian gate beside the vehicle gate, so every
-// closed gate ahead is opened.) One nudge a gate per 30 s. -zcrNoGateNudge off. -zcrGateSelfOpen: the gate swings open by
+// closed gate ahead is opened.) One nudge a gate per 30 s. Lab only, opt-in -zcrGateNudge (the test showed it too late: once
+// cars wait at a gate, opening it no longer frees the queue - review note 316). -zcrGateSelfOpen: the gate swings open by
 // itself instead (in the first test the soldier got out but no gate ever moved, and 2 crews didn't get back in).
 //   [ZCR][GATENUDGE] t= vehicle= gate= m= waited_s= action=0|1 x= z=
 class ZCR_GateNudge
@@ -141,7 +142,7 @@ class ZCR_GateNudge
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoGateNudge"))
+		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrGateNudge"))
 			return;
 		s_Instance = new ZCR_GateNudge();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);

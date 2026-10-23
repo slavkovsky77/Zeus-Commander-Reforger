@@ -95,7 +95,7 @@ class ZCR_Driving
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)
 		ZCR_DoorProbe.Start();     // lab: doors and gates near given points, how open (-zcrDoorProbe)
 		ZCR_OpenGates.Start();     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
-		ZCR_GateNudge.Start();     // a car waiting at a closed gate gets the game's open-the-gate goal (-zcrNoGateNudge off)
+		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off

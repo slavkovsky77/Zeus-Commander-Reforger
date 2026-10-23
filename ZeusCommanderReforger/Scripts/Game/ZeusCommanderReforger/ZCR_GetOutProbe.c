@@ -7,6 +7,20 @@ class ZCR_GetOutProbe
 {
 	protected static int s_iOn = -1;
 
+	protected static int s_iDamage = -1;
+
+	// -zcrDamageProbe, read once (it is asked on every hit on a soldier in a vehicle).
+	static bool DamageOn()
+	{
+		if (s_iDamage < 0)
+		{
+			s_iDamage = 0;
+			if (System.IsCLIParam("zcrDamageProbe"))
+				s_iDamage = 1;
+		}
+		return s_iDamage == 1;
+	}
+
 	static bool On()
 	{
 		if (s_iOn < 0)
@@ -117,7 +131,7 @@ modded class SCR_CharacterDamageManagerComponent
 	override protected void OnDamage(notnull BaseDamageContext damageContext)
 	{
 		super.OnDamage(damageContext);
-		if (!System.IsCLIParam("zcrDamageProbe") || !Replication.IsServer())
+		if (!ZCR_GetOutProbe.DamageOn() || !Replication.IsServer())
 			return;
 		ChimeraCharacter soldier = ChimeraCharacter.Cast(GetOwner());
 		if (!soldier || !soldier.IsInVehicle())
