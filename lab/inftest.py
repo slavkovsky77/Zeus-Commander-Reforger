@@ -76,7 +76,14 @@ def seed(variant: str):
         return None
     d = ROOT / ".runtime" / "seeds" / variant
     (d / "DCO").mkdir(parents=True, exist_ok=True)
-    (d / "DCO" / "DCO_GlobalConfig.json").write_text(json.dumps(SEEDS[variant], indent=1), encoding="utf-8")
+    # On top of DCO's Recommended file (the one it writes when there is none): with only the factions block DCO filled
+    # the other keys with its code defaults, 4 of them not Recommended (24 Oct, the first dcoatt run).
+    base = {}
+    rec = ROOT / ".runtime" / "seeds" / "dco_recommended.json"
+    if rec.exists():
+        base = json.loads(rec.read_text(encoding="utf-8-sig"))
+    base.update(SEEDS[variant])
+    (d / "DCO" / "DCO_GlobalConfig.json").write_text(json.dumps(base, indent=1), encoding="utf-8")
     return d
 
 
