@@ -59,7 +59,9 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
     spec = f"{a};{b};{cars};{kind};{via or '-'}" + (";both" if both else "")
-    label = f"drivetest-{track}-{variant}"
+    # The port in the name: two runs of the same track and setup start in the same second on the night's two ports, and
+    # run folders are named label + second (23 Oct: every second run of a pair came back empty).
+    label = f"drivetest-{track}-{variant}-p{port}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
     if mods:

@@ -2,9 +2,10 @@
 # crash into each other"; "it's one last chance, if it doesn't help I will probably drop vehicles" (review notes 289,
 # 303-307). The runner is the driving test track (crewed vehicles shuttling on the game's own maps, no commander).
 name = "driving"
-question = "Can AI vehicles get through a narrow lane, a trap and head-on meetings without jams, stuck cars or crashes into each other - with which of our rules and which mods?"
+title = "Driving"
+question = "Can AI vehicles get through a narrow lane, a trap and head-on meetings without jams, getting stuck or crashing into each other - and which setup does it best?"
 issue = "jams at base exits and traps, vehicles stuck off the road, head-on crashes on narrow roads"
-pass_rule = "the candidate loses at most 1 car a run where raw loses 2+ and has no more jams; then in watched matches on Arland jams <= 3, long stops <= 2, cars hitting each other <= 1 a match (NIGHT.md)"
+pass_rule = "our mod loses at most 1 car a run where the game's driver alone loses 2 or more, with no more jams; then in watched matches on Arland at most 3 jams, 2 long stops and 1 crash between cars per match (NIGHT.md)"
 runner = "lab/drivetest.py"
 minutes = 10
 units = 6
@@ -15,3 +16,46 @@ candidate = "default"
 score = "legs - 4*lost - 3*car_hits - jams - 2*(oldest_open_s > 300)"
 higher_is_better = true
 keys = ["legs", "lost", "car_hits", "jams", "stops", "oncoming", "offroad_pct", "median_leg_s"]
+
+# Plain words for the page (Martin, 23 Oct: "baseline raw, candidate default - this is too abstract").
+score_words = "trips made, minus 4 for each lost car, 3 for each crash into another car, 1 for each jam, and 2 if a car is stuck over 5 minutes"
+baseline_words = "the game's own driver, with nothing of ours"
+candidate_words = "our vehicle mod as it is now"
+
+[variant_labels]
+raw = "Game's driver alone"
+default = "Our mod (all rules)"
+nooncoming = "Our mod, no head-on slow-down"
+nospacing = "Our mod, no spacing"
+price = "Our mod + roads preferred"
+competent = "Our mod + wider turns"
+crx = "Our mod + CRX AI mod"
+jmvai = "JMVehicleAI mod alone"
+best = "Our mod + both route tweaks"
+
+[variant_words]
+raw = "nothing of ours: the game drives, gets stuck and crashes the way it does"
+default = "cars slow to 15 km/h when meeting head-on, keep distance to the car ahead, stuck cars get pushed back"
+nooncoming = "our mod without the head-on slow-down, to see what that rule is worth"
+nospacing = "our mod without keeping distance, to see what that rule is worth"
+price = "our mod, plus the route planner prefers roads 10x over fields"
+competent = "our mod, plus trucks and APCs plan wider turns (the Competent AI driving mod)"
+crx = "our mod, plus the CRX Enfusion AI mod"
+jmvai = "the JMVehicleAI driving mod instead of ours"
+best = "our mod with roads preferred and wider turns"
+
+[scenario_labels]
+headon = "Head-on on a narrow lane"
+mosshill-conflict = "Moss Hill trap (real base)"
+trucks = "Trucks through the trap"
+northfarm = "Fenced fields (Arland north)"
+everonexit = "Everon US base exit"
+mosshill = "Moss Hill lane (empty map)"
+
+[scenario_words]
+headon = "8 UAZs from both ends of the Moss Hill lane, so they meet all the time"
+mosshill-conflict = "UAZs through the squeeze between a supply cache and a wreck, with the real Conflict base in place"
+trucks = "Ural trucks both ways through the same squeeze"
+northfarm = "M998s past the fenced fields where rides get trapped"
+everonexit = "M998s on the Everon US base exit road"
+mosshill = "UAZs through the Moss Hill lane on the empty map"

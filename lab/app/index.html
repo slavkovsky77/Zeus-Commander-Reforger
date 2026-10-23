@@ -512,12 +512,23 @@ video { width: 100%; border-radius: 8px; background: #000; }
     sublabSeen = key;
     $("sublab").innerHTML = labs.map((l, li) => {
       const vs = l.variants || [], keys = (l.keys || []).slice(0, 4);
-      const cell = (c) => c ? `<b>${esc(c.score)}</b> <span class="muted">n${esc(c.n)}</span><br><span class="muted">${keys.map((k) => `${esc(k)} ${esc(c[k] == null ? "-" : c[k])}`).join(" · ")}</span>` : "";
-      const table = (l.table || []).length ? `<div class="tbl"><table><thead><tr><th>scenario</th>${vs.map((v) => `<th class="${v === l.candidate ? "ok" : v === l.baseline ? "muted" : ""}">${esc(v)}</th>`).join("")}</tr></thead><tbody>` +
-        l.table.map((r) => `<tr><td class="mono">${esc(r.scenario)}</td>${vs.map((v) => `<td class="mono">${cell(r.cells[v])}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>" : '<div class="empty">No runs yet.</div>';
-      const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> <span class="chip">${esc(r.scenario)}</span> <span class="chip ${r.variant === l.candidate ? "ok" : ""}">${esc(r.variant)}</span> <span class="mono">score ${esc(r.score)}</span> <span class="muted mono">${keys.map((k) => `${esc(k)} ${esc(r[k] == null ? "-" : r[k])}`).join(" · ")}</span></div>`).join("");
-      return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
-        <p>${esc(l.question)}</p><p class="muted">${esc(l.issue)}</p><p class="muted"><b>Pass:</b> ${esc(l.pass_rule)} <span class="mono">· score higher is better · baseline ${esc(l.baseline)} · candidate ${esc(l.candidate)}</span></p>
+      const V = (v) => (l.vlabel || {})[v] || v, S = (sc) => (l.slabel || {})[sc] || sc;
+      const KW = { legs: "trips", lost: "lost cars", car_hits: "crashes into cars", jams: "jams", stops: "spacing stops", oncoming: "head-on slow-downs", offroad_pct: "% off road", median_leg_s: "s a trip" };
+      const kw = (k) => KW[k] || k.replace(/_/g, " ");
+      const ran = vs.filter((v) => (l.table || []).some((r) => r.cells[v]));
+      const nums = (c) => keys.map((k) => `${esc(c[k] == null ? "-" : c[k])} ${esc(kw(k))}`).join(" · ");
+      const cell = (c) => c ? `<b>${esc(c.score)}</b> <span class="muted">(${esc(c.n)} run${c.n === 1 ? "" : "s"})</span><br><span class="muted">${nums(c)}</span>` : "";
+      const table = (l.table || []).length ? `<div class="tbl"><table><thead><tr><th>Track</th>${ran.map((v) => `<th title="${esc((l.vwords || {})[v] || "")}">${esc(V(v))}</th>`).join("")}</tr></thead><tbody>` +
+        l.table.map((r) => `<tr><td title="${esc((l.swords || {})[r.scenario] || "")}"><b>${esc(S(r.scenario))}</b></td>${ran.map((v) => `<td class="mono">${cell(r.cells[v])}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>" : '<div class="empty">No runs yet.</div>';
+      const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> · <b>${esc(S(r.scenario))}</b> · ${esc(V(r.variant))} · score <b>${esc(r.score)}</b> <span class="muted">${nums(r)}</span></div>`).join("");
+      const setups = ran.map((v) => `<li><b>${esc(V(v))}</b>: ${esc((l.vwords || {})[v] || "")}</li>`).join("");
+      const tracks = (l.table || []).map((r) => `<li><b>${esc(S(r.scenario))}</b>: ${esc((l.swords || {})[r.scenario] || "")}</li>`).join("");
+      return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(l.title || l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
+        <p>${esc(l.question)}</p>
+        <p><b>Score</b> (higher is better): ${esc(l.score_words || l.score_text)}.</p>
+        <p><b>Compared against</b> ${esc(l.baseline_words || V(l.baseline))}. <b>Our current pick:</b> ${esc(l.candidate_words || V(l.candidate))}.</p>
+        <p class="muted"><b>Passes when</b> ${esc(l.pass_rule)}.</p>
+        <details><summary>What the setups and tracks are</summary><p><b>Setups</b></p><ul>${setups}</ul><p><b>Tracks</b></p><ul>${tracks}</ul></details>
         <div class="sublab-charts" data-lab="${li}" style="display:grid;gap:12px;margin-top:10px"></div>
         ${table}${recent ? `<h3 style="margin-top:10px">Last runs</h3><div style="display:grid;gap:4px">${recent}</div>` : ""}</div>`;
     }).join("") || '<div class="empty">No sub-labs.</div>';

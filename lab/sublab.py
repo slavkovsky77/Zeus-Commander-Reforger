@@ -128,6 +128,9 @@ def matrix(name: str) -> dict:
         if row["cells"]:
             table.append(row)
     return {"name": name, "question": d.get("question", ""), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""), "score_text": d["score"],
+            "title": d.get("title", name), "score_words": d.get("score_words", ""), "baseline_words": d.get("baseline_words", ""),
+            "candidate_words": d.get("candidate_words", ""), "vlabel": d.get("variant_labels", {}), "vwords": d.get("variant_words", {}),
+            "slabel": d.get("scenario_labels", {}), "swords": d.get("scenario_words", {}),
             "scenarios": d["scenarios"], "variants": d["variants"], "baseline": d.get("baseline"), "candidate": d.get("candidate"),
             "keys": d["keys"], "higher_is_better": d["higher_is_better"], "runs": len(rs), "last_at": rs[-1]["at"] if rs else None,
             "table": table, "recent": [{k: r.get(k) for k in ["at", "scenario", "variant", "score"] + d["keys"] + ["run"]} for r in rs[-12:]][::-1],

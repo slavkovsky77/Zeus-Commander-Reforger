@@ -293,30 +293,32 @@ window.LabCharts = (() => {
     const used = vs.filter((v) => all.some((r) => r.variant === v));
     if (!used.length) { container.innerHTML = '<p class="muted">No runs yet - the graphs appear with the first run.</p>'; return; }
     const scenarios = (lab.table || []).map((r) => r.scenario);
-    const tag = (v) => v === lab.candidate ? `${v} (candidate)` : v === lab.baseline ? `${v} (baseline)` : v;
+    const tag = (v) => (lab.vlabel || {})[v] || v;
+    const S = (sc) => (lab.slabel || {})[sc] || sc;
     card(container, { title: "Score by scenario", better: "higher",
-      why: `Mean score of the runs per scenario and variant. Score: ${lab.score_text || "see the definition"}.` }, () => {
+      why: `Average score on each track, one bar per setup. Score: ${lab.score_words || lab.score_text}.` }, () => {
       const series = used.map((v) => ({ name: tag(v), type: "bar", barMaxWidth: 18, itemStyle: { color: color(v), borderRadius: [3, 3, 0, 0] },
         data: scenarios.map((sc) => { const c = ((lab.table.find((r) => r.scenario === sc) || {}).cells || {})[v]; return c ? c.score : null; }) }));
       return base({ dataZoom: [], grid: { left: 46, right: 18, top: 44, bottom: 40 },
-        xAxis: { type: "category", data: scenarios, ...axisStyle(), axisLabel: { ...axisStyle().axisLabel, interval: 0 } },
+        xAxis: { type: "category", data: scenarios.map(S), ...axisStyle(), axisLabel: { ...axisStyle().axisLabel, interval: 0 } },
         yAxis: { type: "value", ...axisStyle() }, tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" } }, series });
     });
     const bad = (lab.keys || []).filter((k) => ["lost", "car_hits", "jams", "stuck", "unreachable"].includes(k));
     if (bad.length) card(container, { title: "What goes wrong, per run", better: "lower",
-      why: "Mean per run over every scenario the variant ran (headless runs only): " + bad.map((k) => k.replace(/_/g, " ")).join(", ") + "." }, () => {
+      why: "For each setup, the average per run over all its tracks (headless runs only)." }, () => {
       const per = (v, k) => { const rs = all.filter((r) => r.variant === v && !r.watched && typeof r[k] === "number"); return rs.length ? mean(rs.map((r) => r[k])) : null; };
       const BADC = ["#e34948", "#eda100", "#6250d6", "#008300", "#2a78d6"];
-      const series = bad.map((k, i) => ({ name: k.replace(/_/g, " "), type: "bar", barMaxWidth: 16, itemStyle: { color: BADC[i % BADC.length], borderRadius: [3, 3, 0, 0] },
+      const KW = { lost: "lost cars", car_hits: "crashes into cars", jams: "jams", stuck: "stuck", unreachable: "no route found" };
+      const series = bad.map((k, i) => ({ name: KW[k] || k.replace(/_/g, " "), type: "bar", barMaxWidth: 16, itemStyle: { color: BADC[i % BADC.length], borderRadius: [3, 3, 0, 0] },
         data: used.map((v) => per(v, k)) }));
       return base({ dataZoom: [], grid: { left: 46, right: 18, top: 44, bottom: 40 },
         xAxis: { type: "category", data: used.map(tag), ...axisStyle(), axisLabel: { ...axisStyle().axisLabel, interval: 0, rotate: used.length > 6 ? 25 : 0 } },
         yAxis: { type: "value", ...axisStyle() }, tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" } }, series });
     });
     card(container, { title: "Every run", better: "higher",
-      why: "Each dot is one run, oldest on the left; colour = variant. Hollow dots: runs watched in the window (often sped up - not comparable)." }, () => {
+      why: "Each dot is one run, oldest on the left; the colour is the setup. Hollow dots: runs watched in the game window (often sped up, not comparable)." }, () => {
       const series = used.map((v) => ({ name: tag(v), type: "scatter", symbolSize: 9, itemStyle: { color: color(v) },
-        data: all.map((r, i) => r.variant === v ? { value: [i + 1, r.score], run: `${r.at} ${r.scenario}`,
+        data: all.map((r, i) => r.variant === v ? { value: [i + 1, r.score], run: `${r.at} · ${S(r.scenario)}`,
           itemStyle: r.watched ? { color: "transparent", borderColor: color(v), borderWidth: 2 } : undefined } : null).filter(Boolean) }));
       return base({ grid: { left: 46, right: 18, top: 44, bottom: 58 },
         xAxis: { type: "value", minInterval: 1, ...axisStyle() },
