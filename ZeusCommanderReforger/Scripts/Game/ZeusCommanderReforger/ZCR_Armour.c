@@ -1665,6 +1665,13 @@ class ZCR_Armour
 // out as before. -zcrArmourLetOut turns it off.
 modded class SCR_AIGetOutVehicle
 {
+	// Lab probe (-zcrGetOutProbe): who ordered this soldier out (ZCR_GetOutProbe).
+	void SCR_AIGetOutVehicle(SCR_AIUtilityComponent utility, SCR_AIActivityBase groupActivity, IEntity vehicleEntity, float delay_s = 0, float priority = PRIORITY_BEHAVIOR_GET_OUT_VEHICLE, float priorityLevel = PRIORITY_LEVEL_NORMAL)
+	{
+		if (utility && vehicleEntity && ZCR_GetOutProbe.On())
+			ZCR_GetOutProbe.Log("soldier", vehicleEntity, priority, groupActivity != null);
+	}
+
 	override float CustomEvaluate()
 	{
 		if (m_Vehicle && ZCR_Armour.KeepAboard(m_Vehicle.m_Value))

@@ -31,6 +31,16 @@ TRACKS = {
     # Head-on: the Moss Hill route with every second car starting at B - they meet on the narrow lane all the time
     # (two head-on crashes in two runs on 22 Oct, both drivers dead).
     "headon": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", True),
+    # Convoys A -> B through the same lane, one after the other (Martin, 23 Oct night: "convoy test would be great too").
+    "convoy": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "convoy"),
+    # The road blocked: every second convoy's lead car is hit at the lane, a wreck stays a minute (Martin: "they would meet
+    # and one of them would explode, so we see how the other direction reacts to the blocked road"; "convoy and the front one").
+    "convoyblast": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "convoy;blast"),
+    "headonblast": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "both;blast"),
+    # Traffic (Martin, 23 Oct night: "supply runs ... transporting soldiers and supplies by many cars, a traffic simulation"):
+    # UAZ vans, Ural troop trucks (8 soldiers in the back) and Ural supply trucks between four stops - Moss Hill's two
+    # ends, the north farm and the north-west - each to a random next stop, 10 s loading there. A holds the stops, kind the mix.
+    "traffic": ("arland-test", "1700,1000;2800,1600;2450,2950;1200,3250", "", "uaz,ural,uralsupply", "", "traffic"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
@@ -45,6 +55,8 @@ VARIANTS = {
     "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
+    "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
+    "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
@@ -58,12 +70,16 @@ VARIANTS = {
 def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
-    spec = f"{a};{b};{cars};{kind};{via or '-'}" + (";both" if both else "")
+    mode = ("both" if both else "") if isinstance(both, bool) else both
+    spec = f"{a};{b};{cars};{kind};{via or '-'}" + (f";{mode}" if mode else "")
+    test = f"-zcrDriveTest {spec}"
+    if mode == "traffic":
+        test = f"-zcrTrafficSim {a} -zcrTrafficCars {cars} -zcrTrafficKinds {kind}"
     # The port in the name: two runs of the same track and setup start in the same second on the night's two ports, and
     # run folders are named label + second (23 Oct: every second run of a pair came back empty).
     label = f"drivetest-{track}-{variant}-p{port}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrDriveTest {spec} {extra}".strip()]
+            "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour {test} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -83,6 +99,8 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         return out
     text = log.read_text(encoding="utf-8", errors="replace")
     legs = [int(x) for x in re.findall(r"\[ZCR\]\[DRIVETEST\] .*event=ARRIVE .*leg_s=(\d+)", text)]
+    legs += [int(x) for x in re.findall(r"\[ZCR\]\[TRAFFICSIM\] .*event=DELIVER .* s=(\d+)", text)]   # traffic: a delivery is a trip
+    km = re.findall(r"\[ZCR\]\[TRAFFICSIM_SUM\] .* km=([\d.]+)", text)
     legs.sort()
     last = re.findall(r"\[ZCR\]\[DRIVETEST_SUM\] .*open_legs=(\d+) oldest_open_s=(\d+)", text)
     moving = sum(int(x) for x in re.findall(r"\[ZCR\]\[OFFROAD\] .*moving=(\d+)", text))
@@ -93,9 +111,15 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "oldest_open_s": int(last[-1][1]) if last else None,
         "jams": text.count("[ZCR][JAM]"), "stuck": text.count("[ZCR][STUCKVEH]"), "move_fails": text.count("[ZCR][MOVEFAIL]"),
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .*error=UNREACHABLE", text)), "pushes": text.count("[ZCR][PUSH]"),
+        "gates": text.count("[ZCR][GATE]"),
         "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
+        "risk_caps": text.count("[ZCR][RISK]"),
+        "km": float(km[-1]) if km else None, "deliveries": text.count("event=DELIVER"),
+        "blasts": text.count("event=BLAST "), "blocked": text.count("event=BLOCKED"), "wreck_gone": text.count("event=WRECK_GONE"),
+        "pass_s": sorted(int(x) for x in re.findall(r"event=PASSWRECK s=(\d+)", text)),
+        "convoys": [dict(re.findall(r"(\w+)=(-?\w+)", l.split("event=CONVOY", 1)[1])) for l in text.splitlines() if "event=CONVOY" in l],
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
         "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,

@@ -452,6 +452,17 @@ class ZCR_Director
 				return;
 			}
 		}
+		if (ZCR_TrafficSim.Active())
+		{
+			string simLabel;
+			IEntity simCar = ZCR_TrafficSim.CameraCar(simLabel);
+			if (simCar)
+			{
+				Show(simCar.GetOrigin(), 30, 14, simCar, simLabel, false);
+				m_iShotEnd = now + 25;
+				return;
+			}
+		}
 		string force = m_sForce;   // "action": the best fight now; "front": the hot zone
 		m_sForce = "";
 		m_iShot++;

@@ -60,7 +60,7 @@ MAPS = {
     "arland-conflict-test": ("AIConflictArland", "", "{C41618FD18E9D714}Missions/23_Campaign_Arland.conf", "Missions/23_Campaign_Arland.conf"),
 }
 READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
-TEST_READY = "[ZCR][DRIVETEST] t="
+TEST_READY = ("[ZCR][DRIVETEST] t=", "[ZCR][TRAFFICSIM] t=")   # the test track or the traffic simulation has started
 
 
 def command(a, profile: Path) -> list:
@@ -187,8 +187,8 @@ def main() -> int:
         while proc.poll() is None:
             time.sleep(5)
             log = console_log(profile)
-            marker = TEST_READY if a.map.endswith("-test") else READY
-            if ready_at is None and log and marker in log.read_text(encoding="utf-8", errors="replace"):
+            marker = TEST_READY if a.map.endswith("-test") else (READY,)
+            if ready_at is None and log and any(m in log.read_text(encoding="utf-8", errors="replace") for m in marker):
                 ready_at = time.time()
                 print(f"both sides' squads are deployed after {round(ready_at - t0)} s; the match runs {a.minutes} min", flush=True)
             if ready_at is None and time.time() - t0 > 600:
