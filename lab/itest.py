@@ -1,4 +1,4 @@
-"""Quick tests: the saved small scenarios of lab/itests.toml, headless, with pass/fail checks (Martin, 23 Oct: "all
+"""Integration tests: the saved small scenarios of lab/itests.toml, headless, with pass/fail checks (Martin, 23 Oct: "all
 these tests should be reproducible - they will act as integration tests in the future, quick tests").
 
     python lab/itest.py                  all of them, three at a time
@@ -73,7 +73,7 @@ def main() -> int:
         print("no such test; --list shows them")
         return 2
     workers = 1 if a.serial else min(len(PORTS), len(chosen))
-    print(f"{len(chosen)} quick tests, {workers} at a time", flush=True)
+    print(f"{len(chosen)} integration tests, {workers} at a time", flush=True)
     results = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [pool.submit(run_one, t, PORTS[i % workers]) for i, t in enumerate(chosen)]
