@@ -45,6 +45,7 @@ VARIANTS = {
     "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
+    "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
@@ -96,6 +97,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
+        "risk_caps": text.count("[ZCR][RISK]"),
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
         "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,

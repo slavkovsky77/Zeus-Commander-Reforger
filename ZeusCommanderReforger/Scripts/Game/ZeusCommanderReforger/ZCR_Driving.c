@@ -90,6 +90,7 @@ class ZCR_Driving
 		ZCR_DriveTest.Start();     // lab: the driving test track (-zcrDriveTest)
 		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
 		ZCR_Traffic.Start();       // the speed arbiter and the spacing rule (-zcrNoTraffic / -zcrNoSpacing off)
+		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off
@@ -591,8 +592,12 @@ class ZCR_Driving
 			otherSide = ZCR_LossLog.SideOf(other);
 		bool driven = s_mSeen.Contains(vehicle) && now - s_mSeen.Get(vehicle) < 10;
 		vector at = vehicle.GetOrigin();
+		string otherId = "0";
+		if (withVehicle)
+			otherId = other.GetID().ToString();
 		Print(string.Format("[ZCR][COLLISION] t=%1 side=%2 vehicle=%3 other=%4 other_side=%5 kmh=%6 damage=%7 driven=%8 x=%9", now, side,
-			ZCR_LossLog.ShortName(vehicle), otherName, otherSide, Math.Round(kmh), Math.Round(damage), driven, Math.Round(at[0])) + string.Format(" z=%1", Math.Round(at[2])), LogLevel.NORMAL);
+			ZCR_LossLog.ShortName(vehicle), otherName, otherSide, Math.Round(kmh), Math.Round(damage), driven, Math.Round(at[0])) +
+			string.Format(" z=%1 id=%2 other_id=%3", Math.Round(at[2]), vehicle.GetID(), otherId), LogLevel.NORMAL);
 	}
 
 	// Stuck alone: onto the nearest proper road, a few metres on toward the waypoint, facing along it.
