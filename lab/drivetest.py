@@ -55,7 +55,8 @@ VARIANTS = {
     "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
-    "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                    # ours with the collision forecast instead of oncoming + spacing
+    "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
+    "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields

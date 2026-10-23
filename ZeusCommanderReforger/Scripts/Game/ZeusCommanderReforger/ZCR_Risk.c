@@ -32,7 +32,9 @@ class ZCR_Risk
 	static const int SAMPLES = 24;
 	static const float HORIZON_S = 4;
 	static const float STEP_S = 0.25;
-	static const float PAIR_M = 60;
+	// 130 m (v2.1, 23 Oct night): at 60 m two cars closing at 100 km/h were inside the window only 2 s before they met -
+	// half the 4-s forecast blind; the first v2 head-on crash was flagged at 13 m, half a second before (v1 looks 90 m ahead).
+	static const float PAIR_M = 130;
 	static const float LIMIT = 0.10;
 	static const float MAN_LIMIT = 0.02;
 	static const float MAN_M = 40;

@@ -36,7 +36,7 @@ for rep in range(2):
         if track not in drivetest.TRACKS:
             print(track, "unknown, skipped", flush=True)
             continue
-        for variant in ("raw", "default", "risk"):
+        for variant in ("raw", "default", "risk2"):   # risk2 = v2.1, the forecast looking 130 m out
             r = drivetest.run(track, variant, 10, 8 if track == "headonblast" else 6, 2152)
             r["rep"] = rep
             r["copy"] = "blast"
