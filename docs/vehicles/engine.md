@@ -55,3 +55,20 @@ Steam "AI trucks are totally broken" (70% stop with hazard lights, crew out, nev
 Feedback Tracker T191334 (pathfinding glitches), T177755 (AI won't get out of the way of vehicles), AREXP-492
 (stuck on wheelbarrows), ARGF-388 (supply trucks stop at the harbour); Arma 3's T75076 (no reversing) and T61600
 (convoys in forward-reverse loops).
+
+## Documentation and where to read the real thing
+- Official: the [Script API reference](https://community.bistudio.com/wikidata/external-data/arma-reforger/ArmaReforgerScriptAPIPublic/group__AI.html)
+  (generated, few explanations), [Behavior Editor: Nodes](https://community.bistudio.com/wiki/Arma_Reforger:Behavior_Editor:_Nodes)
+  (AI behaviour trees), the [Navmesh Tutorial](https://community.bistudio.com/wiki/Arma_Reforger:Navmesh_Tutorial),
+  [AI changes in 1.2](https://reforger.armaplatform.com/news/modding-update-june-7-2024) and
+  [Dev Report #20](https://reforger.armaplatform.com/news/dev-report-20) - the only official words on AI driving. No
+  vehicle-AI tutorial exists.
+- The code: Bohemia's game scripts for 1.8.0.13 in `D:\workeforger-api\Arma-Reforger-Script-Diff-1.8.0.13\scripts`
+  (generated engine declarations under `Game/generated`). 139 scripts on AI and vehicles: group vehicles
+  (`SCR_AIGroupVehicleManager`, `SCR_AIGetUsableVehicle`, `SCR_AIFindAvailableVehicle`), seats (`SCR_AIGetInActivity`,
+  `SCR_AIGetOutActivity`, `SCR_AIChangeCompartment`, `SCR_AIOccupyDriversInUsedVehicles`, `SCR_AIFindTurrets`), moving
+  (`SCR_AIGetVehicleWaypointParameters`, `AICarMovementComponent`), stuck (`SCR_AIRemoveStuckVehicle`: "when the vehicle
+  cannot be moved it removes it from the group's list of owned vehicles" - the crew walks, nothing frees the vehicle),
+  combat (`AITurretAimingComponent`, `SCR_AIDecoTargetWithinTurretAimingLimits`, `SCR_AIDangerReaction_Vehicle`,
+  `SCR_AIDangerReaction_VehicleHorn`, `SCR_AICombatMoveLogic_MoveFromIncomingVehicle`), small things (lights, handbrake,
+  doors). `ChimeraAIVehicleControlComponent` (the AI's vehicle control) exposes nothing to script.
