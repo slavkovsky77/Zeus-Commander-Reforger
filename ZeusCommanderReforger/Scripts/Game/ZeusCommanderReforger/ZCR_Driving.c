@@ -93,6 +93,8 @@ class ZCR_Driving
 		ZCR_Traffic.Start();       // the speed arbiter and the spacing rule (-zcrNoTraffic / -zcrNoSpacing off)
 		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)
+		ZCR_DoorProbe.Start();     // lab: doors and gates near given points, how open (-zcrDoorProbe)
+		ZCR_OpenGates.Start();     // every gate on the map open, checked each minute (-zcrNoOpenGates off)
 	}
 
 	// [ZCR][OFFROAD] t= side= moving= offroad= pct= every 30 s (22 Oct: 220 of 310 trapped vehicles were 30-80 m off

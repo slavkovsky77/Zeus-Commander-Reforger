@@ -31,6 +31,7 @@ class ZCR_DriveCar
 	int m_iLegStart;
 	int m_iSpawnedAt;
 	bool m_bLost;
+	int m_iOutSince;        // the driver out of the seat since (0 = in)
 	int m_iConvoy = 1;
 	bool m_bDone;           // convoy: arrived at B and taken off the map
 	int m_iArrivedAt;
@@ -174,8 +175,16 @@ class ZCR_DriveTest
 			if (car.m_bLost || car.m_bDone)
 				continue;
 			// The driver is seated a moment after the spawn: the "crew out" check waits 10 s (23 Oct: both test cars were
-			// marked lost in the second they spawned).
-			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || (now - car.m_iSpawnedAt > 10 && !Driven(car)))
+			// marked lost in the second they spawned). Out of the seat counts after 20 s: a driver may get out to open a
+			// gate and back in (the get-out probe, 23 Oct night).
+			bool seatLeft = now - car.m_iSpawnedAt > 10 && car.m_Vehicle && car.m_Group && !Driven(car);
+			if (!seatLeft)
+				car.m_iOutSince = 0;
+			else if (car.m_iOutSince == 0)
+				car.m_iOutSince = now;
+			if (seatLeft && now - car.m_iOutSince <= 20)
+				continue;
+			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || seatLeft)
 			{
 				car.m_bLost = true;
 				vector at;

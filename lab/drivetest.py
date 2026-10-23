@@ -52,7 +52,7 @@ TRACKS = {
 
 VARIANTS = {
     # name: (extra server parameters, extra mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic -zcrNoAutoGate", ""),  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
@@ -111,6 +111,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "oldest_open_s": int(last[-1][1]) if last else None,
         "jams": text.count("[ZCR][JAM]"), "stuck": text.count("[ZCR][STUCKVEH]"), "move_fails": text.count("[ZCR][MOVEFAIL]"),
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .*error=UNREACHABLE", text)), "pushes": text.count("[ZCR][PUSH]"),
+        "gates": text.count("[ZCR][GATE]"),
         "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),

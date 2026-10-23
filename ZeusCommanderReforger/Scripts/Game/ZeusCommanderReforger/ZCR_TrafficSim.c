@@ -24,6 +24,7 @@ class ZCR_SimCar
 	int m_iSpawnedAt;
 	int m_iLoadUntil;     // standing at a stop until then (0 = driving)
 	bool m_bLost;
+	int m_iOutSince;      // the driver out of the seat since (0 = in); lost after 20 s (a gate opened by hand)
 	float m_fMeters;
 	vector m_vLast;
 	int m_iAboard;        // soldiers in the back
@@ -142,7 +143,14 @@ class ZCR_TrafficSim
 		{
 			if (car.m_bLost)
 				continue;
-			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || (now - car.m_iSpawnedAt > 10 && !Driven(car)))
+			bool seatLeft = now - car.m_iSpawnedAt > 10 && car.m_Vehicle && car.m_Group && !Driven(car);
+			if (!seatLeft)
+				car.m_iOutSince = 0;
+			else if (car.m_iOutSince == 0)
+				car.m_iOutSince = now;
+			if (seatLeft && now - car.m_iOutSince <= 20)
+				continue;
+			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || seatLeft)
 			{
 				car.m_bLost = true;
 				m_iLost++;
