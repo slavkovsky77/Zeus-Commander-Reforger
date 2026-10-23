@@ -103,6 +103,29 @@ class ZCR_DriveTest
 		}
 		else if (parts.Count() > 3 && parts[3] == "m923")
 			s_Instance.m_sPrefab = "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et";
+		// Armour (Martin, 23 Oct: "this sub-lab should test some tanks and APCs"): the game's APCs, and the Workshop
+		// tanks and IFVs (lab --armour; on 21 Oct the tanks crashed the game in 8-10 game minutes).
+		else if (parts.Count() > 3 && parts[3] == "btr70")
+		{
+			s_Instance.m_sPrefab = "{C012BB3488BEA0C2}Prefabs/Vehicles/Wheeled/BTR70/BTR70.et";
+			s_Instance.m_sCrew = ussrCrew;
+		}
+		else if (parts.Count() > 3 && parts[3] == "lav25")
+			s_Instance.m_sPrefab = "{0FBF8F010F81A4E5}Prefabs/Vehicles/Wheeled/LAV25/LAV25.et";
+		else if (parts.Count() > 3 && parts[3] == "t72")
+		{
+			s_Instance.m_sPrefab = "{726286E1F9570EA1}Prefabs/Vehicles/Tracked/T72B/T72B_Base.et";
+			s_Instance.m_sCrew = ussrCrew;
+		}
+		else if (parts.Count() > 3 && parts[3] == "bmp1")
+		{
+			s_Instance.m_sPrefab = "{1DC01AAACFFA8B63}Prefabs/Vehicles/Tracked/BMP1/BMP1_Base.et";
+			s_Instance.m_sCrew = ussrCrew;
+		}
+		else if (parts.Count() > 3 && parts[3] == "m1a1")
+			s_Instance.m_sPrefab = "{E80B119CFDF50ABE}Prefabs/Vehicles/Tracked/M1A1/M1A1_Olive.et";
+		else if (parts.Count() > 3 && parts[3] == "bradley")
+			s_Instance.m_sPrefab = "{24223D0679CDD612}Prefabs/Vehicles/Tracked/M2A2/M2A2_OD.et";
 		// The world's minefields across roads go, as in matches (AI Conflict's step, off with -aicfOff): on the Conflict map
 		// the first cars hit TM-62M mines east of A in every run (review note 317).
 		AICF_RoadMines.Start();
@@ -655,7 +678,7 @@ modded class SCR_BaseGameMode
 	protected override void OnGameStart()
 	{
 		super.OnGameStart();
-		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim")))
+		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest")))
 			ZCR_Driving.Start();
 	}
 }

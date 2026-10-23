@@ -40,6 +40,12 @@ TRACKS = {
     # Traffic (Martin, 23 Oct night: "supply runs ... transporting soldiers and supplies by many cars, a traffic simulation"):
     # UAZ vans, Ural troop trucks (8 soldiers in the back) and Ural supply trucks between four stops - Moss Hill's two
     # ends, the north farm and the north-west - each to a random next stop, 10 s loading there. A holds the stops, kind the mix.
+    # Armour (Martin, 23 Oct: "this sub-lab should test some tanks and APCs", review note 322): BTR-70s on the head-on
+    # lane and in convoys with the lead hit; the Workshop T-72 head-on and BMP-1 convoys (loaded with --armour).
+    "apc-headon": ("arland-test", "1700,1000", "2800,1600", "btr70", "2292,1277", True),
+    "apc-convoyblast": ("arland-test", "1700,1000", "2800,1600", "btr70", "2292,1277", "convoy;blast"),
+    "tank-headon": ("arland-test", "1700,1000", "2800,1600", "t72", "2292,1277", True),
+    "ifv-convoyblast": ("arland-test", "1700,1000", "2800,1600", "bmp1", "2292,1277", "convoy;blast"),
     "traffic": ("arland-test", "1700,1000;2800,1600;2450,2950;1200,3250", "", "uaz,ural,uralsupply", "", "traffic"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
@@ -52,7 +58,8 @@ TRACKS = {
 
 VARIANTS = {
     # name: (extra server parameters, extra mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),  # the game's driver alone
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),
+    "moveturrets": ("-zcrMoveTurrets", ""),                                    # ours, and stuck armour gets pushed back too (off since 22 Oct: crashes)  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
@@ -65,6 +72,9 @@ VARIANTS = {
     "jmvai": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", "6A8490E1621E7B3C,7A3C51E0D2B94F61"),   # JMVehicleAI, tuned, alone
     "best": ("", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),                         # ours + road price + Competent AI driving
 }
+
+
+ARMOUR_KINDS = {"t72", "m1a1", "bmp1", "bradley"}   # Workshop vehicles: lab/reforger.py --armour loads them
 
 
 def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
@@ -82,6 +92,8 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
             "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour {test} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
+    if kind in ARMOUR_KINDS:
+        argv += ["--armour"]   # the Workshop tanks and IFVs
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                    creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))

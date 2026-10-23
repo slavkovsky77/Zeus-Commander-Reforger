@@ -175,6 +175,7 @@ class ZCR_VehicleGuns
 			return;
 		}
 		s_mShots.Set(side, s_mShots.Get(side) + rounds);
+		ZCR_GunTest.OnShot(side, vehicle, rounds);   // lab: the guns test's first shot per vehicle
 		string kind = typename.EnumToString(EWeaponType, weapon.GetWeaponType());
 		kind.Replace("WT_", "");
 		string key = side + "|" + kind;

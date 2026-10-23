@@ -323,7 +323,9 @@ window.LabCharts = (() => {
       const setups = vs.filter((v) => runs.some((r) => r.variant === v));
       const avg = (v, k) => { const xs = runs.filter((r) => r.variant === v && typeof r[k] === "number").map((r) => r[k]); return xs.length ? mean(xs) : null; };
       const count = (v) => runs.filter((r) => r.variant === v).length;
-      const QUESTIONS = [
+      // A sub-lab's own questions ([[questions]] in its .toml: key, title, better, axis), else the driving ones.
+      const own = (lab.questions || []).map((q) => ({ k: q.key, title: q.title, better: q.better || "lower", axis: q.axis || q.key }));
+      const QUESTIONS = own.length ? own : [
         { k: "car_hits", title: "Crashes between cars", better: "lower", axis: "hits per 10-minute run (each car in a crash counts once)" },
         { k: "lost", title: "Cars lost", better: "lower", axis: "cars lost per 10-minute run (destroyed, crew got out, driver dead)" },
         { k: "jams", title: "Jams", better: "lower", axis: "jams per 10-minute run (a car standing 45 s with another car within 10 m)" },

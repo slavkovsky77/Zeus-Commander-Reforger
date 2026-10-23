@@ -452,6 +452,17 @@ class ZCR_Director
 				return;
 			}
 		}
+		if (ZCR_GunTest.Active())
+		{
+			string gunLabel;
+			IEntity gunUnit = ZCR_GunTest.CameraUnit(gunLabel);
+			if (gunUnit)
+			{
+				Show(gunUnit.GetOrigin(), 40, 18, gunUnit, gunLabel, false);
+				m_iShotEnd = now + 20;
+				return;
+			}
+		}
 		if (ZCR_TrafficSim.Active())
 		{
 			string simLabel;

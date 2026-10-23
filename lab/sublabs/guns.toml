@@ -1,0 +1,65 @@
+# Sub-lab "guns" - created 2026-10-23 12:12 by lab/sublab.py new
+name = "guns"
+question = "Do tanks and APCs use their guns - do they fire at enemy armour and infantry, and from a fighting distance?"
+issue = "AI armour barely fires: in the first test two LAV-25s and two BTR-70s drove 1.3 km at each other and fired only at 33-73 m; the LAV-25s fired 1 round"
+pass_rule = "every armoured vehicle fires at the enemy it meets, the first shot from 300 m or more, on every scenario"
+runner = "lab/guntest.py"
+minutes = 8
+units = 2
+scenarios = ["apc-duel", "apc-vs-squad", "tank-duel", "ifv-vs-squad"]
+variants = ["raw", "default", "reloadfix"]
+baseline = "raw"
+candidate = "default"
+score = "fired_pct/10 + first_m/100 + turret_kills"
+higher_is_better = true
+keys = ["fired_pct", "first_m", "rounds", "turret_kills", "vehicles_lost", "squad_men_lost"]
+title = "Vehicle guns"
+score_words = "the share of vehicles that fired (10 points for all), plus 1 point per 100 m of the first shot's distance, plus 1 for each kill by a turret gunner"
+baseline_words = "the game's own AI, with nothing of ours"
+candidate_words = "our mod as it is now"
+
+[variant_labels]
+raw = "Game's AI alone"
+default = "Our mod"
+reloadfix = "Our mod + AI Turret Reload Fix"
+
+[variant_words]
+raw = "nothing of ours driving or fighting"
+default = "our mod as it is now (vehicle rules on; nothing of ours for the guns yet)"
+reloadfix = "our mod plus the Workshop AI Turret Reload Fix (gunners reload their turret guns)"
+
+[scenario_labels]
+apc-duel = "APCs against APCs"
+apc-vs-squad = "APCs against a rifle squad"
+tank-duel = "Tank against tank"
+ifv-vs-squad = "IFVs against a rifle squad"
+
+[scenario_words]
+apc-duel = "two US LAV-25s and two Soviet BTR-70s drive at each other over 1.3 km of the north farm fields on Arland"
+apc-vs-squad = "two BTR-70s drive at a US rifle squad of 9 holding its ground 1.3 km away (two of them have light anti-tank rockets)"
+tank-duel = "a US Abrams and a Soviet T-72 (Workshop mods) drive at each other over 1.3 km"
+ifv-vs-squad = "two BMP-1s (Workshop mod) drive at the US rifle squad"
+
+[[questions]]
+key = "fired_pct"
+title = "Vehicles that fired"
+better = "higher"
+axis = "% of the vehicles that fired at least once"
+
+[[questions]]
+key = "first_m"
+title = "Distance of the first shot"
+better = "higher"
+axis = "metres to the nearest enemy when a vehicle first fired (median)"
+
+[[questions]]
+key = "rounds"
+title = "Rounds fired"
+better = "higher"
+axis = "rounds fired by all turret guns in the run"
+
+[[questions]]
+key = "turret_kills"
+title = "Kills by turret gunners"
+better = "higher"
+axis = "soldiers and vehicles killed by turret guns in the run"
