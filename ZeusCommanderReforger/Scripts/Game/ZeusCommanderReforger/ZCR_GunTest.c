@@ -1,9 +1,16 @@
 // The guns test (23 Oct, Martin: "a subtest with guns being used, maybe against each other or against some infantry -
 // this sub-lab should test some tanks and APCs"; review note 322). Lab only, -zcrGunTest "US spec;USSR spec":
-//   side spec  kind:count:x,z   kind = btr70 | lav25 | t72 | m1a1 | bmp1 | bradley (the last four are Workshop mods,
-//              lab --armour) or squad (the game's rifle squad: 9 men, 2 of them with light anti-tank rockets)
-// Vehicles get a crew in the driver's and every turret seat (the faction's crewmen, fire at will) and drive at the other
-// side's point; a squad holds its ground. The points are used as given (open ground: the airfield).
+//   side spec  group+group+...   group = kind:count:x,z[:role]
+//   kind       btr70 | lav25 | t72 | m1a1 | bmp1 | bradley (the last four Workshop mods, lab --armour), or squad (the
+//              game's rifle squad: 9 men, 2 of them with light anti-tank rockets)
+//   role       vehicles: attack (default: drive at the objective) | overwatch (stop 300 m short of it and fire from there) |
+//              hold (stay where they are) | carry (an APC with a rifle squad of its side in the back: drives at the
+//              objective, the squad gets out 250 m short of it and assaults it - Search and Destroy - while the APC
+//              stays and fires; Martin, 23 Oct: "the APC would carry infantry to the enemy, they disembark and storm");
+//              squads: hold (default: stay where they are) | defend (the game's Defend waypoint: take positions round
+//              their point) | attack (Search and Destroy at the objective)
+// A side's objective is the other side's first group's point. Vehicles get a crew in the driver's and every turret seat
+// (the faction's crewmen, fire at will). The points are used as given (open ground: the airfield).
 //   [ZCR][GUNTEST] t= event=SPAWN side= unit= kind= crew= x= z=
 //   [ZCR][GUNTEST] t= event=FIRST_SIGHT side= unit= kind= m=  (first clear line from the turret to an enemy, checked every 2 s:
 //                                                              terrain, buildings, trees and bushes block it)
@@ -11,6 +18,9 @@
 //   [ZCR][GUNTEST] t= event=FIRST_TARGET side= unit= kind= m=  (a crewman's combat AI first picks an enemy to fire at)
 //   [ZCR][GUNTEST] t= event=FIRST_SHOT side= unit= kind= m=   (the distance to the nearest living enemy then)
 //   [ZCR][GUNTEST] t= event=LOST side= unit= kind= why=destroyed|crew_dead|crew_out|squad_dead
+//   [ZCR][GUNTEST] t= event=RIDERS side= unit= men= carrier=        (the squad seated in the APC's back)
+//   [ZCR][GUNTEST] t= event=DISMOUNT side= unit= m= enemy_m= men= why=near|carrier_lost|stopped   (m: to the objective)
+//   [ZCR][GUNTEST] t= event=TAKEN side= men_near=   (the side's soldiers within 40 m of its objective, no enemy within 60 m)
 //   [ZCR][GUNTEST_SUM] t= us_units= us_alive= us_men= us_shots= ussr_units= ussr_alive= ussr_men= ussr_shots= first_us_m= first_ussr_m=   (every 30 s)
 // Shots come from ZCR_VehicleGuns (the turrets' ammunition, read every second).
 class ZCR_GunUnit
@@ -28,15 +38,28 @@ class ZCR_GunUnit
 	int m_iFirstTargetAt = -1;
 	bool m_bPerceptionSet;
 	bool m_bLost;
+	ZCR_GunUnit m_Carrier;   // riders: the APC they sit in
+	bool m_bDismounted;
+	int m_iStillSince;       // riders: the carrier standing still since
+}
+
+class ZCR_GunSpec
+{
+	string m_sSide;
+	string m_sKind;
+	int m_iCount;
+	vector m_vAt;
+	string m_sRole;
 }
 
 class ZCR_GunTest
 {
 	protected static ref ZCR_GunTest s_Instance;
 	protected ref array<ref ZCR_GunUnit> m_aUnits = {};
-	protected ref map<string, string> m_mKind = new map<string, string>();
-	protected ref map<string, int> m_mCount = new map<string, int>();
-	protected ref map<string, vector> m_mAt = new map<string, vector>();
+	protected ref array<ref ZCR_GunSpec> m_aSpecs = {};
+	protected ref map<string, vector> m_mObjective = new map<string, vector>();
+	protected ref map<string, int> m_mTaken = new map<string, int>();
+	protected static const float DISMOUNT_M = 250;
 	protected ref map<string, int> m_mFirstM = new map<string, int>();
 	protected bool m_bSpawned;
 	protected int m_iNextSum = 30;
@@ -57,27 +80,44 @@ class ZCR_GunTest
 		array<string> sides = {};
 		spec.Split(";", sides, true);
 		array<string> names = {"US", "USSR"};
+		map<string, vector> first = new map<string, vector>();
 		for (int i; i < 2 && i < sides.Count(); i++)
 		{
-			array<string> parts = {};
-			sides[i].Split(":", parts, true);
-			if (parts.Count() < 3)
-				continue;
-			array<string> xz = {};
-			parts[2].Split(",", xz, true);
-			if (xz.Count() < 2)
-				continue;
-			test.m_mKind.Set(names[i], parts[0]);
-			test.m_mCount.Set(names[i], Math.Max(1, parts[1].ToInt()));
-			test.m_mAt.Set(names[i], Vector(xz[0].ToFloat(), 0, xz[1].ToFloat()));
 			test.m_mFirstM.Set(names[i], -1);
 			test.m_mSightM.Set(names[i], -1);
+			array<string> groups = {};
+			sides[i].Split("+", groups, true);
+			foreach (string g : groups)
+			{
+				array<string> parts = {};
+				g.Split(":", parts, true);
+				if (parts.Count() < 3)
+					continue;
+				array<string> xz = {};
+				parts[2].Split(",", xz, true);
+				if (xz.Count() < 2)
+					continue;
+				ZCR_GunSpec gs = new ZCR_GunSpec();
+				gs.m_sSide = names[i];
+				gs.m_sKind = parts[0];
+				gs.m_iCount = Math.Max(1, parts[1].ToInt());
+				gs.m_vAt = Vector(xz[0].ToFloat(), 0, xz[1].ToFloat());
+				gs.m_sRole = "";
+				if (parts.Count() > 3)
+					gs.m_sRole = parts[3];
+				test.m_aSpecs.Insert(gs);
+				if (!first.Contains(names[i]))
+					first.Set(names[i], gs.m_vAt);
+			}
 		}
-		if (test.m_mKind.Count() < 2)
+		if (first.Count() < 2)
 		{
-			Print("[ZCR][GUNTEST] needs two sides: kind:count:x,z;kind:count:x,z", LogLevel.WARNING);
+			Print("[ZCR][GUNTEST] needs two sides: kind:count:x,z[:role][+...];kind:count:x,z[:role][+...]", LogLevel.WARNING);
 			return;
 		}
+		// Each side's objective: the other side's first group's point.
+		test.m_mObjective.Set("US", first.Get("USSR"));
+		test.m_mObjective.Set("USSR", first.Get("US"));
 		s_Instance = test;
 		ZCR_LossLog.Register();   // [ZCR][LOSS]: who killed whom, from which turret
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
@@ -136,10 +176,10 @@ class ZCR_GunTest
 			if (now < 10)
 				return;
 			m_bSpawned = true;
-			foreach (string spawnSide, string spawnKind : m_mKind)
+			foreach (ZCR_GunSpec spec : m_aSpecs)
 			{
-				for (int n; n < m_mCount.Get(spawnSide); n++)
-					Spawn(spawnSide, spawnKind, n, now);
+				for (int n; n < spec.m_iCount; n++)
+					Spawn(spec, n, now);
 			}
 			return;
 		}
@@ -157,6 +197,9 @@ class ZCR_GunTest
 		{
 			m_iNextSight = now + 1;
 			Sight(now);
+			Storm(now);
+			if (now % 5 == 0)
+				Taken(now);
 		}
 		if (now >= m_iNextSum)
 		{
@@ -189,7 +232,7 @@ class ZCR_GunTest
 		// watched game every vehicle was "lost" a second after it spawned, its crew not yet aboard).
 		if (now - u.m_iSpawnedAt < 20 && u.m_Vehicle)
 			return "";
-		if (u.m_sKind == "squad")
+		if (u.m_sKind == "squad" || u.m_sKind == "riders")
 		{
 			if (!u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
 				return "squad_dead";
@@ -356,19 +399,20 @@ class ZCR_GunTest
 		return best;
 	}
 
-	protected void Spawn(string side, string kind, int n, int now)
+	protected void Spawn(ZCR_GunSpec spec, int n, int now)
 	{
-		vector home = m_mAt.Get(side);
-		string other = "USSR";
-		if (side == "USSR")
-			other = "US";
-		vector target = m_mAt.Get(other);
+		string side = spec.m_sSide;
+		string kind = spec.m_sKind;
+		vector home = spec.m_vAt;
+		vector target = m_mObjective.Get(side);
 		vector dir = target - home;
 		dir[1] = 0;
+		if (dir.Length() < 1)
+			dir = "1 0 0";
 		dir.Normalize();
 		vector right = Vector(dir[2], 0, -dir[0]);
 		// Side by side, 15 m apart across the line of advance.
-		vector at = home + right * ((n - (m_mCount.Get(side) - 1) * 0.5) * 15);
+		vector at = home + right * ((n - (spec.m_iCount - 1) * 0.5) * 15);
 		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]) + 0.5;
 		vector pose[4];
 		Math3D.DirectionAndUpMatrix(dir, "0 1 0", pose);
@@ -389,18 +433,159 @@ class ZCR_GunTest
 			if (side == "USSR")
 				squad = "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et";
 			unit.m_Group = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(squad), GetGame().GetWorld(), params));
+			if (unit.m_Group && spec.m_sRole == "defend")
+				Waypoint(unit, at, "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et", 40);
+			else if (unit.m_Group && spec.m_sRole == "attack")
+				Waypoint(unit, target, "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et", 30);
 		}
 		else
 		{
 			unit.m_Vehicle = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(Prefab(kind)), GetGame().GetWorld(), params));
 			// The crew 1.5 s later, as ZCR_Armour does: seated in the same frame the vehicle appears, the watched game
 			// (the game hosting the match itself) left them out of the seats - no turret manned, nobody driving.
+			// Overwatch: stop 300 m short of the objective, on the line from home.
+			vector goal = target;
+			if (spec.m_sRole == "overwatch" && vector.DistanceXZ(home, target) > 300)
+				goal = target - dir * 300;
+			if (spec.m_sRole == "hold")
+				goal = vector.Zero;   // no order: stays where it is
+			if (spec.m_sRole == "carry" && vector.DistanceXZ(home, target) > DISMOUNT_M)
+				goal = target - dir * (DISMOUNT_M - 20);
 			if (unit.m_Vehicle)
-				GetGame().GetCallqueue().CallLater(CrewLater, 1500, false, unit, side, target);
+				GetGame().GetCallqueue().CallLater(CrewLater, 1500, false, unit, side, goal);
+			if (unit.m_Vehicle && spec.m_sRole == "carry")
+				GetGame().GetCallqueue().CallLater(SeatRiders, 2500, false, unit, side);
 		}
 		m_aUnits.Insert(unit);
-		Print(string.Format("[ZCR][GUNTEST] t=%1 event=SPAWN side=%2 unit=%3 kind=%4 crew=%5 x=%6 z=%7", now, side, unit.m_iIndex, kind, crew,
+		Print(string.Format("[ZCR][GUNTEST] t=%1 event=SPAWN side=%2 unit=%3 kind=%4 role=%5 x=%6 z=%7", now, side, unit.m_iIndex, kind, spec.m_sRole,
 			Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+	}
+
+	// A rifle squad of the side in the APC's passenger seats (a group of its own; the crew is another).
+	protected void SeatRiders(ZCR_GunUnit carrier, string side)
+	{
+		if (!carrier || !carrier.m_Vehicle)
+			return;
+		array<string> men = {"{E45F1E163F5CA080}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_SL.et",
+			"{E398E44759DA1A43}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_TL.et",
+			"{5B1996C05B1E51A4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_AR.et",
+			"{84029128FA6F6BB9}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_GL.et",
+			"{27BF1FF235DD6036}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_LAT.et",
+			"{E398E44759DA1A43}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_TL.et",
+			"{5B1996C05B1E51A4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_AR.et",
+			"{84029128FA6F6BB9}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_GL.et"};
+		if (side == "USSR")
+			men = {"{5436629450D8387A}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_SL.et",
+				"{23ADBBC31B6A3DC6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_AR.et",
+				"{1C78331E156A3D65}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_AT.et",
+				"{631158F6898738A4}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_AAT.et",
+				"{333DA6244C7DA34C}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_SR.et",
+				"{BF643BE4ADBDFDD3}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_LAT.et",
+				"{23ADBBC31B6A3DC6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_AR.et",
+				"{BF643BE4ADBDFDD3}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_LAT.et"};
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(carrier.m_Vehicle, seats);
+		AIGroup group;
+		int seated;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (seated >= men.Count())
+				break;
+			if (!seat || seat.GetType() != ECompartmentType.CARGO || !seat.IsCompartmentAccessible() || seat.GetOccupant())
+				continue;
+			if (seat.SpawnCharacterInCompartment(men[seated], group))
+				seated++;
+		}
+		ZCR_GunUnit riders = new ZCR_GunUnit();
+		riders.m_iIndex = m_aUnits.Count() + 1;
+		riders.m_iSpawnedAt = ZCR_LossLog.Seconds();
+		riders.m_sSide = side;
+		riders.m_sKind = "riders";
+		riders.m_Group = SCR_AIGroup.Cast(group);
+		riders.m_Carrier = carrier;
+		m_aUnits.Insert(riders);
+		Print(string.Format("[ZCR][GUNTEST] t=%1 event=RIDERS side=%2 unit=%3 men=%4 carrier=%5", ZCR_LossLog.Seconds(), side, riders.m_iIndex, seated, carrier.m_iIndex), LogLevel.NORMAL);
+	}
+
+	// Riders get out 250 m short of the objective (or when their APC is lost, or has stood still 20 s), then assault it.
+	protected void Storm(int now)
+	{
+		foreach (ZCR_GunUnit r : m_aUnits)
+		{
+			if (r.m_sKind != "riders" || r.m_bDismounted || r.m_bLost || !r.m_Group)
+				continue;
+			vector objective = m_mObjective.Get(r.m_sSide);
+			string why = "";
+			Vehicle apc;
+			if (r.m_Carrier)
+				apc = r.m_Carrier.m_Vehicle;
+			if (!apc || r.m_Carrier.m_bLost)
+				why = "carrier_lost";
+			else if (vector.DistanceXZ(apc.GetOrigin(), objective) <= DISMOUNT_M + 10)
+				why = "near";
+			else
+			{
+				bool still = !apc.GetPhysics() || apc.GetPhysics().GetVelocity().Length() < 0.5;
+				if (!still || now - r.m_iSpawnedAt < 30)
+					r.m_iStillSince = 0;
+				else if (r.m_iStillSince == 0)
+					r.m_iStillSince = now;
+				if (r.m_iStillSince > 0 && now - r.m_iStillSince >= 20)
+					why = "stopped";
+			}
+			if (why.IsEmpty())
+				continue;
+			r.m_bDismounted = true;
+			vector at = objective;
+			if (apc)
+				at = apc.GetOrigin();
+			Waypoint(r, at, "{C40316EE26846CAB}Prefabs/AI/Waypoints/AIWaypoint_GetOut.et", 15);
+			Waypoint(r, objective, "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et", 30);
+			float enemy = 100000;
+			if (apc && r.m_Carrier)
+				enemy = NearestEnemy(r.m_Carrier);
+			Print(string.Format("[ZCR][GUNTEST] t=%1 event=DISMOUNT side=%2 unit=%3 m=%4 enemy_m=%5 men=%6 why=%7", now, r.m_sSide, r.m_iIndex,
+				Math.Round(vector.DistanceXZ(at, objective)), Math.Round(enemy), AICF_GroupRuntime.CountAliveAgents(r.m_Group), why), LogLevel.NORMAL);
+		}
+	}
+
+	// A side's objective taken: its living soldiers (any group) within 40 m of it, no living enemy within 60 m.
+	protected void Taken(int now)
+	{
+		foreach (string side, vector objective : m_mObjective)
+		{
+			if (m_mTaken.Contains(side))
+				continue;
+			int ours, theirs;
+			foreach (ZCR_GunUnit u : m_aUnits)
+			{
+				if (!u.m_Group)
+					continue;
+				array<AIAgent> agents = {};
+				u.m_Group.GetAgents(agents);
+				foreach (AIAgent a : agents)
+				{
+					IEntity man = null;
+					if (a)
+						man = a.GetControlledEntity();
+					if (!man || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
+						continue;
+					SCR_DamageManagerComponent dm = SCR_DamageManagerComponent.Cast(man.FindComponent(SCR_DamageManagerComponent));
+					if (dm && dm.IsDestroyed())
+						continue;
+					float d = vector.DistanceXZ(man.GetOrigin(), objective);
+					if (u.m_sSide == side && d <= 40)
+						ours++;
+					else if (u.m_sSide != side && d <= 60)
+						theirs++;
+				}
+			}
+			if (ours > 0 && theirs == 0)
+			{
+				m_mTaken.Set(side, now);
+				Print(string.Format("[ZCR][GUNTEST] t=%1 event=TAKEN side=%2 men_near=%3", now, side, ours), LogLevel.NORMAL);
+			}
+		}
 	}
 
 	protected void CrewLater(ZCR_GunUnit unit, string side, vector target)
@@ -409,7 +594,7 @@ class ZCR_GunTest
 			return;
 		int crew = Crew(unit, side);
 		Print(string.Format("[ZCR][GUNTEST] t=%1 event=CREW side=%2 unit=%3 kind=%4 crew=%5", ZCR_LossLog.Seconds(), side, unit.m_iIndex, unit.m_sKind, crew), LogLevel.NORMAL);
-		if (unit.m_Group)
+		if (unit.m_Group && target != vector.Zero)
 			Order(unit, target);
 	}
 
@@ -455,13 +640,19 @@ class ZCR_GunTest
 
 	protected static void Order(ZCR_GunUnit unit, vector target)
 	{
+		Waypoint(unit, target, "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", 30);
+	}
+
+	protected static void Waypoint(ZCR_GunUnit unit, vector at, string prefab, float radius)
+	{
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = target;
-		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
+		params.Transform[3] = at;
+		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx(prefab, false, params: params));
 		if (!waypoint)
 			return;
-		waypoint.SetCompletionRadius(30);
+		waypoint.SetCompletionRadius(radius);
 		unit.m_Group.AddWaypoint(waypoint);
 	}
 
