@@ -8,6 +8,17 @@
 // minutes instead of waiting for a match to send rides through it.
 //   [ZCR][DRIVETEST] t= car= event=SPAWN|ARRIVE|LOST leg= leg_s= to= x= z=
 //   [ZCR][DRIVETEST_SUM] t= cars= legs= median_leg_s= max_leg_s= open_legs= oldest_open_s=   (every 60 s)
+// Sixth field "convoy" instead of "both" (23 Oct night, Martin: "convoy test would be great too"): the cars leave A as one
+// convoy, 2 s apart with the start clear, drive to B and are taken off the map there; when every car of the convoy has
+// arrived or is lost (or after 10 minutes) the next convoy leaves.  [ZCR][DRIVETEST] event=CONVOY convoy= cars= arrived= lost= first_s= last_s=
+// Seventh field "blast" (Martin: "they would meet and one of them would explode, so we see how the other direction
+// reacts to the blocked road"; "spawn one drone that would kill one ... maybe a convoy and the front one"): the first car
+// within 25 m of the via point is hit by a mortar-shell warhead and its crew killed - a wreck on the lane, cleared a minute
+// later like in matches (ZCR_Wrecks; -zcrKeepWrecks keeps it). Head-on: a hit every 150 s; convoy: the lead of convoys
+// 1, 3, 5 ... (the others drive the clear road, for comparison). Every car that meets the wreck (within 40 m, the wreck
+// between it and its goal) is followed until it is past:
+//   [ZCR][DRIVETEST] event=BLAST car= convoy= x= z=  /  event=PASSWRECK car= s= wreck_there=0|1  /  event=BLOCKED car= s=  (120 s, not past)
+//   /  event=WRECK_GONE s=
 class ZCR_DriveCar
 {
 	int m_iIndex;
@@ -20,6 +31,13 @@ class ZCR_DriveCar
 	int m_iLegStart;
 	int m_iSpawnedAt;
 	bool m_bLost;
+	int m_iConvoy = 1;
+	bool m_bDone;           // convoy: arrived at B and taken off the map
+	int m_iArrivedAt;
+	bool m_bBlasted;
+	int m_iNearWreckAt;     // first second within 40 m of the wreck, with the wreck between it and its goal
+	bool m_bPastWreck;
+	bool m_bBlockedLogged;
 }
 
 class ZCR_DriveTest
@@ -36,6 +54,18 @@ class ZCR_DriveTest
 	protected string m_sCrew = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
 	protected int m_iNextSpawn = 15;
 	protected int m_iNextSum = 60;
+	protected bool m_bConvoy;
+	protected int m_iConvoy = 1;
+	protected int m_iConvoySpawned;
+	protected int m_iConvoyStart;
+	protected bool m_bBlast;
+	protected int m_iNextBlast;
+	protected int m_iBlastConvoy;
+	protected IEntity m_Wreck;
+	protected vector m_vWreck;
+	protected int m_iBlastAt = -1;
+	protected bool m_bWreckGone;
+	protected static const string WARHEAD = "{D584F2FFFDC7DE49}Prefabs/Weapons/Warheads/Warhead_Shell_HE.et";   // the mortar shell's
 
 	static void Start()
 	{
@@ -56,6 +86,8 @@ class ZCR_DriveTest
 		if (parts.Count() > 4 && parts[4] != "-")
 			s_Instance.m_vVia = Point(parts[4]);
 		s_Instance.m_bBoth = parts.Count() > 5 && parts[5] == "both";
+		s_Instance.m_bConvoy = parts.Count() > 5 && parts[5] == "convoy";
+		s_Instance.m_bBlast = parts.Count() > 6 && parts[6] == "blast";
 		string ussrCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 		if (parts.Count() > 3 && parts[3] == "uaz")
 		{
@@ -123,16 +155,23 @@ class ZCR_DriveTest
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 track a=%2,%3 b=%4,%5 straight_m=%6 cars=%7 prefab=%8", now, Math.Round(m_vA[0]), Math.Round(m_vA[2]),
 				Math.Round(m_vB[0]), Math.Round(m_vB[2]), Math.Round(vector.DistanceXZ(m_vA, m_vB)), m_iCount, m_sPrefab), LogLevel.NORMAL);
 		}
-		if (m_aCars.Count() < m_iCount && now >= m_iNextSpawn && m_vA[1] != 0)
+		bool wantCar = m_aCars.Count() < m_iCount;
+		if (m_bConvoy)
+			wantCar = m_iConvoySpawned < m_iCount;
+		if (wantCar && now >= m_iNextSpawn && m_vA[1] != 0)
 		{
 			// One at a time and only with the start clear - like a base sending its rides out.
 			if (!StartBusy())
 				Spawn(now);
 			m_iNextSpawn = now + 12;
+			if (m_bConvoy)
+				m_iNextSpawn = now + 2;
 		}
+		if (m_bBlast)
+			BlastTick(now);
 		foreach (ZCR_DriveCar car : m_aCars)
 		{
-			if (car.m_bLost)
+			if (car.m_bLost || car.m_bDone)
 				continue;
 			// The driver is seated a moment after the spawn: the "crew out" check waits 10 s (23 Oct: both test cars were
 			// marked lost in the second they spawned).
@@ -154,9 +193,18 @@ class ZCR_DriveTest
 			int legS = now - car.m_iLegStart;
 			m_aLegs.Insert(legS);
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=ARRIVE leg=%3 leg_s=%4 to=%5", now, car.m_iIndex, car.m_iLeg, legS, ToName(car.m_bToB)), LogLevel.NORMAL);
+			if (m_bConvoy)
+			{
+				car.m_bDone = true;
+				car.m_iArrivedAt = now;
+				Remove(car);
+				continue;
+			}
 			car.m_bToB = !car.m_bToB;
 			Order(car, now);
 		}
+		if (m_bConvoy && m_iConvoySpawned >= m_iCount)
+			ConvoyTick(now);
 		if (now >= m_iNextSum)
 		{
 			m_iNextSum = now + 60;
@@ -173,7 +221,7 @@ class ZCR_DriveTest
 			int open, oldest;
 			foreach (ZCR_DriveCar c : m_aCars)
 			{
-				if (c.m_bLost)
+				if (c.m_bLost || c.m_bDone)
 					continue;
 				open++;
 				oldest = Math.Max(oldest, now - c.m_iLegStart);
@@ -198,11 +246,28 @@ class ZCR_DriveTest
 			return null;
 		ZCR_DriveCar pick;
 		float best = 200;
+		int now = ZCR_LossLog.Seconds();
+		if (s_Instance.m_iBlastAt >= 0 && !s_Instance.m_bWreckGone && now - s_Instance.m_iBlastAt < 150)
+		{
+			float nearM = 150;
+			foreach (ZCR_DriveCar w : s_Instance.m_aCars)
+			{
+				if (w.m_bLost || w.m_bDone || !w.m_Vehicle || vector.DistanceXZ(w.m_Vehicle.GetOrigin(), s_Instance.m_vWreck) >= nearM)
+					continue;
+				nearM = vector.DistanceXZ(w.m_Vehicle.GetOrigin(), s_Instance.m_vWreck);
+				pick = w;
+			}
+			if (pick)
+			{
+				label = string.Format("TEST CAR %1 - ROAD BLOCKED BY A WRECK (hit %2 s ago), %3 m from it", pick.m_iIndex, now - s_Instance.m_iBlastAt, Math.Round(nearM));
+				return pick.m_Vehicle;
+			}
+		}
 		if (s_Instance.m_vVia != vector.Zero)
 		{
 			foreach (ZCR_DriveCar c : s_Instance.m_aCars)
 			{
-				if (c.m_bLost || !c.m_Vehicle)
+				if (c.m_bLost || c.m_bDone || !c.m_Vehicle)
 					continue;
 				float d = vector.DistanceXZ(c.m_Vehicle.GetOrigin(), s_Instance.m_vVia);
 				if (d < best)
@@ -216,7 +281,7 @@ class ZCR_DriveTest
 		{
 			s_Instance.m_iCamTurn++;
 			ZCR_DriveCar next = s_Instance.m_aCars[s_Instance.m_iCamTurn % s_Instance.m_aCars.Count()];
-			if (!next.m_bLost && next.m_Vehicle)
+			if (!next.m_bLost && !next.m_bDone && next.m_Vehicle)
 				pick = next;
 		}
 		if (!pick)
@@ -224,7 +289,10 @@ class ZCR_DriveTest
 		string where = "";
 		if (pick.m_Vehicle && s_Instance.m_vVia != vector.Zero && vector.DistanceXZ(pick.m_Vehicle.GetOrigin(), s_Instance.m_vVia) < 200)
 			where = " - AT THE MOSS HILL TRAP";
-		label = string.Format("TEST CAR %1 to %2, leg %3, %4 s%5", pick.m_iIndex, ToName(pick.m_bToB), pick.m_iLeg, ZCR_LossLog.Seconds() - pick.m_iLegStart, where);
+		string who = "TEST CAR";
+		if (s_Instance.m_bConvoy)
+			who = string.Format("CONVOY %1, CAR", pick.m_iConvoy);
+		label = string.Format("%1 %2 to %3, leg %4, %5 s%6", who, pick.m_iIndex, ToName(pick.m_bToB), pick.m_iLeg, now - pick.m_iLegStart, where);
 		return pick.m_Vehicle;
 	}
 
@@ -258,9 +326,14 @@ class ZCR_DriveTest
 
 	protected bool StartBusy()
 	{
+		float clear = 10;
+		if (m_bConvoy)
+			clear = 15;
 		foreach (ZCR_DriveCar c : m_aCars)
 		{
-			if (c.m_Vehicle && (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vA) < 10 || (m_bBoth && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vB) < 10)))
+			if (c.m_bDone)
+				continue;
+			if (c.m_Vehicle && (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vA) < clear || (m_bBoth && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vB) < clear)))
 				return true;
 		}
 		return false;
@@ -314,13 +387,190 @@ class ZCR_DriveTest
 		car.m_Group = SCR_AIGroup.Cast(group);
 		car.m_bToB = !fromB;
 		car.m_iSpawnedAt = now;
+		car.m_iConvoy = m_iConvoy;
+		if (m_bConvoy)
+		{
+			if (m_iConvoySpawned == 0)
+				m_iConvoyStart = now;
+			m_iConvoySpawned++;
+		}
 		m_aCars.Insert(car);
 		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(vehicle.FindComponent(SCR_AIVehicleUsageComponent));
 		if (car.m_Group && usage && car.m_Group.GetGroupUtilityComponent() && !car.m_Group.GetGroupUtilityComponent().IsUsableVehicle(usage))
 			car.m_Group.GetGroupUtilityComponent().AddUsableVehicle(usage);
-		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 crew=%4 x=%5 z=%6", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
-			car.m_Group != null, Math.Round(pose[3][0]), Math.Round(pose[3][2])), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 crew=%4 x=%5 z=%6 convoy=%7", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
+			car.m_Group != null, Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy), LogLevel.NORMAL);
 		Order(car, now);
+	}
+
+	// Convoy: every car of this convoy arrived or lost (or 10 minutes gone) - the summary, then the next convoy.
+	protected void ConvoyTick(int now)
+	{
+		int arrived, lost, open;
+		int first = -1;
+		int last = -1;
+		bool blasted;
+		foreach (ZCR_DriveCar c : m_aCars)
+		{
+			if (c.m_iConvoy != m_iConvoy)
+				continue;
+			if (c.m_bBlasted)
+				blasted = true;
+			else if (c.m_bDone)
+			{
+				arrived++;
+				if (first < 0)
+					first = c.m_iArrivedAt - m_iConvoyStart;
+				last = Math.Max(last, c.m_iArrivedAt - m_iConvoyStart);
+			}
+			else if (c.m_bLost)
+				lost++;
+			else
+				open++;
+		}
+		if (open > 0 && now - m_iConvoyStart < 600)
+			return;
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 event=CONVOY convoy=%2 cars=%3 arrived=%4 lost=%5 open=%6 blast=%7 first_s=%8 last_s=%9", now, m_iConvoy,
+			m_iConvoySpawned, arrived, lost, open, blasted, first, last), LogLevel.NORMAL);
+		m_iConvoy++;
+		m_iConvoySpawned = 0;
+		m_iNextSpawn = now + 15;
+	}
+
+	// Convoy cars at B leave the map (crew first, the car a second later), so the next convoy finds the road and B clear.
+	protected void Remove(ZCR_DriveCar car)
+	{
+		array<IEntity> gone = {car.m_Waypoint, car.m_Via};
+		if (car.m_Group)
+		{
+			foreach (IEntity w : gone)
+			{
+				if (AIWaypoint.Cast(w))
+					car.m_Group.RemoveWaypoint(AIWaypoint.Cast(w));
+			}
+			array<AIAgent> agents = {};
+			car.m_Group.GetAgents(agents);
+			foreach (AIAgent agent : agents)
+			{
+				if (agent && agent.GetControlledEntity())
+					gone.Insert(agent.GetControlledEntity());
+			}
+		}
+		foreach (IEntity e : gone)
+		{
+			if (e)
+				RplComponent.DeleteRplEntity(e, false);
+		}
+		if (car.m_Vehicle)
+			GetGame().GetCallqueue().CallLater(DeleteLater, 1000, false, car.m_Vehicle);
+	}
+
+	protected static void DeleteLater(IEntity e)
+	{
+		if (e)
+			RplComponent.DeleteRplEntity(e, false);
+	}
+
+	protected void BlastTick(int now)
+	{
+		if (m_vVia != vector.Zero && now >= m_iNextBlast && (!m_bConvoy || (m_iConvoy % 2 == 1 && m_iBlastConvoy != m_iConvoy)))
+		{
+			foreach (ZCR_DriveCar c : m_aCars)
+			{
+				if (c.m_bLost || c.m_bDone || !c.m_Vehicle || now - c.m_iSpawnedAt < 20 || (m_bConvoy && c.m_iConvoy != m_iConvoy))
+					continue;
+				if (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vVia) < 25)
+				{
+					Blast(c, now);
+					break;
+				}
+			}
+		}
+		if (m_iBlastAt < 0)
+			return;
+		if (!m_bWreckGone && !m_Wreck)
+		{
+			m_bWreckGone = true;
+			Print(string.Format("[ZCR][DRIVETEST] t=%1 event=WRECK_GONE s=%2", now, now - m_iBlastAt), LogLevel.NORMAL);
+		}
+		foreach (ZCR_DriveCar car : m_aCars)
+		{
+			if (car.m_bLost || car.m_bDone || !car.m_Vehicle || car.m_bPastWreck)
+				continue;
+			vector target = m_vA;
+			if (car.m_bToB)
+				target = m_vB;
+			vector at = car.m_Vehicle.GetOrigin();
+			float d = vector.DistanceXZ(at, m_vWreck);
+			if (car.m_iNearWreckAt == 0)
+			{
+				if (!m_bWreckGone && d < 40 && vector.DistanceXZ(at, target) > vector.DistanceXZ(m_vWreck, target))
+					car.m_iNearWreckAt = now;
+				continue;
+			}
+			if (d > 30 && vector.DistanceXZ(at, target) < vector.DistanceXZ(m_vWreck, target) - 10)
+			{
+				car.m_bPastWreck = true;
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=PASSWRECK s=%3 wreck_there=%4", now, car.m_iIndex, now - car.m_iNearWreckAt, !m_bWreckGone), LogLevel.NORMAL);
+			}
+			else if (!car.m_bBlockedLogged && now - car.m_iNearWreckAt > 120)
+			{
+				car.m_bBlockedLogged = true;
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=BLOCKED s=%3 m=%4 x=%5 z=%6", now, car.m_iIndex, now - car.m_iNearWreckAt, Math.Round(d),
+					Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+			}
+		}
+	}
+
+	// The hit: a mortar-shell warhead set off over the car (the game's own explosion: damage, flash, sound, crater), then the
+	// car and its crew made sure of - a burnt-out wreck on the lane, as a drone or a shell leaves one in a match.
+	protected void Blast(ZCR_DriveCar car, int now)
+	{
+		vector at = car.m_Vehicle.GetOrigin();
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = at + "0 1.5 0";
+		IEntity warhead = GetGame().SpawnEntityPrefab(Resource.Load(WARHEAD), GetGame().GetWorld(), params);
+		BaseTriggerComponent trigger;
+		if (warhead)
+			trigger = BaseTriggerComponent.Cast(warhead.FindComponent(BaseTriggerComponent));
+		if (trigger)
+			trigger.OnUserTrigger(warhead);
+		GetGame().GetCallqueue().CallLater(Wreck, 400, false, car.m_Vehicle);
+		car.m_bLost = true;
+		car.m_bBlasted = true;
+		m_Wreck = car.m_Vehicle;
+		m_vWreck = at;
+		m_iBlastAt = now;
+		m_bWreckGone = false;
+		m_iNextBlast = now + 150;
+		m_iBlastConvoy = m_iConvoy;
+		foreach (ZCR_DriveCar c : m_aCars)
+		{
+			c.m_iNearWreckAt = 0;
+			c.m_bPastWreck = false;
+			c.m_bBlockedLogged = false;
+		}
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=BLAST convoy=%3 warhead=%4 x=%5 z=%6", now, car.m_iIndex, car.m_iConvoy, trigger != null,
+			Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+	}
+
+	protected static void Wreck(IEntity vehicle)
+	{
+		if (!vehicle)
+			return;
+		IEntity child = vehicle.GetChildren();
+		while (child)
+		{
+			SCR_DamageManagerComponent crew = SCR_DamageManagerComponent.Cast(child.FindComponent(SCR_DamageManagerComponent));
+			if (ChimeraCharacter.Cast(child) && crew && !crew.IsDestroyed())
+				crew.SetHealthScaled(0);
+			child = child.GetSibling();
+		}
+		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(vehicle.FindComponent(SCR_DamageManagerComponent));
+		if (damage && !damage.IsDestroyed())
+			damage.SetHealthScaled(0);
+		ZCR_Wrecks.Add(vehicle);   // a minute later off the road, as in matches
 	}
 
 	protected void Order(ZCR_DriveCar car, int now)

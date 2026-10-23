@@ -31,6 +31,12 @@ TRACKS = {
     # Head-on: the Moss Hill route with every second car starting at B - they meet on the narrow lane all the time
     # (two head-on crashes in two runs on 22 Oct, both drivers dead).
     "headon": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", True),
+    # Convoys A -> B through the same lane, one after the other (Martin, 23 Oct night: "convoy test would be great too").
+    "convoy": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "convoy"),
+    # The road blocked: every second convoy's lead car is hit at the lane, a wreck stays a minute (Martin: "they would meet
+    # and one of them would explode, so we see how the other direction reacts to the blocked road"; "convoy and the front one").
+    "convoyblast": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "convoy;blast"),
+    "headonblast": ("arland-test", "1700,1000", "2800,1600", "uaz", "2292,1277", "both;blast"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
@@ -59,7 +65,8 @@ VARIANTS = {
 def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
-    spec = f"{a};{b};{cars};{kind};{via or '-'}" + (";both" if both else "")
+    mode = ("both" if both else "") if isinstance(both, bool) else both
+    spec = f"{a};{b};{cars};{kind};{via or '-'}" + (f";{mode}" if mode else "")
     # The port in the name: two runs of the same track and setup start in the same second on the night's two ports, and
     # run folders are named label + second (23 Oct: every second run of a pair came back empty).
     label = f"drivetest-{track}-{variant}-p{port}"
@@ -98,6 +105,9 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
         "risk_caps": text.count("[ZCR][RISK]"),
+        "blasts": text.count("event=BLAST "), "blocked": text.count("event=BLOCKED"), "wreck_gone": text.count("event=WRECK_GONE"),
+        "pass_s": sorted(int(x) for x in re.findall(r"event=PASSWRECK s=(\d+)", text)),
+        "convoys": [dict(re.findall(r"(\w+)=(-?\w+)", l.split("event=CONVOY", 1)[1])) for l in text.splitlines() if "event=CONVOY" in l],
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
         "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,
