@@ -88,3 +88,26 @@ minutes = 8
 checks = ["riders >= 6", "dismount_m >= 200", "script_errors == 0", "not crashed"]
 goals = ["taken == 1"]
 note = "Martin, 23 Oct: the APC carries the infantry to the enemy; they disembark and storm (review note 328)"
+
+[[test]]
+name = "apc-head-on"
+what = "6 BTR-70s from both ends of the narrow lane: they get through, few crashes, crews don't bail"
+kind = "drive"
+track = "apc-headon"
+variant = "default"
+units = 6
+minutes = 6
+checks = ["legs >= 4", "car_hits <= 2", "script_errors == 0", "not crashed"]
+note = "23 Oct sub-lab: the game alone 0 crashes, our mod 0-2 a run (review note 322)"
+
+[[test]]
+name = "tank-head-on"
+what = "6 T-72s (Workshop mod) from both ends of the narrow lane: they get through and the game doesn't crash"
+kind = "drive"
+track = "tank-headon"
+variant = "default"
+units = 6
+minutes = 6
+checks = ["legs >= 3", "script_errors == 0", "not crashed"]
+goals = ["lost <= 1"]
+note = "23 Oct: tanks got stuck in the lane and their crews bailed (1-4 lost a run); crews now stay aboard (ZCR_CrewStays)"
