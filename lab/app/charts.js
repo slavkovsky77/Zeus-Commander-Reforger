@@ -295,7 +295,7 @@ window.LabCharts = (() => {
     const scenarios = (lab.table || []).map((r) => r.scenario);
     const tag = (v) => (lab.vlabel || {})[v] || v;
     const S = (sc) => (lab.slabel || {})[sc] || sc;
-    card(container, { title: "Score by scenario", better: "higher",
+    card(container, { title: "Score by track", better: "higher",
       why: `Average score on each track, one bar per setup. Score: ${lab.score_words || lab.score_text}.` }, () => {
       const series = used.map((v) => ({ name: tag(v), type: "bar", barMaxWidth: 18, itemStyle: { color: color(v), borderRadius: [3, 3, 0, 0] },
         data: scenarios.map((sc) => { const c = ((lab.table.find((r) => r.scenario === sc) || {}).cells || {})[v]; return c ? c.score : null; }) }));
