@@ -297,13 +297,17 @@ class ZCR_GunTest
 		string factor;
 		if (!u.m_bPerceptionSet && System.GetCLIParam("zcrCrewPerception", factor) && !factor.IsEmpty())
 		{
-			u.m_bPerceptionSet = true;
+			// Done once a crewman has it - the crew is seated 1.5 s after the vehicle appears (23 Oct: marked done before
+			// anyone was aboard, the factor never reached them; the integration test spot-far caught it).
 			IEntity crewman = u.m_Vehicle.GetChildren();
 			while (crewman)
 			{
 				SCR_AICombatComponent sharp = SCR_AICombatComponent.Cast(crewman.FindComponent(SCR_AICombatComponent));
 				if (sharp)
+				{
 					sharp.SetPerceptionFactor(factor.ToFloat());
+					u.m_bPerceptionSet = true;
+				}
 				crewman = crewman.GetSibling();
 			}
 		}
