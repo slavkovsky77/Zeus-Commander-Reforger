@@ -7,16 +7,16 @@ runner = "lab/guntest.py"
 minutes = 8
 units = 2
 scenarios = ["apc-duel", "apc-vs-squad", "tank-duel", "ifv-vs-squad"]
-variants = ["raw", "default", "reloadfix"]
+variants = ["raw", "default", "reloadfix", "spotfar"]
 baseline = "raw"
 candidate = "default"
 score = "fired_pct/10 + first_m/100 + turret_kills"
 higher_is_better = true
-keys = ["fired_pct", "sight_m", "first_m", "rounds", "turret_kills", "vehicles_lost", "squad_men_lost"]
+keys = ["fired_pct", "sight_m", "detect_m", "first_m", "rounds", "turret_kills", "vehicles_lost", "squad_men_lost"]
 title = "Vehicle guns"
 main = "first_m"
 conclusion_at = "23 Oct 13:30 - running"
-conclusion = """Still running. Found so far: on the first ground (the north farm road) hedges and trees hid the two sides until 45-95 m, so they only fired point-blank - the ground's fault, not the AI's. Moved to Arland's airfield (800 m of open ground, one of 9 clear 800-m lines on the island): the vehicles see each other at 730-800 m and open fire at about 440 m. Crews still get out of damaged vehicles that are not destroyed."""
+conclusion = """Still running. Found so far: the AI notices enemy vehicles only at about 490 m - with a clear view from 750-800 m - and fires 3-5 s after noticing; so the limit is spotting, not the guns. With the crews spotting 3x faster (the game's perception factor): noticed at 615-641 m, first shots at 490-578 m (one run so far). Earlier: on the first ground (the north farm road) hedges and trees hid the two sides until 45-95 m, so they only fired point-blank - the ground's fault, not the AI's. Moved to Arland's airfield (800 m of open ground, one of 9 clear 800-m lines on the island): the vehicles see each other at 730-800 m and open fire at about 440 m. Crews still get out of damaged vehicles that are not destroyed."""
 score_words = "the share of vehicles that fired (10 points for all), plus 1 point per 100 m of the first shot's distance, plus 1 for each kill by a turret gunner"
 baseline_words = "the game's own AI, with nothing of ours"
 candidate_words = "our mod as it is now"
@@ -25,11 +25,13 @@ candidate_words = "our mod as it is now"
 raw = "Game's AI alone"
 default = "Our mod"
 reloadfix = "Our mod + AI Turret Reload Fix"
+spotfar = "Our mod + crews spot 3x faster"
 
 [variant_words]
 raw = "nothing of ours driving or fighting"
 default = "our mod as it is now (vehicle rules on; nothing of ours for the guns yet)"
 reloadfix = "our mod plus the Workshop AI Turret Reload Fix (gunners reload their turret guns)"
+spotfar = "our mod, and the vehicle crews recognise what they see 3 times faster (the game's own AI perception factor)"
 
 [scenario_labels]
 apc-duel = "APCs against APCs"
@@ -49,6 +51,13 @@ short = "m at first sight"
 title = "Distance when they could first see the enemy"
 better = "higher"
 axis = "metres to the nearest enemy at the first clear line of sight (median) - the most a gunner could have used"
+
+[[questions]]
+key = "detect_m"
+short = "m when noticed"
+title = "Distance when the crew noticed the enemy"
+better = "higher"
+axis = "metres to the enemy when a crewman's AI first noticed it (median) - they fire seconds after this"
 
 [[questions]]
 key = "fired_pct"
