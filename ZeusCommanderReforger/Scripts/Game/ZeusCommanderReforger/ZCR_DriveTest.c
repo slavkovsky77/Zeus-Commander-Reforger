@@ -103,6 +103,9 @@ class ZCR_DriveTest
 		}
 		else if (parts.Count() > 3 && parts[3] == "m923")
 			s_Instance.m_sPrefab = "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et";
+		// The world's minefields across roads go, as in matches (AI Conflict's step, off with -aicfOff): on the Conflict map
+		// the first cars hit TM-62M mines east of A in every run (review note 317).
+		AICF_RoadMines.Start();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
 	}
 
