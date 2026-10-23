@@ -134,7 +134,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "convoys": [dict(re.findall(r"(\w+)=(-?\w+)", l.split("event=CONVOY", 1)[1])) for l in text.splitlines() if "event=CONVOY" in l],
         "offroad_pct": round(100 * off / moving) if moving else None,
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
-        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,
+        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name, "run_path": str(run_dir),
     })
     return out
 

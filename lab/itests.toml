@@ -1,0 +1,90 @@
+# Quick tests (Martin, 23 Oct: "all these tests should be reproducible, saved somewhere - they will act as integration
+# tests in the future, quick tests"; review note 328). Each one a small scenario played headless for a few minutes, with
+# checks on its summary (lab/drivetest.py or lab/guntest.py): checks must pass; goals are what we work towards and may
+# still fail. Run: python lab/itest.py (all, three at a time) | python lab/itest.py NAME ... | python lab/itest.py --list
+# Results: .runtime/itests/<time>.json and latest.json.
+
+[[test]]
+name = "head-on-slowdown"
+what = "8 UAZs meeting head-on on the narrow Moss Hill lane: our head-on slow-down keeps them from crashing into each other"
+kind = "drive"
+track = "headon"
+variant = "default"
+units = 8
+minutes = 6
+checks = ["car_hits == 0", "legs >= 4", "script_errors == 0", "not crashed"]
+note = "the game's driver alone: 5 crashes a run (driving night 23 Oct; review notes 309-310)"
+
+[[test]]
+name = "convoy-wreck"
+what = "UAZ convoys whose lead is hit at the lane: the cars behind get past the wreck"
+kind = "drive"
+track = "convoyblast"
+variant = "default"
+units = 5
+minutes = 6
+checks = ["blasts >= 1", "blocked == 0", "legs >= 4", "script_errors == 0", "not crashed"]
+note = "cars got past in 8-24 s on 23 Oct (review note 311)"
+
+[[test]]
+name = "mines-cleared"
+what = "the Moss Hill track on the Conflict map: the world's road minefield east of A is cleared, the first cars live"
+kind = "drive"
+track = "mosshill-conflict"
+variant = "default"
+units = 6
+minutes = 3
+checks = ["lost == 0", "script_errors == 0", "not crashed"]
+note = "a row of 6 TM-62M at 1875,1125 blew up the first cars in every run before (review note 317)"
+
+[[test]]
+name = "traffic-runs"
+what = "the traffic simulation: troop trucks, supply trucks and vans deliver between four stops"
+kind = "drive"
+track = "traffic"
+variant = "default"
+units = 8
+minutes = 5
+checks = ["deliveries >= 2", "script_errors == 0", "not crashed"]
+note = "review note 313"
+
+[[test]]
+name = "spot-far"
+what = "LAV-25s and BTR-70s across the open airfield with the crews spotting 3x faster: they notice and fire from far"
+kind = "guns"
+scenario = "apc-duel"
+variant = "spotfar"
+minutes = 4
+checks = ["fired_pct == 100", "detect_m >= 550", "first_m >= 450", "script_errors == 0", "not crashed"]
+note = "normal spotting: noticed at ~490 m, first shots ~440 m; x3: 612-641 m and 490-578 m (review note 324)"
+
+[[test]]
+name = "crews-stay-aboard"
+what = "two BTR-70s attack a rifle squad; their route fails short of it - the crews stay aboard and fight"
+kind = "guns"
+scenario = "apc-vs-squad"
+variant = "spotfar"
+minutes = 5
+checks = ["crew_out == 0", "rounds >= 50", "script_errors == 0", "not crashed"]
+note = "before ZCR_CrewStays the crews got out of undamaged BTRs and were shot on foot, 0 rounds (review note 327)"
+
+[[test]]
+name = "tanks-run"
+what = "Abrams against T-72 (Workshop mods) on the airfield: both fire, the game doesn't crash"
+kind = "guns"
+scenario = "tank-duel"
+variant = "spotfar"
+minutes = 4
+checks = ["fired_pct == 100", "script_errors == 0", "not crashed"]
+note = "the Workshop tanks crashed watched matches on 21 Oct"
+
+[[test]]
+name = "storm"
+what = "an Abrams in overwatch and a LAV-25 carrying a US squad attack a Soviet squad defending its point with a BTR-70"
+kind = "guns"
+scenario = "storm"
+variant = "spotfar"
+minutes = 8
+checks = ["riders >= 6", "dismount_m >= 200", "script_errors == 0", "not crashed"]
+goals = ["taken == 1"]
+note = "Martin, 23 Oct: the APC carries the infantry to the enemy; they disembark and storm (review note 328)"

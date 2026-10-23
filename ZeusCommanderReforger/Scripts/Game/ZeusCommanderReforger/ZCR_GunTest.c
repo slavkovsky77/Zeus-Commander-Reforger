@@ -5,8 +5,9 @@
 //              game's rifle squad: 9 men, 2 of them with light anti-tank rockets)
 //   role       vehicles: attack (default: drive at the objective) | overwatch (stop 300 m short of it and fire from there) |
 //              hold (stay where they are) | carry (an APC with a rifle squad of its side in the back: drives at the
-//              objective, the squad gets out 250 m short of it and assaults it - Search and Destroy - while the APC
-//              stays and fires; Martin, 23 Oct: "the APC would carry infantry to the enemy, they disembark and storm");
+//              objective, the squad gets out 250 m short of it and assaults it - Search and Destroy - and 20 s later the APC
+//              follows them in and fights (Search and Destroy too); Martin, 23 Oct: "the APC would carry infantry to the
+//              enemy, they disembark and storm"; "the crew of the vehicle should continue and attack the enemies");
 //              squads: hold (default: stay where they are) | defend (the game's Defend waypoint: take positions round
 //              their point) | attack (Search and Destroy at the objective)
 // A side's objective is the other side's first group's point. Vehicles get a crew in the driver's and every turret seat
@@ -20,6 +21,7 @@
 //   [ZCR][GUNTEST] t= event=LOST side= unit= kind= why=destroyed|crew_dead|crew_out|squad_dead
 //   [ZCR][GUNTEST] t= event=RIDERS side= unit= men= carrier=        (the squad seated in the APC's back)
 //   [ZCR][GUNTEST] t= event=DISMOUNT side= unit= m= enemy_m= men= why=near|carrier_lost|stopped   (m: to the objective)
+//   [ZCR][GUNTEST] t= event=ADVANCE side= unit=   (the APC follows its squad in, 20 s after the dismount)
 //   [ZCR][GUNTEST] t= event=TAKEN side= men_near=   (the side's soldiers within 40 m of its objective, no enemy within 60 m)
 //   [ZCR][GUNTEST_SUM] t= us_units= us_alive= us_men= us_shots= ussr_units= ussr_alive= ussr_men= ussr_shots= first_us_m= first_ussr_m=   (every 30 s)
 // Shots come from ZCR_VehicleGuns (the turrets' ammunition, read every second).
@@ -230,8 +232,8 @@ class ZCR_GunTest
 	{
 		// The crew is seated 1.5 s after the vehicle appears: nothing counts as lost in the first 20 s (23 Oct: in the
 		// watched game every vehicle was "lost" a second after it spawned, its crew not yet aboard).
-		if (now - u.m_iSpawnedAt < 20 && u.m_Vehicle)
-			return "";
+		if (now - u.m_iSpawnedAt < 20)
+			return "";   // squads too: a group's soldiers appear a moment after it (one was "dead" at t=11, 23 Oct)
 		if (u.m_sKind == "squad" || u.m_sKind == "riders")
 		{
 			if (!u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
@@ -546,7 +548,18 @@ class ZCR_GunTest
 				enemy = NearestEnemy(r.m_Carrier);
 			Print(string.Format("[ZCR][GUNTEST] t=%1 event=DISMOUNT side=%2 unit=%3 m=%4 enemy_m=%5 men=%6 why=%7", now, r.m_sSide, r.m_iIndex,
 				Math.Round(vector.DistanceXZ(at, objective)), Math.Round(enemy), AICF_GroupRuntime.CountAliveAgents(r.m_Group), why), LogLevel.NORMAL);
+			if (r.m_Carrier && !r.m_Carrier.m_bLost)
+				GetGame().GetCallqueue().CallLater(Advance, 20000, false, r.m_Carrier, objective);
 		}
+	}
+
+	// The APC follows its squad in and fights, instead of standing where it dropped them (Martin, watching the storm).
+	protected void Advance(ZCR_GunUnit carrier, vector objective)
+	{
+		if (!carrier || carrier.m_bLost || !carrier.m_Group || !carrier.m_Vehicle)
+			return;
+		Waypoint(carrier, objective, "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et", 40);
+		Print(string.Format("[ZCR][GUNTEST] t=%1 event=ADVANCE side=%2 unit=%3", ZCR_LossLog.Seconds(), carrier.m_sSide, carrier.m_iIndex), LogLevel.NORMAL);
 	}
 
 	// A side's objective taken: its living soldiers (any group) within 40 m of it, no living enemy within 60 m.

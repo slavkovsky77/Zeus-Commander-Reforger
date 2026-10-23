@@ -105,6 +105,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "us_men_lost": men_lost["US"], "ussr_men_lost": men_lost["USSR"],
         "squad_men_lost": men_lost["US"] if squad["US"] else (men_lost["USSR"] if squad["USSR"] else None),
         "vehicles_lost": sum(1 for x in lost if x.get("kind") != "squad"),
+        "crew_out": sum(1 for x in lost if x.get("why") == "crew_out"),   # vehicles left by their crew
         "loss_lines": text.count("[ZCR][LOSS]"), "turret_kills": len(re.findall(r"\[ZCR\]\[LOSS\].* turret=", text)),
         "empty_turrets": text.count("[ZCR][VEHGUNS_EMPTY]"),
         "riders": sum(riders_n.values()),
@@ -113,7 +114,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "taken_us_s": taken.get("US", 0), "taken_ussr_s": taken.get("USSR", 0), "taken": int(bool(taken)),
         "minutes": round(int(last.get("t", 0) or 0) / 60, 1),
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
-        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,
+        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name, "run_path": str(run_dir),
     })
     return out
 
