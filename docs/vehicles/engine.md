@@ -64,7 +64,6 @@ Feedback Tracker T191334 (pathfinding glitches), T177755 (AI won't get out of th
   [Dev Report #20](https://reforger.armaplatform.com/news/dev-report-20) - the only official words on AI driving. No
   vehicle-AI tutorial exists.
 - The code: Bohemia's game scripts for 1.8.0.13 in `D:\work\reforger-api\Arma-Reforger-Script-Diff-1.8.0.13\scripts`
-eforger-api\Arma-Reforger-Script-Diff-1.8.0.13\scripts`
   (generated engine declarations under `Game/generated`). 139 scripts on AI and vehicles: group vehicles
   (`SCR_AIGroupVehicleManager`, `SCR_AIGetUsableVehicle`, `SCR_AIFindAvailableVehicle`), seats (`SCR_AIGetInActivity`,
   `SCR_AIGetOutActivity`, `SCR_AIChangeCompartment`, `SCR_AIOccupyDriversInUsedVehicles`, `SCR_AIFindTurrets`), moving
