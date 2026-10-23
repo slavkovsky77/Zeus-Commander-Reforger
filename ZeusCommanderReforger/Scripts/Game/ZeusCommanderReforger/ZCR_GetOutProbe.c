@@ -121,6 +121,26 @@ modded class SCR_AIGetOutActivity
 		if (utility && vehicle && ZCR_GetOutProbe.On())
 			ZCR_GetOutProbe.Log("group", vehicle, priority, relatedWaypoint != null);
 	}
+
+	// Crews of armed vehicles stay aboard (ZCR_CrewStays): a group get-out not tied to a waypoint - the game's answer to a
+	// failed move - waits while the vehicle is armed and intact. (Neither our code nor AI Conflict makes these; AI
+	// Conflict unloads its rides seat by seat.)
+	override float CustomEvaluate()
+	{
+		if (!m_RelatedWaypoint && m_Vehicle && ZCR_CrewStays.HoldGroup(m_Vehicle.m_Value))
+			return 0;
+		return super.CustomEvaluate();
+	}
+
+	override void OnActionSelected()
+	{
+		if (!m_RelatedWaypoint && m_Vehicle && ZCR_CrewStays.HoldGroup(m_Vehicle.m_Value))
+		{
+			Fail();
+			return;
+		}
+		super.OnActionSelected();
+	}
 }
 
 // -zcrDamageProbe (23 Oct night): every hit on a soldier sitting in a vehicle - on the Conflict map test drivers died at

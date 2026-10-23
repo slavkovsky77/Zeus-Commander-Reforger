@@ -1672,9 +1672,24 @@ modded class SCR_AIGetOutVehicle
 			ZCR_GetOutProbe.Log("soldier", vehicleEntity, priority, groupActivity != null);
 	}
 
+	// A priority of 0 alone didn't hold them (23 Oct: with nothing else to do the get-out still ran) - the order is
+	// dropped the moment it would start.
+	override void OnActionSelected()
+	{
+		if (m_Vehicle && (ZCR_Armour.KeepAboard(m_Vehicle.m_Value) || (m_Utility && ZCR_CrewStays.Keep(m_Utility.m_OwnerEntity, m_Vehicle.m_Value))))
+		{
+			Fail();
+			return;
+		}
+		super.OnActionSelected();
+	}
+
 	override float CustomEvaluate()
 	{
 		if (m_Vehicle && ZCR_Armour.KeepAboard(m_Vehicle.m_Value))
+			return 0;
+		// Every armed vehicle's driver and turret crew too, while it is intact (ZCR_CrewStays).
+		if (m_Vehicle && m_Utility && ZCR_CrewStays.Keep(m_Utility.m_OwnerEntity, m_Vehicle.m_Value))
 			return 0;
 		return super.CustomEvaluate();
 	}

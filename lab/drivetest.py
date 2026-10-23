@@ -58,7 +58,7 @@ TRACKS = {
 
 VARIANTS = {
     # name: (extra server parameters, extra mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic -zcrCrewsLeave", ""),
     "moveturrets": ("-zcrMoveTurrets", ""),                                    # ours, and stuck armour gets pushed back too (off since 22 Oct: crashes)  # the game's driver alone
     "default": ("", ""),                                                      # ours: push back-offs, early unjam, oncoming slow-down, spacing
     "nospacing": ("-zcrNoSpacing", ""),                                       # ours without the spacing rule

@@ -21,6 +21,7 @@ class ZCR_GunUnit
 	Vehicle m_Vehicle;
 	SCR_AIGroup m_Group;
 	int m_iShots;
+	int m_iSpawnedAt;
 	int m_iFirstShotAt = -1;
 	int m_iFirstSightAt = -1;
 	int m_iFirstDetectAt = -1;
@@ -146,7 +147,7 @@ class ZCR_GunTest
 		{
 			if (u.m_bLost)
 				continue;
-			string why = LostWhy(u);
+			string why = LostWhy(u, now);
 			if (why.IsEmpty())
 				continue;
 			u.m_bLost = true;
@@ -182,8 +183,12 @@ class ZCR_GunTest
 		return string.Format("%1_units=%2 %1_alive=%3 %1_men=%4 %1_shots=%5", tag, units, alive, men, shots);
 	}
 
-	protected static string LostWhy(ZCR_GunUnit u)
+	protected static string LostWhy(ZCR_GunUnit u, int now)
 	{
+		// The crew is seated 1.5 s after the vehicle appears: nothing counts as lost in the first 20 s (23 Oct: in the
+		// watched game every vehicle was "lost" a second after it spawned, its crew not yet aboard).
+		if (now - u.m_iSpawnedAt < 20 && u.m_Vehicle)
+			return "";
 		if (u.m_sKind == "squad")
 		{
 			if (!u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
@@ -374,6 +379,7 @@ class ZCR_GunTest
 			params.Transform[axis] = pose[axis];
 		ZCR_GunUnit unit = new ZCR_GunUnit();
 		unit.m_iIndex = m_aUnits.Count() + 1;
+		unit.m_iSpawnedAt = now;
 		unit.m_sSide = side;
 		unit.m_sKind = kind;
 		int crew;
@@ -387,13 +393,23 @@ class ZCR_GunTest
 		else
 		{
 			unit.m_Vehicle = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(Prefab(kind)), GetGame().GetWorld(), params));
+			// The crew 1.5 s later, as ZCR_Armour does: seated in the same frame the vehicle appears, the watched game
+			// (the game hosting the match itself) left them out of the seats - no turret manned, nobody driving.
 			if (unit.m_Vehicle)
-				crew = Crew(unit, side);
+				GetGame().GetCallqueue().CallLater(CrewLater, 1500, false, unit, side, target);
 		}
 		m_aUnits.Insert(unit);
 		Print(string.Format("[ZCR][GUNTEST] t=%1 event=SPAWN side=%2 unit=%3 kind=%4 crew=%5 x=%6 z=%7", now, side, unit.m_iIndex, kind, crew,
 			Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
-		if (unit.m_Vehicle && unit.m_Group)
+	}
+
+	protected void CrewLater(ZCR_GunUnit unit, string side, vector target)
+	{
+		if (!unit || !unit.m_Vehicle)
+			return;
+		int crew = Crew(unit, side);
+		Print(string.Format("[ZCR][GUNTEST] t=%1 event=CREW side=%2 unit=%3 kind=%4 crew=%5", ZCR_LossLog.Seconds(), side, unit.m_iIndex, unit.m_sKind, crew), LogLevel.NORMAL);
+		if (unit.m_Group)
 			Order(unit, target);
 	}
 

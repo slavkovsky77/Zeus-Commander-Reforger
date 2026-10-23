@@ -28,7 +28,7 @@ SCENARIOS = {
 WORKSHOP = {"t72", "m1a1", "bmp1", "bradley"}
 VARIANTS = {
     # name: (extra command line, Workshop mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),   # the game's AI alone
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic -zcrCrewsLeave", ""),   # the game's AI alone
     "default": ("", ""),                                                         # our mod as it is now
     "reloadfix": ("", "72DB162D129C40D9"),                                       # ours + the AI Turret Reload Fix mod
     "spotfar": ("-zcrCrewPerception 3", ""),                                     # ours, crews recognise what they see 3x faster
@@ -75,7 +75,8 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     first_m = [int(f["m"]) for f in firsts if f.get("m", "").lstrip("-").isdigit()]
     last = sums[-1] if sums else {}
     g = lambda k: int(last.get(k, 0) or 0)
-    men0 = {s: sum(int(x.get("crew", 0)) for x in spawns if x.get("side") == s and x.get("kind") != "squad") for s in ("US", "USSR")}
+    crews = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=CREW" in l]   # seated 1.5 s after the spawn
+    men0 = {s: sum(int(x.get("crew", 0)) for x in crews if x.get("side") == s) for s in ("US", "USSR")}
     squad = {s: any(x.get("kind") == "squad" for x in spawns if x.get("side") == s) for s in ("US", "USSR")}
     men_start = {s: (9 if squad[s] else 0) + men0[s] for s in ("US", "USSR")}
     men_lost = {s: max(0, men_start[s] - g(f"{s.lower()}_men")) for s in ("US", "USSR")}
