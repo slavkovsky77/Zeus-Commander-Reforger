@@ -114,7 +114,7 @@ class ZCR_DriveTest
 	}
 
 	// The road point nearest to p, on the ground; p itself without a road near.
-	protected static vector OnRoad(vector p)
+	static vector OnRoad(vector p)
 	{
 		vector best = p;
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
@@ -586,7 +586,9 @@ class ZCR_DriveTest
 		AIWaypoint waypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
 		if (!waypoint)
 			return;
-		waypoint.SetCompletionRadius(20);
+		// 8 m, inside the 30-m arrival check: at 20 m a car doing 50 km/h completed the order between two 1-s checks, stood
+		// without one and its crew got out (the "crew_out near B" losses, 23 Oct).
+		waypoint.SetCompletionRadius(8);
 		AIWaypoint old = car.m_Waypoint;
 		AIWaypoint oldVia = car.m_Via;
 		car.m_Via = null;
@@ -621,7 +623,7 @@ modded class SCR_BaseGameMode
 	protected override void OnGameStart()
 	{
 		super.OnGameStart();
-		if (Replication.IsServer() && System.IsCLIParam("zcrDriveTest"))
+		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim")))
 			ZCR_Driving.Start();
 	}
 }
