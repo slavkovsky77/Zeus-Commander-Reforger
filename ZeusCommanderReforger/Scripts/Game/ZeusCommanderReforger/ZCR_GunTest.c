@@ -7,6 +7,8 @@
 //   [ZCR][GUNTEST] t= event=SPAWN side= unit= kind= crew= x= z=
 //   [ZCR][GUNTEST] t= event=FIRST_SIGHT side= unit= kind= m=  (first clear line from the turret to an enemy, checked every 2 s:
 //                                                              terrain, buildings, trees and bushes block it)
+//   [ZCR][GUNTEST] t= event=FIRST_DETECT side= unit= kind= m=  (a crewman's perception first lists an enemy; m: its distance)
+//   [ZCR][GUNTEST] t= event=FIRST_TARGET side= unit= kind= m=  (a crewman's combat AI first picks an enemy to fire at)
 //   [ZCR][GUNTEST] t= event=FIRST_SHOT side= unit= kind= m=   (the distance to the nearest living enemy then)
 //   [ZCR][GUNTEST] t= event=LOST side= unit= kind= why=destroyed|crew_dead|crew_out|squad_dead
 //   [ZCR][GUNTEST_SUM] t= us_units= us_alive= us_men= us_shots= ussr_units= ussr_alive= ussr_men= ussr_shots= first_us_m= first_ussr_m=   (every 30 s)
@@ -21,6 +23,9 @@ class ZCR_GunUnit
 	int m_iShots;
 	int m_iFirstShotAt = -1;
 	int m_iFirstSightAt = -1;
+	int m_iFirstDetectAt = -1;
+	int m_iFirstTargetAt = -1;
+	bool m_bPerceptionSet;
 	bool m_bLost;
 }
 
@@ -149,7 +154,7 @@ class ZCR_GunTest
 		}
 		if (now >= m_iNextSight)
 		{
-			m_iNextSight = now + 2;
+			m_iNextSight = now + 1;
 			Sight(now);
 		}
 		if (now >= m_iNextSum)
@@ -204,6 +209,11 @@ class ZCR_GunTest
 		BaseWorld world = GetGame().GetWorld();
 		if (!m_Trace)
 			m_Trace = new TraceParam();
+		foreach (ZCR_GunUnit c : m_aUnits)
+		{
+			if (!c.m_bLost && c.m_Vehicle)
+				Crew(c, now);
+		}
 		foreach (ZCR_GunUnit u : m_aUnits)
 		{
 			if (u.m_bLost || !u.m_Vehicle || u.m_iFirstSightAt >= 0)
@@ -225,6 +235,54 @@ class ZCR_GunTest
 			if (m_mSightM.Get(u.m_sSide) < 0)
 				m_mSightM.Set(u.m_sSide, m);
 			Print(string.Format("[ZCR][GUNTEST] t=%1 event=FIRST_SIGHT side=%2 unit=%3 kind=%4 m=%5", now, u.m_sSide, u.m_iIndex, u.m_sKind, m), LogLevel.NORMAL);
+		}
+	}
+
+	// What the crew knows: the first enemy any crewman's perception lists, and the first one a crewman's combat AI picks to
+	// fire at - against the clear line of sight and the first shot this tells whether they don't see far or don't fire far.
+	protected void Crew(ZCR_GunUnit u, int now)
+	{
+		// -zcrCrewPerception N: the crew recognise what they see N times faster (the game's SCR_AICombatComponent
+		// perception factor, 1 normally) - on the airfield they noticed enemy vehicles only at ~490 m with a clear view from 750-800 m.
+		string factor;
+		if (!u.m_bPerceptionSet && System.GetCLIParam("zcrCrewPerception", factor) && !factor.IsEmpty())
+		{
+			u.m_bPerceptionSet = true;
+			IEntity crewman = u.m_Vehicle.GetChildren();
+			while (crewman)
+			{
+				SCR_AICombatComponent sharp = SCR_AICombatComponent.Cast(crewman.FindComponent(SCR_AICombatComponent));
+				if (sharp)
+					sharp.SetPerceptionFactor(factor.ToFloat());
+				crewman = crewman.GetSibling();
+			}
+		}
+		if (u.m_iFirstDetectAt >= 0 && u.m_iFirstTargetAt >= 0)
+			return;
+		IEntity child = u.m_Vehicle.GetChildren();
+		while (child)
+		{
+			ChimeraCharacter man = ChimeraCharacter.Cast(child);
+			child = child.GetSibling();
+			if (!man)
+				continue;
+			PerceptionComponent perception = PerceptionComponent.Cast(man.FindComponent(PerceptionComponent));
+			if (u.m_iFirstDetectAt < 0 && perception && perception.GetTargetCount(ETargetCategory.ENEMY) > 0)
+			{
+				BaseTarget seen = perception.GetClosestTarget(ETargetCategory.ENEMY, 100000, 100000);
+				if (seen)
+				{
+					u.m_iFirstDetectAt = now;
+					Print(string.Format("[ZCR][GUNTEST] t=%1 event=FIRST_DETECT side=%2 unit=%3 kind=%4 m=%5", now, u.m_sSide, u.m_iIndex, u.m_sKind, Math.Round(seen.GetDistance())), LogLevel.NORMAL);
+				}
+			}
+			SCR_AICombatComponent combat = SCR_AICombatComponent.Cast(man.FindComponent(SCR_AICombatComponent));
+			if (u.m_iFirstTargetAt < 0 && combat && combat.GetCurrentTarget())
+			{
+				u.m_iFirstTargetAt = now;
+				Print(string.Format("[ZCR][GUNTEST] t=%1 event=FIRST_TARGET side=%2 unit=%3 kind=%4 m=%5", now, u.m_sSide, u.m_iIndex, u.m_sKind,
+					Math.Round(combat.GetCurrentTarget().GetDistance())), LogLevel.NORMAL);
+			}
 		}
 	}
 

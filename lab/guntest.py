@@ -31,6 +31,7 @@ VARIANTS = {
     "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),   # the game's AI alone
     "default": ("", ""),                                                         # our mod as it is now
     "reloadfix": ("", "72DB162D129C40D9"),                                       # ours + the AI Turret Reload Fix mod
+    "spotfar": ("-zcrCrewPerception 3", ""),                                     # ours, crews recognise what they see 3x faster
 }
 
 
@@ -66,6 +67,8 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     firsts = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=FIRST_SHOT" in l]
     sights = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=FIRST_SIGHT" in l]
     sight_m = [int(x["m"]) for x in sights if x.get("m", "").lstrip("-").isdigit()]
+    ev = lambda name: [int(kv(l)["m"]) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and f"event={name}" in l and kv(l).get("m", "").lstrip("-").isdigit()]
+    detect_m, target_m = ev("FIRST_DETECT"), ev("FIRST_TARGET")
     lost = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=LOST" in l]
     sums = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST_SUM]" in l]
     vehicles = [s for s in spawns if s.get("kind") != "squad"]
@@ -83,6 +86,8 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "fired_pct": round(100 * len(firsts) / len(vehicles)) if vehicles else 0,
         "first_m": round(statistics.median(first_m)) if first_m else 0,
         "sight_m": round(statistics.median(sight_m)) if sight_m else 0,   # how far apart when they could first see each other
+        "detect_m": round(statistics.median(detect_m)) if detect_m else 0,   # when a crewman's perception first listed an enemy
+        "target_m": round(statistics.median(target_m)) if target_m else 0,   # when a crewman's combat AI first picked one
         "rounds": g("us_shots") + g("ussr_shots"), "us_rounds": g("us_shots"), "ussr_rounds": g("ussr_shots"),
         "us_units_lost": units_lost["US"], "ussr_units_lost": units_lost["USSR"],
         "us_men_lost": men_lost["US"], "ussr_men_lost": men_lost["USSR"],
