@@ -57,7 +57,7 @@ def main() -> int:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     VIDEOS.mkdir(exist_ok=True)
     mkv = VIDEOS / f"{stamp}_{tag}.mkv"
-    runner = subprocess.Popen([sys.executable, "-u", str(HERE / f"{a.runner}.py"), a.scenario, "--variant", a.variant, "--minutes", str(a.minutes), "--watch"],
+    runner = subprocess.Popen([sys.executable, "-u", str(HERE / f"{a.runner}.py"), a.scenario, "--variant", a.variant, "--minutes", str(a.minutes), "--watch", "--port", "2178"],
                               cwd=str(ROOT))
     ff = None
     t0 = time.time()

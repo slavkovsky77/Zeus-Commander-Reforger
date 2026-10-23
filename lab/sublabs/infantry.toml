@@ -9,7 +9,7 @@ pass_rule = "on every scenario the candidate loses fewer men than the game's AI 
 runner = "lab/inftest.py"
 minutes = 12
 units = 1
-scenarios = ["storm-foot"]
+scenarios = ["storm-foot", "storm-village"]
 variants = ["game", "dco"]
 baseline = "game"
 candidate = "dco"
@@ -33,9 +33,11 @@ dco = "the DCO_AI Reforger mod from the Workshop on every soldier of both squads
 
 [scenario_labels]
 storm-foot = "Storm on foot (Moss Hill farm)"
+storm-village = "Storm a village"
 
 [scenario_words]
 storm-foot = "a US rifle squad (9 men) attacks a Soviet rifle squad (6 men) holding Moss Hill farm on its hilltop, 450 m away: open ground at the foot of the hill, woods in the middle, then about 100 m of open slope up to the farm"
+storm-village = "the same US squad attacks the Soviet squad holding the village west of Moss Hill (35 buildings), 450 m away across fields with hedges, walls and tree rows, slightly downhill"
 
 [[questions]]
 key = "taken"

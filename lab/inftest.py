@@ -27,10 +27,15 @@ SCENARIOS = {
     # high), held by a Soviet rifle squad; the US start 450 m south at the foot of the hill (23 m): open ground first,
     # woods in the middle, ~100 m of open slope up to the farm.
     "storm-foot": ("squad:1:2270,788:attack", "squad:1:2270,1238:defend"),
+    # Village: the same squads, the Soviets holding the village west of Moss Hill (35 buildings, 55 walls within 40 m,
+    # 31 m high), the US from 450 m east (51 m): fields with hedges, walls and tree rows on the way (-zcrCoverScan).
+    "storm-village": ("squad:1:1920,1138:attack", "squad:1:1470,1138:defend"),
 }
 SCENARIO_WORDS = {
     "storm-foot": "a US rifle squad (9 men) attacks a Soviet rifle squad (6 men) holding Moss Hill farm on its hilltop, 450 m away: "
                   "open ground, woods, then an open slope up to the farm",
+    "storm-village": "the same US squad attacks the Soviet squad holding the village west of Moss Hill (35 buildings), 450 m away "
+                     "across fields with hedges, walls and tree rows, slightly downhill",
 }
 VARIANTS = {
     # name: (extra command line, Workshop mods, words)
