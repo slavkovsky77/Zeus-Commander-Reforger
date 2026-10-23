@@ -10,7 +10,9 @@
 //   [ZCR][CROSSING] t= side= vehicle= other= m= other_m= dt= kmh= other_kmh= x= z=     (gives way: m to the crossing)
 //   [ZCR][CROSSING] t= side= vehicle= event=go wait_s= why=passed|far|gone|timeout
 //   [ZCR][CROSSING_SUM] t= give_ways= passed= timeouts=                              (every 60 s, totals)
-// -zcrNoCrossing turns it off.
+// OFF by default since 23 Oct 19:40 (-zcrCrossing on): measured on the supply route (6 trucks, 10 min) it made things
+// worse - car-on-car hits 2, 2, 2 in three runs against 2, 0, 0, 0, 0 without it (trucks stopping at bad spots); the
+// junction slow-down (ZCR_Junction) is the junction rule now.
 class ZCR_Crossing
 {
 	static const float SEE_M = 70;
@@ -34,7 +36,7 @@ class ZCR_Crossing
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoCrossing"))
+		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrCrossing") || System.IsCLIParam("zcrNoCrossing"))
 			return;
 		s_Instance = new ZCR_Crossing();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);

@@ -74,7 +74,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
                        for k in ("covered", "prone", "incover")}
     deaths = [kv(l) for l in text.splitlines() if "[ZCR][LOSS]" in l and "relation=KILLED_BY_ENEMY" in l]
     stood = [d for d in deaths if d.get("stance") == "STAND"]
-    open_ = [d for d in deaths if d.get("covered") == "false"]
+    open_ = [d for d in deaths if d.get("covered") in ("0", "false")]
     dist = [int(d["distance"]) for d in deaths if d.get("distance", "").isdigit()]
     first = min((int(d["t"]) for d in deaths if d.get("t", "").isdigit()), default=0)
     # Losses from the head count of the first summary (a US rifle squad is 9 men, a Soviet one 6).

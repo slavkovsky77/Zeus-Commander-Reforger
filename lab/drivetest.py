@@ -72,7 +72,8 @@ VARIANTS = {
     "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
     "nocrossing": ("-zcrNoCrossing -zcrNoJunction", ""),                      # ours without the crossing and junction rules (before 23 Oct evening)
-    "nojunction": ("-zcrNoJunction", ""),                                     # ours with the crossing rule but not the junction slow-down
+    "nojunction": ("-zcrCrossing -zcrNoJunction", ""),                        # ours with the crossing rule but not the junction slow-down
+    "crossing": ("-zcrCrossing", ""),                                         # ours plus the crossing rule (off by default since 23 Oct 19:40)
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
     "competent": ("", "68FCF11534562F2E"),                                    # + Competent AI driving (turn radius, trucks/APCs)
