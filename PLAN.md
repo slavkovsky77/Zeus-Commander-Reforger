@@ -4,6 +4,9 @@ Martin's wishes and remarks, grouped by theme, with the review note numbers (ac-
 and where each stands. Kept up to date with every change; `python lab/plan_page.py` builds the page.
 Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **Fixed** (a bug).
 
+## Driving night 23 Oct (report https://claude.ai/artifact/5Gbg9CnAJcf1RpBWkJdENK)
+- [Done] 79 test runs, 9 tracks: our head-on slow-down takes car-on-car hits 5 -> 0 a run on the lane, trucks 6.5 -> 1.5 (0 with "best"); Moss Hill test losses were mines (317), the Everon exit's closed gates (316, decision for Martin); v2 forecast shelved (315); winner "best" ~ v1; watched block with "best" 07:22-10:20.
+
 ## Night 20 Oct (Martin asleep 02:25-10:00; report https://claude.ai/artifact/CgNScfPGHX6GQCJnZpgBGb)
 - [Done] Soldiers don't care about danger (212) | Danger layer: high danger never standing, medium crouched when still. In high danger standing 72% -> 10% (42 matches).
 - [Done] Killed by drones outdoors with a house right there (211, 221, 222) | Prone every second within 150 m; buildings first; defend orders at the base's building cluster. Drone victims standing 91% -> 40%, prone 0.5% -> 26%.
