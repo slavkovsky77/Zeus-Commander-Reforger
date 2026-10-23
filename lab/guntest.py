@@ -18,17 +18,23 @@ ROOT = Path(__file__).resolve().parent.parent
 # US point, USSR point: the two ends of Arland's airfield, 800 m apart with a clear view (2 m of rise; -zcrLosScan found 9
 # clear 800-m lines on the whole island). The north farm road first used hid them from each other until 45-95 m.
 US_AT, USSR_AT = "1720,2838", "920,2838"
+POINTS = {"US": US_AT, "USSR": USSR_AT, "US2": "1720,2862", "USSR2": "960,2860"}   # second groups beside the first
 SCENARIOS = {
-    # name: (US side, USSR side) as kind:count - the game's own APCs, or the Workshop tanks / IFVs (loaded with --armour)
-    "apc-duel": ("lav25:2", "btr70:2"),           # two LAV-25s against two BTR-70s, driving at each other
-    "apc-vs-squad": ("squad:1", "btr70:2"),       # two BTR-70s attack a US rifle squad (9 men, 2 light anti-tank rockets)
-    "tank-duel": ("m1a1:1", "t72:1"),             # Abrams against T-72 (Workshop mods)
-    "ifv-vs-squad": ("squad:1", "bmp1:2"),        # two BMP-1s attack a US rifle squad (Workshop mods)
+    # name: (US side, USSR side): groups kind:count:point[:role] joined by + (ZCR_GunTest.c); the game's own APCs, or the
+    # Workshop tanks / IFVs (loaded with --armour)
+    "apc-duel": ("lav25:2:{US}", "btr70:2:{USSR}"),           # two LAV-25s against two BTR-70s, driving at each other
+    "apc-vs-squad": ("squad:1:{US}", "btr70:2:{USSR}"),       # two BTR-70s attack a US rifle squad (9 men, 2 light anti-tank rockets)
+    "tank-duel": ("m1a1:1:{US}", "t72:1:{USSR}"),             # Abrams against T-72 (Workshop mods)
+    "ifv-vs-squad": ("squad:1:{US}", "bmp1:2:{USSR}"),        # two BMP-1s attack a US rifle squad (Workshop mods)
+    # Storm (Martin, 23 Oct: "NATO: tank + infantry group + APC - the APC carries the infantry to the enemy infantry and APC
+    # group; they disembark and storm"): an Abrams in overwatch and a LAV-25 with a US rifle squad aboard against a Soviet
+    # rifle squad defending its point (AT, assistant AT, light AT) and a BTR-70 beside it.
+    "storm": ("m1a1:1:{US}:overwatch+lav25:1:{US2}:carry", "squad:1:{USSR}:defend+btr70:1:{USSR2}:hold"),
 }
 WORKSHOP = {"t72", "m1a1", "bmp1", "bradley"}
 VARIANTS = {
     # name: (extra command line, Workshop mods)
-    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", ""),   # the game's AI alone
+    "raw": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic -zcrCrewsLeave", ""),   # the game's AI alone
     "default": ("", ""),                                                         # our mod as it is now
     "reloadfix": ("", "72DB162D129C40D9"),                                       # ours + the AI Turret Reload Fix mod
     "spotfar": ("-zcrCrewPerception 3", ""),                                     # ours, crews recognise what they see 3x faster
@@ -38,14 +44,14 @@ VARIANTS = {
 def run(scenario: str, variant: str, minutes: float, units: int, port: int) -> dict:
     us, ussr = SCENARIOS[scenario]
     extra, mods = VARIANTS[variant]
-    spec = f"{us}:{US_AT};{ussr}:{USSR_AT}"
+    spec = f"{us.format(**POINTS)};{ussr.format(**POINTS)}"
     label = f"guntest-{scenario}-{variant}-p{port}"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none",
             "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrGunTest {spec} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
-    if any(k.split(":")[0] in WORKSHOP for k in (us, ussr)):
+    if any(g.split(":")[0] in WORKSHOP for k in (us, ussr) for g in k.split("+")):
         argv += ["--armour"]
     subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                    creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
@@ -75,9 +81,15 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     first_m = [int(f["m"]) for f in firsts if f.get("m", "").lstrip("-").isdigit()]
     last = sums[-1] if sums else {}
     g = lambda k: int(last.get(k, 0) or 0)
-    men0 = {s: sum(int(x.get("crew", 0)) for x in spawns if x.get("side") == s and x.get("kind") != "squad") for s in ("US", "USSR")}
-    squad = {s: any(x.get("kind") == "squad" for x in spawns if x.get("side") == s) for s in ("US", "USSR")}
-    men_start = {s: (9 if squad[s] else 0) + men0[s] for s in ("US", "USSR")}
+    crews = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=CREW" in l]   # seated 1.5 s after the spawn
+    men0 = {s: sum(int(x.get("crew", 0)) for x in crews if x.get("side") == s) for s in ("US", "USSR")}
+    squads = {s: sum(1 for x in spawns if x.get("kind") == "squad" and x.get("side") == s) for s in ("US", "USSR")}   # 9 men each
+    squad = {s: squads[s] > 0 for s in ("US", "USSR")}
+    riders = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=RIDERS" in l]
+    dismounts = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=DISMOUNT" in l]
+    taken = {x.get("side"): int(x.get("t", 0)) for x in (kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=TAKEN" in l)}
+    riders_n = {s: sum(int(x.get("men", 0)) for x in riders if x.get("side") == s) for s in ("US", "USSR")}
+    men_start = {s: 9 * squads[s] + men0[s] + riders_n[s] for s in ("US", "USSR")}
     men_lost = {s: max(0, men_start[s] - g(f"{s.lower()}_men")) for s in ("US", "USSR")}
     units_lost = {s: sum(1 for x in lost if x.get("side") == s) for s in ("US", "USSR")}
     # The attacker is the side with vehicles; in a duel both are.
@@ -93,11 +105,16 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "us_men_lost": men_lost["US"], "ussr_men_lost": men_lost["USSR"],
         "squad_men_lost": men_lost["US"] if squad["US"] else (men_lost["USSR"] if squad["USSR"] else None),
         "vehicles_lost": sum(1 for x in lost if x.get("kind") != "squad"),
+        "crew_out": sum(1 for x in lost if x.get("why") == "crew_out"),   # vehicles left by their crew
         "loss_lines": text.count("[ZCR][LOSS]"), "turret_kills": len(re.findall(r"\[ZCR\]\[LOSS\].* turret=", text)),
         "empty_turrets": text.count("[ZCR][VEHGUNS_EMPTY]"),
+        "riders": sum(riders_n.values()),
+        "dismount_m": round(statistics.median([int(x["m"]) for x in dismounts])) if dismounts else 0,       # to the objective
+        "dismount_enemy_m": round(statistics.median([int(x["enemy_m"]) for x in dismounts if x.get("enemy_m", "").isdigit()])) if dismounts else 0,
+        "taken_us_s": taken.get("US", 0), "taken_ussr_s": taken.get("USSR", 0), "taken": int(bool(taken)),
         "minutes": round(int(last.get("t", 0) or 0) / 60, 1),
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
-        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name,
+        "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name, "run_path": str(run_dir),
     })
     return out
 

@@ -74,6 +74,14 @@ def record(name: str, row: dict) -> dict:
     row.setdefault("scenario", row.get("track"))
     row.setdefault("at", datetime.now().strftime("%Y-%m-%d %H:%M"))
     row["score"] = score(d, row)
+    # The code it ran (run.json, written by lab/reforger.py): to tell results of different builds apart and replay them.
+    meta = Path(row.get("run_path") or ROOT / ".runtime" / "runs" / str(row.get("run", ""))) / "run.json"
+    if row.get("run") and meta.is_file():
+        try:
+            m = json.loads(meta.read_text(encoding="utf-8"))
+            row.update({"commit": m.get("commit", "")[:12], "dirty": m.get("dirty"), "repo": m.get("repo")})
+        except Exception:
+            pass
     p = results_path(name)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:

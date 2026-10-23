@@ -142,6 +142,20 @@ def console_log(profile: Path):
     return logs[-1] if logs else None
 
 
+def provenance(a, cmd: list) -> dict:
+    """What a run ran, to replay it (Martin, 23 Oct: "are we making these experiments reproducible?"): the arguments,
+    the exact command, and the code - this repo's git commit and whether files were changed but not committed.
+    lab/sublab.py copies commit and dirty into each row; python lab/rerun.py RUN replays it."""
+    def git(*args) -> str:
+        try:
+            return subprocess.run(["git", *args], cwd=str(ROOT), capture_output=True, text=True, timeout=20).stdout.strip()
+        except Exception:
+            return ""
+    return {"args": vars(a), "command": cmd, "repo": str(ROOT), "commit": git("rev-parse", "HEAD"),
+            "branch": git("rev-parse", "--abbrev-ref", "HEAD"), "dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
+            "started": datetime.now().isoformat(timespec="seconds")}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--map", default="everon", choices=sorted(MAPS))
@@ -174,6 +188,7 @@ def main() -> int:
         print(f"missing {exe} - install it first (Steam: Library > Tools > Arma Reforger Server)")
         return 1
     profile.mkdir(parents=True)
+    (profile / "run.json").write_text(json.dumps(provenance(a, cmd), indent=1), encoding="utf-8")
     if a.client or getattr(a, "solo", False):
         window_settings(profile / "profile")
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
