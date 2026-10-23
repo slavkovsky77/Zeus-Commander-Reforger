@@ -52,12 +52,33 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .chip.ok { color: var(--good); background: var(--good-soft); border-color: transparent; }
 .chip.no { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
 .chip.wait { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
-.sublab-card { display: grid; gap: 12px; }
+.sublab-card { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+#sublab, .summary, .ended { grid-template-columns: minmax(0, 1fr); }
 .sublab-card h3 { margin: 6px 0 0; }
 .sublab-card .question { font-size: 17px; margin: 0; }
 .ended { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; display: grid; gap: 4px; }
 .ended p { margin: 0; line-height: 1.55; max-width: 80ch; }
 .ended .lead { font-weight: 600; font-size: 1.05em; }
+.summary { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 6px; display: grid; gap: 8px; min-width: 0; }
+.summary > *, .summary .sum-cols > * { min-width: 0; }
+.summary .tbl, .tracktbl .tbl { overflow-x: auto; }
+.summary .verdict { margin: 0; font-size: 1.15em; font-weight: 600; line-height: 1.4; max-width: 80ch; }
+.summary h4 { margin: 6px 0 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.summary ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.summary li { line-height: 1.45; }
+.summary .sum-cols { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+@media (max-width: 760px) { .summary .sum-cols { grid-template-columns: 1fr; gap: 6px; } }
+.summary .keynums { background: var(--panel); }
+.summary .keynums th .sub { font-size: 11px; font-weight: 400; }
+.summary .keynums td.best { background: var(--good-soft); font-weight: 700; }
+.summary .next { margin: 2px 0 0; }
+.keynums .sub { font-size: 11px; font-weight: 400; }
+.keynums td.best { background: var(--good-soft); }
+.keynums td.best .avg { font-weight: 700; }
+.keynums .avg { font-size: 15px; }
+.tracktbl { margin: 6px 0; }
+.tracktbl summary { cursor: pointer; padding: 4px 0; }
+.summary .next .tag { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 .ended ul { margin: 2px 0 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80ch; }
 .ended li { line-height: 1.5; }
 .eyebrow { font: 600 11px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
@@ -551,6 +572,35 @@ video { width: 100%; border-radius: 8px; background: #000; }
     return out;
   }
 
+  // The summary with structure (Martin, 23 Oct 22:35: "text should have structure"): the verdict, the key numbers per setup
+  // (averages of the runs, the best in each column marked), what we learned, the limits, what is next.
+  function summaryBlock(l, sm, V, S) {
+    const qs = l.questions || [];
+    const keys = l.overall_keys || [];
+    const setups = Object.keys(l.overall || {});
+    const q = (k) => qs.find((x) => x.key === k) || { key: k, title: k.replace(/_/g, " "), better: "higher" };
+    const val = (k, x) => x == null ? "–" : q(k).share ? Math.round(x * 100) + "%" : (Math.round(x * 10) / 10).toString();
+    const best = {};
+    keys.forEach((k) => {
+      const vals = setups.map((v) => l.overall[v][k]).filter((x) => x != null);
+      if (vals.length > 1 && Math.min(...vals) !== Math.max(...vals)) best[k] = q(k).better === "lower" ? Math.min(...vals) : Math.max(...vals);
+    });
+    const head = `<tr><th>Setup</th><th>Runs</th>${keys.map((k) => `<th title="${esc(q(k).axis || "")}">${esc(q(k).title || k)}<br><span class="muted sub">${q(k).better === "lower" ? "lower is better" : "higher is better"}</span></th>`).join("")}</tr>`;
+    const body = setups.map((v) => {
+      const c = l.overall[v];
+      return `<tr><td><b>${esc(V(v))}</b></td><td class="mono">${c.n}</td>${keys.map((k) => `<td class="mono${best[k] != null && c[k] === best[k] ? " best" : ""}">${val(k, c[k])}</td>`).join("")}</tr>`;
+    }).join("");
+    const list = (xs) => (xs || []).map((x) => `<li>${esc(x)}</li>`).join("");
+    return `<div class="summary">
+      <div class="eyebrow">Summary${sm.at ? " · " + esc(sm.at) : ""}</div>
+      <p class="verdict">${esc(sm.verdict)}</p>
+      <h4>Key numbers · ${sm.track ? esc(S(sm.track)) : "all tracks, average per run"}</h4>
+      <div class="tbl"><table class="keynums"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <div class="sum-cols"><div><h4>What we learned</h4><ul>${list(sm.learned)}</ul></div><div><h4>Limits</h4><ul>${list(sm.limits)}</ul></div></div>
+      ${sm.next ? `<p class="next"><span class="tag">Next</span> ${esc(sm.next)}</p>` : ""}
+    </div>`;
+  }
+
   function renderSublab(labs) {
     const key = JSON.stringify(labs);
     if (key === sublabSeen) return;   // redraw only when a run was added
@@ -609,21 +659,52 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> · <b>${esc(S(r.scenario))}</b> · ${esc(V(r.variant))} · <span class="muted">${nums(r)}</span></div>`).join("");
       const setups = ran.map((v) => `<li><b>${esc(V(v))}</b>: ${esc((l.vwords || {})[v] || "")}</li>`).join("");
       const trackList = (l.table || []).map((r) => `<li><b>${esc(S(r.scenario))}</b>: ${esc((l.swords || {})[r.scenario] || "")}</li>`).join("");
-      const ended = l.conclusion ? `<div class="ended"><div class="eyebrow">How it ended${l.conclusion_at ? " · " + esc(l.conclusion_at) : ""}</div>${prose(l.conclusion)}</div>` : `<div class="ended"><div class="eyebrow">How it ended</div><p class="muted">No conclusion yet - the runs are still coming in.</p></div>`;
+      const sm = l.summary || {};
+      const ended = sm.verdict ? summaryBlock(l, sm, V, S) : l.conclusion ? `<div class="ended"><div class="eyebrow">How it ended${l.conclusion_at ? " · " + esc(l.conclusion_at) : ""}</div>${prose(l.conclusion)}</div>` :`<div class="ended"><div class="eyebrow">How it ended</div><p class="muted">No conclusion yet - the runs are still coming in.</p></div>`;
       return `<div class="card sublab-card"><div class="row" style="justify-content:space-between"><h2>${esc(l.title || l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
         <p class="question">${esc(l.question)}</p>
         ${ended}
         ${result}
         ${heat}
-        <h3>Graphs per track</h3>
-        <div class="sublab-charts" data-lab="${li}" style="display:grid;gap:12px"></div>
+        <h3>Every run, per track</h3>
+        <p class="muted">The average per setup, and under it every run's own value - so one lucky or unlucky run shows. Green: the best average in the column.</p>
+        ${trackTables(l, V, S)}
         <details><summary>How it is measured: the setups, the tracks, the score, the pass rule</summary>
           <p><b>Setups</b></p><ul>${setups}</ul><p><b>Tracks</b></p><ul>${trackList}</ul>
           <p><b>Score</b> (one number per run, higher is better): ${esc(l.score_words || l.score_text)}.</p>
           <p><b>Passes when</b> ${esc(l.pass_rule)}.</p></details>
         ${recent ? `<details><summary>Last runs</summary><div style="display:grid;gap:4px;margin-top:6px">${recent}</div></details>` : ""}</div>`;
     }).join("") || '<div class="empty">No sub-labs.</div>';
-    if (window.LabCharts) for (const el of document.querySelectorAll(".sublab-charts")) LabCharts.renderSublab(el, labs[+el.dataset.lab]);
+  }
+
+  // Per track: setups down, questions across; each cell the average and every run's value (Martin, 23 Oct 22:40: "these
+  // charts are not very useful - maybe a table?" - with 3-6 runs a setup the spread is the story, bars of averages hid it).
+  function trackTables(l, V, S) {
+    const qs = (l.questions || []).filter((q) => (l.keys || []).includes(q.key));
+    if (!qs.length) return "";
+    const runs = (l.all || []).filter((r) => !r.watched);
+    const val = (q, x) => x == null ? "–" : q.share ? Math.round(x * 100) + "%" : (Math.round(x * 10) / 10).toString();
+    const one = (q, x) => x == null ? "–" : q.share ? (x ? "yes" : "no") : (Math.round(x * 10) / 10).toString();
+    return (l.table || []).map((row, ti) => {
+      const setups = (l.variants || []).filter((v) => row.cells[v]);
+      const best = {};
+      qs.forEach((q) => {
+        const vals = setups.map((v) => row.cells[v][q.key]).filter((x) => x != null);
+        if (vals.length > 1 && Math.min(...vals) !== Math.max(...vals)) best[q.key] = q.better === "lower" ? Math.min(...vals) : Math.max(...vals);
+      });
+      const head = `<tr><th>Setup</th>${qs.map((q) => `<th title="${esc(q.axis || "")}">${esc(q.title)}<br><span class="muted sub">${q.better === "lower" ? "lower is better" : "higher is better"}</span></th>`).join("")}</tr>`;
+      const body = setups.map((v) => {
+        const mine = runs.filter((r) => r.scenario === row.scenario && r.variant === v);
+        return `<tr><td><b>${esc(V(v))}</b><br><span class="muted sub">${mine.length} runs</span></td>${qs.map((q) => {
+          const avg = row.cells[v][q.key];
+          const each = mine.map((r) => one(q, r[q.key])).join(" · ");
+          return `<td class="mono${best[q.key] != null && avg === best[q.key] ? " best" : ""}"><span class="avg">${val(q, avg)}</span><br><span class="muted sub">${esc(each)}</span></td>`;
+        }).join("")}</tr>`;
+      }).join("");
+      return `<details class="tracktbl"${ti === 0 ? " open" : ""}><summary><b>${esc(S(row.scenario))}</b> <span class="muted">· ${setups.length} setups</span></summary>
+        <p class="muted" style="margin:6px 0">${esc((l.swords || {})[row.scenario] || "")}</p>
+        <div class="tbl"><table class="keynums"><thead>${head}</thead><tbody>${body}</tbody></table></div></details>`;
+    }).join("");
   }
   $("videos").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-video]");

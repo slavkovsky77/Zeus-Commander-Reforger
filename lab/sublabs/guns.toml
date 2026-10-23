@@ -93,3 +93,31 @@ short = "kills"
 title = "Kills by turret gunners"
 better = "higher"
 axis = "soldiers and vehicles killed by turret guns in the run"
+
+[summary]
+at = "23 Oct 18:40 · 35 runs on Arland's airfield"
+verdict = "Spotting 3x faster is the best setup on every scenario: every vehicle fires, and from about 100 m further out."
+setups = [
+  "raw",
+  "default",
+  "reloadfix",
+  "spotfar",
+]
+numbers = [
+  "fired_pct",
+  "detect_m",
+  "first_m",
+  "rounds",
+  "turret_kills",
+]
+learned = [
+  "Spotting is the limit, not the guns: the AI notices an enemy vehicle at ~490 m though it can see 750-800 m, and fires 3-5 s after noticing.",
+  "With the game's own spotting only half the vehicles fired at infantry; with spotting 3x all of them.",
+  "The AI Turret Reload Fix mod changed nothing.",
+  "Crews now stay aboard (they used to get out when a move failed and were shot on foot) - integration test crews-stay-aboard.",
+]
+limits = [
+  "2-4 runs per setup and scenario, all on the open airfield.",
+  "IFVs against a squad still open fire under 300 m: the pass rule is met on 3 of 4 scenarios.",
+]
+next = "Switch spot-far on for armour crews in the watched matches."

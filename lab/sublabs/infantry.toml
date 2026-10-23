@@ -56,6 +56,7 @@ storm-village = "the same US squad attacks the Soviet squad holding the village 
 [[questions]]
 key = "taken"
 short = "taken"
+share = true
 title = "Position taken"
 better = "higher"
 axis = "1 when US soldiers were within 40 m of the farm with no Soviet soldier alive within 60 m"
@@ -94,3 +95,32 @@ short = "m fighting distance"
 title = "Fighting distance"
 better = "higher"
 axis = "median distance between killer and killed, metres"
+
+[summary]
+at = "23 Oct 21:40 · 18 clean runs, 3 per setup and storm"
+verdict = "With DCO on both sides the defence wins: attacks took the position 2 times in 6, against 5 in 6 with the game's AI."
+setups = [
+  "game",
+  "ours",
+  "dco",
+]
+numbers = [
+  "taken",
+  "us_lost",
+  "ussr_lost",
+  "us_cover",
+  "fight_m",
+  "died_open_pct",
+]
+learned = [
+  "DCO soldiers fight more like soldiers: more time in cover and fire opened from further out (village 54-144 m against 35-92 m).",
+  "DCO defenders are hard to dislodge: 9 attackers against 6 on the farm's hilltop failed 2 of 3 times.",
+  "Our soldier layer (hold 60 m from a seen enemy, never stand in danger) barely changes the game's AI: the same results, fights a bit further out.",
+  "DCO and our mod load together without errors (integration test dco-loads).",
+]
+limits = [
+  "3 runs per setup and storm: one storm is close to a coin flip - every setup had a run where the whole attack died.",
+  "DCO can't be switched off for one side, so it is always on both sides.",
+  "Only two storms, 9 against 6, no vehicles or support.",
+]
+next = "Watch the clean DCO videos; then our commander with DCO in a full watched match."

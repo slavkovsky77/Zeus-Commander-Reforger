@@ -133,3 +133,35 @@ title = "Trips made"
 better = "higher"
 short = "trips a run"
 axis = "trips from one end to the other (traffic: deliveries) per 10-minute run"
+
+[summary]
+at = "23 Oct 22:30 · 79 night runs, 16 watched matches, 20 evening runs"
+verdict = "Our vehicle mod alone is the best: head-on crashes on the narrow lane 5 -> 0 a run, and no Workshop driving mod adds anything."
+track = "headon"
+setups = [
+  "raw",
+  "default",
+  "nooncoming",
+  "nospacing",
+  "crx",
+  "jmvai",
+  "best",
+]
+numbers = [
+  "car_hits",
+  "lost",
+  "jams",
+  "legs",
+]
+learned = [
+  "The head-on slow-down does it: switch only that off and the lane has 3 crashes a run again.",
+  "Trucks both ways through the lane: 6.5 crashes a run -> 1.5.",
+  "Junctions (evening, supply route): the give-way rule made it worse (a crash in every run) - off; the junction slow-down (both 20 km/h) - 0 crashes in 5 runs - on.",
+  "A car standing in the lane was ignored by the head-on rule; a UAZ hit one at 51 km/h. Fixed at 22:00, the next run had 0 crashes.",
+  "Test losses at Moss Hill were the world's road mines, the Everon exit closed gates - not driving.",
+]
+limits = [
+  "Key numbers are for the head-on lane only - the other tracks are in the tables below.",
+  "In full matches still ~4 crashes between cars a match (16 watched, before the junction rules).",
+]
+next = "The junction slow-down in watched matches."

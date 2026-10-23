@@ -145,7 +145,21 @@ def matrix(name: str) -> dict:
             row["cells"][v] = cell
         if row["cells"]:
             table.append(row)
+    # The summary's key numbers: each setup's average over its runs (on summary.track only, if one is named).
+    summary = d.get("summary", {})
+    keys = summary.get("numbers") or [q["key"] for q in d.get("questions", [])] or d["keys"]
+    overall = {}
+    for v in summary.get("setups") or d["variants"]:
+        group = [r for r in rs if r.get("variant") == v and not r.get("watched") and (not summary.get("track") or r.get("scenario") == summary["track"])]
+        if not group:
+            continue
+        cell = {"n": len(group), "tracks": len({r.get("scenario") for r in group})}
+        for k in keys:
+            vals = [x.get(k) for x in group if isinstance(x.get(k), (int, float)) and not isinstance(x.get(k), bool)]
+            cell[k] = round(statistics.mean(vals), 2) if vals else None
+        overall[v] = cell
     return {"name": name, "question": d.get("question", ""), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""), "score_text": d["score"],
+            "summary": summary, "overall": overall, "overall_keys": keys,
             "title": d.get("title", name), "score_words": d.get("score_words", ""), "baseline_words": d.get("baseline_words", ""),
             "candidate_words": d.get("candidate_words", ""), "vlabel": d.get("variant_labels", {}), "vwords": d.get("variant_words", {}),
             "slabel": d.get("scenario_labels", {}), "swords": d.get("scenario_words", {}), "questions": d.get("questions", []), "main": d.get("main", ""), "caveats": d.get("scenario_caveats", {}), "conclusion": d.get("conclusion", ""), "conclusion_at": d.get("conclusion_at", ""),
