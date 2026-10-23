@@ -10,7 +10,7 @@ runner = "lab/inftest.py"
 minutes = 12
 units = 1
 scenarios = ["storm-foot", "storm-village"]
-variants = ["game", "ours", "dco", "game60", "dco60"]
+variants = ["game", "ours", "dco", "dcoours", "dcoatt", "dcodef", "game60", "dco60"]
 baseline = "game"
 candidate = "dco"
 score = "10*taken + ussr_lost - us_lost + (us_cover or 0)/10 - (died_open_pct or 0)/20"
@@ -35,6 +35,9 @@ candidate_words = "the DCO_AI Reforger mod"
 game = "Game's AI"
 ours = "Game's AI + our soldier layer"
 dco = "DCO_AI mod"
+dcoours = "DCO + our soldier layer"
+dcoatt = "DCO attacks, DCO-min defends"
+dcodef = "DCO-min attacks, DCO defends"
 game60 = "Game's AI + our hold-back (first runs)"
 dco60 = "DCO + our hold-back (first runs)"
 
@@ -42,6 +45,9 @@ dco60 = "DCO + our hold-back (first runs)"
 game = "the game's own soldier AI alone"
 ours = "the game's AI with our soldier layer as in matches: hold 60 m from a seen enemy instead of closing to 15 m, never standing in danger"
 dco = "the DCO_AI Reforger mod from the Workshop on every soldier of both squads (default settings), alone"
+dcoours = "DCO on both squads plus our soldier layer: hold 60 m from a seen enemy instead of closing in, never standing in danger (Martin, 23 Oct: 'maybe DCO + our hold-back + something')"
+dcoatt = "full DCO on the attackers; the defenders get DCO turned down (all its behaviour switches off, the game's perception) - as close to the game's AI as DCO allows (it can't be switched off for one side)"
+dcodef = "the attackers get DCO turned down; full DCO on the defenders"
 game60 = "the first runs (19:17-20:20): the game's AI with our 60-m hold-back still on - it is always loaded with our mod"
 dco60 = "the first runs (19:30-20:20): DCO with our 60-m hold-back still on"
 
@@ -103,6 +109,7 @@ setups = [
   "game",
   "ours",
   "dco",
+  "dcoours",
 ]
 numbers = [
   "taken",

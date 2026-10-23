@@ -44,6 +44,10 @@ VARIANTS = {
     "game": ("-zcrStandoff 0", "", "the game's own soldier AI alone"),
     "ours": ("-zcrSoldierLayer", "", "the game's AI with our soldier layer: hold 60 m from a seen enemy instead of closing to 15 m, never standing in danger"),
     "dco": ("-zcrStandoff 0", DCO, "the DCO_AI Reforger mod (Workshop) on both squads, alone"),
+    # Martin, 23 Oct 22:50: "maybe DCO + our hold-back + something" (the first runs with the hold-back on took the farm 3 of 3)
+    "dcoours": ("-zcrSoldierLayer", DCO, "DCO with our soldier layer: hold 60 m from a seen enemy instead of closing in, never standing in danger"),
+    "dcoatt": ("-zcrStandoff 0", DCO, "full DCO attacks; the defenders have DCO turned down (all its switches off, the game's perception) - as close to the game's AI as DCO allows"),
+    "dcodef": ("-zcrStandoff 0", DCO, "DCO turned down attacks (all its switches off, the game's perception); full DCO defends"),
     "game60": ("", "", "the game's AI with our 60-m hold-back (the first runs, 23 Oct 19:17-20:20)"),
     "dco60": ("", DCO, "DCO with our 60-m hold-back (the first runs, 23 Oct 19:30-20:20)"),
 }
@@ -55,6 +59,27 @@ def _title(name: str, scenario: str, variant: str) -> str:
     return sublab.title(name, scenario, variant)
 
 
+# "DCO turned down" for one side (Martin, 24 Oct 01:10: "vanilla vs DCO, switch attack and defence roles"). DCO can't be
+# switched off for one side (it replaces the game's soldier scripts and 18 of its behaviour trees for everyone), so the
+# closest is its own per-faction settings: every behaviour switch off, close-quarters drills, stragglers, contact sharing
+# and night behaviour off, perception back to the game's 1.0 (DCO's default 1.5). Written into the run's profile.
+DCO_MIN = {**{k: False for k in ['behATSpecialist', 'behAmbushDrill', 'behAssaultFire', 'behAwareness', 'behBreakContact', 'behBuddyCallout', 'behCombinedArms', 'behContactSOP', 'behEnemyWeapons', 'behExplosionReactions', 'behHearing', 'behLeaderRTOGrenadier', 'behLeanPeek', 'behMGGunner', 'behMarksman', 'behPinned', 'behPistolCQB', 'behPlayerVoice', 'behProneMove', 'behReactionTime', 'behRearm', 'behRearmEnemySources', 'behReloadDiscipline', 'behSecurity360', 'behSpecialistRecovery', 'behSuppressLastKnown', 'behTargetPriority', 'behWindowFire']},
+           "cqbEnabled": False, "stragglerEnabled": False, "shareEnabled": False, "nightEnabled": False, "aiPerception": 1.0}
+SEEDS = {
+    "dcoatt": {"factions": {"USSR": DCO_MIN}},   # full DCO attacks (US), the defenders (USSR) DCO turned down
+    "dcodef": {"factions": {"US": DCO_MIN}},     # the attackers (US) DCO turned down, full DCO defends (USSR)
+}
+
+
+def seed(variant: str):
+    if variant not in SEEDS:
+        return None
+    d = ROOT / ".runtime" / "seeds" / variant
+    (d / "DCO").mkdir(parents=True, exist_ok=True)
+    (d / "DCO" / "DCO_GlobalConfig.json").write_text(json.dumps(SEEDS[variant], indent=1), encoding="utf-8")
+    return d
+
+
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False) -> dict:
     us, ussr = SCENARIOS[scenario]
     extra, mods, _ = VARIANTS[variant]
@@ -64,6 +89,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
             "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('infantry', scenario, variant)} -zcrGunTest {us};{ussr} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
+    if seed(variant):
+        argv += ["--seed-profile", str(seed(variant))]
     if watch:
         argv += ["--watch", "--solo"]
     subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,

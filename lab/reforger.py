@@ -169,6 +169,7 @@ def main() -> int:
     ap.add_argument("--solo", action="store_true", help="the game on screen hosting the match itself (singleplayer; the Diag Menu's time multiplier works here)")
     ap.add_argument("--drones", action="store_true", help="load FPV AI Drones + Realistic Combat Drones")
     ap.add_argument("--armour", action="store_true", help="load the armour mods (Bradley, BMP-1, Abrams, T-72) for ZCR_Armour")
+    ap.add_argument("--seed-profile", default="", help="a folder copied into the game profile before the start (e.g. DCO/DCO_GlobalConfig.json)")
     ap.add_argument("--mods", default="", help="extra Workshop mods by id, comma-separated (found or fetched by lab/workshop.py), e.g. 6A8490E1621E7B3C")
     ap.add_argument("--armour-addons", default="", help="other armour mods instead of the WCS family (addon ids), e.g. the CIE set of lab/stress.py")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
@@ -188,6 +189,9 @@ def main() -> int:
         print(f"missing {exe} - install it first (Steam: Library > Tools > Arma Reforger Server)")
         return 1
     profile.mkdir(parents=True)
+    if getattr(a, "seed_profile", ""):
+        import shutil
+        shutil.copytree(a.seed_profile, profile / "profile", dirs_exist_ok=True)
     (profile / "run.json").write_text(json.dumps(provenance(a, cmd), indent=1), encoding="utf-8")
     if a.client or getattr(a, "solo", False):
         window_settings(profile / "profile")
