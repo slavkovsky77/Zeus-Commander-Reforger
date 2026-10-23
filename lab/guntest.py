@@ -1,6 +1,6 @@
 """The guns test (23 Oct, Martin: "a subtest with guns being used, maybe against each other or against some infantry -
 this sub-lab should test some tanks and APCs"; review note 322). Crewed armour of the two sides meets, or armour attacks
-the game's rifle squad, on open fields of the Arland test map (ZCR_GunTest.c, -zcrGunTest). The runner of the sub-lab
+the game's rifle squad, across the open airfield of the Arland test map (ZCR_GunTest.c, -zcrGunTest). The runner of the sub-lab
 "guns" (lab/sublabs/guns.toml):
 
     python lab/guntest.py apc-duel --variant default --minutes 8
@@ -15,8 +15,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# US point, USSR point: the north farm road on Arland, 1.3 km apart over open fields.
-US_AT, USSR_AT = "2450,2950", "1200,3250"
+# US point, USSR point: the two ends of Arland's airfield, 800 m apart with a clear view (2 m of rise; -zcrLosScan found 9
+# clear 800-m lines on the whole island). The north farm road first used hid them from each other until 45-95 m.
+US_AT, USSR_AT = "1720,2838", "920,2838"
 SCENARIOS = {
     # name: (US side, USSR side) as kind:count - the game's own APCs, or the Workshop tanks / IFVs (loaded with --armour)
     "apc-duel": ("lav25:2", "btr70:2"),           # two LAV-25s against two BTR-70s, driving at each other
@@ -63,6 +64,8 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     kv = lambda line: dict(re.findall(r"(\w+)=(-?[\w.]+)", line))
     spawns = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=SPAWN" in l]
     firsts = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=FIRST_SHOT" in l]
+    sights = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=FIRST_SIGHT" in l]
+    sight_m = [int(x["m"]) for x in sights if x.get("m", "").lstrip("-").isdigit()]
     lost = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST]" in l and "event=LOST" in l]
     sums = [kv(l) for l in text.splitlines() if "[ZCR][GUNTEST_SUM]" in l]
     vehicles = [s for s in spawns if s.get("kind") != "squad"]
@@ -79,6 +82,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "vehicles": len(vehicles), "fired": len(firsts),
         "fired_pct": round(100 * len(firsts) / len(vehicles)) if vehicles else 0,
         "first_m": round(statistics.median(first_m)) if first_m else 0,
+        "sight_m": round(statistics.median(sight_m)) if sight_m else 0,   # how far apart when they could first see each other
         "rounds": g("us_shots") + g("ussr_shots"), "us_rounds": g("us_shots"), "ussr_rounds": g("ussr_shots"),
         "us_units_lost": units_lost["US"], "ussr_units_lost": units_lost["USSR"],
         "us_men_lost": men_lost["US"], "ussr_men_lost": men_lost["USSR"],

@@ -3,8 +3,10 @@
 //   side spec  kind:count:x,z   kind = btr70 | lav25 | t72 | m1a1 | bmp1 | bradley (the last four are Workshop mods,
 //              lab --armour) or squad (the game's rifle squad: 9 men, 2 of them with light anti-tank rockets)
 // Vehicles get a crew in the driver's and every turret seat (the faction's crewmen, fire at will) and drive at the other
-// side's point; a squad holds its ground. Both points snap to the nearest road.
+// side's point; a squad holds its ground. The points are used as given (open ground: the airfield).
 //   [ZCR][GUNTEST] t= event=SPAWN side= unit= kind= crew= x= z=
+//   [ZCR][GUNTEST] t= event=FIRST_SIGHT side= unit= kind= m=  (first clear line from the turret to an enemy, checked every 2 s:
+//                                                              terrain, buildings, trees and bushes block it)
 //   [ZCR][GUNTEST] t= event=FIRST_SHOT side= unit= kind= m=   (the distance to the nearest living enemy then)
 //   [ZCR][GUNTEST] t= event=LOST side= unit= kind= why=destroyed|crew_dead|crew_out|squad_dead
 //   [ZCR][GUNTEST_SUM] t= us_units= us_alive= us_men= us_shots= ussr_units= ussr_alive= ussr_men= ussr_shots= first_us_m= first_ussr_m=   (every 30 s)
@@ -18,6 +20,7 @@ class ZCR_GunUnit
 	SCR_AIGroup m_Group;
 	int m_iShots;
 	int m_iFirstShotAt = -1;
+	int m_iFirstSightAt = -1;
 	bool m_bLost;
 }
 
@@ -32,11 +35,15 @@ class ZCR_GunTest
 	protected bool m_bSpawned;
 	protected int m_iNextSum = 30;
 	protected int m_iCamTurn;
+	protected int m_iNextSight;
+	protected ref TraceParam m_Trace;
+	protected ref map<string, int> m_mSightM = new map<string, int>();
 	protected static const string US_CREW = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
 	protected static const string USSR_CREW = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 
 	static void Start()
 	{
+		ZCR_LosScan.Start();   // lab: open ground for the guns test (-zcrLosScan)
 		string spec;
 		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrGunTest", spec) || spec.IsEmpty())
 			return;
@@ -58,6 +65,7 @@ class ZCR_GunTest
 			test.m_mCount.Set(names[i], Math.Max(1, parts[1].ToInt()));
 			test.m_mAt.Set(names[i], Vector(xz[0].ToFloat(), 0, xz[1].ToFloat()));
 			test.m_mFirstM.Set(names[i], -1);
+			test.m_mSightM.Set(names[i], -1);
 		}
 		if (test.m_mKind.Count() < 2)
 		{
@@ -122,11 +130,6 @@ class ZCR_GunTest
 			if (now < 10)
 				return;
 			m_bSpawned = true;
-			foreach (string side, string kind : m_mKind)
-			{
-				vector at = ZCR_DriveTest.OnRoad(m_mAt.Get(side));
-				m_mAt.Set(side, at);
-			}
 			foreach (string spawnSide, string spawnKind : m_mKind)
 			{
 				for (int n; n < m_mCount.Get(spawnSide); n++)
@@ -144,11 +147,16 @@ class ZCR_GunTest
 			u.m_bLost = true;
 			Print(string.Format("[ZCR][GUNTEST] t=%1 event=LOST side=%2 unit=%3 kind=%4 why=%5", now, u.m_sSide, u.m_iIndex, u.m_sKind, why), LogLevel.NORMAL);
 		}
+		if (now >= m_iNextSight)
+		{
+			m_iNextSight = now + 2;
+			Sight(now);
+		}
 		if (now >= m_iNextSum)
 		{
 			m_iNextSum = now + 30;
-			Print(string.Format("[ZCR][GUNTEST_SUM] t=%1 %2 %3 first_us_m=%4 first_ussr_m=%5", now, SideSum("US", "us"), SideSum("USSR", "ussr"),
-				m_mFirstM.Get("US"), m_mFirstM.Get("USSR")), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][GUNTEST_SUM] t=%1 %2 %3 first_us_m=%4 first_ussr_m=%5 sight_us_m=%6 sight_ussr_m=%7", now, SideSum("US", "us"),
+				SideSum("USSR", "ussr"), m_mFirstM.Get("US"), m_mFirstM.Get("USSR"), m_mSightM.Get("US"), m_mSightM.Get("USSR")), LogLevel.NORMAL);
 		}
 	}
 
@@ -187,6 +195,75 @@ class ZCR_GunTest
 		if (!ZCR_Wrecks.Occupied(u.m_Vehicle))
 			return "crew_out";
 		return "";
+	}
+
+	// Each vehicle that hasn't seen an enemy yet: a clear line from its turret (2.6 m up) to the nearest enemy vehicle's
+	// hull or soldier's chest - the view geometry and foliage of terrain, buildings, trees and bushes block it.
+	protected void Sight(int now)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		if (!m_Trace)
+			m_Trace = new TraceParam();
+		foreach (ZCR_GunUnit u : m_aUnits)
+		{
+			if (u.m_bLost || !u.m_Vehicle || u.m_iFirstSightAt >= 0)
+				continue;
+			float d;
+			IEntity target = NearestEnemyEntity(u, d);
+			if (!target)
+				continue;
+			m_Trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+			m_Trace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage;
+			m_Trace.Exclude = u.m_Vehicle;
+			m_Trace.Start = u.m_Vehicle.GetOrigin() + "0 2.6 0";
+			m_Trace.End = target.GetOrigin() + "0 1.3 0";
+			float f = world.TraceMove(m_Trace, null);
+			if (f < 0.97 && !(m_Trace.TraceEnt && m_Trace.TraceEnt.GetRootParent() == target.GetRootParent()))
+				continue;
+			u.m_iFirstSightAt = now;
+			int m = Math.Round(d);
+			if (m_mSightM.Get(u.m_sSide) < 0)
+				m_mSightM.Set(u.m_sSide, m);
+			Print(string.Format("[ZCR][GUNTEST] t=%1 event=FIRST_SIGHT side=%2 unit=%3 kind=%4 m=%5", now, u.m_sSide, u.m_iIndex, u.m_sKind, m), LogLevel.NORMAL);
+		}
+	}
+
+	protected IEntity NearestEnemyEntity(ZCR_GunUnit from, out float distance)
+	{
+		vector at = from.m_Vehicle.GetOrigin();
+		distance = 100000;
+		IEntity best;
+		foreach (ZCR_GunUnit u : m_aUnits)
+		{
+			if (u.m_sSide == from.m_sSide || u.m_bLost)
+				continue;
+			if (u.m_Vehicle)
+			{
+				float dv = vector.Distance(at, u.m_Vehicle.GetOrigin());
+				if (dv < distance)
+				{
+					distance = dv;
+					best = u.m_Vehicle;
+				}
+				continue;
+			}
+			if (!u.m_Group)
+				continue;
+			array<AIAgent> agents = {};
+			u.m_Group.GetAgents(agents);
+			foreach (AIAgent a : agents)
+			{
+				if (!a || !a.GetControlledEntity())
+					continue;
+				float ds = vector.Distance(at, a.GetControlledEntity().GetOrigin());
+				if (ds < distance)
+				{
+					distance = ds;
+					best = a.GetControlledEntity();
+				}
+			}
+		}
+		return best;
 	}
 
 	// The nearest living enemy: a unit's vehicle, or a soldier of an enemy squad.
@@ -339,5 +416,96 @@ class ZCR_GunTest
 			return e;
 		}
 		return null;
+	}
+}
+
+// -zcrLosScan "step,length" (23 Oct): where on the map two vehicles 600-900 m apart can see each other - for the guns
+// test's ground (on the north farm road hedges and trees hid them until 45-95 m). Every point of a grid on land, 8
+// directions: a clear line at turret height (2.6 m) both ends on land; the flattest 40 printed.
+//   [ZCR][LOSSCAN] a=x,z b=x,z m= rise= (the ground's highest minus lowest point along the line)   /   [ZCR][LOSSCAN] done pairs= clear=
+class ZCR_LosScan
+{
+	static void Start()
+	{
+		string spec;
+		if (!Replication.IsServer() || !System.GetCLIParam("zcrLosScan", spec) || spec.IsEmpty())
+			return;
+		GetGame().GetCallqueue().CallLater(Scan, 5000, false, spec);
+	}
+
+	protected static void Scan(string spec)
+	{
+		array<string> p = {};
+		spec.Split(",", p, true);
+		float step = 150;
+		float len = 800;
+		if (p.Count() > 0)
+			step = Math.Max(50, p[0].ToFloat());
+		if (p.Count() > 1)
+			len = Math.Max(200, p[1].ToFloat());
+		BaseWorld world = GetGame().GetWorld();
+		vector mins, maxs;
+		world.GetBoundBox(mins, maxs);
+		TraceParam trace = new TraceParam();
+		trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		trace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage;
+		array<string> lines = {};
+		array<float> rises = {};
+		int pairs, clear;
+		for (float x = mins[0] + step; x < maxs[0] - step; x += step)
+		{
+			for (float z = mins[2] + step; z < maxs[2] - step; z += step)
+			{
+				float ya = world.GetSurfaceY(x, z);
+				if (ya < world.GetOceanBaseHeight() + 2)
+					continue;
+				for (int dir; dir < 4; dir++)   // 4 directions: the other 4 are the same lines from the other end
+				{
+					float angle = dir * 45 * Math.DEG2RAD;
+					float bx = x + Math.Sin(angle) * len;
+					float bz = z + Math.Cos(angle) * len;
+					if (bx < mins[0] || bx > maxs[0] || bz < mins[2] || bz > maxs[2])
+						continue;
+					float yb = world.GetSurfaceY(bx, bz);
+					if (yb < world.GetOceanBaseHeight() + 2)
+						continue;
+					pairs++;
+					trace.Start = Vector(x, ya + 2.6, z);
+					trace.End = Vector(bx, yb + 2.6, bz);
+					if (world.TraceMove(trace, null) < 0.99)
+						continue;
+					clear++;
+					float lo = 100000;
+					float hi = -100000;
+					bool wet;
+					for (float t = 0; t <= 1.001; t += 0.05)
+					{
+						float y = world.GetSurfaceY(x + (bx - x) * t, z + (bz - z) * t);
+						lo = Math.Min(lo, y);
+						hi = Math.Max(hi, y);
+						if (y < world.GetOceanBaseHeight() + 1)
+							wet = true;
+					}
+					if (wet)
+						continue;
+					rises.Insert(hi - lo);
+					lines.Insert(string.Format("a=%1,%2 b=%3,%4 m=%5 rise=%6", Math.Round(x), Math.Round(z), Math.Round(bx), Math.Round(bz), Math.Round(len), Math.Round(hi - lo)));
+				}
+			}
+		}
+		// The 40 flattest clear lines.
+		for (int n; n < 40 && !rises.IsEmpty(); n++)
+		{
+			int best;
+			for (int i = 1; i < rises.Count(); i++)
+			{
+				if (rises[i] < rises[best])
+					best = i;
+			}
+			Print("[ZCR][LOSSCAN] " + lines[best], LogLevel.NORMAL);
+			rises.Remove(best);
+			lines.Remove(best);
+		}
+		Print(string.Format("[ZCR][LOSSCAN] done pairs=%1 clear=%2 step=%3 length=%4", pairs, clear, step, len), LogLevel.NORMAL);
 	}
 }
