@@ -9,6 +9,7 @@ these tests should be reproducible - they will act as integration tests in the f
 Checks must pass (exit code 1 if one fails); goals are reported but don't fail the run. Results: .runtime/itests/.
 """
 import argparse
+import queue
 import importlib.util
 import json
 import sys
@@ -44,7 +45,17 @@ def judge(exprs: list, summary: dict) -> list:
     return out
 
 
-def run_one(test: dict, port: int) -> dict:
+def run_one(test: dict, ports: "queue.Queue") -> dict:
+    # A free port from the pool, given back afterwards (23 Oct: ports handed out by test number put a second server on
+    # a port still in use - two tests of the first run died in seconds).
+    port = ports.get()
+    try:
+        return run_on(test, port)
+    finally:
+        ports.put(port)
+
+
+def run_on(test: dict, port: int) -> dict:
     started = time.time()
     if test["kind"] == "drive":
         summary = load("drivetest").run(test["track"], test.get("variant", "default"), test.get("minutes", 5), test.get("units", 6), port)
@@ -75,8 +86,11 @@ def main() -> int:
     workers = 1 if a.serial else min(len(PORTS), len(chosen))
     print(f"{len(chosen)} integration tests, {workers} at a time", flush=True)
     results = []
+    ports = queue.Queue()
+    for port in PORTS[:workers]:
+        ports.put(port)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(run_one, t, PORTS[i % workers]) for i, t in enumerate(chosen)]
+        futures = [pool.submit(run_one, t, ports) for t in chosen]
         for f in futures:
             r = f.result()
             results.append(r)
