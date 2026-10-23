@@ -111,3 +111,27 @@ minutes = 6
 checks = ["legs >= 3", "script_errors == 0", "not crashed"]
 goals = ["lost <= 1"]
 note = "23 Oct: tanks got stuck in the lane and their crews bailed (1-4 lost a run); crews now stay aboard (ZCR_CrewStays)"
+
+[[test]]
+name = "supply-run"
+what = "3 Ural supply trucks: empty from the destination to the supply point, load 1500 supplies, drive back and unload"
+kind = "drive"
+track = "supply"
+variant = "default"
+units = 3
+minutes = 8
+checks = ["supplies_delivered >= 1500", "lost == 0", "script_errors == 0", "not crashed"]
+goals = ["car_hits == 0"]
+note = "Martin, 23 Oct: '1. the truck comes to the supply point to pick up supplies -> to the point that should be supplied and unloads them' (review note 339)"
+
+[[test]]
+name = "manpower-run"
+what = "2 Ural trucks fetch the squad waiting by the pickup: it boards, rides to the destination and gets out"
+kind = "drive"
+track = "manpower"
+variant = "default"
+units = 2
+minutes = 8
+checks = ["men_delivered >= 6", "lost == 0", "script_errors == 0", "not crashed"]
+goals = ["men_delivered >= 12", "car_hits == 0"]
+note = "Martin, 23 Oct: 'one of the trucks should pick up an infantry group where they want to be transported' (review note 339)"

@@ -47,6 +47,12 @@ TRACKS = {
     "tank-headon": ("arland-test", "1700,1000", "2800,1600", "t72", "2292,1277", True),
     "ifv-convoyblast": ("arland-test", "1700,1000", "2800,1600", "bmp1", "2292,1277", "convoy;blast"),
     "traffic": ("arland-test", "1700,1000;2800,1600;2450,2950;1200,3250", "", "uaz,ural,uralsupply", "", "traffic"),
+    # Supply runs (Martin, 23 Oct: "1. the truck comes to the supply point to pick up supplies -> to the point that should be
+    # supplied and unloads them; 2. the same with manpower"): trucks start empty at the destination (stop 2), load at the
+    # supply point (stop 1) and unload at the destination; manpower: a squad waits by the pickup, boards, gets out there.
+    # Both routes pass the junction bend at (2515, 1580-1690) where the watched trucks hit each other.
+    "supply": ("arland-test", "1700,1000;2800,1600", "", "uralsupply", "", "shuttle"),
+    "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
@@ -65,6 +71,7 @@ VARIANTS = {
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
     "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
+    "nocrossing": ("-zcrNoCrossing", ""),                                     # ours without the crossing rule (before 23 Oct evening)
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
     "competent": ("", "68FCF11534562F2E"),                                    # + Competent AI driving (turn radius, trucks/APCs)
@@ -83,8 +90,8 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int) -> dict:
     mode = ("both" if both else "") if isinstance(both, bool) else both
     spec = f"{a};{b};{cars};{kind};{via or '-'}" + (f";{mode}" if mode else "")
     test = f"-zcrDriveTest {spec}"
-    if mode == "traffic":
-        test = f"-zcrTrafficSim {a} -zcrTrafficCars {cars} -zcrTrafficKinds {kind}"
+    if mode in ("traffic", "shuttle"):
+        test = f"-zcrTrafficSim {a} -zcrTrafficCars {cars} -zcrTrafficKinds {kind}" + (" -zcrTrafficShuttle" if mode == "shuttle" else "")
     # The port in the name: two runs of the same track and setup start in the same second on the night's two ports, and
     # run folders are named label + second (23 Oct: every second run of a pair came back empty).
     label = f"drivetest-{track}-{variant}-p{port}"
@@ -128,6 +135,10 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
         "risk_caps": text.count("[ZCR][RISK]"),
+        "crossings": len(re.findall(r"\[ZCR\]\[CROSSING\] .* other=", text)),
+        "crossing_timeouts": len(re.findall(r"\[ZCR\]\[CROSSING\] .*why=timeout", text)),
+        "men_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUM\] .*men_delivered=(\d+)", text) or [0])[-1]),
+        "supplies_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUPPLY\] .*supplies_delivered=(\d+)", text) or [0])[-1]),
         "km": float(km[-1]) if km else None, "deliveries": text.count("event=DELIVER"),
         "blasts": text.count("event=BLAST "), "blocked": text.count("event=BLOCKED"), "wreck_gone": text.count("event=WRECK_GONE"),
         "pass_s": sorted(int(x) for x in re.findall(r"event=PASSWRECK s=(\d+)", text)),

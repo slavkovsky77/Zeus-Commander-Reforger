@@ -201,6 +201,8 @@ class ZCR_DriveTest
 		{
 			if (car.m_bLost || car.m_bDone)
 				continue;
+			if (!car.m_Group && now - car.m_iSpawnedAt < 4)
+				continue;   // the driver comes 1.5 s after the car
 			// The driver is seated a moment after the spawn: the "crew out" check waits 10 s (23 Oct: both test cars were
 			// marked lost in the second they spawned). Out of the seat counts after 20 s: a driver may get out to open a
 			// gate and back in (the get-out probe, 23 Oct night).
@@ -275,6 +277,20 @@ class ZCR_DriveTest
 	static bool Active()
 	{
 		return s_Instance != null;
+	}
+
+	// For the director's PREV / NEXT: every car on the track.
+	static void Units(notnull array<IEntity> units, notnull array<string> labels)
+	{
+		if (!s_Instance)
+			return;
+		foreach (ZCR_DriveCar c : s_Instance.m_aCars)
+		{
+			if (c.m_bLost || c.m_bDone || !c.m_Vehicle)
+				continue;
+			units.Insert(c.m_Vehicle);
+			labels.Insert(string.Format("TEST CAR %1 to %2, leg %3", c.m_iIndex, ToName(c.m_bToB), c.m_iLeg));
+		}
 	}
 
 	static IEntity CameraCar(out string label)
@@ -407,21 +423,9 @@ class ZCR_DriveTest
 		Vehicle vehicle = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_sPrefab), GetGame().GetWorld(), params));
 		if (!vehicle)
 			return;
-		AIGroup group;
-		array<BaseCompartmentSlot> seats = {};
-		AICF_FIAPatrolCrew.Seats(vehicle, seats);
-		foreach (BaseCompartmentSlot seat : seats)
-		{
-			if (seat && seat.GetType() == ECompartmentType.PILOT && !seat.GetOccupant())
-			{
-				seat.SpawnCharacterInCompartment(m_sCrew, group);
-				break;
-			}
-		}
 		ZCR_DriveCar car = new ZCR_DriveCar();
 		car.m_iIndex = m_aCars.Count() + 1;
 		car.m_Vehicle = vehicle;
-		car.m_Group = SCR_AIGroup.Cast(group);
 		car.m_bToB = !fromB;
 		car.m_iSpawnedAt = now;
 		car.m_iConvoy = m_iConvoy;
@@ -432,12 +436,36 @@ class ZCR_DriveTest
 			m_iConvoySpawned++;
 		}
 		m_aCars.Insert(car);
-		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(vehicle.FindComponent(SCR_AIVehicleUsageComponent));
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 x=%4 z=%5 convoy=%6", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
+			Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy), LogLevel.NORMAL);
+		// The driver 1.5 s later: seated in the spawn frame, the watched game (a listen server) left the seat empty
+		// (review note 314: "car 2 at B" never moved).
+		GetGame().GetCallqueue().CallLater(Crew, 1500, false, car);
+	}
+
+	protected void Crew(ZCR_DriveCar car)
+	{
+		if (!car || !car.m_Vehicle)
+			return;
+		AIGroup group;
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(car.m_Vehicle, seats);
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (seat && seat.GetType() == ECompartmentType.PILOT && !seat.GetOccupant())
+			{
+				seat.SpawnCharacterInCompartment(m_sCrew, group);
+				break;
+			}
+		}
+		car.m_Group = SCR_AIGroup.Cast(group);
+		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(car.m_Vehicle.FindComponent(SCR_AIVehicleUsageComponent));
 		if (car.m_Group && usage && car.m_Group.GetGroupUtilityComponent() && !car.m_Group.GetGroupUtilityComponent().IsUsableVehicle(usage))
 			car.m_Group.GetGroupUtilityComponent().AddUsableVehicle(usage);
-		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 crew=%4 x=%5 z=%6 convoy=%7", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
-			car.m_Group != null, Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy), LogLevel.NORMAL);
-		Order(car, now);
+		int now = ZCR_LossLog.Seconds();
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=CREW crew=%3", now, car.m_iIndex, car.m_Group != null), LogLevel.NORMAL);
+		if (car.m_Group)
+			Order(car, now);
 	}
 
 	// Under water (23 Oct night: on the Conflict map drivers died where the route crosses water east of A, with no killer -

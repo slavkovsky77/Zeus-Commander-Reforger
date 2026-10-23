@@ -922,10 +922,14 @@ class ZCR_Director
 		if (cmd == "next")
 		{
 			m_iSpotUntil = 0;
-			NextShot(now);
+			if (!StepTest(now, 1))
+				NextShot(now);
 		}
 		else if (cmd == "prev")
 		{
+			// In a lab test: the test's unit before.
+			if (StepTest(now, -1))
+				return;
 			// The scene before: its unit if still alive, else its place.
 			if (m_aHistTarget.Count() < 2)
 				return;
@@ -1000,12 +1004,35 @@ class ZCR_Director
 			int dir = 1;
 			if (cmd == "group-")
 				dir = -1;
-			StepGroup(now, dir);
+			if (!StepTest(now, dir))
+				StepGroup(now, dir);
 		}
 		else if (cmd == "report")
 			Report(now);
 		else if (cmd == "tap")
 			Tap(now, pos);
+	}
+
+	// Lab tests (the drive track, the guns test, the traffic and supply runs): PREV / NEXT step through the test's own
+	// units (Martin, 23 Oct: "next/prev vehicle doesn't work here on these integration tests" - they stepped through the
+	// commander's teams, which a test hasn't got).
+	protected int m_iTestTurn;
+
+	protected bool StepTest(int now, int dir)
+	{
+		array<IEntity> units = {};
+		array<string> labels = {};
+		ZCR_DriveTest.Units(units, labels);
+		ZCR_GunTest.Units(units, labels);
+		ZCR_TrafficSim.Units(units, labels);
+		if (units.IsEmpty())
+			return false;
+		m_iTestTurn = (m_iTestTurn + dir + units.Count()) % units.Count();
+		IEntity u = units[m_iTestTurn];
+		m_bHold = true;
+		m_iShotEnd = now + 25;
+		Show(u.GetOrigin(), 30, 14, u, string.Format("%1 (%2 of %3)", labels[m_iTestTurn], m_iTestTurn + 1, units.Count()), false);
+		return true;
 	}
 
 	protected int m_iPoint = -1;

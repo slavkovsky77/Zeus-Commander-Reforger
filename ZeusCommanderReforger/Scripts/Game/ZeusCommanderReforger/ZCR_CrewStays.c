@@ -10,6 +10,15 @@ class ZCR_CrewStays
 	protected static ref map<IEntity, bool> s_mArmed = new map<IEntity, bool>();
 	protected static ref map<IEntity, int> s_mLogged = new map<IEntity, int>();
 	protected static int s_iOff = -1;
+	protected static ref set<IEntity> s_Held = new set<IEntity>();
+
+	// Lab tests: this vehicle's driver stays aboard whatever the game says (a supply truck loading or waiting for a squad
+	// to board stands still, and the game calls it stuck and orders the driver out). Matches never call it.
+	static void Hold(IEntity vehicle)
+	{
+		if (vehicle)
+			s_Held.Insert(vehicle);
+	}
 
 	static bool Keep(IEntity soldier, IEntity vehicle)
 	{
@@ -33,6 +42,8 @@ class ZCR_CrewStays
 		IEntity root = vehicle.GetRootParent();
 		if (!root)
 			root = vehicle;
+		if (s_Held.Contains(root) && seat == ECompartmentType.PILOT)
+			return true;
 		if (!Armed(root))
 			return false;
 		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(root.FindComponent(SCR_DamageManagerComponent));
@@ -64,6 +75,8 @@ class ZCR_CrewStays
 		IEntity root = vehicle.GetRootParent();
 		if (!root)
 			root = vehicle;
+		if (s_Held.Contains(root))
+			return true;
 		if (!Armed(root))
 			return false;
 		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(root.FindComponent(SCR_DamageManagerComponent));

@@ -673,6 +673,30 @@ class ZCR_GunTest
 		unit.m_Group.AddWaypoint(waypoint);
 	}
 
+	// For the director's PREV / NEXT: every living unit (a squad by its first soldier).
+	static void Units(notnull array<IEntity> units, notnull array<string> labels)
+	{
+		if (!s_Instance)
+			return;
+		foreach (ZCR_GunUnit u : s_Instance.m_aUnits)
+		{
+			if (u.m_bLost)
+				continue;
+			IEntity e = u.m_Vehicle;
+			if (!e && u.m_Group)
+			{
+				array<AIAgent> agents = {};
+				u.m_Group.GetAgents(agents);
+				if (!agents.IsEmpty() && agents[0])
+					e = agents[0].GetControlledEntity();
+			}
+			if (!e)
+				continue;
+			units.Insert(e);
+			labels.Insert(string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots));
+		}
+	}
+
 	// For the watch camera: the units by turns, living ones only.
 	static IEntity CameraUnit(out string label)
 	{
