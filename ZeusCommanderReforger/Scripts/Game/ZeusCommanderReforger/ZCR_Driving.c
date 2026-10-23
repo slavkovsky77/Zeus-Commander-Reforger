@@ -92,6 +92,7 @@ class ZCR_Driving
 		ZCR_GunTest.Start();       // lab: the guns test - armour against armour or a squad (-zcrGunTest)
 		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
 		ZCR_Crossing.Start();      // paths crossing ahead (junctions, bends): the later one stops (-zcrNoCrossing off)
+		ZCR_Junction.Start();      // two vehicles heading for the same junction: both 20 km/h there (-zcrNoJunction off)
 		ZCR_Traffic.Start();       // the speed arbiter and the spacing rule (-zcrNoTraffic / -zcrNoSpacing off)
 		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)

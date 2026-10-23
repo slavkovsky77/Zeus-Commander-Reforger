@@ -71,7 +71,8 @@ VARIANTS = {
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
     "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
-    "nocrossing": ("-zcrNoCrossing", ""),                                     # ours without the crossing rule (before 23 Oct evening)
+    "nocrossing": ("-zcrNoCrossing -zcrNoJunction", ""),                      # ours without the crossing and junction rules (before 23 Oct evening)
+    "nojunction": ("-zcrNoJunction", ""),                                     # ours with the crossing rule but not the junction slow-down
     "late": ("-zcrNoEarlyUnjam", ""),                                         # back-offs only after 45 s
     "price": ("", "3B9F2C4D5E6A7B81"),                                        # + roads 10x cheaper than fields
     "competent": ("", "68FCF11534562F2E"),                                    # + Competent AI driving (turn radius, trucks/APCs)
@@ -136,6 +137,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
         "risk_caps": text.count("[ZCR][RISK]"),
         "crossings": len(re.findall(r"\[ZCR\]\[CROSSING\] .* other=", text)),
+        "junction_slows": len(re.findall(r"\[ZCR\]\[JUNCTION\] .* other=", text)),
         "crossing_timeouts": len(re.findall(r"\[ZCR\]\[CROSSING\] .*why=timeout", text)),
         "men_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUM\] .*men_delivered=(\d+)", text) or [0])[-1]),
         "supplies_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUPPLY\] .*supplies_delivered=(\d+)", text) or [0])[-1]),

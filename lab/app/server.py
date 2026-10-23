@@ -256,6 +256,69 @@ def servers() -> list:
     return _servers_cache["data"]
 
 
+# ---------------------------------------------------------------- headless tests running now (sub-labs, integration tests)
+
+_tests_cache = {"at": 0, "data": []}
+TEST_RUN = re.compile(r"^(drivetest|guntest)-(.+)-([a-z0-9]+)-p(\d+)-(\d{8}-\d{6})$")
+SUBLAB_OF = {"drivetest": "driving", "guntest": "guns"}
+
+
+def _labels(name: str) -> dict:
+    try:
+        return sublab.load(name)
+    except Exception:
+        return {}
+
+
+def tests_now() -> list:
+    """Each headless test server running now: which test, which setup in words, how far, and its numbers so far."""
+    if time.time() - _tests_cache["at"] < 10:
+        return _tests_cache["data"]
+    out = []
+    for name in servers():
+        m = TEST_RUN.match(name)
+        if not m:
+            continue
+        kind, scenario, variant, port, stamp = m.groups()
+        d = _labels(SUBLAB_OF[kind])
+        run_dir = RUNTIME / "runs" / name
+        minutes = None
+        try:
+            minutes = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))["args"]["minutes"]
+        except Exception:
+            pass
+        row = {"run": name, "sublab": d.get("title") or SUBLAB_OF[kind], "scenario": scenario, "variant": variant,
+               "scenario_label": (d.get("scenario_labels") or {}).get(scenario, scenario),
+               "scenario_words": (d.get("scenario_words") or {}).get(scenario, ""),
+               "variant_label": (d.get("variant_labels") or {}).get(variant, variant),
+               "variant_words": (d.get("variant_words") or {}).get(variant, ""),
+               "started": f"{stamp[9:11]}:{stamp[11:13]}", "minutes": minutes, "port": port}
+        log = scorecard.console(run_dir)
+        if log:
+            try:
+                text = log.read_text(encoding="utf-8", errors="replace")
+                ts = re.findall(r"\[ZCR\]\[\w+\] t=(\d+)", text[-20000:])
+                row["game_s"] = int(ts[-1]) if ts else 0
+                if kind == "drivetest":
+                    import drivetest
+                    sm = drivetest.summarize(run_dir, scenario, variant)
+                    keys = [("deliveries", "deliveries"), ("legs", "trips"), ("car_hits", "crashes between cars"), ("lost", "lost"),
+                            ("jams", "jams"), ("supplies_delivered", "supplies delivered"), ("men_delivered", "soldiers delivered"),
+                            ("crossings", "gave way"), ("junction_slows", "slowed at junctions")]
+                else:
+                    import guntest
+                    sm = guntest.summarize(run_dir, scenario, variant)
+                    keys = [("fired_pct", "% vehicles fired"), ("first_m", "first shot m"), ("rounds", "rounds"),
+                            ("vehicles_lost", "vehicles lost"), ("squad_men_lost", "soldiers lost")]
+                row["numbers"] = [{"key": k, "label": lab, "value": sm.get(k)} for k, lab in keys
+                                  if sm.get(k) not in (None, 0, "") or k in ("car_hits", "lost")]
+            except Exception as e:
+                row["error"] = str(e)[:120]
+        out.append(row)
+    _tests_cache.update(at=time.time(), data=out)
+    return out
+
+
 _frame_cache = {"at": 0, "jpg": None}
 
 
@@ -328,7 +391,7 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/", "/index.html"):
                 return self.send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
             if path == "/api/live":
-                return self.json({**live(), "servers": servers(), "inbox": inbox(12), "at": now_iso()})
+                return self.json({**live(), "servers": servers(), "tests": tests_now(), "inbox": inbox(12), "at": now_iso()})
             if path == "/api/slow":
                 with Slow.lock:
                     small = {k: v for k, v in Slow.data.items() if k not in ("progress", "goal_history", "crashes")}

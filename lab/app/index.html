@@ -189,6 +189,11 @@ video { width: 100%; border-radius: 8px; background: #000; }
   <section class="tab" id="tab-live">
     <div id="broke"></div>
     <div class="card now" id="now"><p class="muted">Loading…</p></div>
+    <div class="card" id="testscard" hidden>
+      <div class="row" style="justify-content:space-between"><h2>Tests running now</h2><span class="mono muted">headless, numbers so far</span></div>
+      <div id="tests" style="display:grid;gap:12px"></div>
+      <p class="muted" style="margin:6px 0 0">Each finished run lands in the Sub-labs tab (its sub-lab, row = track, column = setup).</p>
+    </div>
     <div class="match">
       <div class="card">
         <img class="frame" id="frame" alt="The game window now (from the recording)">
@@ -372,7 +377,18 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const st = m.status === "filed" ? ["ok", m.note ? "filed as note " + m.note : "filed"] : m.status === "answered" ? ["ok", "answered"] : ["wait", "waiting for the loop"];
       return `<div class="msg"><div class="row"><span class="chip">${esc(m.kind)}</span><span class="chip ${st[0]}">${esc(st[1])}</span><span class="mono muted">${esc(ago(m.at))}</span></div><span class="text">${esc(m.text)}</span>${m.reply ? `<span class="muted text">Loop: ${esc(m.reply)}</span>` : ""}</div>`;
     }).join("");
-    const others = (d.servers || []).filter((s) => !/^w\d+-/.test(s));
+    const tests = d.tests || [];
+    $("testscard").hidden = !tests.length;
+    $("tests").innerHTML = tests.map((t) => {
+      const m = (t.game_s || 0) / 60, of = t.minutes || 0, pct = of ? Math.min(100, 100 * m / of) : 0;
+      const nums = (t.numbers || []).map((n) => `<span class="chip">${esc(n.label)} <b>${esc(n.value)}</b></span>`).join(" ");
+      return `<div class="msg"><div class="row" style="justify-content:space-between"><b>${esc(t.sublab)} · ${esc(t.scenario_label)}</b><span class="mono muted">started ${esc(t.started)} · minute ${m.toFixed(1)}${of ? " of " + of : ""}</span></div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div><span class="chip ok">${esc(t.variant_label)}</span> <span class="muted">${esc(t.variant_words)}</span></div>
+        <div class="muted">${esc(t.scenario_words)}</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">${nums || '<span class="muted">nothing counted yet</span>'}</div></div>`;
+    }).join("");
+    const others = (d.servers || []).filter((s) => !/^w\d+-/.test(s) && !tests.some((t) => t.run === s));
     $("servers").textContent = others.length ? "Also running: " + others.join(", ") : "";
     if (Date.now() - frameTimer > 10000 && w.running) { frameTimer = Date.now(); $("frame").src = "/api/frame.jpg?" + Date.now(); }
   }
