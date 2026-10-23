@@ -10,7 +10,7 @@ runner = "lab/inftest.py"
 minutes = 12
 units = 1
 scenarios = ["storm-foot", "storm-village"]
-variants = ["game", "dco"]
+variants = ["game", "ours", "dco", "game60", "dco60"]
 baseline = "game"
 candidate = "dco"
 score = "10*taken + ussr_lost - us_lost + (us_cover or 0)/10 - (died_open_pct or 0)/20"
@@ -25,11 +25,17 @@ candidate_words = "the DCO_AI Reforger mod"
 
 [variant_labels]
 game = "Game's AI"
+ours = "Game's AI + our soldier layer"
 dco = "DCO_AI mod"
+game60 = "Game's AI + our hold-back (first runs)"
+dco60 = "DCO + our hold-back (first runs)"
 
 [variant_words]
-game = "the game's own soldier AI (our mod is loaded but in these tests only measures - no commander, no soldier layer)"
-dco = "the DCO_AI Reforger mod from the Workshop on every soldier of both squads (default settings)"
+game = "the game's own soldier AI alone"
+ours = "the game's AI with our soldier layer as in matches: hold 60 m from a seen enemy instead of closing to 15 m, never standing in danger"
+dco = "the DCO_AI Reforger mod from the Workshop on every soldier of both squads (default settings), alone"
+game60 = "the first runs (19:17-20:20): the game's AI with our 60-m hold-back still on - it is always loaded with our mod"
+dco60 = "the first runs (19:30-20:20): DCO with our 60-m hold-back still on"
 
 [scenario_labels]
 storm-foot = "Storm on foot (Moss Hill farm)"

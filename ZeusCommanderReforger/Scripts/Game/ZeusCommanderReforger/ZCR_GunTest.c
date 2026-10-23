@@ -77,6 +77,8 @@ class ZCR_GunTest
 	{
 		ZCR_LosScan.Start();   // lab: open ground for the guns test (-zcrLosScan)
 		ZCR_CoverScan.Start(); // lab: buildings, trees and walls on the ground, for the infantry tests (-zcrCoverScan)
+		if (System.IsCLIParam("zcrSoldierLayer"))
+			ZCR_Danger.Start();   // infantry tests' "ours": never standing in danger, as in matches (the commander starts it there)
 		string spec;
 		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrGunTest", spec) || spec.IsEmpty())
 			return;

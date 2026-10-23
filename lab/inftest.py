@@ -38,9 +38,14 @@ SCENARIO_WORDS = {
                      "across fields with hedges, walls and tree rows, slightly downhill",
 }
 VARIANTS = {
-    # name: (extra command line, Workshop mods, words)
-    "game": ("", "", "the game's own soldier AI (our mod loaded, it only measures)"),
-    "dco": ("", DCO, "the DCO_AI Reforger mod (Workshop) on both squads"),
+    # name: (extra command line, Workshop mods, words). Our mod's attack change (hold 60 m from a seen enemy instead of
+    # closing to 15 m, ZCR_CoverLayer's modded SCR_AICombatMoveLogic_Attack) is always loaded - -zcrStandoff 0 turns it
+    # off, so "game" and "dco" are those alone (23 Oct 20:25; the first runs had it on: game60, dco60).
+    "game": ("-zcrStandoff 0", "", "the game's own soldier AI alone"),
+    "ours": ("-zcrSoldierLayer", "", "the game's AI with our soldier layer: hold 60 m from a seen enemy instead of closing to 15 m, never standing in danger"),
+    "dco": ("-zcrStandoff 0", DCO, "the DCO_AI Reforger mod (Workshop) on both squads, alone"),
+    "game60": ("", "", "the game's AI with our 60-m hold-back (the first runs, 23 Oct 19:17-20:20)"),
+    "dco60": ("", DCO, "DCO with our 60-m hold-back (the first runs, 23 Oct 19:30-20:20)"),
 }
 
 
