@@ -9,8 +9,8 @@ pass_rule = "our mod loses at most 1 car a run where the game's driver alone los
 runner = "lab/drivetest.py"
 minutes = 10
 units = 6
-scenarios = ["headon", "mosshill-conflict", "trucks", "northfarm", "everonexit"]
-variants = ["raw", "default", "nooncoming", "nospacing", "price", "competent", "crx", "jmvai", "best"]
+scenarios = ["headon", "mosshill-conflict", "trucks", "northfarm", "everonexit", "headonblast", "convoyblast", "convoy", "traffic"]
+variants = ["raw", "default", "risk", "nooncoming", "nospacing", "price", "competent", "crx", "jmvai", "best"]
 baseline = "raw"
 candidate = "default"
 score = "legs - 4*lost - 3*car_hits - jams - 2*(oldest_open_s > 300)"
@@ -25,6 +25,7 @@ candidate_words = "our vehicle mod as it is now"
 [variant_labels]
 raw = "Game's driver alone"
 default = "Our mod (all rules)"
+risk = "Our mod v2 (collision forecast)"
 nooncoming = "Our mod, no head-on slow-down"
 nospacing = "Our mod, no spacing"
 price = "Our mod + roads preferred"
@@ -36,6 +37,7 @@ best = "Our mod + both route tweaks"
 [variant_words]
 raw = "nothing of ours: the game drives, gets stuck and crashes the way it does"
 default = "cars slow to 15 km/h when meeting head-on, keep distance to the car ahead, stuck cars get pushed back"
+risk = "v2: each car forecasts collisions 4 s ahead (24 futures from how the cars really move) and drives at the fastest speed under 10% risk; own soldiers 2%; built 23 Oct night in a separate copy"
 nooncoming = "our mod without the head-on slow-down, to see what that rule is worth"
 nospacing = "our mod without keeping distance, to see what that rule is worth"
 price = "our mod, plus the route planner prefers roads 10x over fields"
@@ -51,6 +53,10 @@ trucks = "Trucks through the trap"
 northfarm = "Fenced fields (Arland north)"
 everonexit = "Everon US base exit"
 mosshill = "Moss Hill lane (empty map)"
+headonblast = "Head-on, road blocked by a wreck"
+convoyblast = "Convoy, lead car hit"
+convoy = "Convoy"
+traffic = "Traffic: troops and supplies"
 
 [scenario_words]
 headon = "8 UAZs from both ends of the Moss Hill lane, so they meet all the time"
@@ -59,3 +65,7 @@ trucks = "Ural trucks both ways through the same squeeze"
 northfarm = "M998s past the fenced fields where rides get trapped"
 everonexit = "M998s on the Everon US base exit road"
 mosshill = "UAZs through the Moss Hill lane on the empty map"
+headonblast = "the head-on lane, and every 150 s the first car at the narrow part is hit (a mortar-shell warhead) - the wreck blocks the lane for a minute; how long the others need to get past"
+convoyblast = "convoys of UAZs from one end of the lane to the other; the lead car of every second convoy is hit at the narrow part, the rest must get round the wreck"
+convoy = "convoys of UAZs from one end of the lane to the other, 2 s apart, nothing hit"
+traffic = "UAZs with 3 soldiers aboard and Ural supply trucks between four stops on Arland, each to a random next stop, 20 s loading there - deliveries, km driven, crashes and jams"
