@@ -3,6 +3,9 @@
 # 303-307). The runner is the driving test track (crewed vehicles shuttling on the game's own maps, no commander).
 name = "driving"
 title = "Driving"
+main = "car_hits"
+conclusion_at = "23 Oct 13:30, from 79 night runs and 16 watched matches"
+conclusion = """Our vehicle mod alone is the best. On the narrow lane, cars meeting head-on crashed 5 times a run with the game's own driver and 0 times with our mod - its head-on slow-down does it: switch only that rule off and it is 3 again. Ural trucks both ways: 6.5 crashes a run, 1.5 with our mod. None of the Workshop mods adds anything: CRX no gain (and slower), JMVehicleAI 4 crashes, roads preferred 3. The Moss Hill base track lost cars to mines and the Everon base exit to closed gates - not driving. In full matches (16 watched): jams 8 -> 4.8 and long stops 4.8 -> 1.4 a match, but still about 4 crashes between cars a match - the next thing to fix."""
 question = "Can AI vehicles get through a narrow lane, a trap and head-on meetings without jams, getting stuck or crashing into each other - and which setup does it best?"
 issue = "jams at base exits and traps, vehicles stuck off the road, head-on crashes on narrow roads"
 pass_rule = "our mod loses at most 1 car a run where the game's driver alone loses 2 or more, with no more jams; then in watched matches on Arland at most 3 jams, 2 long stops and 1 crash between cars per match (NIGHT.md)"
@@ -81,3 +84,35 @@ apc-headon = "6 BTR-70 APCs from both ends of the Moss Hill lane, meeting head-o
 apc-convoyblast = "BTR-70 convoys through the lane; the lead of every second convoy is hit"
 tank-headon = "6 T-72 tanks (Workshop mod) from both ends of the lane"
 ifv-convoyblast = "BMP-1 convoys (Workshop mod) through the lane; the lead of every second convoy is hit"
+
+[scenario_caveats]
+mosshill-conflict = "not driving: mines on the road ruined these runs (a test fault, fixed since)"
+everonexit = "not driving: closed gates block the base exit (your decision)"
+
+[[questions]]
+key = "car_hits"
+title = "Crashes between cars"
+better = "lower"
+short = "crashes a run"
+axis = "hits per 10-minute run (each car in a crash counts once)"
+
+[[questions]]
+key = "lost"
+title = "Cars lost"
+better = "lower"
+short = "cars lost a run"
+axis = "cars lost per 10-minute run (destroyed, crew got out, driver dead)"
+
+[[questions]]
+key = "jams"
+title = "Jams"
+better = "lower"
+short = "jams a run"
+axis = "jams per 10-minute run (a car standing 45 s with another car within 10 m)"
+
+[[questions]]
+key = "legs"
+title = "Trips made"
+better = "higher"
+short = "trips a run"
+axis = "trips from one end to the other (traffic: deliveries) per 10-minute run"

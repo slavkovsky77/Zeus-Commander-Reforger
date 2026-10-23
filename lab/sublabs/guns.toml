@@ -14,6 +14,9 @@ score = "fired_pct/10 + first_m/100 + turret_kills"
 higher_is_better = true
 keys = ["fired_pct", "sight_m", "first_m", "rounds", "turret_kills", "vehicles_lost", "squad_men_lost"]
 title = "Vehicle guns"
+main = "first_m"
+conclusion_at = "23 Oct 13:30 - running"
+conclusion = """Still running. Found so far: on the first ground (the north farm road) hedges and trees hid the two sides until 45-95 m, so they only fired point-blank - the ground's fault, not the AI's. Moved to Arland's airfield (800 m of open ground, one of 9 clear 800-m lines on the island): the vehicles see each other at 730-800 m and open fire at about 440 m. Crews still get out of damaged vehicles that are not destroyed."""
 score_words = "the share of vehicles that fired (10 points for all), plus 1 point per 100 m of the first shot's distance, plus 1 for each kill by a turret gunner"
 baseline_words = "the game's own AI, with nothing of ours"
 candidate_words = "our mod as it is now"
@@ -42,30 +45,35 @@ ifv-vs-squad = "two BMP-1s (Workshop mod) drive at the US rifle squad"
 
 [[questions]]
 key = "sight_m"
+short = "m at first sight"
 title = "Distance when they could first see the enemy"
 better = "higher"
 axis = "metres to the nearest enemy at the first clear line of sight (median) - the most a gunner could have used"
 
 [[questions]]
 key = "fired_pct"
+short = "% fired"
 title = "Vehicles that fired"
 better = "higher"
 axis = "% of the vehicles that fired at least once"
 
 [[questions]]
 key = "first_m"
+short = "m at first shot"
 title = "Distance of the first shot"
 better = "higher"
 axis = "metres to the nearest enemy when a vehicle first fired (median)"
 
 [[questions]]
 key = "rounds"
+short = "rounds"
 title = "Rounds fired"
 better = "higher"
 axis = "rounds fired by all turret guns in the run"
 
 [[questions]]
 key = "turret_kills"
+short = "kills"
 title = "Kills by turret gunners"
 better = "higher"
 axis = "soldiers and vehicles killed by turret guns in the run"

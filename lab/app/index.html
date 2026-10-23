@@ -52,6 +52,14 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .chip.ok { color: var(--good); background: var(--good-soft); border-color: transparent; }
 .chip.no { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
 .chip.wait { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.sublab-card { display: grid; gap: 12px; }
+.sublab-card h3 { margin: 6px 0 0; }
+.sublab-card .question { font-size: 17px; margin: 0; }
+.ended { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; display: grid; gap: 4px; }
+.ended p { margin: 0; line-height: 1.5; }
+.eyebrow { font: 600 11px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+table.heat td { text-align: center; }
+table.heat td:first-child { text-align: left; }
 .chip.step { color: var(--accent); background: var(--accent-soft); border-color: transparent; text-transform: uppercase; letter-spacing: .05em; }
 .live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--good); margin-right: 6px; }
 @media (prefers-reduced-motion: no-preference) { .live-dot { animation: pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { opacity: .3; } } }
@@ -506,31 +514,80 @@ video { width: 100%; border-radius: 8px; background: #000; }
     renderSublab(s.sublab || []);
   }
   let sublabSeen = "";
+  // Each sub-lab reads top to bottom (Martin, 23 Oct: "make it so clear how the experiment ended - self-explanatory, hard
+  // data, nice charts"): how it ended in words, the result per track (the game alone against our mod, and the best setup),
+  // every setup on every track at a glance, then the graphs per track; the score, the definitions and the last runs fold away.
   function renderSublab(labs) {
     const key = JSON.stringify(labs);
     if (key === sublabSeen) return;   // redraw only when a run was added
     sublabSeen = key;
     $("sublab").innerHTML = labs.map((l, li) => {
-      const vs = l.variants || [], keys = (l.keys || []).slice(0, 4);
+      const vs = l.variants || [];
       const V = (v) => (l.vlabel || {})[v] || v, S = (sc) => (l.slabel || {})[sc] || sc;
-      const KW = { legs: "trips", lost: "lost cars", car_hits: "crashes into cars", jams: "jams", stops: "spacing stops", oncoming: "head-on slow-downs", offroad_pct: "% off road", median_leg_s: "s a trip" };
-      const kw = (k) => KW[k] || k.replace(/_/g, " ");
+      const qs = l.questions || [];
+      const main = l.main || (qs[0] && qs[0].key) || (l.keys || [])[0];
+      const q = qs.find((x) => x.key === main) || { key: main, title: main, better: l.higher_is_better ? "higher" : "lower", short: main };
+      const lower = q.better !== "higher";
+      const unit = q.short || q.title || main;
       const ran = vs.filter((v) => (l.table || []).some((r) => r.cells[v]));
-      const nums = (c) => keys.map((k) => `${esc(c[k] == null ? "-" : c[k])} ${esc(kw(k))}`).join(" · ");
-      const cell = (c) => c ? `<b>${esc(c.score)}</b> <span class="muted">(${esc(c.n)} run${c.n === 1 ? "" : "s"})</span><br><span class="muted">${nums(c)}</span>` : "";
-      const table = (l.table || []).length ? `<div class="tbl"><table><thead><tr><th>Track</th>${ran.map((v) => `<th title="${esc((l.vwords || {})[v] || "")}">${esc(V(v))}</th>`).join("")}</tr></thead><tbody>` +
-        l.table.map((r) => `<tr><td title="${esc((l.swords || {})[r.scenario] || "")}"><b>${esc(S(r.scenario))}</b></td>${ran.map((v) => `<td class="mono">${cell(r.cells[v])}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>" : '<div class="empty">No runs yet.</div>';
-      const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> · <b>${esc(S(r.scenario))}</b> · ${esc(V(r.variant))} · score <b>${esc(r.score)}</b> <span class="muted">${nums(r)}</span></div>`).join("");
+      const fmt = (x) => x == null ? "–" : (Math.round(x * 10) / 10).toString();
+      const isBetter = (a, b) => lower ? a < b : a > b;
+      // The best setup on a track: the main measure first, the score breaks ties.
+      const bestOf = (r) => Object.entries(r.cells).filter(([, c]) => c[main] != null)
+        .sort(([, a], [, b]) => (lower ? a[main] - b[main] : b[main] - a[main]) || (b.score - a.score))[0];
+      let better = 0, worse = 0, same = 0;
+      const rows = (l.table || []).map((r) => {
+        const base = (r.cells[l.baseline] || {})[main], cand = (r.cells[l.candidate] || {})[main];
+        const best = bestOf(r);
+        let change = "", cls = "";
+        if (base != null && cand != null) {
+          if (cand === base) { change = "same"; same++; }
+          else {
+            const pct = base === 0 ? null : Math.round(100 * (cand - base) / Math.abs(base));
+            change = pct == null ? (cand > base ? `+${fmt(cand - base)}` : fmt(cand - base)) : `${pct > 0 ? "+" : ""}${pct}%`;
+            if (isBetter(cand, base)) { cls = "ok"; better++; } else { cls = "no"; worse++; }
+          }
+        }
+        const caveat = (l.caveats || {})[r.scenario];
+        return `<tr><td><b>${esc(S(r.scenario))}</b>${caveat ? `<br><span class="muted" style="font-size:12px">${esc(caveat)}</span>` : ""}</td><td class="mono">${fmt(base)}</td><td class="mono"><b>${fmt(cand)}</b></td>
+          <td>${change ? `<span class="chip ${cls}">${esc(change)}</span>` : "–"}</td>
+          <td>${best ? `${esc(V(best[0]))} <span class="mono muted">${fmt(best[1][main])}</span>` : "–"}</td></tr>`;
+      }).join("");
+      const tally = better + worse + same ? `Our mod against the game alone: <b>better on ${better}</b>, worse on ${worse}, the same on ${same} of ${better + worse + same} tracks.` : "";
+      const result = rows ? `<h3>Result per track: ${esc(q.title.toLowerCase())}</h3>
+        <p class="muted">Average per run, ${esc(unit)}${lower ? " (lower is better)" : " (higher is better)"}. ${tally}</p>
+        <div class="tbl"><table><thead><tr><th>Track</th><th>${esc(V(l.baseline))}</th><th>${esc(V(l.candidate))}</th><th>Change</th><th>Best setup here</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty">No runs yet.</div>';
+      // Every setup on every track: one colour scale per track, green the best on that track, red the worst.
+      const tracks = (l.table || []).map((r) => r.scenario);
+      const heat = tracks.length && ran.length ? `<h3>Every setup on every track</h3>
+        <p class="muted">${esc(q.title)}, ${esc(unit)}: green is the best on that track, red the worst, blank not run there. Runs in brackets.</p>
+        <div class="tbl"><table class="heat"><thead><tr><th>Setup</th>${tracks.map((sc) => `<th>${esc(S(sc))}</th>`).join("")}</tr></thead><tbody>` +
+        ran.map((v) => `<tr><td><b>${esc(V(v))}</b></td>${(l.table || []).map((r) => {
+          const c = r.cells[v];
+          if (!c || c[main] == null) return "<td></td>";
+          const vals = Object.values(r.cells).map((x) => x[main]).filter((x) => x != null);
+          const lo = Math.min(...vals), hi = Math.max(...vals);
+          const t = hi === lo ? 0 : (lower ? (c[main] - lo) / (hi - lo) : (hi - c[main]) / (hi - lo));
+          const bg = `color-mix(in srgb, var(--bad-soft) ${Math.round(t * 100)}%, var(--good-soft))`;
+          return `<td class="mono" style="background:${bg}">${t === 0 ? "<b>" : ""}${fmt(c[main])}${t === 0 ? "</b>" : ""} <span class="muted">(${c.n})</span></td>`;
+        }).join("")}</tr>`).join("") + "</tbody></table></div>" : "";
+      const nums = (c) => (l.keys || []).slice(0, 5).map((k) => { const qq = qs.find((x) => x.key === k); return `${esc(c[k] == null ? "-" : c[k])} ${esc((qq && qq.short) || k.replace(/_/g, " "))}`; }).join(" · ");
+      const recent = (l.recent || []).map((r) => `<div><span class="mono muted">${esc(r.at)}</span> · <b>${esc(S(r.scenario))}</b> · ${esc(V(r.variant))} · <span class="muted">${nums(r)}</span></div>`).join("");
       const setups = ran.map((v) => `<li><b>${esc(V(v))}</b>: ${esc((l.vwords || {})[v] || "")}</li>`).join("");
-      const tracks = (l.table || []).map((r) => `<li><b>${esc(S(r.scenario))}</b>: ${esc((l.swords || {})[r.scenario] || "")}</li>`).join("");
-      return `<div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(l.title || l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
-        <p>${esc(l.question)}</p>
-        <p><b>Score</b> (higher is better): ${esc(l.score_words || l.score_text)}.</p>
-        <p><b>Compared against</b> ${esc(l.baseline_words || V(l.baseline))}. <b>Our current pick:</b> ${esc(l.candidate_words || V(l.candidate))}.</p>
-        <p class="muted"><b>Passes when</b> ${esc(l.pass_rule)}.</p>
-        <details><summary>What the setups and tracks are</summary><p><b>Setups</b></p><ul>${setups}</ul><p><b>Tracks</b></p><ul>${tracks}</ul></details>
-        <div class="sublab-charts" data-lab="${li}" style="display:grid;gap:12px;margin-top:10px"></div>
-        ${table}${recent ? `<h3 style="margin-top:10px">Last runs</h3><div style="display:grid;gap:4px">${recent}</div>` : ""}</div>`;
+      const trackList = (l.table || []).map((r) => `<li><b>${esc(S(r.scenario))}</b>: ${esc((l.swords || {})[r.scenario] || "")}</li>`).join("");
+      const ended = l.conclusion ? `<div class="ended"><div class="eyebrow">How it ended${l.conclusion_at ? " · " + esc(l.conclusion_at) : ""}</div><p>${esc(l.conclusion)}</p></div>` : `<div class="ended"><div class="eyebrow">How it ended</div><p class="muted">No conclusion yet - the runs are still coming in.</p></div>`;
+      return `<div class="card sublab-card"><div class="row" style="justify-content:space-between"><h2>${esc(l.title || l.name)}</h2><span class="chip">${esc(l.runs)} runs${l.last_at ? " · last " + esc(l.last_at) : ""}</span></div>
+        <p class="question">${esc(l.question)}</p>
+        ${ended}
+        ${result}
+        ${heat}
+        <h3>Graphs per track</h3>
+        <div class="sublab-charts" data-lab="${li}" style="display:grid;gap:12px"></div>
+        <details><summary>How it is measured: the setups, the tracks, the score, the pass rule</summary>
+          <p><b>Setups</b></p><ul>${setups}</ul><p><b>Tracks</b></p><ul>${trackList}</ul>
+          <p><b>Score</b> (one number per run, higher is better): ${esc(l.score_words || l.score_text)}.</p>
+          <p><b>Passes when</b> ${esc(l.pass_rule)}.</p></details>
+        ${recent ? `<details><summary>Last runs</summary><div style="display:grid;gap:4px;margin-top:6px">${recent}</div></details>` : ""}</div>`;
     }).join("") || '<div class="empty">No sub-labs.</div>';
     if (window.LabCharts) for (const el of document.querySelectorAll(".sublab-charts")) LabCharts.renderSublab(el, labs[+el.dataset.lab]);
   }
