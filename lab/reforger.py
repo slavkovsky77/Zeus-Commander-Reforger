@@ -60,7 +60,7 @@ MAPS = {
     "arland-conflict-test": ("AIConflictArland", "", "{C41618FD18E9D714}Missions/23_Campaign_Arland.conf", "Missions/23_Campaign_Arland.conf"),
 }
 READY = "[AICF][STAGE1][INFO][ROSTER_READY]"
-TEST_READY = ("[ZCR][DRIVETEST] t=", "[ZCR][TRAFFICSIM] t=", "[ZCR][GUNTEST] t=", "[ZCR][LOSSCAN] done")   # a test track, the traffic simulation or the guns test has started
+TEST_READY = ("[ZCR][DRIVETEST] t=", "[ZCR][TRAFFICSIM] t=", "[ZCR][GUNTEST] t=", "[ZCR][LOSSCAN] done", "[ZCR][COVERSCAN] done")   # a test track, the traffic simulation or the guns test has started
 
 
 def command(a, profile: Path) -> list:

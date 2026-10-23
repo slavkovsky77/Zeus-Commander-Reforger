@@ -75,6 +75,7 @@ class ZCR_GunTest
 	static void Start()
 	{
 		ZCR_LosScan.Start();   // lab: open ground for the guns test (-zcrLosScan)
+		ZCR_CoverScan.Start(); // lab: buildings, trees and walls on the ground, for the infantry tests (-zcrCoverScan)
 		string spec;
 		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrGunTest", spec) || spec.IsEmpty())
 			return;
@@ -439,6 +440,7 @@ class ZCR_GunTest
 			if (side == "USSR")
 				squad = "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et";
 			unit.m_Group = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(squad), GetGame().GetWorld(), params));
+			ZCR_Sampler.AddTestGroup(unit.m_Group, side);   // cover, stance and deaths measured as in matches
 			if (unit.m_Group && spec.m_sRole == "defend")
 				Waypoint(unit, at, "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et", 40);
 			else if (unit.m_Group && spec.m_sRole == "attack")
@@ -509,6 +511,7 @@ class ZCR_GunTest
 		riders.m_sKind = "riders";
 		riders.m_Group = SCR_AIGroup.Cast(group);
 		riders.m_Carrier = carrier;
+		ZCR_Sampler.AddTestGroup(riders.m_Group, side);
 		m_aUnits.Insert(riders);
 		Print(string.Format("[ZCR][GUNTEST] t=%1 event=RIDERS side=%2 unit=%3 men=%4 carrier=%5", ZCR_LossLog.Seconds(), side, riders.m_iIndex, seated, carrier.m_iIndex), LogLevel.NORMAL);
 	}

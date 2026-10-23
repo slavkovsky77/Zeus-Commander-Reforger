@@ -259,8 +259,8 @@ def servers() -> list:
 # ---------------------------------------------------------------- headless tests running now (sub-labs, integration tests)
 
 _tests_cache = {"at": 0, "data": []}
-TEST_RUN = re.compile(r"^(drivetest|guntest)-(.+)-([a-z0-9]+)-p(\d+)-(\d{8}-\d{6})$")
-SUBLAB_OF = {"drivetest": "driving", "guntest": "guns"}
+TEST_RUN = re.compile(r"^(drivetest|guntest|inftest)-(.+)-([a-z0-9]+)-p(\d+)-(\d{8}-\d{6})$")
+SUBLAB_OF = {"drivetest": "driving", "guntest": "guns", "inftest": "infantry"}
 
 
 def _labels(name: str) -> dict:
@@ -305,13 +305,19 @@ def tests_now() -> list:
                     keys = [("deliveries", "deliveries"), ("legs", "trips"), ("car_hits", "crashes between cars"), ("lost", "lost"),
                             ("jams", "jams"), ("supplies_delivered", "supplies delivered"), ("men_delivered", "soldiers delivered"),
                             ("crossings", "gave way"), ("junction_slows", "slowed at junctions")]
+                elif kind == "inftest":
+                    import inftest
+                    sm = inftest.summarize(run_dir, scenario, variant)
+                    keys = [("us_lost", "attackers lost"), ("ussr_lost", "defenders lost"), ("taken", "position taken"),
+                            ("us_cover", "% attackers in cover"), ("ussr_cover", "% defenders in cover"), ("died_open_pct", "% died in the open"),
+                            ("fight_m", "fighting distance m")]
                 else:
                     import guntest
                     sm = guntest.summarize(run_dir, scenario, variant)
                     keys = [("fired_pct", "% vehicles fired"), ("first_m", "first shot m"), ("rounds", "rounds"),
                             ("vehicles_lost", "vehicles lost"), ("squad_men_lost", "soldiers lost")]
                 row["numbers"] = [{"key": k, "label": lab, "value": sm.get(k)} for k, lab in keys
-                                  if sm.get(k) not in (None, 0, "") or k in ("car_hits", "lost")]
+                                  if sm.get(k) not in (None, 0, "") or k in ("car_hits", "lost", "us_lost", "ussr_lost", "taken")]
             except Exception as e:
                 row["error"] = str(e)[:120]
         out.append(row)

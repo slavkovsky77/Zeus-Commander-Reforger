@@ -51,6 +51,43 @@ class ZCR_Sampler
 	protected static const float CROWD_RANGE = 25;
 	protected static const int STACKED_FRIENDS = 6;
 
+	// A lab test's squad to sample (side "US" or "USSR"); starts the sampler.
+	protected static ref map<SCR_AIGroup, string> s_mTestGroups = new map<SCR_AIGroup, string>();
+	static void AddTestGroup(SCR_AIGroup group, string side)
+	{
+		if (!group)
+			return;
+		s_mTestGroups.Set(group, side);
+		Start();
+	}
+
+	protected void Track(ChimeraCharacter c, string faction, int now, map<IEntity, ref ZCR_SoldierState> next)
+	{
+		if (!c)
+			return;
+		CharacterControllerComponent ctl = c.GetCharacterController();
+		if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE)
+			return;
+		ZCR_SoldierState st;
+		if (!m_mState.Find(c, st) || !st)
+		{
+			st = new ZCR_SoldierState();
+			st.m_vPos = c.GetOrigin();
+			st.m_iAt = now;
+		}
+		float dt = Math.Max(1, now - st.m_iAt);
+		st.m_fSpeed = vector.DistanceXZ(st.m_vPos, c.GetOrigin()) / dt;
+		st.m_bMoving = st.m_fSpeed > MOVING_MPS;
+		st.m_vPos = c.GetOrigin();
+		st.m_iAt = now;
+		st.m_vEye = c.EyePosition();
+		st.m_iStance = ctl.GetStance();
+		st.m_bInVehicle = c.IsInVehicle();
+		st.m_sSide = faction;
+		next.Set(c, st);
+		Learn(faction, c, now);
+	}
+
 	static void Start()
 	{
 		if (s_Instance || !Replication.IsServer())
@@ -358,30 +395,21 @@ class ZCR_Sampler
 					ChimeraCharacter c;
 					if (agent)
 						c = ChimeraCharacter.Cast(agent.GetControlledEntity());
-					if (!c)
-						continue;
-					CharacterControllerComponent ctl = c.GetCharacterController();
-					if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE)
-						continue;
-					ZCR_SoldierState st;
-					if (!m_mState.Find(c, st) || !st)
-					{
-						st = new ZCR_SoldierState();
-						st.m_vPos = c.GetOrigin();
-						st.m_iAt = now;
-					}
-					float dt = Math.Max(1, now - st.m_iAt);
-					st.m_fSpeed = vector.DistanceXZ(st.m_vPos, c.GetOrigin()) / dt;
-					st.m_bMoving = st.m_fSpeed > MOVING_MPS;
-					st.m_vPos = c.GetOrigin();
-					st.m_iAt = now;
-					st.m_vEye = c.EyePosition();
-					st.m_iStance = ctl.GetStance();
-					st.m_bInVehicle = c.IsInVehicle();
-					st.m_sSide = faction;
-					next.Set(c, st);
-					Learn(faction, c, now);
+					Track(c, faction, now, next);
 				}
+			}
+		}
+		// Lab tests' own squads (the infantry sub-lab: no AI Conflict slots there).
+		foreach (SCR_AIGroup g, string gside : s_mTestGroups)
+		{
+			if (!g)
+				continue;
+			array<AIAgent> members = {};
+			g.GetAgents(members);
+			foreach (AIAgent m : members)
+			{
+				if (m)
+					Track(ChimeraCharacter.Cast(m.GetControlledEntity()), gside, now, next);
 			}
 		}
 		m_mState = next;

@@ -1,0 +1,80 @@
+# Sub-lab "infantry" - 23 Oct 2026 evening. Martin: "maybe I would like to move to DCO if that's possible - some infantry
+# tests that I would like to watch"; "I can imagine these as small sub-lab integration tests" (review note 343). Rifle
+# squads only on real Arland ground, the game's own soldier AI against the DCO_AI Reforger mod (Workshop, never copied).
+name = "infantry"
+title = "Infantry"
+question = "Do infantry squads fight well - attackers move through cover and take the position, defenders hold it from cover, few die standing in the open - with the game's AI or with DCO?"
+issue = "Martin's infantry list since 20 Oct: soldiers walk across open fields like nothing is happening, don't fight from cover, no bounding (review notes 125, 174, 197, 113, 124, 133, 134); DCO_AI is the Workshop's best-known soldier AI mod"
+pass_rule = "on every scenario the candidate loses fewer men than the game's AI for the same result (position taken or held), with more of its fighting from cover and fewer deaths standing in the open; then it goes into a watched match with our commander"
+runner = "lab/inftest.py"
+minutes = 12
+units = 1
+scenarios = ["storm-foot"]
+variants = ["game", "dco"]
+baseline = "game"
+candidate = "dco"
+score = "10*taken + ussr_lost - us_lost + (us_cover or 0)/10 - (died_open_pct or 0)/20"
+higher_is_better = true
+keys = ["taken", "taken_s", "us_lost", "ussr_lost", "us_cover", "ussr_cover", "died_standing_pct", "died_open_pct", "fight_m"]
+main = "us_lost"
+conclusion_at = "23 Oct evening - starting"
+conclusion = """Starting: the first scenario (storm on foot at Moss Hill farm) with the game's AI and with DCO."""
+score_words = "10 points if the attackers take the position, plus each defender killed, minus each attacker lost, plus 1 point per 10% of the attackers' fighting time in cover, minus 1 point per 20% of the dead killed in the open"
+baseline_words = "the game's own soldier AI"
+candidate_words = "the DCO_AI Reforger mod"
+
+[variant_labels]
+game = "Game's AI"
+dco = "DCO_AI mod"
+
+[variant_words]
+game = "the game's own soldier AI (our mod is loaded but in these tests only measures - no commander, no soldier layer)"
+dco = "the DCO_AI Reforger mod from the Workshop on every soldier of both squads (default settings)"
+
+[scenario_labels]
+storm-foot = "Storm on foot (Moss Hill farm)"
+
+[scenario_words]
+storm-foot = "a US rifle squad (9 men) attacks a Soviet rifle squad (6 men) holding Moss Hill farm on its hilltop, 450 m away: open ground at the foot of the hill, woods in the middle, then about 100 m of open slope up to the farm"
+
+[[questions]]
+key = "taken"
+short = "taken"
+title = "Position taken"
+better = "higher"
+axis = "1 when US soldiers were within 40 m of the farm with no Soviet soldier alive within 60 m"
+
+[[questions]]
+key = "us_lost"
+short = "attackers lost"
+title = "Attackers lost"
+better = "lower"
+axis = "US soldiers killed (of 9)"
+
+[[questions]]
+key = "ussr_lost"
+short = "defenders lost"
+title = "Defenders lost"
+better = "higher"
+axis = "Soviet soldiers killed (of 6)"
+
+[[questions]]
+key = "us_cover"
+short = "% in cover (attackers)"
+title = "Attackers in cover while fighting"
+better = "higher"
+axis = "% of the attackers who knew an enemy within 300 m with something solid between them or a roof overhead (30-s samples)"
+
+[[questions]]
+key = "died_open_pct"
+short = "% died in the open"
+title = "Deaths in the open"
+better = "lower"
+axis = "% of the dead with nothing solid between them and the killer"
+
+[[questions]]
+key = "fight_m"
+short = "m fighting distance"
+title = "Fighting distance"
+better = "higher"
+axis = "median distance between killer and killed, metres"
