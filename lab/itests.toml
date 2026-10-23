@@ -135,3 +135,24 @@ minutes = 8
 checks = ["men_delivered >= 6", "lost == 0", "script_errors == 0", "not crashed"]
 goals = ["men_delivered >= 12", "car_hits == 0"]
 note = "Martin, 23 Oct: 'one of the trucks should pick up an infantry group where they want to be transported' (review note 339)"
+
+[[test]]
+name = "infantry-storm"
+what = "a US rifle squad storms Moss Hill farm held by a Soviet squad (the game's AI): a real fight happens and it is measured"
+kind = "infantry"
+scenario = "storm-foot"
+variant = "game"
+minutes = 10
+checks = ["us_lost + ussr_lost >= 3", "script_errors == 0", "not crashed"]
+goals = ["taken == 1"]
+note = "Martin, 23 Oct: infantry tests to watch, as small sub-lab integration tests (review note 343)"
+
+[[test]]
+name = "dco-loads"
+what = "the same storm with the DCO_AI mod (Workshop) loaded beside our mod: it compiles, DCO is active, the fight happens"
+kind = "infantry"
+scenario = "storm-foot"
+variant = "dco"
+minutes = 8
+checks = ["dco_loaded", "us_lost + ussr_lost >= 3", "script_errors == 0", "not crashed"]
+note = "DCO and our mod change 6 of the same game classes; this catches one breaking the other (review note 343)"

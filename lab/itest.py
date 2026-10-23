@@ -59,6 +59,8 @@ def run_on(test: dict, port: int) -> dict:
     started = time.time()
     if test["kind"] == "drive":
         summary = load("drivetest").run(test["track"], test.get("variant", "default"), test.get("minutes", 5), test.get("units", 6), port)
+    elif test["kind"] == "infantry":
+        summary = load("inftest").run(test["scenario"], test.get("variant", "game"), test.get("minutes", 10), 0, port)
     else:
         summary = load("guntest").run(test["scenario"], test.get("variant", "default"), test.get("minutes", 5), 0, port)
     checks = judge(test.get("checks", []), summary)
