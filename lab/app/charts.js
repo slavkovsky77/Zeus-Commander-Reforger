@@ -86,7 +86,7 @@ window.LabCharts = (() => {
   }
 
   function table(option, unit) {
-    const cats = option.xAxis.data || null;
+    const cats = option.xAxis.data || (option.yAxis && option.yAxis.data) || null;   // bars lying down keep their names on the y axis
     const series = option.series.filter((s) => s.type !== "scatter" || s.data.length);
     if (cats) {
       return `<table><thead><tr><th></th>${series.map((s) => `<th>${esc(s.name)}</th>`).join("")}</tr></thead><tbody>` +
@@ -284,47 +284,74 @@ window.LabCharts = (() => {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { for (const k of Object.keys(liveCharts)) { liveCharts[k].chart.dispose(); delete liveCharts[k]; } document.getElementById("charts").innerHTML = ""; renderProgress(); });
 
   // ------------------------------------------------------------------ Sub-labs tab
-  // Three graphs per sub-lab: the mean score per scenario and variant, what goes wrong per run by variant, and every
-  // run in order. A variant keeps its colour (its place in the sub-lab's variant list).
+  // One track at a time (Martin, 23 Oct: "it's hard to understand these graphs, what is X?"): a track picker, then one
+  // graph per question - crashes between cars, cars lost, jams, trips made - with the setups as named rows and the axis
+  // saying what it counts. Averages over the headless runs on that track only (tracks differ too much to average over:
+  // mines, gates). A setup keeps its colour (its place in the sub-lab's setup list).
+  const picked = {};
   function renderSublab(container, lab) {
+    for (const c of [...live]) if (c.isDisposed()) live.delete(c);
     container.innerHTML = "";
-    const vs = lab.variants || [], all = lab.all || [];
-    const color = (v) => kindColor(Math.max(0, vs.indexOf(v)));
-    const used = vs.filter((v) => all.some((r) => r.variant === v));
-    if (!used.length) { container.innerHTML = '<p class="muted">No runs yet - the graphs appear with the first run.</p>'; return; }
-    const scenarios = (lab.table || []).map((r) => r.scenario);
+    const vs = lab.variants || [], all = (lab.all || []).filter((r) => !r.watched);
+    // Colour marks only what to compare: grey the game alone, orange our mod as it is now, blue the alternatives.
+    const color = (v) => v === lab.baseline ? css("--muted") : v === lab.candidate ? kindColor(1) : kindColor(0);
     const tag = (v) => (lab.vlabel || {})[v] || v;
     const S = (sc) => (lab.slabel || {})[sc] || sc;
-    card(container, { title: "Score by track", better: "higher",
-      why: `Average score on each track, one bar per setup. Score: ${lab.score_words || lab.score_text}.` }, () => {
-      const series = used.map((v) => ({ name: tag(v), type: "bar", barMaxWidth: 18, itemStyle: { color: color(v), borderRadius: [3, 3, 0, 0] },
-        data: scenarios.map((sc) => { const c = ((lab.table.find((r) => r.scenario === sc) || {}).cells || {})[v]; return c ? c.score : null; }) }));
-      return base({ dataZoom: [], grid: { left: 46, right: 18, top: 44, bottom: 40 },
-        xAxis: { type: "category", data: scenarios.map(S), ...axisStyle(), axisLabel: { ...axisStyle().axisLabel, interval: 0 } },
-        yAxis: { type: "value", ...axisStyle() }, tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" } }, series });
+    const order = (lab.table || []).map((r) => r.scenario);
+    const tracks = order.filter((sc) => all.some((r) => r.scenario === sc));
+    if (!tracks.length) { container.innerHTML = '<p class="muted">No runs yet - the graphs appear with the first run.</p>'; return; }
+    const key = "sublab-track-" + (lab.name || "");
+    let chosen = picked[key];
+    try { chosen = chosen || localStorage.getItem(key); } catch (e) { /* no storage: first track */ }
+    if (!tracks.includes(chosen)) chosen = tracks[0];
+    const bar = document.createElement("div");
+    bar.className = "row";
+    bar.style.cssText = "gap:8px;align-items:center;flex-wrap:wrap";
+    const id = "sl-track-" + (lab.name || "lab");
+    bar.innerHTML = `<label for="${id}"><b>Track</b></label><select id="${id}">${tracks.map((sc) => `<option value="${esc(sc)}"${sc === chosen ? " selected" : ""}>${esc(S(sc))}</option>`).join("")}</select>`;
+    const words = document.createElement("p");
+    words.className = "muted";
+    const box = document.createElement("div");
+    box.style.cssText = "display:grid;gap:12px";
+    container.append(bar, words, box);
+    const draw = (sc) => {
+      for (const el of box.querySelectorAll(".ec")) { const c = echarts.getInstanceByDom(el); if (c) { live.delete(c); c.dispose(); } }
+      box.innerHTML = "";
+      const about = ((lab.swords || {})[sc] || "").trim();
+      words.textContent = (about ? about.replace(/\.?$/, ". ") : "") + "Grey: the game's driver alone. Orange: our mod as it is now. Blue: the alternatives tried.";
+      const runs = all.filter((r) => r.scenario === sc);
+      const setups = vs.filter((v) => runs.some((r) => r.variant === v));
+      const avg = (v, k) => { const xs = runs.filter((r) => r.variant === v && typeof r[k] === "number").map((r) => r[k]); return xs.length ? mean(xs) : null; };
+      const count = (v) => runs.filter((r) => r.variant === v).length;
+      const QUESTIONS = [
+        { k: "car_hits", title: "Crashes between cars", better: "lower", axis: "hits per 10-minute run (each car in a crash counts once)" },
+        { k: "lost", title: "Cars lost", better: "lower", axis: "cars lost per 10-minute run (destroyed, crew got out, driver dead)" },
+        { k: "jams", title: "Jams", better: "lower", axis: "jams per 10-minute run (a car standing 45 s with another car within 10 m)" },
+        { k: "legs", title: sc === "traffic" ? "Deliveries made" : "Trips made", better: "higher", axis: sc === "traffic" ? "deliveries per 10-minute run" : "trips from one end to the other per 10-minute run" },
+      ];
+      for (const q of QUESTIONS) {
+        const rows = setups.map((v) => ({ label: `${tag(v)} (${count(v)} run${count(v) === 1 ? "" : "s"})`, value: avg(v, q.k), color: color(v) })).filter((r) => r.value != null);
+        if (!rows.length) continue;
+        const el = card(box, { title: q.title, better: q.better, why: `Average of the runs on this track. ${q.better === "lower" ? "Shorter bar is better." : "Longer bar is better."}` }, () => base({
+          dataZoom: [], legend: { show: false },
+          grid: { left: 8, right: 40, top: 6, bottom: 40, containLabel: true },
+          xAxis: { type: "value", name: q.axis, nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--muted"), fontSize: 11.5 }, ...axisStyle() },
+          yAxis: { type: "category", inverse: true, data: rows.map((r) => r.label), ...axisStyle(), splitLine: { show: false },
+                   axisLabel: { color: css("--ink"), fontSize: 12.5, fontFamily: "Source Sans 3, Segoe UI, system-ui, sans-serif" } },
+          tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" } },
+          series: [{ name: q.title, type: "bar", barMaxWidth: 18, itemStyle: { borderRadius: [0, 3, 3, 0] },
+                     label: { show: true, position: "right", color: css("--ink"), fontSize: 11.5, fontFamily: "JetBrains Mono, Consolas, monospace" },
+                     data: rows.map((r) => ({ value: r.value, itemStyle: { color: r.color } })) }],
+        }));
+        el.querySelector(".ec").style.height = `${Math.max(150, rows.length * 34 + 64)}px`;
+      }
+    };
+    bar.querySelector("select").addEventListener("change", (e) => {
+      picked[key] = e.target.value;
+      try { localStorage.setItem(key, e.target.value); } catch (err) { /* remembered for this visit only */ }
+      draw(e.target.value);
     });
-    const bad = (lab.keys || []).filter((k) => ["lost", "car_hits", "jams", "stuck", "unreachable"].includes(k));
-    if (bad.length) card(container, { title: "What goes wrong, per run", better: "lower",
-      why: "For each setup, the average per run over all its tracks (headless runs only)." }, () => {
-      const per = (v, k) => { const rs = all.filter((r) => r.variant === v && !r.watched && typeof r[k] === "number"); return rs.length ? mean(rs.map((r) => r[k])) : null; };
-      const BADC = ["#e34948", "#eda100", "#6250d6", "#008300", "#2a78d6"];
-      const KW = { lost: "lost cars", car_hits: "crashes into cars", jams: "jams", stuck: "stuck", unreachable: "no route found" };
-      const series = bad.map((k, i) => ({ name: KW[k] || k.replace(/_/g, " "), type: "bar", barMaxWidth: 16, itemStyle: { color: BADC[i % BADC.length], borderRadius: [3, 3, 0, 0] },
-        data: used.map((v) => per(v, k)) }));
-      return base({ dataZoom: [], grid: { left: 46, right: 18, top: 44, bottom: 40 },
-        xAxis: { type: "category", data: used.map(tag), ...axisStyle(), axisLabel: { ...axisStyle().axisLabel, interval: 0, rotate: used.length > 6 ? 25 : 0 } },
-        yAxis: { type: "value", ...axisStyle() }, tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow" } }, series });
-    });
-    card(container, { title: "Every run", better: "higher",
-      why: "Each dot is one run, oldest on the left; the colour is the setup. Hollow dots: runs watched in the game window (often sped up, not comparable)." }, () => {
-      const series = used.map((v) => ({ name: tag(v), type: "scatter", symbolSize: 9, itemStyle: { color: color(v) },
-        data: all.map((r, i) => r.variant === v ? { value: [i + 1, r.score], run: `${r.at} · ${S(r.scenario)}`,
-          itemStyle: r.watched ? { color: "transparent", borderColor: color(v), borderWidth: 2 } : undefined } : null).filter(Boolean) }));
-      return base({ grid: { left: 46, right: 18, top: 44, bottom: 58 },
-        xAxis: { type: "value", minInterval: 1, ...axisStyle() },
-        yAxis: { type: "value", ...axisStyle() },
-        tooltip: { ...base().tooltip, trigger: "item", formatter: (p) => `${esc(p.seriesName)}<br>${esc(p.data.run)}<br>score <b>${esc(p.value[1])}</b>` }, series });
-    });
+    draw(chosen);
   }
 
   return { loadProgress, renderLive, renderSublab, resize: () => { for (const c of live) c.resize(); } };
