@@ -218,19 +218,23 @@ class ZCR_TrafficSim
 				Waiting(car, now);
 				continue;
 			}
-			// One truck at the pickup at a time: the next waits 70 m short (23 Oct: two trucks 20 s apart boxed each other in
-			// among the boarding squad - STUCK again and again).
-			if (m_bShuttle && car.m_iTo == 0 && Pickup(car.m_sKind))
+			// One truck at a stop at a time: the next waits 120 m short while another loads, boards or unloads there or is
+			// still turning round to leave (23 Oct: two trucks 20 s apart boxed each other in among the boarding squad - STUCK
+			// again and again; from 59 km/h a Ural held at 70 m still rolled into the stop).
+			// Manpower trucks only: the supply trucks load in 10 s with nobody around, and holding them halved what 4 trucks
+			// delivered (6000 -> 3000 in 10 min).
+			bool held;
+			if (m_bShuttle && Pickup(car.m_sKind))
 			{
+				int stop = car.m_iTo;
 				bool busy;
 				foreach (ZCR_SimCar o : m_aCars)
 				{
-					// boarding, or boarded and still turning round there (23 Oct: the next truck arrived 10 s after the first
-					// left - both STUCK, 2 minutes lost)
-					if (o != car && !o.m_bLost && o.m_Vehicle && (o.m_iPickupAt > 0 || vector.DistanceXZ(o.m_Vehicle.GetOrigin(), m_aStops[0]) < 60))
+					if (o != car && !o.m_bLost && o.m_Vehicle && o.m_iFrom == stop && vector.DistanceXZ(o.m_Vehicle.GetOrigin(), m_aStops[stop]) < 60)
 						busy = true;
 				}
-				if (busy && vector.DistanceXZ(at, m_aStops[0]) < 70)
+				held = busy && vector.DistanceXZ(at, m_aStops[stop]) < 120;
+				if (held)
 					ZCR_Traffic.Limit(car.m_Vehicle, "queue", 0);
 				else
 					ZCR_Traffic.Release(car.m_Vehicle, "queue");
@@ -245,7 +249,7 @@ class ZCR_TrafficSim
 				}
 				continue;
 			}
-			if (vector.DistanceXZ(at, m_aStops[car.m_iTo]) > 30)
+			if (vector.DistanceXZ(at, m_aStops[car.m_iTo]) > 30 || held)
 				continue;
 			int legS = Math.Max(1, now - car.m_iLegStart);
 			float km = vector.DistanceXZ(m_aStops[car.m_iFrom], m_aStops[car.m_iTo]) / 1000;
@@ -445,15 +449,16 @@ class ZCR_TrafficSim
 		Print(string.Format("[ZCR][TRAFFICSIM] t=%1 event=SQUAD_WAITS x=%2 z=%3", now, Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
 	}
 
-	// The first point 20-30 m from the stop at least 12 m from any road (eight directions), else 25 m east.
+	// The first point 35-50 m from the stop at least 25 m from any road (eight directions), else 40 m east - clear of the
+	// truck turning round (23 Oct: 14 m off the road was where the Ural swung round, and the next squad stood there).
 	protected static vector Aside(vector stop)
 	{
-		vector at = stop + Vector(25, 0, 0);
+		vector at = stop + Vector(40, 0, 0);
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
 		if (aiWorld && aiWorld.GetRoadNetworkManager())
 		{
 			bool found;
-			for (int r = 20; r <= 30 && !found; r += 5)
+			for (int r = 35; r <= 50 && !found; r += 5)
 			{
 				for (int i; i < 8 && !found; i++)
 				{
@@ -463,7 +468,7 @@ class ZCR_TrafficSim
 					BaseRoad road;
 					float distance;
 					aiWorld.GetRoadNetworkManager().GetClosestRoad(p, road, distance, true);
-					if (!road || distance >= 12)
+					if (!road || distance >= 25)
 					{
 						at = p;
 						found = true;
