@@ -553,7 +553,10 @@ class ZCR_Drones
 	// The lab's drone operators (ZCR_GunTest kind "drones", 24 Oct - Martin: "each team would get a drone operator; the
 	// attacker has drones, then the defender, then both"): an anti-infantry team from 'from' at 'goal', registered like the
 	// commanders' teams (the camera's drone shots, kill credit, Tend's retargeting at seen enemies). False: none launched.
-	static bool LaunchTest(FactionKey side, vector from, vector goal, int maxUp)
+	// drones: how many the team takes off with (the station's own count is 4; Martin, 24 Oct: "drones in groups of 4 is a bit
+	// unrealistic - mostly they fly independently, launched by one operator"): set through the FPV mod's
+	// FPVAI_StationComponent.SetDrones, called by name so this addon still runs without the mod.
+	static bool LaunchTest(FactionKey side, vector from, vector goal, int maxUp, int drones = 4)
 	{
 		if (Active(side) >= maxUp)
 			return false;
@@ -572,6 +575,15 @@ class ZCR_Drones
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
 		if (!team)
 			return false;
+		if (drones != 4)
+		{
+			typename stationType = String("FPVAI_StationComponent").ToType();
+			Managed station;
+			if (stationType)
+				station = team.FindComponent(stationType);
+			if (station)
+				GetGame().GetScriptModule().Call(station, "SetDrones", false, null, drones);
+		}
 		int n = s_mCount.Get(side) + 1;
 		s_mTeamNo.Set(team, n);
 		AddRoute(team, at, goal);
@@ -582,8 +594,8 @@ class ZCR_Drones
 		s_mTeamLaunchedAt.Set(team, now);
 		s_mCount.Set(side, n);
 		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);
-		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=anti-infantry from=operator to=%4,%5 distance=%6 why=test-operator", now, side, n,
-			Math.Round(goal[0]), Math.Round(goal[2]), Math.Round(vector.DistanceXZ(at, goal))), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=anti-infantry from=operator to=%4,%5 distance=%6 why=test-operator drones=%7", now, side, n,
+			Math.Round(goal[0]), Math.Round(goal[2]), Math.Round(vector.DistanceXZ(at, goal)), drones), LogLevel.NORMAL);
 		Find(at, side, team);
 		return true;
 	}

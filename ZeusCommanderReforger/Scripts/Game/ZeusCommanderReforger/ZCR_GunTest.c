@@ -223,8 +223,11 @@ class ZCR_GunTest
 	// Drone operators: while one of a team lives, an FPV team of 4 at the enemy's position every DRONE_EVERY_S, at most
 	// DRONE_MAX_UP teams of the side in the air; the teams retarget at enemies their side has seen (ZCR_Drones.Tend). The
 	// soldiers' drone reactions (ZCR_DroneThreat, ZCR_AntiDrone) run as in matches.
-	static const int DRONE_EVERY_S = 90;
-	static const int DRONE_MAX_UP = 2;
+	// One FPV at a time (Martin, 24 Oct: "mostly they fly independently - launched by one"): a drone every 35 s, at most 3
+	// of a side's in the air.
+	static const int DRONE_EVERY_S = 35;
+	static const int DRONE_MAX_UP = 3;
+	static const int DRONES_PER_LAUNCH = 1;
 	protected bool m_bDroneLayers;
 
 	protected void Operators(int now)
@@ -246,7 +249,7 @@ class ZCR_GunTest
 			if (!agents.IsEmpty() && agents[0] && agents[0].GetControlledEntity())
 				from = agents[0].GetControlledEntity().GetOrigin();
 			from = from + Vector(12, 0, 0);   // beside the operators, not on them
-			if (ZCR_Drones.LaunchTest(u.m_sSide, from, goal, DRONE_MAX_UP))
+			if (ZCR_Drones.LaunchTest(u.m_sSide, from, goal, DRONE_MAX_UP, DRONES_PER_LAUNCH))
 				u.m_iNextLaunch = now + DRONE_EVERY_S;
 			else
 				u.m_iNextLaunch = now + 10;
