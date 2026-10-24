@@ -9,6 +9,7 @@ matches. The runner of the sub-lab "infantry" (lab/sublabs/infantry.toml):
 """
 import argparse
 import json
+import math
 import re
 import statistics
 import subprocess
@@ -178,9 +179,23 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     loss_lines = [l for l in lines if "[ZCR][LOSS]" in l and " kind=man " in l]
     blasts = [c for c in (clock(l) for l in lines if re.search(r"FPVAI: drone\d+ detonated", l)) if c is not None]
     blasts += [c for c in (clock(l) for l in loss_lines if "killer_kind=none" in l) if c is not None]
+    # ... or one "killed" by a soldier already dead (14:43, the farm: a rifleman wounded by the blast that killed the team
+    # leader died 1.2 s later, credited to him - the distance in the line was the distance to his body; the first farm storm's
+    # three "shot by their team leader" were all credited to dead team leaders). The loss log says so since 24 Oct 14:50
+    # (killer_dead=1); older runs: an earlier death of that name whose body is at the line's distance (+-1 m, positions
+    # are rounded to 1 m - 2 m let a real shot at 1.8 m through).
+    dead = [(clock(l), kv(l)) for l in loss_lines]
     def splash(l):
         c = clock(l)
-        return c is not None and any(abs(c - b) <= 0.25 for b in blasts)
+        if c is None:
+            return False
+        if " killer_dead=1" in l or any(abs(c - b) <= 0.25 for b in blasts):
+            return True
+        d = kv(l)
+        here = (float(d.get("x", 0) or 0), float(d.get("z", 0) or 0))
+        return any(dc is not None and dc < c and k.get("victim") == d.get("killer")
+                   and abs(math.dist(here, (float(k.get("x", 0) or 0), float(k.get("z", 0) or 0))) - float(d.get("distance", -9) or -9)) <= 1
+                   for dc, k in dead)
     ff = [(kv(l), splash(l)) for l in loss_lines if "relation=KILLED_BY_FRIENDLY_AI" in l]
     by_drone = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("killer_kind") in ("none", "") and d.get("stance"))
                 + sum(1 for d, sp in ff if d.get("side") == s.upper() and sp) for s in ("us", "ussr")}

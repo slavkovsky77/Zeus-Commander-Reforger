@@ -112,6 +112,12 @@ class ZCR_LossLog
 		string killerName = "none";
 		if (killer)
 			killerName = ShortName(killer);
+		// A kill credited to a soldier already dead (24 Oct, drone storms: soldiers killed by a drone's blast credited to the
+		// team leader the drone before had killed - the distance in the line was the distance to his body): killer_dead=1.
+		ChimeraCharacter killerMan = ChimeraCharacter.Cast(killer);
+		if (killerMan && killerMan != victim && killerMan.GetCharacterController()
+			&& killerMan.GetCharacterController().GetLifeState() == ECharacterLifeState.DEAD)
+			killerName += " killer_dead=1";
 		if (ChimeraCharacter.Cast(victim))
 			ZCR_Feed.Lost(SideOf(victim), killer != null);
 		Print(string.Format("[ZCR][LOSS] t=%1 victim=%2 side=%3 kind=%4 killer_side=%5 killer_kind=%6 relation=%7 distance=%8 x=%9",
