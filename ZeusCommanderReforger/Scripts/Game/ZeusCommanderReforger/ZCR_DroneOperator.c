@@ -2,8 +2,8 @@
 // operator, so I know how it works; he should maybe seek cover, and when he is controlling a drone he should have the drone
 // controller in hands and goggles, and be stationary like in real life"). A 2-man team that launches drones (the infantry
 // test's operators, the commander's drone sites) registers here:
-//   - its first soldier is the pilot: Realistic Combat Drones' FPV goggles on his head in place of the helmet, and its
-//     drone controller, which he holds while a drone of his side is in the air (his rifle again when none is);
+//   - its first soldier is the pilot: a big bag on his back; Realistic Combat Drones' FPV goggles on his head only while a
+//     drone of his side is in the air (his helmet otherwise), and its drone controller in his hands then (his rifle otherwise);
 //   - the team's post is in cover: inside a building, else under a roof or tree crowns, within 25 m of where it was put,
 //     on the side away from the enemy;
 //   - while a drone flies the pilot holds still where he is, crouched with the controller: his AI is off for the flight
@@ -27,6 +27,7 @@ class ZCR_OperatorMan
 	int m_iThawUntil;
 	SCR_AIGroup m_Group;
 	SCR_AIMoveIndividuallyBehavior m_Move;   // his last move to the post
+	ResourceName m_sHelmet;                  // what he wears when not flying
 	bool m_bMoving;         // the drone site is moving (ZCR_DroneSites): no holding at the post, no flying
 }
 
@@ -55,6 +56,10 @@ class ZCR_DroneOperator
 {
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
 	static const ResourceName CONTROLLER = "{E2434ED1318D8476}Prefabs/Characters/Items/DroneController.et";
+	// The pilot's big bag (Martin, 18:20: "let's give the drone operator a big backpack, and he only uses the goggles when he
+	// is driving drones"): the game's ALICE with frame (US), Kolobok (Soviet).
+	static const ResourceName BAG_US = "{841162A79157C494}Prefabs/Items/Equipment/Backpacks/Backpack_ALICE_Medium_frame.et";
+	static const ResourceName BAG_USSR = "{41A9C55B61F375F0}Prefabs/Items/Equipment/Backpacks/Backpack_Kolobok.et";
 	static const float POST_COVER_M = 25;
 	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
@@ -386,7 +391,8 @@ class ZCR_DroneOperator
 		return null;
 	}
 
-	// Goggles on the head (the helmet goes), the controller into a weapon slot (or the kit, if they are full).
+	// The pilot's kit: the big bag, the controller into a weapon slot (or the kit, if they are full); his helmet remembered -
+	// the goggles go on only while he flies (Head).
 	protected static void Kit(ZCR_OperatorMan m)
 	{
 		ChimeraCharacter c = ChimeraCharacter.Cast(m.m_Man);
@@ -394,17 +400,21 @@ class ZCR_DroneOperator
 		SCR_CharacterInventoryStorageComponent store = SCR_CharacterInventoryStorageComponent.Cast(c.FindComponent(SCR_CharacterInventoryStorageComponent));
 		if (!inv || !store)
 			return;
-		bool goggles, controller;
-		IEntity g = SpawnAt(GOGGLES, c.GetOrigin());
-		if (g)
+		bool bag, controller;
+		ResourceName bagPrefab = BAG_US;
+		if (m.m_sSide == "USSR")
+			bagPrefab = BAG_USSR;
+		IEntity b = SpawnAt(bagPrefab, c.GetOrigin());
+		if (b)
+			bag = Wear(c, inv, store, b);
+		// What he has on his head now (the goggles' slot).
+		IEntity probe = SpawnAt(GOGGLES, c.GetOrigin());
+		if (probe)
 		{
-			InventoryStorageSlot slot = store.FindSuitableSlotForItem(g);
-			if (slot)
-				goggles = inv.TryReplaceItem(g, store, slot.GetID());
-			if (!goggles)
-				goggles = inv.TryInsertItem(g, EStoragePurpose.PURPOSE_LOADOUT_PROXY);
-			if (!goggles)
-				SCR_EntityHelper.DeleteEntityAndChildren(g);
+			InventoryStorageSlot head = store.FindSuitableSlotForItem(probe);
+			if (head && head.GetAttachedEntity() && head.GetAttachedEntity().GetPrefabData())
+				m.m_sHelmet = head.GetAttachedEntity().GetPrefabData().GetPrefabName();
+			SCR_EntityHelper.DeleteEntityAndChildren(probe);
 		}
 		IEntity k = SpawnAt(CONTROLLER, c.GetOrigin());
 		if (k)
@@ -425,7 +435,72 @@ class ZCR_DroneOperator
 			else
 				SCR_EntityHelper.DeleteEntityAndChildren(k);
 		}
-		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=kit goggles=%3 controller=%4", ZCR_LossLog.Seconds(), m.m_sSide, goggles, controller), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=kit bag=%3 controller=%4 helmet=%5", ZCR_LossLog.Seconds(), m.m_sSide, bag, controller,
+			!m.m_sHelmet.IsEmpty()), LogLevel.NORMAL);
+	}
+
+	// 'item' into its slot on him (head, back); what was there is taken away (not left on the ground or in his bag).
+	protected static bool Wear(ChimeraCharacter c, SCR_InventoryStorageManagerComponent inv, SCR_CharacterInventoryStorageComponent store, IEntity item)
+	{
+		InventoryStorageSlot slot = store.FindSuitableSlotForItem(item);
+		if (!slot)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(item);
+			return false;
+		}
+		IEntity old = slot.GetAttachedEntity();
+		bool ok;
+		if (old)
+			ok = inv.TryReplaceItem(item, store, slot.GetID());
+		else
+			ok = inv.TryInsertItemInStorage(item, store, slot.GetID());
+		if (!ok)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(item);
+			return false;
+		}
+		if (old && old != item)
+			GetGame().GetCallqueue().CallLater(TakeAway, 500, false, c, old);
+		return true;
+	}
+
+	protected static void TakeAway(ChimeraCharacter c, IEntity old)
+	{
+		if (!old)
+			return;
+		SCR_InventoryStorageManagerComponent inv;
+		if (c)
+			inv = SCR_InventoryStorageManagerComponent.Cast(c.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (old.GetParent() && inv && inv.TryDeleteItem(old))
+			return;
+		SCR_EntityHelper.DeleteEntityAndChildren(old);
+	}
+
+	// The goggles on (he flies) or his helmet back on (he doesn't).
+	protected static void Head(ChimeraCharacter c, ZCR_OperatorMan m, bool goggles)
+	{
+		SCR_InventoryStorageManagerComponent inv = SCR_InventoryStorageManagerComponent.Cast(c.FindComponent(SCR_InventoryStorageManagerComponent));
+		SCR_CharacterInventoryStorageComponent store = SCR_CharacterInventoryStorageComponent.Cast(c.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!inv || !store)
+			return;
+		ResourceName want = GOGGLES;
+		if (!goggles)
+			want = m.m_sHelmet;
+		if (want.IsEmpty())
+		{
+			// No helmet to go back to: the goggles off.
+			IEntity probe = SpawnAt(GOGGLES, c.GetOrigin());
+			if (!probe)
+				return;
+			InventoryStorageSlot head = store.FindSuitableSlotForItem(probe);
+			SCR_EntityHelper.DeleteEntityAndChildren(probe);
+			if (head && head.GetAttachedEntity())
+				TakeAway(c, head.GetAttachedEntity());
+			return;
+		}
+		IEntity item = SpawnAt(want, c.GetOrigin());
+		if (item)
+			Wear(c, inv, store, item);
 	}
 
 	protected static IEntity SpawnAt(ResourceName prefab, vector at)
@@ -506,6 +581,7 @@ class ZCR_DroneOperator
 					// driving the drone"): the controller in his hands, down on a knee, then his AI off - he stands where he
 					// is, blind to the world behind his goggles (his guard watches); on again when the drone is down.
 					Hands(c, m.m_Controller, true);
+					Head(c, m, true);                  // the goggles on only while he flies
 					c.GetCharacterController().SetStanceChange(ECharacterStanceChange.STANCECHANGE_TOCROUCH);
 					GetGame().GetCallqueue().CallLater(Freeze, 1500, false, c, true);
 					m.m_iFrozenAt = now;
@@ -513,6 +589,7 @@ class ZCR_DroneOperator
 				else
 				{
 					Freeze(c, false);
+					Head(c, m, false);                 // his helmet back on
 					m.m_iFrozenAt = 0;
 				}
 				Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=%3 x=%4 z=%5 at_post=%6", now, m.m_sSide, what, Math.Round(c.GetOrigin()[0]),

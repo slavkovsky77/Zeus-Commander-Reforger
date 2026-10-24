@@ -49,6 +49,8 @@ class ZCR_DroneSite
 	SCR_AIGroup m_Driver;
 	AIWaypoint m_DriveWaypoint;
 	bool m_bDriving;
+	vector m_vDriveFrom;
+	int m_iBadSupport;       // support points given up as unreachable
 	int m_iDriveAt;
 	int m_iExposedMoves;     // moves made because its operators had no cover (at most 2)
 	bool m_bSafe;           // its next spot has overhead cover for the operators
@@ -83,8 +85,8 @@ class ZCR_DroneSites
 		return !System.IsCLIParam("zcrNoDroneSites");
 	}
 
-	// The static main-base site: the command truck; a mobile site: the transport truck (18:15: the command truck's driver sat
-	// 425 s at 0 km/h with the commander's order - the traffic simulation's transport trucks drive).
+	// The command truck for every site (18:21: the transport truck didn't drive either - the truck wasn't the problem - and
+	// Martin: "the previous one was better").
 	protected static ResourceName Truck(string side, bool main = true)
 	{
 		if (side == "USSR")
@@ -221,7 +223,7 @@ class ZCR_DroneSites
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = spot;
-		Resource truckRes = Resource.Load(Truck(side, main));
+		Resource truckRes = Resource.Load(Truck(side));
 		Resource teamRes = Resource.Load(Operators(side));
 		if (!truckRes || !truckRes.IsValid() || !teamRes || !teamRes.IsValid())
 			return false;
@@ -364,13 +366,16 @@ class ZCR_DroneSites
 		if (back.Length() < 1)
 			back = Vector(0, 0, -1);
 		back.Normalize();
-		vector support = front + back * SUPPORT_M;
-		support[1] = GetGame().GetWorld().GetSurfaceY(support[0], support[2]);
 		vector truck = s.m_Truck.GetOrigin();
 		if (s.m_bDriving)
 		{
 			bool there = vector.DistanceXZ(truck, s.m_vSupport) <= 30;
-			if (!there && now - s.m_iDriveAt < DRIVE_GIVE_UP_S)
+			// Not moved 5 m in the first minute: no way there (18:15, 18:21: drivers sat 400 s at 0 km/h) - given up, the next
+			// try nearer the front.
+			bool stuck = !there && now - s.m_iDriveAt >= 60 && vector.DistanceXZ(truck, s.m_vDriveFrom) < 5;
+			if (stuck)
+				s.m_iBadSupport++;
+			if (!there && !stuck && now - s.m_iDriveAt < DRIVE_GIVE_UP_S)
 				return;
 			s.m_bDriving = false;
 			if (s.m_DriveWaypoint && s.m_Driver)
@@ -382,17 +387,31 @@ class ZCR_DroneSites
 			s.m_vLaunch = truck;
 			s.m_sName = Name(truck);
 			s.m_iSetAt = now;
-			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=parked at=%3 there=%4 left=%5 drive_s=%6 x=%7 z=%8", now, s.m_sSide, s.m_sName, there,
+			string how = "parked";
+			if (stuck)
+				how = "stuck";
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=%3 at=%4 there=%5 left=%6 drive_s=%7 x=%8 z=%9", now, s.m_sSide, how, s.m_sName, there,
 				Math.Round(vector.DistanceXZ(truck, s.m_vSupport)), now - s.m_iDriveAt, Math.Round(truck[0]), Math.Round(truck[2])), LogLevel.NORMAL);
 			ZCR_Feed.Note(s.m_sSide, string.Format("the drone truck is at %1", s.m_sName));
 			return;
 		}
+		if (now < s.m_iDriveAt + 30)
+			return;                            // a give-up a moment ago
+		// The support point: SUPPORT_M back from the front, nearer after each one given up (1000, 900, ... 500 m), on clear dry
+		// ground (ClearSpot keeps off the sea; 18:21: the raw point 1 km back may have been off the coast).
+		float backM = Math.Max(500, SUPPORT_M - 100 * s.m_iBadSupport);
+		vector support = front + back * backM;
+		support[1] = GetGame().GetWorld().GetSurfaceY(support[0], support[2]);
 		if (vector.DistanceXZ(truck, support) <= SUPPORT_NEAR_M)
 			return;
-		// Clear ground at the support point for the truck.
 		vector spot;
 		if (!ZCR_Drones.ClearSpot(support, support + back * 100, spot))
-			spot = support;
+		{
+			s.m_iBadSupport++;
+			s.m_iDriveAt = now;
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=no_spot back_m=%3", now, s.m_sSide, Math.Round(backM)), LogLevel.NORMAL);
+			return;
+		}
 		spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
 		if (vector.DistanceXZ(truck, spot) <= SUPPORT_NEAR_M)
 			return;
@@ -415,6 +434,7 @@ class ZCR_DroneSites
 		s.m_Driver.AddWaypoint(w);
 		s.m_DriveWaypoint = w;
 		s.m_vSupport = spot;
+		s.m_vDriveFrom = truck;
 		s.m_bDriving = true;
 		s.m_iDriveAt = now;
 		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=ordered at=%3 to=%4 dist=%5 support_m=%6 x=%7 z=%8", now, s.m_sSide, s.m_sName, Name(spot),
