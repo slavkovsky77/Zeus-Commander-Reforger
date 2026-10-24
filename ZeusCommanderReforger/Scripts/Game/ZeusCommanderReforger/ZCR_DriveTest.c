@@ -139,6 +139,8 @@ class ZCR_DriveTest
 		// The world's minefields across roads go, as in matches (AI Conflict's step, off with -aicfOff): on the Conflict map
 		// the first cars hit TM-62M mines east of A in every run (review note 317).
 		AICF_RoadMines.Start();
+		ZCR_ProbeAt.Start();
+		ZCR_RoadsAt.Start();      // lab: -zcrRoadsAt "x,z,r" - the roads around a spot      // lab: -zcrProbeAt "x,z,r" (-zcrClearTrees) - what stands at a spot
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
 	}
 

@@ -220,3 +220,122 @@ class ZCR_GateAhead
 		}
 	}
 }
+
+// Lab: what stands at a spot, and its trees taken away (24 Oct, the Farm's wall corner: the depot's vans stuck in the gap
+// between the wall's end and a tree - is it the tree?). -zcrProbeAt "x,z,r": every entity within r m logged 5 s after the
+// start; with -zcrClearTrees its trees are deleted.
+//   [ZCR][PROBEAT] t= class= prefab= m= x= z= deleted=0|1      then [ZCR][PROBEAT] t= entities= trees_cleared=
+class ZCR_ProbeAt
+{
+	protected static ref array<IEntity> s_aFound = {};
+
+	static void Start()
+	{
+		if (!Replication.IsServer() || !System.IsCLIParam("zcrProbeAt"))
+			return;
+		GetGame().GetCallqueue().CallLater(Run, 5000, false);
+	}
+
+	protected static bool Add(IEntity e)
+	{
+		if (e)
+			s_aFound.Insert(e);
+		return true;
+	}
+
+	protected static void Run()
+	{
+		string spec;
+		System.GetCLIParam("zcrProbeAt", spec);
+		array<string> v = {};
+		spec.Split(",", v, true);
+		if (v.Count() < 3)
+			return;
+		vector at = Vector(v[0].ToFloat(), 0, v[1].ToFloat());
+		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
+		float r = v[2].ToFloat();
+		s_aFound.Clear();
+		GetGame().GetWorld().QueryEntitiesBySphere(at, r, Add, null, EQueryEntitiesFlags.ALL);
+		bool clear = System.IsCLIParam("zcrClearTrees");
+		int n, cleared;
+		foreach (IEntity e : s_aFound)
+		{
+			if (!e || e.GetRootParent() != e || ChimeraCharacter.Cast(e) || Vehicle.Cast(e))
+				continue;
+			n++;
+			string prefab = "-";
+			if (e.GetPrefabData())
+				prefab = FilePath.StripPath(e.GetPrefabData().GetPrefabName());
+			bool tree = BaseTree.Cast(e) != null;
+			vector p = e.GetOrigin();
+			Print(string.Format("[ZCR][PROBEAT] t=%1 class=%2 prefab=%3 m=%4 x=%5 z=%6 tree=%7 deleted=%8", ZCR_LossLog.Seconds(), e.ClassName(), prefab,
+				Math.Round(vector.DistanceXZ(p, at) * 10) / 10, Math.Round(p[0]), Math.Round(p[2]), tree, clear && tree), LogLevel.NORMAL);
+			if (clear && tree)
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(e);
+				cleared++;
+			}
+		}
+		Print(string.Format("[ZCR][PROBEAT] t=%1 entities=%2 trees_cleared=%3", ZCR_LossLog.Seconds(), n, cleared), LogLevel.NORMAL);
+	}
+}
+
+// Lab: the roads around a spot (24 Oct, Martin: "they should use the road when coming to the base!!!" - which road runs
+// through the Farm's corner gap, and which one leads out). -zcrRoadsAt "x,z,r": every road within r m (a grid every 15 m,
+// the closest road within 10 m of each point), with its width and its points every ~25 m.
+//   [ZCR][ROADS] t= road= width= points= length_m= path=x,z x,z ...
+class ZCR_RoadsAt
+{
+	static void Start()
+	{
+		if (!Replication.IsServer() || !System.IsCLIParam("zcrRoadsAt"))
+			return;
+		GetGame().GetCallqueue().CallLater(Run, 6000, false);
+	}
+
+	protected static void Run()
+	{
+		string spec;
+		System.GetCLIParam("zcrRoadsAt", spec);
+		array<string> v = {};
+		spec.Split(",", v, true);
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (v.Count() < 3 || !aiWorld || !aiWorld.GetRoadNetworkManager())
+			return;
+		vector at = Vector(v[0].ToFloat(), 0, v[1].ToFloat());
+		float r = v[2].ToFloat();
+		array<BaseRoad> roads = {};
+		for (float dx = -r; dx <= r; dx += 15)
+		{
+			for (float dz = -r; dz <= r; dz += 15)
+			{
+				vector p = at + Vector(dx, 0, dz);
+				BaseRoad road;
+				float dist;
+				aiWorld.GetRoadNetworkManager().GetClosestRoad(p, road, dist, true);
+				if (road && dist <= 10 && !roads.Contains(road))
+					roads.Insert(road);
+			}
+		}
+		foreach (int i, BaseRoad road : roads)
+		{
+			array<vector> points = {};
+			road.GetPoints(points);
+			float length;
+			string path;
+			vector last;
+			foreach (int k, vector q : points)
+			{
+				if (k > 0)
+					length += vector.DistanceXZ(q, points[k - 1]);
+				if (k == 0 || k == points.Count() - 1 || vector.DistanceXZ(q, last) >= 25)
+				{
+					path += string.Format(" %1,%2", Math.Round(q[0]), Math.Round(q[2]));
+					last = q;
+				}
+			}
+			Print(string.Format("[ZCR][ROADS] t=%1 road=%2 width=%3 points=%4 length_m=%5 path=%6", ZCR_LossLog.Seconds(), i, Math.Round(road.GetWidth() * 10) / 10,
+				points.Count(), Math.Round(length), path), LogLevel.NORMAL);
+		}
+	}
+}

@@ -86,6 +86,9 @@ VARIANTS = {
     "crx": ("", "5F268647F8A1A1F4"),                                          # + CRX Enfusion A.I. (column driving, vehicle combat)
     "jmvai": ("-zcrNoUnjam -zcrNoEarlyUnjam -zcrNoOncoming -zcrNoTraffic", "6A8490E1621E7B3C,7A3C51E0D2B94F61"),   # JMVehicleAI, tuned, alone
     "best": ("", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),                         # ours + road price + Competent AI driving
+    # The Farm's wall corner (24 Oct): the same with the trees within 8 m of the corner's gap deleted - is it the tree?
+    "notree": ("-zcrProbeAt 2196,2929,8 -zcrClearTrees -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
+    "probe": ("-zcrProbeAt 2196,2929,8 -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
 }
 
 
