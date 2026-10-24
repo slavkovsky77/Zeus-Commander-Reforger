@@ -52,6 +52,9 @@ class ZCR_DroneThreat
 	protected static ref map<IEntity, vector> s_mShelterSpot = new map<IEntity, vector>();
 	protected static ref map<IEntity, vector> s_mShelterFrom = new map<IEntity, vector>();
 	protected static ref map<IEntity, float> s_mShelterClosest = new map<IEntity, float>();
+	protected static ref map<IEntity, SCR_AIMoveIndividuallyBehavior> s_mShelterMove = new map<IEntity, SCR_AIMoveIndividuallyBehavior>();
+	protected static ref map<IEntity, int> s_mShelterAgain = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mShelterAgainAt = new map<IEntity, int>();
 	// The building search's totals: searches, points inside a building, of them off the navmesh, too near someone, found.
 	protected static ref array<int> s_aSearch = {0, 0, 0, 0, 0};
 
@@ -91,6 +94,22 @@ class ZCR_DroneThreat
 				float gap = vector.Distance(se.GetOrigin(), s_mShelterSpot.Get(se));
 				if (!s_mShelterClosest.Contains(se) || gap < s_mShelterClosest.Get(se))
 					s_mShelterClosest.Set(se, gap);
+				// Kept there (24 Oct, the farm: one reached his spot and walked back out with the squad's defend, others never
+				// got closer): off the spot and his move over - sent again, every 2 s at most.
+				SCR_AIMoveIndividuallyBehavior move = s_mShelterMove.Get(se);
+				if (gap > 2.5 && (!move || move.GetActionState() != EAIActionState.RUNNING) && now >= s_mShelterAgainAt.Get(se))
+				{
+					ChimeraCharacter rc = ChimeraCharacter.Cast(se);
+					SCR_AIUtilityComponent ru;
+					if (rc)
+						ru = Utility(rc);
+					if (ru && rc.GetCharacterController() && rc.GetCharacterController().GetLifeState() == ECharacterLifeState.ALIVE)
+					{
+						Move(rc, ru, s_mShelterSpot.Get(se));
+						s_mShelterAgain.Set(se, s_mShelterAgain.Get(se) + 1);
+						s_mShelterAgainAt.Set(se, now + 2);
+					}
+				}
 			}
 		}
 		foreach (IEntity se : ended)
@@ -115,10 +134,13 @@ class ZCR_DroneThreat
 			Print(string.Format("[ZCR][SHELTER_RUN] t=%1 side=%2 to_spot=%3 moved=%4 closest=%5 left=%6 inside=%7 stance=%8 %9", now, ss,
 				Math.Round(vector.Distance(from, spot)), Math.Round(vector.Distance(from, sc.GetOrigin())), Math.Round(closest),
 				Math.Round(vector.Distance(sc.GetOrigin(), spot)), inside, typename.EnumToString(ECharacterStance, sc.GetCharacterController().GetStance()),
-				string.Format("x=%1 z=%2", Math.Round(spot[0]), Math.Round(spot[2]))), LogLevel.NORMAL);
+				string.Format("again=%1 x=%2 z=%3", s_mShelterAgain.Get(se), Math.Round(spot[0]), Math.Round(spot[2]))), LogLevel.NORMAL);
 			s_mShelterSpot.Remove(se);
 			s_mShelterFrom.Remove(se);
 			s_mShelterClosest.Remove(se);
+			s_mShelterMove.Remove(se);
+			s_mShelterAgain.Remove(se);
+			s_mShelterAgainAt.Remove(se);
 		}
 		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
@@ -186,6 +208,9 @@ class ZCR_DroneThreat
 				// first one came when the drone was heard at 250 m; by the time it was close his next one
 				// was still waiting, and almost nobody was prone: Martin 02:32, Moss Hill, 3-4 at a time).
 				bool sheltering = s_mShelterUntil.Contains(c) && now < s_mShelterUntil.Get(c);
+				// Inside while the drone is about: the run is held on while one is within 250 m.
+				if (sheltering && s_mShelterUntil.Get(c) < now + 10)
+					s_mShelterUntil.Set(c, now + 10);
 				if (!over && !sheltering && vector.DistanceXZ(c.GetOrigin(), dp) < 150 && (!s_mProneUntil.Contains(c) || now >= s_mProneUntil.Get(c) - 5))
 				{
 					// A house a few steps away: in, not down in the street.
@@ -241,12 +266,21 @@ class ZCR_DroneThreat
 	{
 		Up(c);
 		s_mProneUntil.Remove(c);
-		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2,
-			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
+		Move(c, utility, spot);
 		s_mRunningUntil.Set(c, now + 15);
 		s_mShelterUntil.Set(c, now + 15);
 		s_mShelterSpot.Set(c, spot);
 		s_mShelterFrom.Set(c, c.GetOrigin());
+		s_mShelterAgain.Set(c, 0);
+		s_mShelterAgainAt.Set(c, now + 2);
+	}
+
+	protected static void Move(ChimeraCharacter c, SCR_AIUtilityComponent utility, vector spot)
+	{
+		SCR_AIMoveIndividuallyBehavior move = new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2,
+			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0);
+		ZCR_Reserved.Add(utility, move);
+		s_mShelterMove.Set(c, move);
 	}
 
 	// Running into a building now (our fire at drones leaves him out).
