@@ -439,9 +439,16 @@ class ZCR_DroneSites
 			s.m_Operators.GetGroupUtilityComponent().RemoveUsableVehicle(usage);
 		ClearWaypoint(s);
 		vector here = s.m_Truck.GetOrigin();
-		vector launch;
-		if (vector.DistanceXZ(here, s.m_vPos) > 50 && ZCR_Drones.ClearSpot(here, here + (here - s.m_vPos), launch))
+		// The site goes where the truck is (17:49: no clear launch spot by the truck and the site stayed at its old place -
+		// drones would have taken off 550 m from their team); launching from beside the truck when there is none.
+		if (vector.DistanceXZ(here, s.m_vPos) > 50)
 		{
+			vector launch;
+			vector dir = here - s.m_vPos;
+			dir[1] = 0;
+			dir.Normalize();
+			if (!ZCR_Drones.ClearSpot(here, here + dir * 100, launch))
+				launch = here + dir * 20;
 			launch[1] = GetGame().GetWorld().GetSurfaceY(launch[0], launch[2]);
 			s.m_vPos = here;
 			s.m_vLaunch = launch;
