@@ -25,6 +25,8 @@ class ZCR_OperatorMan
 	int m_iAgainAt;
 	int m_iFrozenAt;
 	int m_iThawUntil;
+	SCR_AIGroup m_Group;
+	bool m_bMoving;         // the drone site is moving (ZCR_DroneSites): no holding at the post, no flying
 }
 
 class ZCR_DroneOperator
@@ -75,6 +77,7 @@ class ZCR_DroneOperator
 				continue;
 			ZCR_OperatorMan m = new ZCR_OperatorMan();
 			m.m_Man = c;
+			m.m_Group = group;
 			m.m_sSide = side;
 			m.m_bPilot = i == 0;
 			// The guard a few metres off, not on top of the pilot.
@@ -99,6 +102,55 @@ class ZCR_DroneOperator
 	static bool IsOperator(IEntity e)
 	{
 		return Find(e) != null;
+	}
+
+	// The team's site packs up and drives off (true) or has set up again (false): while it moves nobody is held at the
+	// post or frozen to fly; a pilot frozen when it starts gets his AI back.
+	static void Moving(SCR_AIGroup group, bool moving)
+	{
+		foreach (ZCR_OperatorMan m : s_aMen)
+		{
+			if (m.m_Group != group)
+				continue;
+			m.m_bMoving = moving;
+			ChimeraCharacter c = ChimeraCharacter.Cast(m.m_Man);
+			if (moving && c && m.m_bFlying)
+			{
+				m.m_bFlying = false;
+				Stance(c, false);
+				Freeze(c, false);
+				m.m_iFrozenAt = 0;
+			}
+		}
+	}
+
+	// A new post for the team where its site set up again (in cover near 'post', away from 'threat').
+	static void NewPost(SCR_AIGroup group, vector post, vector threat)
+	{
+		ZCR_OperatorMan pilot;
+		foreach (ZCR_OperatorMan m : s_aMen)
+		{
+			if (m.m_Group == group && m.m_bPilot)
+				pilot = m;
+		}
+		vector spot;
+		ChimeraCharacter pc;
+		if (pilot)
+			pc = ChimeraCharacter.Cast(pilot.m_Man);
+		if (pc && ZCR_DroneThreat.CoverSpot(pc, threat, POST_COVER_M, post, spot))
+			post = spot;
+		int now = ZCR_LossLog.Seconds();
+		foreach (ZCR_OperatorMan m : s_aMen)
+		{
+			if (m.m_Group != group)
+				continue;
+			m.m_vPost = post;
+			if (!m.m_bPilot)
+				m.m_vPost = post + Vector(3, 0, -3);
+			if (m.m_Man)
+				ToPost(m, now);
+		}
+		Print(string.Format("[ZCR][OPERATOR] t=%1 event=new_post cover=%2 x=%3 z=%4", now, spot != vector.Zero, Math.Round(post[0]), Math.Round(post[2])), LogLevel.NORMAL);
 	}
 
 	static ZCR_OperatorMan Find(IEntity e)
@@ -198,6 +250,8 @@ class ZCR_DroneOperator
 			ChimeraCharacter c = ChimeraCharacter.Cast(m.m_Man);
 			if (!c || !c.GetCharacterController() || c.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
 				continue;
+			if (m.m_bMoving)
+				continue;                          // the site is on the move: boarding, driving, getting out
 			// Both stay at the post, flying or not (the village storm, 15:40: the pilot 26-60 m off it between flights).
 			if (!m.m_bPilot)
 			{
