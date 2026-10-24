@@ -66,6 +66,9 @@ VARIANTS = {
     # Drone storms (24 Oct): own-side kills next to drones even with our anti-drone fire holding near friends - is it our
     # fire or DCO's own? The same storm without our small-arms fire at drones (our drone reactions - down, cover - stay).
     "dconoad": ("-zcrStandoff 0 -zcrNoAntiDrone", DCO, "DCO on both squads; our small-arms fire at drones off (soldiers still go down and to cover from drones)"),
+    # Drone storms (24 Oct): our runs into a building never got in under DCO (village: 66 spots found, 7 runs, 0 inside) -
+    # DCO's explosion reaction moves the whole squad after every blast, at a far higher priority. Its switch off:
+    "dconoexp": ("-zcrStandoff 0", DCO, "DCO on both squads with its explosion reactions off (behExplosionReactions) - our drone reaction alone answers drone blasts"),
     "game60": ("", "", "the game's AI with our 60-m hold-back (the first runs, 23 Oct 19:17-20:20)"),
     "dco60": ("", DCO, "DCO with our 60-m hold-back (the first runs, 23 Oct 19:30-20:20)"),
 }
@@ -89,6 +92,7 @@ SEEDS = {
     "dcopush2": {"factions": {"US": DCO_PUSH}},
     "dcoatt": {"factions": {"USSR": DCO_MIN}},   # full DCO attacks (US), the defenders (USSR) DCO turned down
     "dcodef": {"factions": {"US": DCO_MIN}},     # the attackers (US) DCO turned down, full DCO defends (USSR)
+    "dconoexp": {"behExplosionReactions": False},   # both sides: DCO's squad moves after a blast off
 }
 
 
