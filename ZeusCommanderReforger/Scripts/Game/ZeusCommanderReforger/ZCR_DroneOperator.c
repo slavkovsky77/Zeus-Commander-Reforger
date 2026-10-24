@@ -25,6 +25,7 @@ class ZCR_OperatorMan
 	int m_iAgainAt;
 	int m_iFrozenAt;
 	int m_iThawUntil;
+	int m_iLandedAt;
 	SCR_AIGroup m_Group;
 	SCR_AIMoveIndividuallyBehavior m_Move;   // his last move to the post
 	ResourceName m_sHelmet;                  // what he wears when not flying
@@ -167,8 +168,29 @@ class ZCR_DroneOperator
 		ChimeraCharacter pilot = Pilot(group);
 		if (!pilot || vector.DistanceXZ(pilot.GetOrigin(), team.m_vPos) > STAY_M)
 			return false;
-		from = pilot.GetOrigin() + Vector(12, 0, 0);
+		from = LaunchSpot(pilot);
 		return true;
+	}
+
+	// The take-off spot: the nearest point within 30 m with nothing overhead - the team sits in cover, the drone goes up from
+	// the open beside it (18:26: launched 12 m off under the trees, flights ended after 1-14 s).
+	protected static vector LaunchSpot(ChimeraCharacter pilot)
+	{
+		vector at = pilot.GetOrigin();
+		BaseWorld world = GetGame().GetWorld();
+		array<float> rings = {8, 14, 20, 26, 32};
+		foreach (float r : rings)
+		{
+			for (int k; k < 8; k++)
+			{
+				float a = k * 45 * Math.DEG2RAD;
+				vector p = at + Vector(Math.Cos(a), 0, Math.Sin(a)) * r;
+				p[1] = world.GetSurfaceY(p[0], p[2]);
+				if (ZCR_DroneThreat.OpenSky(p, pilot))
+					return p;
+			}
+		}
+		return at + Vector(12, 0, 0);
 	}
 
 	static void Launched(SCR_AIGroup group)
@@ -459,9 +481,45 @@ class ZCR_DroneOperator
 			SCR_EntityHelper.DeleteEntityAndChildren(item);
 			return false;
 		}
-		if (old && old != item)
-			GetGame().GetCallqueue().CallLater(TakeAway, 500, false, c, old);
+		// The swap is only queued: the old item goes once the new one is really in the slot (18:28, Martin: "he doesn't have
+		// a backpack at all", "he is not wearing the goggles" - the old one was taken away after 0.5 s whether or not).
+		GetGame().GetCallqueue().CallLater(Confirm, 500, false, c, item, old, slot.GetID(), 0);
 		return true;
+	}
+
+	// Every 0.5 s up to 3 s: the new item in the slot - the old one taken away; not - the new one removed, the old one kept.
+	protected static void Confirm(ChimeraCharacter c, IEntity item, IEntity old, int slotId, int tries)
+	{
+		if (!c)
+			return;
+		SCR_CharacterInventoryStorageComponent store = SCR_CharacterInventoryStorageComponent.Cast(c.FindComponent(SCR_CharacterInventoryStorageComponent));
+		InventoryStorageSlot slot;
+		if (store)
+			slot = store.GetSlot(slotId);
+		IEntity on;
+		if (slot)
+			on = slot.GetAttachedEntity();
+		string name = "?";
+		if (item && item.GetPrefabData())
+			name = FilePath.StripPath(item.GetPrefabData().GetPrefabName());
+		if (item && on == item)
+		{
+			if (old && old != item)
+				TakeAway(c, old);
+			Print(string.Format("[ZCR][OPERATOR] t=%1 event=worn item=%2 after_s=%3", ZCR_LossLog.Seconds(), name, (tries + 1) * 0.5), LogLevel.NORMAL);
+			return;
+		}
+		if (tries < 5)
+		{
+			GetGame().GetCallqueue().CallLater(Confirm, 500, false, c, item, old, slotId, tries + 1);
+			return;
+		}
+		if (item && !item.GetParent())
+			SCR_EntityHelper.DeleteEntityAndChildren(item);
+		string had = "nothing";
+		if (on && on.GetPrefabData())
+			had = FilePath.StripPath(on.GetPrefabData().GetPrefabName());
+		Print(string.Format("[ZCR][OPERATOR] t=%1 event=not_worn item=%2 slot_has=%3", ZCR_LossLog.Seconds(), name, had), LogLevel.NORMAL);
 	}
 
 	protected static void TakeAway(ChimeraCharacter c, IEntity old)
@@ -499,8 +557,13 @@ class ZCR_DroneOperator
 			return;
 		}
 		IEntity item = SpawnAt(want, c.GetOrigin());
+		bool ok;
 		if (item)
-			Wear(c, inv, store, item);
+			ok = Wear(c, inv, store, item);
+		string what = "helmet";
+		if (goggles)
+			what = "goggles";
+		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=%3 ok=%4", ZCR_LossLog.Seconds(), m.m_sSide, what, ok), LogLevel.NORMAL);
 	}
 
 	protected static IEntity SpawnAt(ResourceName prefab, vector at)
@@ -580,16 +643,20 @@ class ZCR_DroneOperator
 					// Still while he flies (Martin, 24 Oct 15:48: "the drone operator should really just hold still when he is
 					// driving the drone"): the controller in his hands, down on a knee, then his AI off - he stands where he
 					// is, blind to the world behind his goggles (his guard watches); on again when the drone is down.
-					Hands(c, m.m_Controller, true);
-					Head(c, m, true);                  // the goggles on only while he flies
+					// The goggles first, the controller a second later, then his AI off (18:26: goggles and controller in the same
+					// moment - the goggles never went on; one inventory action at a time).
+					Head(c, m, true);
+					GetGame().GetCallqueue().CallLater(HandsLater, 1000, false, c, true);
 					c.GetCharacterController().SetStanceChange(ECharacterStanceChange.STANCECHANGE_TOCROUCH);
-					GetGame().GetCallqueue().CallLater(Freeze, 1500, false, c, true);
+					GetGame().GetCallqueue().CallLater(Freeze, 2500, false, c, true);
 					m.m_iFrozenAt = now;
 				}
 				else
 				{
+					m.m_iLandedAt = now;
 					Freeze(c, false);
-					Head(c, m, false);                 // his helmet back on
+					Head(c, m, false);                 // his helmet back on, his rifle a second later
+					GetGame().GetCallqueue().CallLater(HandsLater, 1000, false, c, false);
 					m.m_iFrozenAt = 0;
 				}
 				Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=%3 x=%4 z=%5 at_post=%6", now, m.m_sSide, what, Math.Round(c.GetOrigin()[0]),
@@ -599,7 +666,8 @@ class ZCR_DroneOperator
 				flying.Set(m.m_sSide, flying.Get(m.m_sSide) + 1);
 			else
 			{
-				Hands(c, m.m_Controller, false);
+				if (now - m.m_iLandedAt > 3)
+					Hands(c, m.m_Controller, false);
 				if (vector.DistanceXZ(c.GetOrigin(), m.m_vPost) > STAY_M && now >= m.m_iAgainAt && !ZCR_DroneThreat.Sheltering(c))
 				{
 					ToPost(m, now);
@@ -613,6 +681,13 @@ class ZCR_DroneOperator
 			foreach (string side, int n : pilots)
 				Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 pilots=%3 flying=%4 holds=%5", now, side, n, flying.Get(side), s_mHolds.Get(side)), LogLevel.NORMAL);
 		}
+	}
+
+	protected static void HandsLater(ChimeraCharacter c, bool flying)
+	{
+		ZCR_OperatorMan m = Find(c);
+		if (m && c && m.m_bFlying == flying)
+			Hands(c, m.m_Controller, flying);
 	}
 
 	// His AI off (frozen where he stands) or on again. Only while he is still flying when the delayed call comes.

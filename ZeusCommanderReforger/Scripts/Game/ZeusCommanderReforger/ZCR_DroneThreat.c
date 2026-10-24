@@ -301,6 +301,12 @@ class ZCR_DroneThreat
 		return FindOverhead(c, at, radius, spot, at, none, false);
 	}
 
+	// Nothing overhead at 'p' (a drone can take off there).
+	static bool OpenSky(vector p, IEntity self)
+	{
+		return !Overhead(p + Vector(0, 1.2, 0), self);
+	}
+
 	// Running into a building now (our fire at drones leaves him out).
 	static bool Sheltering(IEntity c)
 	{
