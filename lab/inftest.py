@@ -212,10 +212,14 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         rows = threat[s]
         out.update({f"{s}_drones_at": launched[s], f"{s}_drone_lost": by_drone[s], f"{s}_ff": friendly[s], f"{s}_held_friend": held[s],
                     f"{s}_shot_down": shot_down[s], f"{s}_drone_dead_covered": under[s],
-                    f"{s}_shelter_runs": sum(int(r.get("shelter_runs", 0) or 0) for r in rows),
-                    f"{s}_shelter_in": sum(int(r.get("shelter_in", 0) or 0) for r in rows),
+                    f"{s}_shelter_runs": max((int(r.get("shelter_runs", 0) or 0) for r in rows), default=0),   # totals since the start
+                    f"{s}_shelter_in": max((int(r.get("shelter_in", 0) or 0) for r in rows), default=0),
                     f"{s}_near_drone_covered": round(sum(int(r.get("covered", 0)) * int(r.get("near", 0)) for r in rows) / max(1, sum(int(r.get("near", 0)) for r in rows)))
                     if rows else None})
+    # The building search's totals (both sides): searches, points inside a building, off the navmesh, too near someone, found.
+    search = [kv(l) for l in lines if "[ZCR][SHELTER]" in l]
+    if search:
+        out.update({f"shelter_{k}": int(search[-1].get(k, 0) or 0) for k in ("searches", "inside_points", "off_navmesh", "crowded", "found")})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",

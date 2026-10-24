@@ -49,6 +49,8 @@ class ZCR_DroneThreat
 	protected static ref map<IEntity, int> s_mShelterUntil = new map<IEntity, int>();
 	protected static ref map<string, int> s_mShelterRuns = new map<string, int>();
 	protected static ref map<string, int> s_mShelterIn = new map<string, int>();
+	// The building search's totals: searches, points inside a building, of them off the navmesh, too near someone, found.
+	protected static ref array<int> s_aSearch = {0, 0, 0, 0, 0};
 
 	static void Start()
 	{
@@ -186,8 +188,11 @@ class ZCR_DroneThreat
 						Math.Round(100.0 * covered.Get(side) / n), Math.Round(100.0 * running.Get(side) / n), Math.Round(100.0 * prone.Get(side) / n),
 						s_mShelterRuns.Get(side), s_mShelterIn.Get(side)), LogLevel.NORMAL);
 			}
-			s_mShelterRuns.Clear();
-			s_mShelterIn.Clear();
+			// Totals since the start (a side's line only prints with a drone near): the building search -
+			//   [ZCR][SHELTER] t= searches= inside_points= off_navmesh= crowded= found=
+			if (s_aSearch[0] > 0)
+				Print(string.Format("[ZCR][SHELTER] t=%1 searches=%2 inside_points=%3 off_navmesh=%4 crowded=%5 found=%6", now, s_aSearch[0], s_aSearch[1], s_aSearch[2],
+					s_aSearch[3], s_aSearch[4]), LogLevel.NORMAL);
 		}
 	}
 
@@ -506,6 +511,7 @@ class ZCR_DroneThreat
 			away = Vector(1, 0, 0);
 		away.Normalize();
 		vector self = here;
+		s_aSearch[0] = s_aSearch[0] + 1;
 		for (float d = 5; d <= radius; d += 5)
 		{
 			for (int k; k < 12; k++)
@@ -516,11 +522,13 @@ class ZCR_DroneThreat
 				p[1] = world.GetSurfaceY(p[0], p[2]);
 				if (!Inside(world, p, c))
 					continue;
+				s_aSearch[1] = s_aSearch[1] + 1;
 				vector nav = p;
-				if (pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav))
+				if ((pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav)) || vector.DistanceXZ(nav, p) > 2)
+				{
+					s_aSearch[2] = s_aSearch[2] + 1;
 					continue;
-				if (vector.DistanceXZ(nav, p) > 2)
-					continue;
+				}
 				bool crowded;
 				foreach (vector q : avoid)
 				{
@@ -528,7 +536,11 @@ class ZCR_DroneThreat
 						crowded = true;
 				}
 				if (crowded)
+				{
+					s_aSearch[3] = s_aSearch[3] + 1;
 					continue;
+				}
+				s_aSearch[4] = s_aSearch[4] + 1;
 				spot = nav;
 				return true;
 			}
