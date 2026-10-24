@@ -234,7 +234,10 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
                 # Sorties (operators with drones in their bags, resupplying at the truck): out, launches, resupplies.
                 "sorties": sum("[ZCR][SORTIE]" in l and " event=out " in l for l in lines),
                 "sortie_launches": sum("[ZCR][SORTIE]" in l and " event=launch " in l for l in lines),
-                "resupplies": sum("[ZCR][SORTIE]" in l and " event=loaded " in l for l in lines)})
+                "resupplies": sum("[ZCR][SORTIE]" in l and " event=loaded " in l for l in lines),
+                # The commander's truck: drives ordered, arrivals.
+                "truck_orders": sum("[ZCR][DRONESITE]" in l and " truck=ordered " in l for l in lines),
+                "truck_parked": sum("[ZCR][DRONESITE]" in l and " truck=parked " in l for l in lines)})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",

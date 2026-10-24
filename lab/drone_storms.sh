@@ -14,7 +14,7 @@ while true; do
 import sys, pathlib; sys.path.insert(0,'lab'); import inftest, sublab
 d = sorted(pathlib.Path('.runtime/runs').glob('inftest-$sc-$v-watch-*'))[-1]
 r = inftest.summarize(d, '$sc', '$v'); r['watched'] = True; sublab.record('infantry', r)
-print('DRONES $sc $v', {k: r.get(k) for k in ('ended_why','ended_s','us_lost','ussr_lost','us_drones_at','ussr_drones_at','us_drone_lost','ussr_drone_lost','us_ff','ussr_ff','us_held_friend','ussr_held_friend','us_shot_down','ussr_shot_down','us_drone_dead_covered','ussr_drone_dead_covered','us_shelter_runs','us_shelter_in','ussr_shelter_runs','ussr_shelter_in','us_near_drone_covered','ussr_near_drone_covered','shelter_searches','shelter_inside_points','shelter_off_navmesh','shelter_crowded','shelter_found','sorties','sortie_launches','resupplies')})" >> .runtime/drone_playlist.log 2>&1
+print('DRONES $sc $v', {k: r.get(k) for k in ('ended_why','ended_s','us_lost','ussr_lost','us_drones_at','ussr_drones_at','us_drone_lost','ussr_drone_lost','us_ff','ussr_ff','us_held_friend','ussr_held_friend','us_shot_down','ussr_shot_down','us_drone_dead_covered','ussr_drone_dead_covered','us_shelter_runs','us_shelter_in','ussr_shelter_runs','ussr_shelter_in','us_near_drone_covered','ussr_near_drone_covered','shelter_searches','shelter_inside_points','shelter_off_navmesh','shelter_crowded','shelter_found','sorties','sortie_launches','resupplies','truck_orders','truck_parked')})" >> .runtime/drone_playlist.log 2>&1
   done
   [ -n "$ONCE" ] && exit 0
 done

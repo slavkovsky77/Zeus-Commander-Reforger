@@ -17,6 +17,12 @@
 // overhead cover (trees, a roof) for the operators within 50 m of the truck, and of those the one farthest from the front
 // (cover=0 in the log when none of the tries had any). A site whose operators found no cover at their post moves at
 // once (why=exposed, twice at most). -zcrStaticDroneSites: no moves.
+// The commander plans where the drone truck stands (Martin, 18:00: "Zeus Commander should actually plan where to move the
+// drone truck, the drone operator just knows if he has somewhere close to resupply"; 18:08: "real drones have kilometres"):
+// a mobile site's support point is SUPPORT_M back from where its side's drones go, toward home; when the truck is more than
+// SUPPORT_NEAR_M from it, the truck's own driver (spawned in the driver's seat - the operators don't ride) takes it to
+// clear ground there. A new main effort moves the support point and the truck follows.
+//   [ZCR][DRONESITE] t= side= truck=ordered|parked|no_driver at= to= dist= x= z=
 class ZCR_DroneSite
 {
 	string m_sSide;
@@ -38,6 +44,12 @@ class ZCR_DroneSite
 	int m_iMoves;
 	vector m_vTo;
 	string m_sWhy;
+	vector m_vHome;          // where it was set up first: 'back' for the support point
+	vector m_vSupport;       // where the commander wants the truck
+	SCR_AIGroup m_Driver;
+	AIWaypoint m_DriveWaypoint;
+	bool m_bDriving;
+	int m_iDriveAt;
 	int m_iExposedMoves;     // moves made because its operators had no cover (at most 2)
 	bool m_bSafe;           // its next spot has overhead cover for the operators
 	bool m_bDue;            // a move is due: no more launches from here, packing once the last drone is down
@@ -60,6 +72,11 @@ class ZCR_DroneSites
 	static const int BOARD_S = 90;             // boarding, driving and getting out give up after these
 	static const int DRIVE_S = 300;
 	static const int UNLOAD_S = 60;
+	static const float SUPPORT_M = 1000;         // the truck this far back from where the drones go
+	static const float SUPPORT_NEAR_M = 250;     // near enough: no drive
+	static const int DRIVE_GIVE_UP_S = 400;
+	protected static const string US_DRIVER = "{E1CB513B8B9B08F4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Crew.et";
+	protected static const string USSR_DRIVER = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 
 	static bool On()
 	{
@@ -101,7 +118,10 @@ class ZCR_DroneSites
 				ZCR_Feed.Note(side, string.Format("LOST the drone site at %1 - no drones from there", s.m_sName));
 			}
 			if (!s.m_bLost)
+			{
 				Move(s, front, now);
+				PlanTruck(s, front, now);
+			}
 			if (s.m_bMain && (!s.m_bLost || now - s.m_iLostAt < REBUILD))
 				hasMain = true;
 			if (!s.m_bLost)
@@ -207,6 +227,7 @@ class ZCR_DroneSites
 		s.m_bMain = main;
 		s.m_iReadyAt = readyAt;
 		s.m_iSetAt = readyAt;
+		s.m_vHome = spot;
 		ZCR_Trace.At("spawn", "drone_site", spot, side);
 		s.m_Truck = GetGame().SpawnEntityPrefab(truckRes, GetGame().GetWorld(), params);
 		params.Transform[3] = spot + Vector(6, 0, 4);
@@ -322,6 +343,103 @@ class ZCR_DroneSites
 			}
 		}
 		return false;
+	}
+
+	// The commander's plan for a mobile site's truck: the support point SUPPORT_M back from 'front' toward the site's home;
+	// the truck's own driver takes it there when it is more than SUPPORT_NEAR_M off.
+	protected static void PlanTruck(ZCR_DroneSite s, vector front, int now)
+	{
+		if (s.m_bMain || !s.m_Truck || front == vector.Zero || System.IsCLIParam("zcrStaticDroneSites"))
+			return;
+		vector back = s.m_vHome - front;
+		back[1] = 0;
+		if (back.Length() < 1)
+			back = Vector(0, 0, -1);
+		back.Normalize();
+		vector support = front + back * SUPPORT_M;
+		support[1] = GetGame().GetWorld().GetSurfaceY(support[0], support[2]);
+		vector truck = s.m_Truck.GetOrigin();
+		if (s.m_bDriving)
+		{
+			bool there = vector.DistanceXZ(truck, s.m_vSupport) <= 30;
+			if (!there && now - s.m_iDriveAt < DRIVE_GIVE_UP_S)
+				return;
+			s.m_bDriving = false;
+			if (s.m_DriveWaypoint && s.m_Driver)
+				s.m_Driver.RemoveWaypoint(s.m_DriveWaypoint);
+			if (s.m_DriveWaypoint)
+				RplComponent.DeleteRplEntity(s.m_DriveWaypoint, false);
+			s.m_DriveWaypoint = null;
+			s.m_vPos = truck;
+			s.m_vLaunch = truck;
+			s.m_sName = Name(truck);
+			s.m_iSetAt = now;
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=parked at=%3 there=%4 left=%5 drive_s=%6 x=%7 z=%8", now, s.m_sSide, s.m_sName, there,
+				Math.Round(vector.DistanceXZ(truck, s.m_vSupport)), now - s.m_iDriveAt, Math.Round(truck[0]), Math.Round(truck[2])), LogLevel.NORMAL);
+			ZCR_Feed.Note(s.m_sSide, string.Format("the drone truck is at %1", s.m_sName));
+			return;
+		}
+		if (vector.DistanceXZ(truck, support) <= SUPPORT_NEAR_M)
+			return;
+		// Clear ground at the support point for the truck.
+		vector spot;
+		if (!ZCR_Drones.ClearSpot(support, support + back * 100, spot))
+			spot = support;
+		spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
+		if (vector.DistanceXZ(truck, spot) <= SUPPORT_NEAR_M)
+			return;
+		if (!Driver(s))
+		{
+			if (now >= s.m_iDriveAt + 60)
+			{
+				s.m_iDriveAt = now;
+				Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=no_driver at=%3", now, s.m_sSide, s.m_sName), LogLevel.NORMAL);
+			}
+			return;
+		}
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = spot;
+		AIWaypoint w = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+		if (!w)
+			return;
+		w.SetCompletionRadius(15);
+		s.m_Driver.AddWaypoint(w);
+		s.m_DriveWaypoint = w;
+		s.m_vSupport = spot;
+		s.m_bDriving = true;
+		s.m_iDriveAt = now;
+		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 truck=ordered at=%3 to=%4 dist=%5 support_m=%6 x=%7 z=%8", now, s.m_sSide, s.m_sName, Name(spot),
+			Math.Round(vector.DistanceXZ(truck, spot)), Math.Round(vector.DistanceXZ(spot, front)), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+		ZCR_Feed.Note(s.m_sSide, string.Format("the drone truck drives to %1, %2 m behind the drones' target", Name(spot), Math.Round(vector.DistanceXZ(spot, front))));
+	}
+
+	// The truck's own driver in the driver's seat (spawned once; the operators stay on foot).
+	protected static bool Driver(ZCR_DroneSite s)
+	{
+		if (s.m_Driver && AICF_GroupRuntime.CountAliveAgents(s.m_Driver) > 0)
+			return true;
+		string character = US_DRIVER;
+		if (s.m_sSide == "USSR")
+			character = USSR_DRIVER;
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(s.m_Truck, seats);
+		AIGroup group;
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (!seat || seat.GetType() != ECompartmentType.PILOT || !seat.IsCompartmentAccessible() || seat.GetOccupant())
+				continue;
+			if (seat.SpawnCharacterInCompartment(character, group))
+				break;
+		}
+		s.m_Driver = SCR_AIGroup.Cast(group);
+		if (!s.m_Driver)
+			return false;
+		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(s.m_Truck.FindComponent(SCR_AIVehicleUsageComponent));
+		SCR_AIGroupUtilityComponent utility = s.m_Driver.GetGroupUtilityComponent();
+		if (usage && utility && !utility.IsUsableVehicle(usage))
+			utility.AddUsableVehicle(usage);
+		return true;
 	}
 
 	// Seen by 'by': its truck or an operator in a soldier's sight in the last 3 minutes, or a soldier of theirs within 250 m
@@ -602,7 +720,7 @@ class ZCR_DroneSites
 				text += ", ";
 			if (s.m_bLost)
 				text += s.m_sName + " lost";
-			else if (s.m_iMove != 0)
+			else if (s.m_iMove != 0 || s.m_bDriving)
 				text += s.m_sName + " moving";
 			else if (now < s.m_iReadyAt)
 				text += s.m_sName + " ready in " + ZCR_Feed.Clock(s.m_iReadyAt - now);

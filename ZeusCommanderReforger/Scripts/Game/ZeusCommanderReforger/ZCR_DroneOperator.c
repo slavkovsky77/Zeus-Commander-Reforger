@@ -212,6 +212,9 @@ class ZCR_DroneOperator
 			vector at = pilot.GetOrigin();
 			if (team.m_iState == -1 || (team.m_iState == 3 && now - team.m_iStateAt >= LOAD_S))
 			{
+				vector truckNow = ZCR_DroneSites.SupplyOf(team.m_Group);
+				if (truckNow != vector.Zero)
+					team.m_vSupply = truckNow;
 				if (team.m_iState == 3)
 				{
 					team.m_iCarried = CARRY;
@@ -236,11 +239,23 @@ class ZCR_DroneOperator
 			// Out of drones and the last one down (a flight takes ~20-30 s): back to resupply.
 			if (team.m_iState == 1 && team.m_iCarried <= 0 && now - team.m_iLastLaunchAt >= 40 && !IsFlying(pilot))
 			{
+				vector supply = ZCR_DroneSites.SupplyOf(team.m_Group);   // where the truck is now - the commander moves it
+				if (supply != vector.Zero)
+					team.m_vSupply = supply;
 				team.m_iState = 2;
 				team.m_iStateAt = now;
 				SetPost(team.m_Group, team.m_vSupply);
 				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=empty to_supply=%3", now, team.m_sSide, Math.Round(vector.DistanceXZ(at, team.m_vSupply))), LogLevel.NORMAL);
 				continue;
+			}
+			if (team.m_iState == 2)
+			{
+				vector truck = ZCR_DroneSites.SupplyOf(team.m_Group);
+				if (truck != vector.Zero && vector.DistanceXZ(truck, team.m_vSupply) > 30)
+				{
+					team.m_vSupply = truck;
+					SetPost(team.m_Group, truck);
+				}
 			}
 			if (team.m_iState == 2 && vector.DistanceXZ(at, team.m_vSupply) <= SUPPLY_NEAR_M)
 			{
