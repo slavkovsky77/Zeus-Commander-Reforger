@@ -400,6 +400,21 @@ class ZCR_Sampler
 				}
 			}
 		}
+		// Every other soldier of the two sides on the map (24 Oct: DCO moves soldiers into groups of its own, so the slots
+		// above missed most of them - 9 of 14 dead in a DCO match had no stance recorded).
+		array<AIAgent> all = {};
+		GetGame().GetAIWorld().GetAIAgents(all);
+		foreach (AIAgent a : all)
+		{
+			ChimeraCharacter c = null;
+			if (a)
+				c = ChimeraCharacter.Cast(a.GetControlledEntity());
+			if (!c || next.Contains(c))
+				continue;
+			string cside = ZCR_LossLog.SideOf(c);
+			if (cside == "US" || cside == "USSR")
+				Track(c, cside, now, next);
+		}
 		// Lab tests' own squads (the infantry sub-lab: no AI Conflict slots there).
 		foreach (SCR_AIGroup g, string gside : s_mTestGroups)
 		{

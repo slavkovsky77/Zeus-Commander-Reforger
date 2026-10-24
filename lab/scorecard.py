@@ -166,6 +166,7 @@ def measure(run: Path) -> dict:
             "truck_unloads": unloads[s],
             "forts": forts[s],
             "armed_teams": len(armed[s]),
+            "drone_dead_n": len(drone_dead[s]),
             "drone_dead_standing": round(100 * drone_dead[s].count("STAND") / len(drone_dead[s])) if drone_dead[s] else None,
             "drone_dead_prone": round(100 * drone_dead[s].count("PRONE") / len(drone_dead[s])) if drone_dead[s] else None,
             "lost": lost[s],
@@ -186,7 +187,8 @@ CHECKS = [
     ("sky", lambda m: m["sky_pct"] is None or m["sky_pct"] >= 60, lambda m: "-" if m["sky_pct"] is None else f"{m['sky_pct']}%"),
     ("panic", lambda m: m.get("panic_pct") is None or m["panic_pct"] >= 60,
      lambda m: "-" if m.get("panic_pct") is None else f"{m['panic_pct']}% safe near drones"),
-    ("down", lambda m: m.get("drone_dead_standing") is None or m["drone_dead_standing"] <= 50,
+    # judged from 3 drone victims of a side on (24 Oct: one standing victim failed a whole match)
+    ("down", lambda m: m.get("drone_dead_standing") is None or m.get("drone_dead_n", 3) < 3 or m["drone_dead_standing"] <= 50,
      lambda m: "-" if m.get("drone_dead_standing") is None else f"drone victims {m['drone_dead_standing']}% standing, {m['drone_dead_prone']}% prone"),
     ("rides", lambda m: m["riding_pct"] >= 25 if m["riding_pct"] is not None else m["rides"] >= 1,
      lambda m: (f"riding in {m['riding_pct']}% of samples, {m['riding_avg']} on average" if m["riding_pct"] is not None
