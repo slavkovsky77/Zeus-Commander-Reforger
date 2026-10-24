@@ -66,7 +66,8 @@ class ZCR_DroneOperator
 	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
-	static const int MAX_FROZEN_S = 120;    // the pilot's AI back on after this long in one flight
+	static const int MAX_FROZEN_S = 360;    // the pilot's AI back on after this long in one flight (120 s: Everon's flights to
+	                                        // targets up to 6.8 km away outlasted it - the pilot still in only 30-35% of flights)
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
 	static const int CARRY = 4;             // drones in the pilot's bag
 	static const int LOAD_S = 45;
