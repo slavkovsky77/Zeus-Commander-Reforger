@@ -24,7 +24,10 @@ ROOT = Path(__file__).resolve().parent.parent
 MAPS = ROOT / ".runtime" / "maps"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 JOIN_M = 12
-STEP_M = 100
+STEP_M = 300
+# A junction gets a waypoint only where the route turns there by more than TURN_DEG (24 Oct night: a waypoint every ~100 m
+# and at every road change made the vans brake at each - median trip 261 s against the game planner's 173 s).
+TURN_DEG = 30
 TRAP_M = 20
 TRAP_COST_M = 400
 
@@ -153,22 +156,36 @@ class Graph:
         return nodes[::-1], dist[dst]
 
 
+def heading(g: Graph, a, b):
+    return math.degrees(math.atan2(g.x[b] - g.x[a], g.z[b] - g.z[a]))
+
+
+def turn(g: Graph, nodes, i, reach=3):
+    """How much the route turns at nodes[i]: the heading over a few points before against a few points after."""
+    a, b = nodes[max(0, i - reach)], nodes[min(len(nodes) - 1, i + reach)]
+    if a == nodes[i] or b == nodes[i]:
+        return 0.0
+    d = abs(heading(g, nodes[i], b) - heading(g, a, nodes[i])) % 360
+    return min(d, 360 - d)
+
+
 def waypoints(g: Graph, nodes, step=STEP_M):
-    """Points a truck gets: every ~step metres along the route and at every junction (where it changes road)."""
+    """Points a truck gets: every ~step metres along the route, and at a junction where the route turns (changes road
+    and bends by TURN_DEG or more) - there the game's planner could take the other branch."""
     out, run = [], 0.0
     for i, n in enumerate(nodes):
         if i == 0:
             continue
         p = nodes[i - 1]
         run += math.hypot(g.x[n] - g.x[p], g.z[n] - g.z[p])
-        switch = i + 1 < len(nodes) and g.road[nodes[i + 1]] != g.road[n]
+        switch = i + 1 < len(nodes) and g.road[nodes[i + 1]] != g.road[n] and turn(g, nodes, i) >= TURN_DEG
         if run >= step or switch or i == len(nodes) - 1:
             out.append([round(g.x[n], 1), round(g.z[n], 1)])
             run = 0.0
-    # Drop waypoints closer than 25 m to the one before (junction pieces make clusters).
+    # Drop waypoints closer than 60 m to the one before (junction pieces make clusters).
     kept = []
     for w in out:
-        if kept and math.hypot(w[0] - kept[-1][0], w[1] - kept[-1][1]) < 25 and w is not out[-1]:
+        if kept and math.hypot(w[0] - kept[-1][0], w[1] - kept[-1][1]) < 60 and w is not out[-1]:
             continue
         kept.append(w)
     return kept

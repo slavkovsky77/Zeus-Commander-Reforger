@@ -292,6 +292,11 @@ class ZCR_DriveTest
 			// marked lost in the second they spawned). Out of the seat counts after 20 s: a driver may get out to open a
 			// gate and back in (the get-out probe, 23 Oct night).
 			bool seatLeft = now - car.m_iSpawnedAt > 10 && car.m_Vehicle && car.m_Group && !Driven(car);
+			// The watched game seats no driver in a car spawned far from its camera (24 Oct night, arland-supply in the window:
+			// cars 10-22 at 1.5 km+ from the camera, driver standing at the car, not in it; headless 22 of 22 seated): a car still
+			// at its spawn spot with its driver beside it gets him put in the driver's seat, every second while out.
+			if (seatLeft && car.m_vStart != vector.Zero && vector.DistanceXZ(car.m_Vehicle.GetOrigin(), car.m_vStart) < 8 && Reseat(car))
+				seatLeft = false;
 			if (!seatLeft)
 				car.m_iOutSince = 0;
 			else if (car.m_iOutSince == 0)
@@ -605,6 +610,24 @@ class ZCR_DriveTest
 		}
 		blocker = "-";
 		return true;
+	}
+
+	// Put the car's crew man standing beside it into the driver's seat (the far-from-camera spawn in the watched game).
+	protected bool Reseat(ZCR_DriveCar car)
+	{
+		array<AIAgent> agents = {};
+		car.m_Group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			ChimeraCharacter man = ChimeraCharacter.Cast(agent.GetControlledEntity());
+			if (!man || man.IsInVehicle() || vector.DistanceXZ(man.GetOrigin(), car.m_Vehicle.GetOrigin()) > 6)
+				continue;
+			SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(man.FindComponent(SCR_CompartmentAccessComponent));
+			bool ok = access && access.MoveInVehicle(car.m_Vehicle, ECompartmentType.PILOT);
+			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=RESEAT ok=%3", ZCR_LossLog.Seconds(), car.m_iIndex, ok), LogLevel.NORMAL);
+			return ok;
+		}
+		return false;
 	}
 
 	// The driver's seat empty 10 s after the spawn: where is the crew (in the car, beside it, gone)?
@@ -977,7 +1000,7 @@ class ZCR_DriveTest
 				AIWaypoint rw2 = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
 				if (!rw2)
 					continue;
-				rw2.SetCompletionRadius(15);
+				rw2.SetCompletionRadius(30);     // passed through, not stopped at (15 m: the vans braked at each, 24 Oct night)
 				car.m_Group.AddWaypoint(rw2);
 				car.m_aRouteWps.Insert(rw2);
 			}
