@@ -44,6 +44,7 @@ class ZCR_GunUnit
 	bool m_bDismounted;
 	int m_iStillSince;       // riders: the carrier standing still since
 	string m_sRole;
+	int m_iNextLaunch;       // drone operators: the next FPV team
 }
 
 class ZCR_GunSpec
@@ -208,6 +209,7 @@ class ZCR_GunTest
 			{
 				Taken(now);
 				EndWhenDecided(now);
+				Operators(now);
 			}
 		}
 		if (now >= m_iNextSum)
@@ -216,6 +218,49 @@ class ZCR_GunTest
 			Print(string.Format("[ZCR][GUNTEST_SUM] t=%1 %2 %3 first_us_m=%4 first_ussr_m=%5 sight_us_m=%6 sight_ussr_m=%7", now, SideSum("US", "us"),
 				SideSum("USSR", "ussr"), m_mFirstM.Get("US"), m_mFirstM.Get("USSR"), m_mSightM.Get("US"), m_mSightM.Get("USSR")), LogLevel.NORMAL);
 		}
+	}
+
+	// Drone operators: while one of a team lives, an FPV team of 4 at the enemy's position every DRONE_EVERY_S, at most
+	// DRONE_MAX_UP teams of the side in the air; the teams retarget at enemies their side has seen (ZCR_Drones.Tend). The
+	// soldiers' drone reactions (ZCR_DroneThreat, ZCR_AntiDrone) run as in matches.
+	static const int DRONE_EVERY_S = 90;
+	static const int DRONE_MAX_UP = 2;
+	protected bool m_bDroneLayers;
+
+	protected void Operators(int now)
+	{
+		bool any;
+		foreach (ZCR_GunUnit u : m_aUnits)
+		{
+			if (u.m_sKind != "drones" || u.m_bLost || !u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
+				continue;
+			any = true;
+			if (now < u.m_iNextLaunch)
+				continue;
+			vector goal;
+			if (!m_mObjective.Find(u.m_sSide, goal))
+				continue;
+			array<AIAgent> agents = {};
+			u.m_Group.GetAgents(agents);
+			vector from = u.m_Group.GetOrigin();
+			if (!agents.IsEmpty() && agents[0] && agents[0].GetControlledEntity())
+				from = agents[0].GetControlledEntity().GetOrigin();
+			from = from + Vector(12, 0, 0);   // beside the operators, not on them
+			if (ZCR_Drones.LaunchTest(u.m_sSide, from, goal, DRONE_MAX_UP))
+				u.m_iNextLaunch = now + DRONE_EVERY_S;
+			else
+				u.m_iNextLaunch = now + 10;
+		}
+		if (!any)
+			return;
+		if (!m_bDroneLayers)
+		{
+			m_bDroneLayers = true;
+			ZCR_DroneThreat.Start();
+			ZCR_AntiDrone.Start();
+		}
+		ZCR_Drones.Tend("US");
+		ZCR_Drones.Tend("USSR");
 	}
 
 	// -zcrEndWhenDecided (the infantry sub-lab; Martin, 24 Oct: "it should end when one side's soldiers are dead"): a side
@@ -228,8 +273,8 @@ class ZCR_GunTest
 	{
 		if (m_bEnded || !System.IsCLIParam("zcrEndWhenDecided") || now < 30)
 			return;
-		int us = AliveMen("US");
-		int ussr = AliveMen("USSR");
+		int us = AliveMen("US", now);
+		int ussr = AliveMen("USSR", now);
 		string why;
 		if (us == 0)
 			why = "us_wiped";
@@ -251,9 +296,15 @@ class ZCR_GunTest
 		Print(string.Format("[ZCR][TEST_END] t=%1 why=%2 us_men=%3 ussr_men=%4", now, why, us, ussr), LogLevel.NORMAL);
 	}
 
-	// Soldiers of a side alive anywhere on the map (on foot or aboard).
-	protected static int AliveMen(string side)
+	// Fighting soldiers of a side alive anywhere on the map (on foot or aboard) - not its drone operators, who stay back.
+	protected int AliveMen(string side, int now)
 	{
+		array<AIGroup> operators = {};
+		foreach (ZCR_GunUnit u : m_aUnits)
+		{
+			if (u.m_sKind == "drones" && u.m_Group)
+				operators.Insert(u.m_Group);
+		}
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		int n;
@@ -262,7 +313,7 @@ class ZCR_GunTest
 			ChimeraCharacter c = null;
 			if (a)
 				c = ChimeraCharacter.Cast(a.GetControlledEntity());
-			if (!c || ZCR_LossLog.SideOf(c) != side)
+			if (!c || ZCR_LossLog.SideOf(c) != side || operators.Find(a.GetParentGroup()) >= 0)
 				continue;
 			CharacterControllerComponent ctl = c.GetCharacterController();
 			if (ctl && ctl.GetLifeState() != ECharacterLifeState.DEAD)
@@ -294,7 +345,7 @@ class ZCR_GunTest
 		// watched game every vehicle was "lost" a second after it spawned, its crew not yet aboard).
 		if (now - u.m_iSpawnedAt < 20)
 			return "";   // squads too: a group's soldiers appear a moment after it (one was "dead" at t=11, 23 Oct)
-		if (u.m_sKind == "squad" || u.m_sKind == "riders")
+		if (u.m_sKind == "squad" || u.m_sKind == "riders" || u.m_sKind == "drones")
 		{
 			if (!u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
 				return "squad_dead";
@@ -494,7 +545,20 @@ class ZCR_GunTest
 		unit.m_sKind = kind;
 		unit.m_sRole = spec.m_sRole;
 		int crew;
-		if (kind == "squad")
+		if (kind == "drones")
+		{
+			// A drone operator team (Martin, 24 Oct: "each team would get a drone operator"): the game's 2-man sentry team, as
+			// our drone sites use; it launches an FPV team of 4 at the enemy every DRONE_EVERY_S while one of them lives.
+			string ops = "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et";
+			if (side == "USSR")
+				ops = "{CB58D90EA14430AD}Prefabs/Groups/OPFOR/Group_USSR_SentryTeam.et";
+			unit.m_Group = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(ops), GetGame().GetWorld(), params));
+			ZCR_Sampler.AddTestGroup(unit.m_Group, side);
+			if (unit.m_Group)
+				Waypoint(unit, at, "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et", 15);
+			unit.m_iNextLaunch = now + 20;
+		}
+		else if (kind == "squad")
 		{
 			string squad = "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et";
 			if (side == "USSR")

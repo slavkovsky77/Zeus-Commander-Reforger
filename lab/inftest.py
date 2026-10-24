@@ -30,6 +30,16 @@ SCENARIOS = {
     # Village: the same squads, the Soviets holding the village west of Moss Hill (35 buildings, 55 walls within 40 m,
     # 31 m high), the US from 450 m east (51 m): fields with hedges, walls and tree rows on the way (-zcrCoverScan).
     "storm-village": ("squad:1:1920,1138:attack", "squad:1:1470,1138:defend"),
+    # With drone operators (Martin, 24 Oct: "each team would get a drone operator - the attacker has drones, then the
+    # defender, then both"): a 2-man operator team behind its squad launches FPV teams of 4 at the enemy every 90 s
+    # (at most 2 in the air); the soldiers' drone reactions run as in matches. Defender operators stay 120 m behind the
+    # position (outside the 60-m 'taken' circle).
+    "farm-drones-att": ("squad:1:2270,788:attack+drones:1:2270,720:support", "squad:1:2270,1238:defend"),
+    "farm-drones-def": ("squad:1:2270,788:attack", "squad:1:2270,1238:defend+drones:1:2270,1360:support"),
+    "farm-drones-both": ("squad:1:2270,788:attack+drones:1:2270,720:support", "squad:1:2270,1238:defend+drones:1:2270,1360:support"),
+    "village-drones-att": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend"),
+    "village-drones-def": ("squad:1:1920,1138:attack", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
+    "village-drones-both": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
 }
 SCENARIO_WORDS = {
     "storm-foot": "a US rifle squad (9 men) attacks a Soviet rifle squad (6 men) holding Moss Hill farm on its hilltop, 450 m away: "
@@ -105,6 +115,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         argv += ["--mods", mods]
     if seed(variant):
         argv += ["--seed-profile", str(seed(variant))]
+    if "drones:" in us + ussr:
+        argv += ["--drones"]   # Martin's FPV AI Drones + Realistic Combat Drones
     if watch:
         # The game window at 3x by default (Martin, 24 Oct: "make default speed 3x"): the game's own time multiplier
         # (-zcrSpeed, as the watched matches); the test still lasts 'minutes' game minutes.

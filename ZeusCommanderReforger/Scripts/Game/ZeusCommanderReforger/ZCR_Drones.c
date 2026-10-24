@@ -550,6 +550,44 @@ class ZCR_Drones
 		Find(at, side, team);
 	}
 
+	// The lab's drone operators (ZCR_GunTest kind "drones", 24 Oct - Martin: "each team would get a drone operator; the
+	// attacker has drones, then the defender, then both"): an anti-infantry team from 'from' at 'goal', registered like the
+	// commanders' teams (the camera's drone shots, kill credit, Tend's retargeting at seen enemies). False: none launched.
+	static bool LaunchTest(FactionKey side, vector from, vector goal, int maxUp)
+	{
+		if (Active(side) >= maxUp)
+			return false;
+		Resource res = Resource.Load(Team(side, false));
+		if (!res || !res.IsValid())
+		{
+			Print("[ZCR][DRONES] the FPV AI Drones mod is not loaded - no drone teams", LogLevel.WARNING);
+			return false;
+		}
+		int now = ZCR_LossLog.Seconds();
+		vector at = from;
+		at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = at;
+		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
+		if (!team)
+			return false;
+		int n = s_mCount.Get(side) + 1;
+		s_mTeamNo.Set(team, n);
+		AddRoute(team, at, goal);
+		s_aTeams.Insert(team);
+		s_aTeamSide.Insert(side);
+		s_mTeamGoal.Set(team, goal);
+		s_mTeamGoalAt.Set(team, now);
+		s_mTeamLaunchedAt.Set(team, now);
+		s_mCount.Set(side, n);
+		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);
+		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=anti-infantry from=operator to=%4,%5 distance=%6 why=test-operator", now, side, n,
+			Math.Round(goal[0]), Math.Round(goal[2]), Math.Round(vector.DistanceXZ(at, goal))), LogLevel.NORMAL);
+		Find(at, side, team);
+		return true;
+	}
+
 	// A search route after the objective: the enemy's other bases within 1.5 km of it, nearest first
 	// (two) - never its main base.
 	protected static array<vector> SearchRoute(FactionKey side, int target, vector goal)

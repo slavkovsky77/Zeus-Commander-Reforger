@@ -9,7 +9,7 @@ pass_rule = "on every scenario the candidate loses fewer men than the game's AI 
 runner = "lab/inftest.py"
 minutes = 12
 units = 1
-scenarios = ["storm-foot", "storm-village"]
+scenarios = ["storm-foot", "storm-village", "farm-drones-att", "farm-drones-def", "farm-drones-both", "village-drones-att", "village-drones-def", "village-drones-both"]
 variants = ["game", "ours", "dco", "dcoours", "dcopush", "dcopush2", "dcoatt", "dcodef", "game60", "dco60"]
 baseline = "game"
 candidate = "dco"
@@ -58,10 +58,22 @@ dco60 = "the first runs (19:30-20:20): DCO with our 60-m hold-back still on"
 [scenario_labels]
 storm-foot = "Storm on foot (Moss Hill farm)"
 storm-village = "Storm a village"
+farm-drones-att = "Farm, attacker has drones"
+farm-drones-def = "Farm, defender has drones"
+farm-drones-both = "Farm, both have drones"
+village-drones-att = "Village, attacker has drones"
+village-drones-def = "Village, defender has drones"
+village-drones-both = "Village, both have drones"
 
 [scenario_words]
 storm-foot = "a US rifle squad (9 men) attacks a Soviet rifle squad (6 men) holding Moss Hill farm on its hilltop, 450 m away: open ground at the foot of the hill, woods in the middle, then about 100 m of open slope up to the farm"
 storm-village = "the same US squad attacks the Soviet squad holding the village west of Moss Hill (35 buildings), 450 m away across fields with hedges, walls and tree rows, slightly downhill"
+farm-drones-att = "the farm storm, and a 2-man US drone operator team behind the attackers launches FPV teams of 4 at the farm every 90 s (2 in the air at most)"
+farm-drones-def = "the farm storm, and a 2-man Soviet operator team 120 m behind the farm launches FPV teams at the attackers"
+farm-drones-both = "the farm storm with drone operators on both sides"
+village-drones-att = "the village storm, the attackers with a drone operator team"
+village-drones-def = "the village storm, the defenders with a drone operator team"
+village-drones-both = "the village storm with drone operators on both sides"
 
 [[questions]]
 key = "taken"
