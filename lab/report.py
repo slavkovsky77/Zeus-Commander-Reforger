@@ -90,9 +90,11 @@ def recording_of(run: Path):
         return test_recording(run)
     label = run.name.split("-solo-")[0]
     begin = started(run)
-    if not WATCH_LOG.exists():
-        return None, None
-    for line in WATCH_LOG.read_text(encoding="utf-8", errors="replace").splitlines():
+    # Every watch loop's output (24 Oct: the evening loop wrote .runtime/watch_main_24b.out - no frames for report 27).
+    logs = sorted((ROOT / ".runtime").glob("watch*.out"), key=lambda f: f.stat().st_mtime)
+    text = "
+".join(f.read_text(encoding="utf-8", errors="replace") for f in logs[-6:])
+    for line in text.splitlines():
         m = re.match(r"(\d\d:\d\d:\d\d) recording (\S+)\.mkv", line)
         if not m or label not in m.group(2):
             continue
