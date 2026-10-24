@@ -9,6 +9,11 @@
 //   - none: spread out (15-25 m away from the drone, each his own way, 8 m apart), down when it comes again.
 // When a drone goes off, the survivors within 40 m scatter 20-35 m, each his own way, into overhead
 // cover where there is some - not standing round the bodies waiting for the next one (Arma 3 v50).
+// A house a few steps away beats lying in the street (24 Oct, drone storms: of 89 drone victims 1 was under a roof -
+// the village's defenders died in its streets with 35 buildings within 40 m, put prone where they stood the moment a
+// drone came within 150 m): with a building's inside within 15 m he runs in even with the drone close, and a run into
+// a building isn't stopped by the get-down. Measured in the 10-s line: shelter_runs= (ended since the last line)
+// shelter_in= (of them, inside at the end).
 // Both sides (the soldiers' own reflex, not a commander's choice); -zcrNoDroneReact turns it off.
 // Measured every 10 s: [ZCR][DRONETHREAT] t= side= near= (soldiers within 150 m of an enemy drone)
 // covered= (% under a roof or canopy) reacting= (% running to cover now) prone=.
@@ -39,6 +44,11 @@ class ZCR_DroneThreat
 	// the next moment: of 99 dead in the 23:22 match, none was prone - 64% standing).
 	protected static ref map<IEntity, int> s_mProneUntil = new map<IEntity, int>();
 	static const int COOLDOWN = 15;
+	static const float DASH_M = 15;
+	// Runs into a building: until when, and how they ended (per side, since the last 10-s line).
+	protected static ref map<IEntity, int> s_mShelterUntil = new map<IEntity, int>();
+	protected static ref map<string, int> s_mShelterRuns = new map<string, int>();
+	protected static ref map<string, int> s_mShelterIn = new map<string, int>();
 
 	static void Start()
 	{
@@ -64,6 +74,24 @@ class ZCR_DroneThreat
 		{
 			Up(pe);
 			s_mProneUntil.Remove(pe);
+		}
+		// Runs into a building that are over: did he get in?
+		array<IEntity> ended = {};
+		foreach (IEntity se, int until : s_mShelterUntil)
+		{
+			if (!se || now >= until)
+				ended.Insert(se);
+		}
+		foreach (IEntity se : ended)
+		{
+			s_mShelterUntil.Remove(se);
+			ChimeraCharacter sc = ChimeraCharacter.Cast(se);
+			if (!sc || !sc.GetCharacterController() || sc.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
+				continue;
+			string ss = ZCR_LossLog.SideOf(sc);
+			s_mShelterRuns.Set(ss, s_mShelterRuns.Get(ss) + 1);
+			if (Inside(GetGame().GetWorld(), sc.GetOrigin(), sc))
+				s_mShelterIn.Set(ss, s_mShelterIn.Get(ss) + 1);
 		}
 		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
@@ -130,8 +158,13 @@ class ZCR_DroneThreat
 				// Close and in the open: down now, every second - not only at his reaction every 15 s (the
 				// first one came when the drone was heard at 250 m; by the time it was close his next one
 				// was still waiting, and almost nobody was prone: Martin 02:32, Moss Hill, 3-4 at a time).
-				if (!over && vector.DistanceXZ(c.GetOrigin(), dp) < 150 && (!s_mProneUntil.Contains(c) || now >= s_mProneUntil.Get(c) - 5))
-					Down(c, now);
+				bool sheltering = s_mShelterUntil.Contains(c) && now < s_mShelterUntil.Get(c);
+				if (!over && !sheltering && vector.DistanceXZ(c.GetOrigin(), dp) < 150 && (!s_mProneUntil.Contains(c) || now >= s_mProneUntil.Get(c) - 5))
+				{
+					// A house a few steps away: in, not down in the street.
+					if (!Dash(c, dp, now, taken))
+						Down(c, now);
+				}
 				if (now - s_mReactedAt.Get(c) < COOLDOWN && s_mReactedAt.Contains(c))
 					continue;
 				s_mReactedAt.Set(c, now);
@@ -149,10 +182,29 @@ class ZCR_DroneThreat
 			foreach (string side, int n : near)
 			{
 				if (n > 0)
-					Print(string.Format("[ZCR][DRONETHREAT] t=%1 side=%2 near=%3 covered=%4 reacting=%5 prone=%6", now, side, n,
-						Math.Round(100.0 * covered.Get(side) / n), Math.Round(100.0 * running.Get(side) / n), Math.Round(100.0 * prone.Get(side) / n)), LogLevel.NORMAL);
+					Print(string.Format("[ZCR][DRONETHREAT] t=%1 side=%2 near=%3 covered=%4 reacting=%5 prone=%6 shelter_runs=%7 shelter_in=%8", now, side, n,
+						Math.Round(100.0 * covered.Get(side) / n), Math.Round(100.0 * running.Get(side) / n), Math.Round(100.0 * prone.Get(side) / n),
+						s_mShelterRuns.Get(side), s_mShelterIn.Get(side)), LogLevel.NORMAL);
 			}
+			s_mShelterRuns.Clear();
+			s_mShelterIn.Clear();
 		}
+	}
+
+	// Into a building whose inside is within DASH_M, even with the drone close; false if there is none.
+	protected static bool Dash(ChimeraCharacter c, vector from, int now, array<vector> taken)
+	{
+		SCR_AIUtilityComponent utility = Utility(c);
+		vector spot;
+		if (!utility || !FindShelter(c, from, DASH_M, spot, taken))
+			return false;
+		taken.Insert(spot);
+		Up(c);
+		s_mProneUntil.Remove(c);
+		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
+		s_mRunningUntil.Set(c, now + 8);
+		s_mShelterUntil.Set(c, now + 8);
+		return true;
 	}
 
 	protected bool AddMan(IEntity e)
@@ -192,7 +244,8 @@ class ZCR_DroneThreat
 		float d = vector.DistanceXZ(c.GetOrigin(), from);
 		if (d < 150)
 		{
-			Down(c, now);
+			if (!(s_mShelterUntil.Contains(c) && now < s_mShelterUntil.Get(c)) && !Dash(c, from, now, taken))
+				Down(c, now);
 			return;
 		}
 		// Farther: cover only when it is near (20 m, a few seconds' run), else spread out, then down.
@@ -205,6 +258,9 @@ class ZCR_DroneThreat
 			taken.Insert(spot);
 			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
+			// Into a building: not stopped by the get-down when the drone comes close.
+			if (Inside(GetGame().GetWorld(), spot + Vector(0, 0.2, 0), c))
+				s_mShelterUntil.Set(c, now + 12);
 			return;
 		}
 		// No cover near: spread out first - away from the drone, each his own way, 15-25 m, at least
