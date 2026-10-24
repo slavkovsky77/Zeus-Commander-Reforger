@@ -14,7 +14,7 @@
 //   [ZCR][DRONESITE] t= side= move=pack|drive|unload|set|failed_boarding at= why=launches|time|seen ...
 // Static and mobile (Martin, 17:42: "there can be a static drone station and a mobile one like this, but he should also
 // drive it to some safety"): the main base's site stays put; forward sites move, and the next spot is chosen for safety -
-// overhead cover (trees, a roof) for the operators within 30 m of the truck, and of those the one farthest from the front
+// overhead cover (trees, a roof) for the operators within 50 m of the truck, and of those the one farthest from the front
 // (cover=0 in the log when none of the tries had any). -zcrStaticDroneSites: no moves.
 class ZCR_DroneSite
 {
@@ -462,7 +462,7 @@ class ZCR_DroneSites
 
 	// Clear ground 200-600 m off, not toward the front (within 120 degrees of straight away from it), not the sea; 24 tries
 	// (17:37, wooded ground by the farm: 8 tries at 300-500 m found none and the move was called off). Of the tries, the one
-	// with overhead cover for the operators within 30 m and farthest from the front; none with cover - the farthest.
+	// with overhead cover for the operators within 50 m and farthest from the front; none with cover - the farthest.
 	protected static bool NewSpot(ZCR_DroneSite s, vector front, out vector to)
 	{
 		vector here = s.m_vPos;
@@ -493,7 +493,7 @@ class ZCR_DroneSites
 				continue;                      // 17:42: the clear ground found was 10 m from where they stood - no move at all
 			spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
 			vector hide;
-			bool cover = pilot && ZCR_DroneThreat.CoverNear(pilot, spot, 30, hide);
+			bool cover = pilot && ZCR_DroneThreat.CoverNear(pilot, spot, 50, hide);   // the truck stands on open ground: cover within 50 m
 			float score = vector.DistanceXZ(spot, front);
 			if (front == vector.Zero)
 				score = 0;

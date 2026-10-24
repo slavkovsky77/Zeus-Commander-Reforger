@@ -564,12 +564,14 @@ class ZCR_DroneThreat
 		if (away.Length() < 1)
 			away = Vector(1, 0, 0);
 		away.Normalize();
-		array<float> dists = {0, 6, 12, 18, 24, 30, 36};
+		// Rings every 6 m out to the radius asked (it stopped at 36 m whatever the radius - 24 Oct: the drone operators' 60-m
+		// search for cover never got past 36 m).
+		array<float> dists = {};
+		for (float rd = 0; rd <= radius; rd += 6)
+			dists.Insert(rd);
 		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
 		foreach (float d : dists)
 		{
-			if (d > radius)
-				break;
 			foreach (float a : angles)
 			{
 				if (d == 0 && a != 0)
