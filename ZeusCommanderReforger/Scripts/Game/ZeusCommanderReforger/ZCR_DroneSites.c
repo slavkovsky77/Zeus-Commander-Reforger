@@ -34,6 +34,7 @@ class ZCR_DroneSite
 	int m_iMoves;
 	vector m_vTo;
 	string m_sWhy;
+	bool m_bDue;            // a move is due: no more launches from here, packing once the last drone is down
 	AIWaypoint m_Waypoint;
 }
 
@@ -263,8 +264,8 @@ class ZCR_DroneSites
 		{
 			if (s.m_sSide != side || s.m_bLost || now < s.m_iReadyAt)
 				continue;
-			if (s.m_iMove != 0)
-				continue;                      // packing, driving or unloading: no launches
+			if (s.m_iMove != 0 || s.m_bDue)
+				continue;                      // due to move, packing, driving or unloading: no launches
 			float d = vector.DistanceXZ(s.m_vPos, goal);
 			if (d < best)
 			{
@@ -338,27 +339,39 @@ class ZCR_DroneSites
 			return;
 		if (s.m_iMove == 0)
 		{
-			if (now < s.m_iReadyAt || now - s.m_iLastLaunchAt < 60)
-				return;                        // still setting up, or its last drone may still be flying
-			string why;
-			if (s.m_iLaunches >= MOVE_AFTER)
-				why = "launches";
-			else if (now - s.m_iSetAt >= MOVE_EVERY_S)
-				why = "time";
-			else if (Seen(s, Enemy(s.m_sSide)))
-				why = "seen";
-			if (why.IsEmpty())
-				return;
+			if (now < s.m_iReadyAt)
+				return;                        // still setting up
+			string why = s.m_sWhy;
+			if (!s.m_bDue)
+			{
+				if (s.m_iLaunches >= MOVE_AFTER)
+					why = "launches";
+				else if (now - s.m_iSetAt >= MOVE_EVERY_S)
+					why = "time";
+				else if (Seen(s, Enemy(s.m_sSide)))
+					why = "seen";
+				if (why.IsEmpty())
+					return;
+				// Due: no more launches from here (17:24, the farm-site storm: launches every 35 s never left the minute's
+				// pause the move waited for - 8 launches, no move).
+				s.m_bDue = true;
+				s.m_sWhy = why;
+			}
+			if (now - s.m_iLastLaunchAt < 60)
+				return;                        // its last drone may still be flying
 			vector to;
 			if (!NewSpot(s, front, to))
 			{
 				s.m_iSetAt = now;              // nowhere to go: stays, tries again later
 				s.m_iLaunches = 0;
+				s.m_bDue = false;
+				s.m_sWhy = "";
 				Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 move=failed at=%3 why=no_spot", now, s.m_sSide, s.m_sName), LogLevel.NORMAL);
 				return;
 			}
 			s.m_vTo = to;
 			s.m_sWhy = why;
+			s.m_bDue = false;
 			s.m_iMove = 1;
 			s.m_iMoveAt = now;
 			ZCR_DroneOperator.Moving(s.m_Operators, true);
