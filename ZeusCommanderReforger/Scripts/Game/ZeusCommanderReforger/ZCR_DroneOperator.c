@@ -6,7 +6,9 @@
 //     drone controller, which he holds while a drone of his side is in the air (his rifle again when none is);
 //   - the team's post is in cover: inside a building, else under a roof or tree crowns, within 25 m of where it was put,
 //     on the side away from the enemy;
-//   - while a drone flies the pilot stays at his post, crouched: moved more than 3 m off it, he is sent back (below a run
+//   - while a drone flies the pilot holds still where he is, crouched with the controller: his AI is off for the flight
+//     (blind behind his goggles - the guard watches), on again when the drone is down (or after 2 minutes); between
+//     flights both are sent back to the post when more than 8 m off it (below a run
 //     into a building from an enemy drone - that still comes first);
 //   - the other one guards him with his rifle;
 //   - the watch screen tags them (ZCR_Watch): "DRONE OPERATOR" over the pilot ("flying FPV" while a drone is up), "drone
@@ -21,6 +23,8 @@ class ZCR_OperatorMan
 	IEntity m_Controller;
 	bool m_bFlying;
 	int m_iAgainAt;
+	int m_iFrozenAt;
+	int m_iThawUntil;
 }
 
 class ZCR_DroneOperator
@@ -30,6 +34,7 @@ class ZCR_DroneOperator
 	static const float POST_COVER_M = 25;
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
+	static const int MAX_FROZEN_S = 120;    // the pilot's AI back on after this long in one flight
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
 	static ref array<ref ZCR_OperatorMan> s_aMen = {};
 	protected static bool s_bStarted;
@@ -205,26 +210,40 @@ class ZCR_DroneOperator
 			}
 			pilots.Set(m.m_sSide, pilots.Get(m.m_sSide) + 1);
 			bool up = Flying(m.m_sSide, c.GetOrigin());
+			// A flight longer than MAX_FROZEN_S: his AI back on anyway (a drone that never comes down).
+			if (up && m.m_bFlying && m.m_iFrozenAt > 0 && now - m.m_iFrozenAt > MAX_FROZEN_S)
+			{
+				up = false;
+				m.m_iThawUntil = now + 30;
+			}
+			if (now < m.m_iThawUntil)
+				up = false;
 			if (up != m.m_bFlying)
 			{
 				m.m_bFlying = up;
 				Stance(c, up);
 				string what = "landed";
 				if (up)
+				{
 					what = "flying";
+					// Still while he flies (Martin, 24 Oct 15:48: "the drone operator should really just hold still when he is
+					// driving the drone"): the controller in his hands, down on a knee, then his AI off - he stands where he
+					// is, blind to the world behind his goggles (his guard watches); on again when the drone is down.
+					Hands(c, m.m_Controller, true);
+					c.GetCharacterController().SetStanceChange(ECharacterStanceChange.STANCECHANGE_TOCROUCH);
+					GetGame().GetCallqueue().CallLater(Freeze, 1500, false, c, true);
+					m.m_iFrozenAt = now;
+				}
+				else
+				{
+					Freeze(c, false);
+					m.m_iFrozenAt = 0;
+				}
 				Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=%3 x=%4 z=%5 at_post=%6", now, m.m_sSide, what, Math.Round(c.GetOrigin()[0]),
 					Math.Round(c.GetOrigin()[2]), Math.Round(vector.DistanceXZ(c.GetOrigin(), m.m_vPost))), LogLevel.NORMAL);
 			}
 			if (up)
-			{
 				flying.Set(m.m_sSide, flying.Get(m.m_sSide) + 1);
-				Hands(c, m.m_Controller, true);
-				if (vector.DistanceXZ(c.GetOrigin(), m.m_vPost) > HOLD_M && now >= m.m_iAgainAt && !ZCR_DroneThreat.Sheltering(c))
-				{
-					ToPost(m, now);
-					s_mHolds.Set(m.m_sSide, s_mHolds.Get(m.m_sSide) + 1);
-				}
-			}
 			else
 			{
 				Hands(c, m.m_Controller, false);
@@ -241,6 +260,25 @@ class ZCR_DroneOperator
 			foreach (string side, int n : pilots)
 				Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 pilots=%3 flying=%4 holds=%5", now, side, n, flying.Get(side), s_mHolds.Get(side)), LogLevel.NORMAL);
 		}
+	}
+
+	// His AI off (frozen where he stands) or on again. Only while he is still flying when the delayed call comes.
+	protected static void Freeze(ChimeraCharacter c, bool frozen)
+	{
+		if (!c || !c.GetCharacterController() || c.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
+			return;
+		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+		if (!control)
+			return;
+		if (frozen)
+		{
+			ZCR_OperatorMan m = Find(c);
+			if (m && m.m_bFlying && control.IsAIActivated())
+				control.DeactivateAI();
+			return;
+		}
+		if (!control.IsAIActivated())
+			control.ActivateAI();
 	}
 
 	// Back to (or off to) his post: above the squad's own moves, below a run into a building from an enemy drone.
