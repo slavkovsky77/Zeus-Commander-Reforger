@@ -52,6 +52,12 @@ TRACKS = {
     # supply point (stop 1) and unload at the destination; manpower: a squad waits by the pickup, boards, gets out there.
     # Both routes pass the junction bend at (2515, 1580-1690) where the watched trucks hit each other.
     "supply": ("arland-test", "1700,1000;2800,1600", "", "uralsupply", "", "shuttle"),
+    # The Soviet supply vans at the Farm (24 Oct 19:46, report 27 - Martin: "this is a pretty big issue, let's simulate it
+    # in the sub-lab and fix it, without fighting"): two UAZ-452 vans leave together from the Farm's depot spots (2141,2938 and
+    # 2112,2943, AI Conflict's spawn slots) for the source base 1.1 km east; in the match they met at the farm wall's corner
+    # and dodged each other for 100+ s (the game's move-from-incoming-vehicle on both) while our spacing rule stopped them.
+    "farm": ("arland-test", "2141,2938|2112,2943", "3253,2862", "uaz", "", "pair"),
+    "farm-conflict": ("arland-conflict-test", "2141,2938|2112,2943", "3253,2862", "uaz", "", "pair"),
     "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
@@ -147,6 +153,12 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .*error=UNREACHABLE", text)), "pushes": text.count("[ZCR][PUSH]"),
         "gates": text.count("[ZCR][GATE]"),
         "car_hits": len([l for l in text.splitlines() if "[ZCR][COLLISION]" in l and " other=object " not in l]),
+        # The Farm pair (24 Oct): seconds the drivers spent dodging each other, pairs done, both arrived, the second car's time.
+        "evade_s": sum(int(m) for m in re.findall(r"event=ARRIVE .* evade_s=(\d+)", text)),
+        "evade_max_s": max([int(m) for m in re.findall(r"event=ARRIVE .* evade_s=(\d+)", text)] or [0]),
+        "pairs": len(re.findall(r"event=CONVOY ", text)),
+        "pairs_through": len(re.findall(r"event=CONVOY .* cars=2 arrived=2 ", text)),
+        "pair_last_s": (sorted(int(m) for m in re.findall(r"event=CONVOY .* last_s=(\d+)", text) if int(m) >= 0) or [None])[-1],
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
         "stops": len(re.findall(r"\[ZCR\]\[SPACING\] .*band=stop", text)),
         "risk_caps": text.count("[ZCR][RISK]"),

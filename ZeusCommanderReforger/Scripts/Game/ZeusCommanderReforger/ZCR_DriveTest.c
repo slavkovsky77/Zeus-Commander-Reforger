@@ -11,6 +11,10 @@
 // Sixth field "convoy" instead of "both" (23 Oct night, Martin: "convoy test would be great too"): the cars leave A as one
 // convoy, 2 s apart with the start clear, drive to B and are taken off the map there; when every car of the convoy has
 // arrived or is lost (or after 10 minutes) the next convoy leaves.  [ZCR][DRIVETEST] event=CONVOY convoy= cars= arrived= lost= first_s= last_s=
+// Sixth field "pair" with two start points in the first field ("ax,az|a2x,a2z"; 24 Oct, the Soviet supply vans at the
+// Farm - Martin: "let's simulate it in the sub-lab and fix it, without fighting"): two cars leave together, one from each
+// start, for B - as AI Conflict's two supply vans left the Farm's depot and met at the farm wall's corner; otherwise a
+// convoy (taken off at B, the next pair when both are done).
 // Seventh field "blast" (Martin: "they would meet and one of them would explode, so we see how the other direction
 // reacts to the blocked road"; "spawn one drone that would kill one ... maybe a convoy and the front one"): the first car
 // within 25 m of the via point is hit by a mortar-shell warhead and its crew killed - a wreck on the lane, cleared a minute
@@ -28,6 +32,7 @@ class ZCR_DriveCar
 	AIWaypoint m_Via;
 	bool m_bToB;
 	int m_iLeg;
+	int m_iEvadeS;           // seconds its driver spent dodging another vehicle (the game's move-from-incoming-vehicle)
 	int m_iLegStart;
 	int m_iSpawnedAt;
 	bool m_bLost;
@@ -57,6 +62,7 @@ class ZCR_DriveTest
 	protected int m_iNextSpawn = 15;
 	protected int m_iNextSum = 60;
 	protected bool m_bConvoy;
+	protected vector m_vA2;          // "pair": the second start point
 	protected int m_iConvoy = 1;
 	protected int m_iConvoySpawned;
 	protected int m_iConvoyStart;
@@ -81,14 +87,18 @@ class ZCR_DriveTest
 		if (parts.Count() < 2)
 			return;
 		s_Instance = new ZCR_DriveTest();
-		s_Instance.m_vA = Point(parts[0]);
+		array<string> starts = {};
+		parts[0].Split("|", starts, true);
+		s_Instance.m_vA = Point(starts[0]);
+		if (starts.Count() > 1)
+			s_Instance.m_vA2 = Point(starts[1]);
 		s_Instance.m_vB = Point(parts[1]);
 		if (parts.Count() > 2)
 			s_Instance.m_iCount = Math.Max(1, parts[2].ToInt());
 		if (parts.Count() > 4 && parts[4] != "-")
 			s_Instance.m_vVia = Point(parts[4]);
 		s_Instance.m_bBoth = parts.Count() > 5 && parts[5] == "both";
-		s_Instance.m_bConvoy = parts.Count() > 5 && parts[5] == "convoy";
+		s_Instance.m_bConvoy = parts.Count() > 5 && (parts[5] == "convoy" || parts[5] == "pair");
 		s_Instance.m_bBlast = parts.Count() > 6 && parts[6] == "blast";
 		string ussrCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 		if (parts.Count() > 3 && parts[3] == "uaz")
@@ -194,6 +204,8 @@ class ZCR_DriveTest
 			m_iNextSpawn = now + 12;
 			if (m_bConvoy)
 				m_iNextSpawn = now + 2;
+			if (m_vA2 != vector.Zero)
+				m_iNextSpawn = now;            // the pair leaves together
 		}
 		if (m_bBlast)
 			BlastTick(now);
@@ -224,6 +236,8 @@ class ZCR_DriveTest
 				continue;
 			}
 			Water(car, now);
+			if (Evading(car))
+				car.m_iEvadeS++;
 			vector target = m_vA;
 			if (car.m_bToB)
 				target = m_vB;
@@ -231,7 +245,8 @@ class ZCR_DriveTest
 				continue;
 			int legS = now - car.m_iLegStart;
 			m_aLegs.Insert(legS);
-			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=ARRIVE leg=%3 leg_s=%4 to=%5", now, car.m_iIndex, car.m_iLeg, legS, ToName(car.m_bToB)), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=ARRIVE leg=%3 leg_s=%4 to=%5 evade_s=%6", now, car.m_iIndex, car.m_iLeg, legS, ToName(car.m_bToB),
+				car.m_iEvadeS), LogLevel.NORMAL);
 			if (m_bConvoy)
 			{
 				car.m_bDone = true;
@@ -377,6 +392,25 @@ class ZCR_DriveTest
 		return "crew_out";
 	}
 
+	// The car's driver dodging another vehicle (the game's SCR_AIPilotMoveFromIncomingVehicleBehavior - 24 Oct, the Farm: both
+	// supply vans in it for 100+ s, each giving way to the other).
+	protected static bool Evading(ZCR_DriveCar car)
+	{
+		if (!car.m_Group)
+			return false;
+		array<AIAgent> agents = {};
+		car.m_Group.GetAgents(agents);
+		foreach (AIAgent a : agents)
+		{
+			if (!a)
+				continue;
+			SCR_AIUtilityComponent u = SCR_AIUtilityComponent.Cast(a.FindComponent(SCR_AIUtilityComponent));
+			if (u && u.GetCurrentAction() && u.GetCurrentAction().ClassName() == "SCR_AIPilotMoveFromIncomingVehicleBehavior")
+				return true;
+		}
+		return false;
+	}
+
 	protected bool StartBusy()
 	{
 		float clear = 10;
@@ -405,6 +439,11 @@ class ZCR_DriveTest
 		bool fromB = m_bBoth && m_aCars.Count() % 2 == 1;
 		vector start = m_vA;
 		vector goal = m_vB;
+		if (m_vA2 != vector.Zero && m_iConvoySpawned % 2 == 1)
+		{
+			start = m_vA2;                     // "pair": the second car from the second start (off the road, as a depot slot)
+			start[1] = GetGame().GetWorld().GetSurfaceY(start[0], start[2]);
+		}
 		if (fromB)
 		{
 			start = m_vB;
