@@ -31,6 +31,8 @@ VERDICT = {
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r44", "Drone teams on sorties",
+     "Martin's model: 'operators have big bags with some drones; the drone truck or a static arsenal is where they resupply; Zeus Commander plans where the truck goes, the operator just knows where he can resupply'. The pilot carries 4 FPVs, walks with his guard to a covered spot 60-200 m from the truck, launches one at a time from the open sky beside it - the goggles go on only while he flies, the controller in hand, holding still - then walks back and loads 45 s. The commander puts the truck 1 km back from where its drones go (the main base's site stays put); the truck has its own driver. Martin: 'fucking great'."),
     ("good", "r43", "The drone operator",
      "Martin: 'the drone operator should be seen with a tag, seek cover, and when he controls a drone have the controller in his hands and goggles, and be stationary'. The operator team's first soldier is the pilot: Realistic Combat Drones' FPV goggles in place of his helmet and its drone controller in his hands while his FPV flies; he kneels at his post in cover and holds still (his AI off for the flight - blind behind the goggles, his guard watches). 'DRONE OPERATOR - flying FPV' on the watch screen. Martin: 'this is fucking great!!!'"),
     ("good", "r43", "One FPV at a time; soldiers into buildings",
@@ -227,6 +229,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (44, "drone teams on sorties; the commander plans the drone truck", "24 Oct, 16:05-18:40",
+     ["Drone teams on sorties (ZCR_DroneOperator): the pilot carries 4 FPVs (a big bag - the assembled ALICE / Kolobok); the team walks to a launch position with overhead cover 60-200 m from its truck, launches one at a time from the nearest open sky, walks back when empty and loads 45 s, then out to a new position ([ZCR][SORTIE]). Goggles on only while he flies (helmet back at landing), the controller in hand, his AI off for the flight.",
+      "The commander plans the drone truck (ZCR_DroneSites): a forward site's truck stands at a support point 1000 m back from where its side's drones go (clear dry ground; nearer after a point is given up), driven there by its own driver; the main base's site is static. The operators no longer ride the truck (boarding went in and out).",
+      "Main battle: a launch needs an operator team at its launch position with drones in the bag - one FPV at a time (the FPV mod's SetDrones).",
+      "Lab: storm farm-site (a US drone site against the farm); lab/report.py finds sub-lab storms and their videos; the scorecard's 'operators' check (goggles and still at 80% of flights)."],
+     "Martin, 24 Oct: 'what is a drone site, is it static?'; 'real drone teams move ... yeah I love this'; 'operators should have larger bags with drones and resupply at the drone truck or a static arsenal'; 'Zeus Commander should plan where to move the drone truck'; 'give him a big backpack, goggles only when he is driving drones'; 'that operator is acting a bit weird'.",
+     "Farm-site storms in the window: sorties every 3-5 minutes (walk back 38-64 s, load 45 s); the 18:31 storm - 10 flights, goggles 100%, still 80%; the truck drive itself not yet seen (its support point was always within 250 m of where it stood)."),
     (43, "DCO as the tactical layer; 50-a-side cap; drone storms and the drone operator", "24 Oct, 00:00-15:52",
      ["DCO_AI (Workshop) is the tactical layer in our matches; the bridge addon ZCR_DCO (loaded only with DCO) turns our orders into DCO's per-group switches: Light detail for squads with no known enemy within 800 m, every feature off for drone operator teams; the storm push stays behind -zcrStormPush (it failed in the sub-lab).",
       "Soldier cap in our AI Conflict fork: -aicfMaxAgentsPerFaction 50 with -aicfCapCountsAll (builders, truck crews, operators and soldiers DCO moved count too), -aicfMaxBuildersPerFaction 6; the attack minimum follows the muster size.",

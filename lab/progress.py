@@ -88,6 +88,7 @@ BUILDS = [
     (41, "armour: crews stay aboard, spot far, storm; integration tests", "2026-10-23 15:43", "crews of armed vehicles stay aboard while it is intact; guns test and the storm scenario; 12 integration tests; every run reproducible (run.json, rerun.py)"),
     (42, "supply runs; crossing rule; test camera", "2026-10-23 18:13", "supply and manpower runs in the traffic simulation; two vehicles whose paths cross: the later one stops until the other is past; PREV/NEXT through a test's own units"),
     (43, "DCO as the tactical layer; 50-a-side cap; drone storms and the drone operator", "2026-10-24 15:52", "DCO_AI runs how soldiers fight, our commander where they go; each side capped at 50 AI soldiers; drone storms in the infantry sub-lab (one FPV at a time from a 2-man operator); the drone operator - goggles, controller, still while he flies; soldiers run into buildings from drones"),
+    (44, "drone teams on sorties; the commander plans the drone truck", "2026-10-24 18:40", "the pilot carries 4 FPVs in a big bag, launches one at a time from a covered spot near the drone truck (goggles on and still while it flies), walks back to the truck to load; the commander sets the truck's support point and its driver takes it there"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
