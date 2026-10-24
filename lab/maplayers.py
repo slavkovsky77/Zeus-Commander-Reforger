@@ -110,10 +110,19 @@ def group(points, radius):
     return groups
 
 
-def layers(map_slug: str) -> dict:
+def run_time(run: Path) -> float:
+    m = re.search(r"-(\d{8})-(\d{6})$", run.name)
+    return time.mktime(time.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")) if m else 0
+
+
+def layers(map_slug: str, since_h: float = 0) -> dict:
+    """since_h: only runs started in the last since_h hours (0: every run since FROM_DAY) - 25 Oct, Martin: "let's reset
+    the runs to today only"."""
     started = time.time()
-    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and re.search(rf"-{FROM_DAY[:6]}\d\d-\d{{6}}$", r.name)
-                   and r.name.rsplit("-", 2)[-2] >= FROM_DAY), key=lambda r: r.name.rsplit("-", 2)[-2:])
+    floor = time.mktime(time.strptime(FROM_DAY, "%Y%m%d"))
+    if since_h:
+        floor = max(floor, time.time() - since_h * 3600)
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and run_time(r) >= floor), key=run_time)
     bases, spots, built, traps = [], {}, [], []
     scanned = 0
     for run in runs:
@@ -184,7 +193,7 @@ def layers(map_slug: str) -> dict:
                                    "stuck_places": len(r["stuck_places"])})
         except (OSError, ValueError):
             pass
-    return {"map": map_slug, "runs": scanned, "bases": out_bases,
+    return {"map": map_slug, "runs": scanned, "since_h": since_h, "bases": out_bases,
             "depot_spots": [{k: v for k, v in s.items() if k != "runs"} | {"runs": len(s["runs"])} for s in spots.values()],
             "depots_built": out_built, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}

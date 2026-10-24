@@ -320,6 +320,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <div class="card">
       <div class="map-controls">
         <label for="map-name">Map <select id="map-name"><option value="arland">Arland</option><option value="everon">Everon</option></select></label>
+        <label for="map-since">Runs <select id="map-since"><option value="24">last 24 hours</option><option value="72">last 3 days</option><option value="0">all since 20 Oct</option></select></label>
         <label for="map-style">Tiles <select id="map-style"><option value="topo">Topo</option><option value="satellite">Satellite</option><option value="drawn">Drawn</option></select></label>
         <label for="map-l-bases"><input type="checkbox" id="map-l-bases" checked> Bases</label>
         <label for="map-l-spots"><input type="checkbox" id="map-l-spots" checked> Depot spots tested</label>
@@ -365,6 +366,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     async open() {
       if (this.view) { setTimeout(() => this.view.invalidateSize(), 50); return; }
       for (const id of ["map-name", "map-style"]) $(id).addEventListener("change", () => id === "map-name" ? this.load() : this.tiles());
+      $("map-since").addEventListener("change", () => this.layers());
       for (const k of ["bases", "spots", "built", "traps", "routes"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
       await this.load();
     },
@@ -404,7 +406,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     },
     async layers() {
       let d;
-      try { d = await (await fetch(`/api/map?map=${this.name}`)).json(); } catch (e) { $("map-sum").textContent = "The lab app didn't answer."; return; }
+      try { d = await (await fetch(`/api/map?map=${this.name}&since=${$("map-since").value}`)).json(); } catch (e) { $("map-sum").textContent = "The lab app didn't answer."; return; }
       if (d.building) {
         $("map-sum").textContent = "Reading the run logs for this map - the first time takes a few minutes; the layers appear by themselves.";
         setTimeout(() => { if (this.name === d.map) this.layers(); }, 15000);
@@ -459,7 +461,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
           .addTo(this.groups.routes);
       }
       const top = d.traps.slice(0, 3).map(t => `${t.x}, ${t.z} (${t.count})`).join("; ");
-      $("map-sum").textContent = `${d.runs} runs on this map since 20 Oct: ${d.bases.length} bases, ${d.depot_spots.length} depot spots tested, ${d.depots_built.length} places where depots were built, ${d.traps.length} places where vehicles got stuck` + (top ? ` - most often ${top}.` : ".");
+      const span = { 24: "in the last 24 hours", 72: "in the last 3 days", 0: "since 20 Oct" }[$("map-since").value] || "";
+      $("map-sum").textContent = `${d.runs} runs on this map ${span}: ${d.bases.length} bases, ${d.depot_spots.length} depot spots tested, ${d.depots_built.length} places where depots were built, ${d.traps.length} places where vehicles got stuck` + (top ? ` - most often ${top}.` : ".");
     },
   };
 

@@ -57,27 +57,29 @@ class MapLayers:
     lock = threading.Lock()
 
     @classmethod
-    def get(cls, name: str) -> dict:
+    def get(cls, name: str, since_h: float = 0) -> dict:
+        key = f"{name}:{since_h:g}"
         with cls.lock:
-            d = cls.data.get(name)
+            d = cls.data.get(key)
             stale = not d or time.time() - d.get("_at", 0) > 300
-            if stale and name not in cls.building:
-                cls.building.add(name)
-                threading.Thread(target=cls.build, args=(name,), daemon=True).start()
+            if stale and key not in cls.building:
+                cls.building.add(key)
+                threading.Thread(target=cls.build, args=(name, since_h, key), daemon=True).start()
         return d or {"map": name, "building": True}
 
     @classmethod
-    def build(cls, name: str):
+    def build(cls, name: str, since_h: float = 0, key: str = ""):
+        key = key or f"{name}:{since_h:g}"
         try:
-            d = maplayers.layers(name)
+            d = maplayers.layers(name, since_h)
             d["_at"] = time.time()
             with cls.lock:
-                cls.data[name] = d
+                cls.data[key] = d
         except Exception as e:
             print(f"[app] map {name}: {e}", flush=True)
         finally:
             with cls.lock:
-                cls.building.discard(name)
+                cls.building.discard(key)
 
 
 class Slow:
@@ -450,7 +452,11 @@ class Handler(BaseHTTPRequestHandler):
                 name = q.get("map", "arland")
                 if name not in ("arland", "everon"):
                     return self.json({"error": "unknown map"}, 404)
-                return self.json(MapLayers.get(name))
+                try:
+                    since_h = float(q.get("since", "24"))
+                except ValueError:
+                    since_h = 24
+                return self.json(MapLayers.get(name, since_h))
             if path in ("/vendor/leaflet.js", "/vendor/leaflet.css"):
                 f = HERE / "vendor" / path.rsplit("/", 1)[1]
                 ctype = "application/javascript" if f.suffix == ".js" else "text/css"
