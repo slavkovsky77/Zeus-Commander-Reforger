@@ -60,6 +60,21 @@ Reading so far (single runs for the role swap - not firm): DCO's extra behaviour
 defence, slow in the attack (attacks with full DCO stall; with its extras off they push through). That is where the
 strategic layer should come in: our commander knows which squads are storming.
 
+## Full matches with DCO (24 Oct, Arland, our commander on both sides, 30 min at 3x)
+
+| | without DCO (23 Oct, 4 matches) | with DCO (24 Oct, 2 matches) |
+|---|---|---|
+| bases taken (US seat) | 0-1 | 0, 0 |
+| deaths | 50-87 | 27, 35 |
+| fighting intensity | 36-62 | 22, 27 |
+| FPS | 32-35 | 25, 27.5 |
+| crashes / script errors | - | none |
+
+With DCO the battle has half the fighting or less, no captures and ~20% lower FPS - the sub-lab's picture (careful
+soldiers, defence beats attack) at full scale. Caveat: the in-cover measure reads 0 with DCO - probably our sampler losing
+soldiers DCO moves into groups of its own (seen in the storms), not evidence. Match 1 had the storm push on for two US
+squads for 1.5 game minutes; match 2 plain DCO.
+
 ## Plan
 
 0. **Done 24 Oct 12:00: the push experiment failed** - switching DCO's contact drills off for storming squads made the
