@@ -678,6 +678,40 @@ class ZCR_DriveTest
 			Math.Round(amount), Math.Round(before), Math.Round(after)), LogLevel.NORMAL);
 	}
 
+	// The live map's van lines (ZCR_LiveMap): where each car is, what it does, its cargo and goal.
+	static void LiveLines(int now)
+	{
+		if (!s_Instance)
+			return;
+		foreach (ZCR_DriveCar c : s_Instance.m_aCars)
+		{
+			if (!c.m_Vehicle || c.m_bLost || c.m_bDone)
+				continue;
+			vector at = c.m_Vehicle.GetOrigin();
+			float kmh;
+			if (c.m_Vehicle.GetPhysics())
+				kmh = c.m_Vehicle.GetPhysics().GetVelocity().Length() * 3.6;
+			float cargo;
+			SCR_ResourceContainer box = VanSupplies(c.m_Vehicle);
+			if (box)
+				cargo = box.GetResourceValue();
+			string phase = c.m_sPhase;
+			if (phase.IsEmpty())
+				phase = "DRIVING";
+			int space = phase.IndexOf(" ");
+			if (space > 0)
+				phase = phase.Substring(0, space);
+			int route = -1;
+			if (!c.m_aRouteWps.IsEmpty() && s_Instance.RouteFor(c, s_Instance.B(c)))
+				route = s_Instance.RouteFor(c, s_Instance.B(c)).m_iId;
+			string to = c.m_sToBase;
+			if (to.IsEmpty())
+				to = ZCR_VehicleTag.NearestBase(s_Instance.B(c));
+			Print(string.Format("[ZCR][LIVE] t=%1 kind=van id=%2 phase=%3 cargo=%4 kmh=%5 route=%6 x=%7 z=%8 to=%9", now, c.m_iIndex, phase, Math.Round(cargo),
+				Math.Round(kmh), route, Math.Round(at[0]), Math.Round(at[2]), ZCR_LiveMap.Name(to)), LogLevel.NORMAL);
+		}
+	}
+
 	// The overlay's vehicle tag for a test car (ZCR_VehicleTag): "VAN 12  LOADING at Farm  |  800 supplies  |  1.9 km to go".
 	static string TagFor(IEntity v)
 	{
@@ -777,8 +811,6 @@ class ZCR_DriveTest
 		Physics ph = car.m_Vehicle.GetPhysics();
 		if (ph)
 			kmh = ph.GetVelocity().Length() * 3.6;
-		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=AT x=%3 z=%4 kmh=%5", now, car.m_iIndex, Math.Round(at[0]), Math.Round(at[2]), Math.Round(kmh)),
-			LogLevel.NORMAL);
 		if (now - car.m_iPathAt < 15 || !car.m_Group)
 			return;
 		car.m_iPathAt = now;
@@ -832,7 +864,9 @@ class ZCR_DriveTest
 				}
 				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=BOARD ordered=%3", ZCR_LossLog.Seconds(), car.m_iIndex, board != null), LogLevel.NORMAL);
 			}
-			return car.m_Board != null && ZCR_LossLog.Seconds() - car.m_iBoardAt < 60;   // boarding: a minute, then lost as usual
+			// Boarding: up to 10 minutes - in the window a far driver gets in only when the camera passes (25 Oct: a 1-minute
+			// cap lost 18 vans the run before had seated that way).
+			return car.m_Board != null && ZCR_LossLog.Seconds() - car.m_iBoardAt < 600;
 		}
 		car.m_iReseats++;
 		array<AIAgent> agents = {};

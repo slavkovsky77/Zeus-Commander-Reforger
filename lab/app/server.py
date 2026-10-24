@@ -57,21 +57,21 @@ class MapLayers:
     lock = threading.Lock()
 
     @classmethod
-    def get(cls, name: str, since_h: float = 0) -> dict:
-        key = f"{name}:{since_h:g}"
+    def get(cls, name: str, since_h: float = 0, kinds: str = "match") -> dict:
+        key = f"{name}:{since_h:g}:{kinds}"
         with cls.lock:
             d = cls.data.get(key)
             stale = not d or time.time() - d.get("_at", 0) > 300
             if stale and key not in cls.building:
                 cls.building.add(key)
-                threading.Thread(target=cls.build, args=(name, since_h, key), daemon=True).start()
+                threading.Thread(target=cls.build, args=(name, since_h, key, kinds), daemon=True).start()
         return d or {"map": name, "building": True}
 
     @classmethod
-    def build(cls, name: str, since_h: float = 0, key: str = ""):
-        key = key or f"{name}:{since_h:g}"
+    def build(cls, name: str, since_h: float = 0, key: str = "", kinds: str = "match"):
+        key = key or f"{name}:{since_h:g}:{kinds}"
         try:
-            d = maplayers.layers(name, since_h)
+            d = maplayers.layers(name, since_h, kinds)
             d["_at"] = time.time()
             with cls.lock:
                 cls.data[key] = d
@@ -456,7 +456,11 @@ class Handler(BaseHTTPRequestHandler):
                     since_h = float(q.get("since", "24"))
                 except ValueError:
                     since_h = 24
-                return self.json(MapLayers.get(name, since_h))
+                kinds = q.get("kinds", "match")
+                return self.json(MapLayers.get(name, since_h, kinds))
+            if path == "/api/map/live":
+                q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
+                return self.json(maplayers.live(q.get("map", "arland")))
             if path in ("/vendor/leaflet.js", "/vendor/leaflet.css"):
                 f = HERE / "vendor" / path.rsplit("/", 1)[1]
                 ctype = "application/javascript" if f.suffix == ".js" else "text/css"

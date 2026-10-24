@@ -115,9 +115,11 @@ def run_time(run: Path) -> float:
     return time.mktime(time.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")) if m else 0
 
 
-def layers(map_slug: str, since_h: float = 0) -> dict:
+def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
     """since_h: only runs started in the last since_h hours (0: every run since FROM_DAY) - 25 Oct, Martin: "let's reset
-    the runs to today only"."""
+    the runs to today only"; kinds: "match" (watched and headless matches), "test" (sub-lab drive tests), "all" (also
+    probes and the other sub-labs) - "since the 20th there were a lot of blind tests"."""
+    allowed = {"match": ("match",), "test": ("test",), "both": ("match", "test")}.get(kinds, ("match", "test", "other"))
     started = time.time()
     floor = time.mktime(time.strptime(FROM_DAY, "%Y%m%d"))
     if since_h:
@@ -127,7 +129,7 @@ def layers(map_slug: str, since_h: float = 0) -> dict:
     scanned = 0
     for run in runs:
         d = read_run(run)
-        if not d or d["map"] != map_slug:
+        if not d or d["map"] != map_slug or d["kind"] not in allowed:
             continue
         scanned += 1
         if d["bases"]:
@@ -193,7 +195,7 @@ def layers(map_slug: str, since_h: float = 0) -> dict:
                                    "stuck_places": len(r["stuck_places"])})
         except (OSError, ValueError):
             pass
-    return {"map": map_slug, "runs": scanned, "since_h": since_h, "bases": out_bases,
+    return {"map": map_slug, "runs": scanned, "since_h": since_h, "kinds": kinds, "bases": out_bases,
             "depot_spots": [{k: v for k, v in s.items() if k != "runs"} | {"runs": len(s["runs"])} for s in spots.values()],
             "depots_built": out_built, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
@@ -214,3 +216,62 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+LIVE = re.compile(r"\[ZCR\]\[LIVE\] t=(\d+) kind=(\w+) (.*)")
+ROUTE_OF = re.compile(r"\[ZCR\]\[ROUTE\] t=\d+ car=(\d+) route=(\d+)")
+PATH_OF = re.compile(r"car=(\d+) event=PATH n=\d+ pts=(\S+)")
+_live_world = {}
+
+
+def live(map_slug: str) -> dict:
+    """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
+    test vans - with each van's planned route and the game's current path (lab app /api/map/live)."""
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir()), key=run_time, reverse=True)[:15]
+    for run in runs:
+        logs = sorted(run.glob("logs/*/console.log"))
+        if not logs or time.time() - logs[-1].stat().st_mtime > 90:
+            continue
+        log = logs[-1]
+        if run.name not in _live_world:
+            with open(log, "rb") as f:
+                w = WORLD.search(f.read(2_000_000))
+            _live_world[run.name] = slug(w.group(1).decode()) if w else ""
+        if _live_world[run.name] != map_slug:
+            continue
+        size = log.stat().st_size
+        with open(log, "rb") as f:
+            f.seek(max(0, size - 600_000))
+            tail = f.read().decode("utf-8", "replace")
+        rows = [(int(m.group(1)), m.group(2), m.group(3)) for m in LIVE.finditer(tail)]
+        if not rows:
+            return {"run": run.name, "live": False}
+        last = max(r[0] for r in rows)
+        units = {"team": [], "truck": [], "van": []}
+        for tt, kind, rest in rows:
+            if tt < last - 4 or kind not in units:
+                continue
+            u = dict(kv.split("=", 1) for kv in rest.split() if "=" in kv)
+            for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route"):
+                if k in u:
+                    try:
+                        u[k] = float(u[k])
+                    except ValueError:
+                        pass
+            for k in ("to", "from"):
+                if k in u:
+                    u[k] = u[k].replace("_", " ")
+            units[kind].append(u)
+        # Vans: their planned route (lab/roadgraph.py routes.json, by the route the game picked) and the game's own path now.
+        paths = {m.group(1): [[float(v) for v in xy.split(",")] for xy in m.group(2).split(";")] for m in PATH_OF.finditer(tail)}
+        routes = {}
+        rf = ROOT / ".runtime" / "maps" / map_slug / "routes.json"
+        if units["van"] and rf.exists():
+            ok = [r for r in json.loads(rf.read_text(encoding="utf-8")).get("routes", []) if r.get("ok")]
+            for v in units["van"]:
+                ri = int(v.get("route", -1))
+                if 0 <= ri < len(ok):
+                    routes[v["id"]] = ok[ri]["points"][::2] + [ok[ri]["points"][-1]]
+        return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"],
+                "paths": paths, "routes": routes}
+    return {"live": False}

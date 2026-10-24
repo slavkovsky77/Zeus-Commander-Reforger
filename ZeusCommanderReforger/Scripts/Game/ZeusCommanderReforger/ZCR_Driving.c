@@ -97,10 +97,11 @@ class ZCR_Driving
 		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)
 		ZCR_DoorProbe.Start();     // lab: doors and gates near given points, how open (-zcrDoorProbe)
-		ZCR_OpenGates.Start();
-		ZCR_GateAhead.Start();
-		ZCR_RoadFirst.Start();
-		ZCR_MapDump.Start();       // lab: -zcrMapDump - every road, object and tree cell of the map to $profile:zcr/ (plan page M1)     // off-road with a far goal: to the nearest proper road first (24 Oct, the Farm)     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
+		ZCR_OpenGates.Start();     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
+		ZCR_GateAhead.Start();     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)
+		ZCR_RoadFirst.Start();     // off-road with a far goal: to the nearest proper road first (24 Oct, the Farm)
+		ZCR_MapDump.Start();       // lab: -zcrMapDump - every road, object and tree cell of the map to $profile:zcr/ (plan page M1)
+		ZCR_LiveMap.Start();       // the Lab app's live map: teams, supply trucks, test vans every 5 s ([ZCR][LIVE])
 		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
 
