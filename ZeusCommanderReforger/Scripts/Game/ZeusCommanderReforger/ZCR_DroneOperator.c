@@ -150,6 +150,14 @@ class ZCR_DroneOperator
 		s_aTeams.Insert(team);
 	}
 
+	// Where the team's drones go now (the commander's drone target changes with its plan).
+	static void SetGoal(SCR_AIGroup group, vector goal)
+	{
+		ZCR_OperatorTeam team = Team(group);
+		if (team && goal != vector.Zero)
+			team.m_vGoal = goal;
+	}
+
 	static ZCR_OperatorTeam Team(SCR_AIGroup group)
 	{
 		foreach (ZCR_OperatorTeam team : s_aTeams)

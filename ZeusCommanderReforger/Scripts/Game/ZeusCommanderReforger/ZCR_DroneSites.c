@@ -131,6 +131,7 @@ class ZCR_DroneSites
 			{
 				Move(s, front, now);
 				PlanTruck(s, front, now);
+				ZCR_DroneOperator.SetGoal(s.m_Operators, front);
 			}
 			if (s.m_bMain && (!s.m_bLost || now - s.m_iLostAt < REBUILD))
 				hasMain = true;
@@ -244,7 +245,11 @@ class ZCR_DroneSites
 		s.m_Operators = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(teamRes, GetGame().GetWorld(), params));
 		// Pilot (goggles, controller, still while he flies) and guard, their post in cover by the truck; tagged on screen.
 		if (s.m_Operators)
+		{
 			ZCR_DroneOperator.Register(s.m_Operators, side, spot + Vector(6, 0, 4), spot);
+			// Out on sorties from the truck with drones in the bag (Martin, 18:35: the main battle gets the drone teams).
+			ZCR_DroneOperator.Sortie(s.m_Operators, side, spot, front);
+		}
 		s_aSites.Insert(s);
 		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 set_up at=%3 main=%4 ready_in=%5 x=%6 z=%7", ZCR_LossLog.Seconds(), side, s.m_sName, main,
 			readyAt - ZCR_LossLog.Seconds(), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
@@ -305,8 +310,9 @@ class ZCR_DroneSites
 		return name;
 	}
 
-	// The ready site nearest the goal, or false (no drones).
-	static bool LaunchFrom(string side, vector goal, out vector from, out string name)
+	// The operator team that launches next: of the side's sites, one whose team is at its launch position with drones in
+	// the bag, the nearest to the goal; 'from' is its take-off spot (open sky beside the team). False: no team ready.
+	static bool LaunchFrom(string side, vector goal, out vector from, out string name, out SCR_AIGroup operators)
 	{
 		int now = ZCR_LossLog.Seconds();
 		float best = 1e9;
@@ -314,15 +320,18 @@ class ZCR_DroneSites
 		ZCR_DroneSite chosen;
 		foreach (ZCR_DroneSite s : s_aSites)
 		{
-			if (s.m_sSide != side || s.m_bLost || now < s.m_iReadyAt)
+			if (s.m_sSide != side || s.m_bLost || now < s.m_iReadyAt || !s.m_Operators)
 				continue;
 			if (s.m_iMove != 0 || s.m_bDue)
 				continue;                      // due to move, packing, driving or unloading: no launches
-			float d = vector.DistanceXZ(s.m_vPos, goal);
+			vector spot;
+			if (!ZCR_DroneOperator.CanLaunch(s.m_Operators, spot))
+				continue;                      // walking out or back, loading, or out of drones
+			float d = vector.DistanceXZ(spot, goal);
 			if (d < best)
 			{
 				best = d;
-				from = s.m_vLaunch;
+				from = spot;
 				name = s.m_sName;
 				found = true;
 				chosen = s;
@@ -332,6 +341,7 @@ class ZCR_DroneSites
 		{
 			chosen.m_iLaunches++;
 			chosen.m_iLastLaunchAt = now;
+			operators = chosen.m_Operators;
 		}
 		return found;
 	}

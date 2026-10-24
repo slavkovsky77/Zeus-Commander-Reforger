@@ -473,13 +473,15 @@ class ZCR_Drones
 		}
 		vector from;
 		float best = 1e9;
+		SCR_AIGroup operators;
 		if (ZCR_DroneSites.On())
 		{
-			// From the side's ready drone site nearest the objective - none ready, no drones.
+			// From an operator team at its launch position with drones in its bag (ZCR_DroneOperator sorties), the nearest to
+			// the objective - none ready, no drones.
 			string fromName;
-			if (!ZCR_DroneSites.LaunchFrom(side, goal, from, fromName))
+			if (!ZCR_DroneSites.LaunchFrom(side, goal, from, fromName, operators))
 			{
-				s_mNextAt.Set(side, now + 30);
+				s_mNextAt.Set(side, now + 10);
 				return;
 			}
 			best = vector.DistanceXZ(from, goal);
@@ -529,6 +531,13 @@ class ZCR_Drones
 		SCR_AIGroup team = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(), params));
 		if (!team)
 			return;
+		// One FPV from an operator (Martin, 24 Oct: "drones in groups of 4 is a bit unrealistic - mostly they fly
+		// independently"); one out of his bag.
+		if (operators)
+		{
+			SetDrones(team, 1);
+			ZCR_DroneOperator.Launched(operators);
+		}
 		s_mTeamNo.Set(team, n);
 		AddRoute(team, at, goal);
 		s_aTeams.Insert(team);
@@ -556,6 +565,18 @@ class ZCR_Drones
 	// drones: how many the team takes off with (the station's own count is 4; Martin, 24 Oct: "drones in groups of 4 is a bit
 	// unrealistic - mostly they fly independently, launched by one operator"): set through the FPV mod's
 	// FPVAI_StationComponent.SetDrones, called by name so this addon still runs without the mod.
+	// How many drones a station takes off with: the FPV mod's FPVAI_StationComponent.SetDrones, called by name so this addon
+	// still runs without the mod.
+	protected static void SetDrones(SCR_AIGroup team, int drones)
+	{
+		typename stationType = String("FPVAI_StationComponent").ToType();
+		Managed station;
+		if (stationType)
+			station = team.FindComponent(stationType);
+		if (station)
+			GetGame().GetScriptModule().Call(station, "SetDrones", false, null, drones);
+	}
+
 	static bool LaunchTest(FactionKey side, vector from, vector goal, int maxUp, int drones = 4)
 	{
 		if (Active(side) >= maxUp)
@@ -576,14 +597,7 @@ class ZCR_Drones
 		if (!team)
 			return false;
 		if (drones != 4)
-		{
-			typename stationType = String("FPVAI_StationComponent").ToType();
-			Managed station;
-			if (stationType)
-				station = team.FindComponent(stationType);
-			if (station)
-				GetGame().GetScriptModule().Call(station, "SetDrones", false, null, drones);
-		}
+			SetDrones(team, drones);
 		int n = s_mCount.Get(side) + 1;
 		s_mTeamNo.Set(team, n);
 		AddRoute(team, at, goal);
