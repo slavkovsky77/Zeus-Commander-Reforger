@@ -83,10 +83,18 @@ class ZCR_DroneSites
 		return !System.IsCLIParam("zcrNoDroneSites");
 	}
 
-	protected static ResourceName Truck(string side)
+	// The static main-base site: the command truck; a mobile site: the transport truck (18:15: the command truck's driver sat
+	// 425 s at 0 km/h with the commander's order - the traffic simulation's transport trucks drive).
+	protected static ResourceName Truck(string side, bool main = true)
 	{
 		if (side == "USSR")
+		{
+			if (!main)
+				return "{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et";
 			return "{1BABF6B33DA0AEB6}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_command.et";
+		}
+		if (!main)
+			return "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et";
 		return "{36BDCC88B17B3BFA}Prefabs/Vehicles/Wheeled/M923A1/M923A1_command.et";
 	}
 
@@ -213,7 +221,7 @@ class ZCR_DroneSites
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = spot;
-		Resource truckRes = Resource.Load(Truck(side));
+		Resource truckRes = Resource.Load(Truck(side, main));
 		Resource teamRes = Resource.Load(Operators(side));
 		if (!truckRes || !truckRes.IsValid() || !teamRes || !teamRes.IsValid())
 			return false;
