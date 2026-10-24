@@ -205,7 +205,10 @@ class ZCR_GunTest
 			Sight(now);
 			Storm(now);
 			if (now % 5 == 0)
+			{
 				Taken(now);
+				EndWhenDecided(now);
+			}
 		}
 		if (now >= m_iNextSum)
 		{
@@ -213,6 +216,59 @@ class ZCR_GunTest
 			Print(string.Format("[ZCR][GUNTEST_SUM] t=%1 %2 %3 first_us_m=%4 first_ussr_m=%5 sight_us_m=%6 sight_ussr_m=%7", now, SideSum("US", "us"),
 				SideSum("USSR", "ussr"), m_mFirstM.Get("US"), m_mFirstM.Get("USSR"), m_mSightM.Get("US"), m_mSightM.Get("USSR")), LogLevel.NORMAL);
 		}
+	}
+
+	// -zcrEndWhenDecided (the infantry sub-lab; Martin, 24 Oct: "it should end when one side's soldiers are dead"): a side
+	// with no soldier left alive anywhere on the map (counted per soldier - DCO moves soldiers into groups of its own), or
+	// the position taken and held 30 s -> a last summary and [ZCR][TEST_END]; lab/reforger.py then closes the game.
+	//   [ZCR][TEST_END] t= why=us_wiped|ussr_wiped|taken us_men= ussr_men=
+	protected bool m_bEnded;
+
+	protected void EndWhenDecided(int now)
+	{
+		if (m_bEnded || !System.IsCLIParam("zcrEndWhenDecided") || now < 30)
+			return;
+		int us = AliveMen("US");
+		int ussr = AliveMen("USSR");
+		string why;
+		if (us == 0)
+			why = "us_wiped";
+		else if (ussr == 0)
+			why = "ussr_wiped";
+		else
+		{
+			foreach (string side, int at : m_mTaken)
+			{
+				if (now - at >= 30)
+					why = "taken";
+			}
+		}
+		if (why.IsEmpty())
+			return;
+		m_bEnded = true;
+		Print(string.Format("[ZCR][GUNTEST_SUM] t=%1 %2 %3 first_us_m=%4 first_ussr_m=%5 sight_us_m=%6 sight_ussr_m=%7", now, SideSum("US", "us"),
+			SideSum("USSR", "ussr"), m_mFirstM.Get("US"), m_mFirstM.Get("USSR"), m_mSightM.Get("US"), m_mSightM.Get("USSR")), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][TEST_END] t=%1 why=%2 us_men=%3 ussr_men=%4", now, why, us, ussr), LogLevel.NORMAL);
+	}
+
+	// Soldiers of a side alive anywhere on the map (on foot or aboard).
+	protected static int AliveMen(string side)
+	{
+		array<AIAgent> agents = {};
+		GetGame().GetAIWorld().GetAIAgents(agents);
+		int n;
+		foreach (AIAgent a : agents)
+		{
+			ChimeraCharacter c = null;
+			if (a)
+				c = ChimeraCharacter.Cast(a.GetControlledEntity());
+			if (!c || ZCR_LossLog.SideOf(c) != side)
+				continue;
+			CharacterControllerComponent ctl = c.GetCharacterController();
+			if (ctl && ctl.GetLifeState() != ECharacterLifeState.DEAD)
+				n++;
+		}
+		return n;
 	}
 
 	protected string SideSum(string side, string tag)

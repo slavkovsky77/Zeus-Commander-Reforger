@@ -219,6 +219,11 @@ def main() -> int:
                 break
             if ready_at and time.time() - ready_at > a.minutes * 60:
                 break
+            # A test that is decided (one side wiped out, the position taken - [ZCR][TEST_END]) ends now.
+            if ready_at and log and "[ZCR][TEST_END]" in log.read_text(encoding="utf-8", errors="replace"):
+                print("the test is decided ([ZCR][TEST_END]) - ending it", flush=True)
+                time.sleep(3)
+                break
     finally:
         if proc.poll() is None:
             proc.terminate()

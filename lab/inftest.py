@@ -100,7 +100,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     label = f"inftest-{scenario}-{variant}-p{port}" if not watch else f"inftest-{scenario}-{variant}-watch"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none",
-            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('infantry', scenario, variant)} -zcrGunTest {us};{ussr} {extra}".strip()]
+            "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('infantry', scenario, variant)} -zcrEndWhenDecided -zcrGunTest {us};{ussr} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
     if seed(variant):
@@ -147,7 +147,9 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     # head count said 8 US lost, the death log 4, and 5 US soldiers stood on the farm at the end).
     all_deaths = [kv(l) for l in text.splitlines() if "[ZCR][LOSS]" in l and " kind=man " in l]
     lost = {s: sum(1 for d in all_deaths if d.get("side") == s.upper()) for s in ("us", "ussr")}
+    end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
+        "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",
         "us_men": start["us"], "ussr_men": start["ussr"], "us_lost": lost["us"], "ussr_lost": lost["ussr"],
         "taken_s": out.get("taken_us_s", 0),
         "us_cover": cover["US"]["covered"], "ussr_cover": cover["USSR"]["covered"],
