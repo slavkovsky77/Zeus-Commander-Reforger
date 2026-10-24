@@ -214,6 +214,16 @@ class ZCR_DroneSites
 		return true;
 	}
 
+	// The infantry test's drone site (kind "site", Martin 24 Oct: "we could test it again in a simpler scenario"): a site
+	// set up at 'at' facing 'front', ready in 20 s; its operator team for the test to follow (null if it couldn't be set up).
+	static SCR_AIGroup CreateTest(string side, vector at, vector front)
+	{
+		int n = s_aSites.Count();
+		if (!Create(side, at, front, false, ZCR_LossLog.Seconds() + 20) || s_aSites.Count() == n)
+			return null;
+		return s_aSites[s_aSites.Count() - 1].m_Operators;
+	}
+
 	protected static string Name(vector at)
 	{
 		string name = "the field";

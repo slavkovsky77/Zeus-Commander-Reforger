@@ -235,7 +235,7 @@ class ZCR_GunTest
 		bool any;
 		foreach (ZCR_GunUnit u : m_aUnits)
 		{
-			if (u.m_sKind != "drones" || u.m_bLost || !u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
+			if ((u.m_sKind != "drones" && u.m_sKind != "site") || u.m_bLost || !u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
 				continue;
 			any = true;
 			if (now < u.m_iNextLaunch)
@@ -249,6 +249,17 @@ class ZCR_GunTest
 			if (!agents.IsEmpty() && agents[0] && agents[0].GetControlledEntity())
 				from = agents[0].GetControlledEntity().GetOrigin();
 			from = from + Vector(12, 0, 0);   // beside the operators, not on them
+			if (u.m_sKind == "site")
+			{
+				// From the site's launch spot - none while it packs up, drives or sets up again.
+				ZCR_DroneSites.Tick(u.m_sSide, goal);
+				string siteName;
+				if (!ZCR_DroneSites.LaunchFrom(u.m_sSide, goal, from, siteName))
+				{
+					u.m_iNextLaunch = now + 5;
+					continue;
+				}
+			}
 			if (ZCR_Drones.LaunchTest(u.m_sSide, from, goal, DRONE_MAX_UP, DRONES_PER_LAUNCH))
 				u.m_iNextLaunch = now + DRONE_EVERY_S;
 			else
@@ -305,7 +316,7 @@ class ZCR_GunTest
 		array<AIGroup> operators = {};
 		foreach (ZCR_GunUnit u : m_aUnits)
 		{
-			if (u.m_sKind == "drones" && u.m_Group)
+			if ((u.m_sKind == "drones" || u.m_sKind == "site") && u.m_Group)
 				operators.Insert(u.m_Group);
 		}
 		array<AIAgent> agents = {};
@@ -348,7 +359,7 @@ class ZCR_GunTest
 		// watched game every vehicle was "lost" a second after it spawned, its crew not yet aboard).
 		if (now - u.m_iSpawnedAt < 20)
 			return "";   // squads too: a group's soldiers appear a moment after it (one was "dead" at t=11, 23 Oct)
-		if (u.m_sKind == "squad" || u.m_sKind == "riders" || u.m_sKind == "drones")
+		if (u.m_sKind == "squad" || u.m_sKind == "riders" || u.m_sKind == "drones" || u.m_sKind == "site")
 		{
 			if (!u.m_Group || AICF_GroupRuntime.CountAliveAgents(u.m_Group) == 0)
 				return "squad_dead";
@@ -563,6 +574,15 @@ class ZCR_GunTest
 			if (unit.m_Group)
 				ZCR_DroneOperator.Register(unit.m_Group, side, at, target);
 			unit.m_iNextLaunch = now + 20;
+		}
+		else if (kind == "site")
+		{
+			// A drone site as in the main battle (truck + operator team) that launches from its own launch spot and moves
+			// (ZCR_DroneSites: after 3 launches, 8 minutes, or once seen).
+			unit.m_Group = ZCR_DroneSites.CreateTest(side, at, target);
+			if (unit.m_Group)
+				ZCR_Sampler.AddTestGroup(unit.m_Group, side);
+			unit.m_iNextLaunch = now + 25;
 		}
 		else if (kind == "squad")
 		{
@@ -840,6 +860,8 @@ class ZCR_GunTest
 	{
 		if (!u.m_Group || u.m_Vehicle)
 			return string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
+		if (u.m_sKind == "site")
+			return string.Format("DRONE SITE: %1 truck and operators - %2 (moves after 3 launches, 8 min or once seen)", u.m_sSide, ZCR_DroneSites.Text(u.m_sSide));
 		if (u.m_sKind == "drones")
 		{
 			// The caption stays for the whole shot - the pilot's state now is on his tag (ZCR_Watch), not here (24 Oct: shots that
