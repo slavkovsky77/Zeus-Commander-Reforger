@@ -50,6 +50,9 @@ Storm on foot at Moss Hill farm (US 9 attack, Soviets 6 hold the hilltop) and st
 | full DCO attacks, "DCO turned down" defends (watched) | 0 of 1 | 3 | defenders in cover 67% |
 | "DCO turned down" attacks, full DCO defends (watched) | 1 of 1 (7.3 min) | 2 | fights at 27 m |
 
+| DCO, the storming squad pushes (bridge: its contact drills + overmatch off) | 1 of 2 | 9, 7 | worse than plain DCO in the field |
+| as above + the attackers' side pinned / break contact / contact SOP / ambush off | 0 of 2 | 9, 9 | worst - without the drills they stay in the open |
+
 "DCO turned down" = every behaviour switch off, close-quarters drills, stragglers, contact sharing and night off,
 perception back to the game's 1.0 (the per-faction block, seeded into the run's profile by `reforger.py --seed-profile`).
 
@@ -59,10 +62,15 @@ strategic layer should come in: our commander knows which squads are storming.
 
 ## Plan
 
+0. **Done 24 Oct 12:00: the push experiment failed** - switching DCO's contact drills off for storming squads made the
+   attackers die in the open (3 of 4 runs lost all 9). Storms of 9 against 6 under DCO are mostly lost however the
+   attackers are tuned; the small storm tests have said what they can. The bridge stays (the storm hook is in our commander,
+   ZCR_Tactical), but storming squads keep DCO's drills for now (no -zcrStormPush in matches).
 1. **Bridge addon `ZCR_DCO`** (ours, depends on ZeusCommanderReforger and DCO, loaded only together with DCO): when our
    commander orders a squad to storm, switch its DCO contact drills / overmatch off (`DCO_SetFeatureOff`), back on when
    it holds. Measured in the infantry sub-lab (storm with full DCO both sides, storming squad drills off) against plain DCO.
-2. **Watched matches with our commander + DCO** (Arland): captures, losses, cover, fighting distance, FPS, crashes; and
+2. **Watched matches with our commander + DCO** (Arland, started 24 Oct 12:02; our cover and danger layers off - DCO is
+   the tactical layer; our drone reactions stay): captures, losses, cover, fighting distance, FPS, crashes; and
    whether crews stay aboard and the storm still works.
 3. **Upstream** (issues/PRs Martin posts): only what our side can't do - e.g. a per-faction `enabled` switch for lab
    comparisons (needs the trees question answered by the author), or an API call for group features if the method
