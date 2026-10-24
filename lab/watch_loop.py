@@ -323,9 +323,14 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
                 user32.ShowWindow(hwnd, 3)
                 time.sleep(3)
             log(f"window {client_rect(hwnd)[2]}x{client_rect(hwnd)[3]}{' maximised' if user32.IsZoomed(hwnd) else ' NOT maximised'}")
+        # Focus once at the start of every match (Martin, 24 Oct, streaming: "at the start of the match you should once set
+        # focus to the game"); Alt held so Windows lets a background process hand over the focus. --keep-front also pins it.
+        user32.keybd_event(0x12, 0, 0, 0)
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+        user32.keybd_event(0x12, 0, 2, 0)
         if keep_front:
             user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)
-            user32.SetForegroundWindow(hwnd)
         VIDEOS.mkdir(exist_ok=True)
         ff = ffmpeg_start(mkv, hwnd)
         rec_start = int(time.strftime("%H")) * 3600 + int(time.strftime("%M")) * 60 + int(time.strftime("%S"))
