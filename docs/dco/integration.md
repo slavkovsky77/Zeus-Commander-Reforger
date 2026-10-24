@@ -75,6 +75,18 @@ soldiers, defence beats attack) at full scale. Caveat: the in-cover measure read
 soldiers DCO moves into groups of its own (seen in the storms), not evidence. Match 1 had the storm push on for two US
 squads for 1.5 game minutes; match 2 plain DCO.
 
+## Cost and the levers we use (24 Oct, watched Everon match with DCO's profiler on)
+
+DCO's report: about 4.8 ms per frame - 29% of a 60-FPS frame - with 157 soldiers (106 at full detail, 51 reduced by
+distance); its heaviest parts combat actions 12%, morale 10%, behaviour actions 10%; its advice: background squads at
+Balanced or Light detail. Our own scripts measured at 2.4-3.3% of the time ([ZCR][COST]). FPS follows the soldier count
+(Everon ~37 at 125 AI soldiers, ~17 at 240).
+
+What we do about it: our AI Conflict fork caps each side's living AI soldiers (-aicfMaxAgentsPerFaction 50,
+-aicfCapCountsAll counts builders, truck crews, operators, crews and soldiers DCO moved out of the squad groups),
+builders per side (-aicfMaxBuildersPerFaction 6); the bridge gives squads with no known enemy within 800 m DCO's Light
+detail (ZCR_Tactical.Tend -> SCR_AIGroup.DCO_SetFeatureOff with DCO's own Light preset; [ZCR][DCOLOD]).
+
 ## Plan
 
 0. **Done 24 Oct 12:00: the push experiment failed** - switching DCO's contact drills off for storming squads made the
