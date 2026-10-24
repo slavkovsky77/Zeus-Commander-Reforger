@@ -292,11 +292,13 @@ class ZCR_DroneThreat
 		return FindOverhead(c, threat, radius, spot, at, none);
 	}
 
-	// Overhead cover (a roof or tree crowns) within 'radius' of a point away from the soldier (a drone site's next spot).
+	// Overhead cover (a roof or tree crowns) within 'radius' of a point away from the soldier (a drone site's next spot) - no
+	// navmesh check there (17:54: every spot 200-600 m off failed it, while the post found on arrival had cover; the navmesh
+	// isn't there far from the soldier).
 	static bool CoverNear(ChimeraCharacter c, vector at, float radius, out vector spot)
 	{
 		array<vector> none = {};
-		return FindOverhead(c, at, radius, spot, at, none);
+		return FindOverhead(c, at, radius, spot, at, none, false);
 	}
 
 	// Running into a building now (our fire at drones leaves him out).
@@ -549,11 +551,12 @@ class ZCR_DroneThreat
 
 	// A spot within 'radius' (of 'center', default the soldier) under a roof or canopy, on the navmesh,
 	// nearest first and the far side from 'threat' first; none within 6 m of 'avoid'.
-	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero, array<vector> avoid = null)
+	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero, array<vector> avoid = null,
+		bool navmesh = true)
 	{
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
 		AIPathfindingComponent pathfinding;
-		if (control && control.GetControlAIAgent())
+		if (navmesh && control && control.GetControlAIAgent())
 			pathfinding = AIPathfindingComponent.Cast(control.GetControlAIAgent().FindComponent(AIPathfindingComponent));
 		BaseWorld world = GetGame().GetWorld();
 		vector here = center;
