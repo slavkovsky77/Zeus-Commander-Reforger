@@ -23,6 +23,16 @@
 // between it and its goal) is followed until it is past:
 //   [ZCR][DRIVETEST] event=BLAST car= convoy= x= z=  /  event=PASSWRECK car= s= wreck_there=0|1  /  event=BLOCKED car= s=  (120 s, not past)
 //   /  event=WRECK_GONE s=
+// A planned supply route (lab/roadgraph.py -> $profile:zcr/routes.txt): from a depot spot or base to a base, as the
+// waypoints a truck gets (every ~100 m and at each junction).
+class ZCR_PlannedRoute
+{
+	int m_iId;
+	vector m_vFrom;
+	vector m_vTo;
+	ref array<vector> m_aPoints = {};
+}
+
 class ZCR_DriveCar
 {
 	int m_iIndex;
@@ -46,6 +56,8 @@ class ZCR_DriveCar
 	bool m_bPastWreck;
 	bool m_bBlockedLogged;
 	vector m_vGoal;         // "depots" with destinations ("spot>goal"): this car's B (zero: the test's B)
+	vector m_vStart;        // where it was spawned
+	ref array<AIWaypoint> m_aRouteWps = {};   // "routes": the planned route's waypoints before its own
 	bool m_bSeatLogged;     // the empty driver's seat logged once
 }
 
@@ -73,6 +85,9 @@ class ZCR_DriveTest
 	// A destination per start ("spot>goal", 24 Oct night - Martin: "make it a proper supply test"; the Arland survey's one
 	// finish point was in a forest): the base that depot supplies, put on the nearest road 3 m wide or more within 300 m.
 	protected ref array<vector> m_aGoals = {};
+	// "routes" (-zcrRoutes, 24 Oct night - Martin: "supply lines planned up front, trucks follow precomputed routes",
+	// review note 394): each van gets the planned route from its spot to its goal as a chain of move waypoints.
+	protected ref array<ref ZCR_PlannedRoute> m_aRoutes = {};
 	protected int m_iConvoy = 1;
 	protected int m_iConvoySpawned;
 	protected int m_iConvoyStart;
@@ -103,6 +118,8 @@ class ZCR_DriveTest
 		if (starts.Count() > 1)
 			s_Instance.m_vA2 = Point(starts[1]);
 		s_Instance.m_vB = Point(parts[1]);
+		if (System.IsCLIParam("zcrRoutes"))
+			s_Instance.LoadRoutes();
 		if (parts.Count() > 2)
 			s_Instance.m_iCount = Math.Max(1, parts[2].ToInt());
 		if (parts.Count() > 4 && parts[4] != "-")
@@ -476,6 +493,61 @@ class ZCR_DriveTest
 		return false;
 	}
 
+	// $profile:zcr/routes.txt (lab/roadgraph.py): "route <n> <from_x> <from_z> <to_x> <to_z> <count>", then "x z" lines.
+	protected void LoadRoutes()
+	{
+		FileHandle f = FileIO.OpenFile("$profile:zcr/routes.txt", FileMode.READ);
+		if (!f)
+		{
+			Print("[ZCR][ROUTE] no $profile:zcr/routes.txt - the vans drive without planned routes", LogLevel.WARNING);
+			return;
+		}
+		string line;
+		ZCR_PlannedRoute current;
+		while (f.ReadLine(line) >= 0)
+		{
+			line.TrimInPlace();
+			if (line.IsEmpty())
+				continue;
+			array<string> v = {};
+			line.Split(" ", v, true);
+			if (v[0] == "route" && v.Count() >= 7)
+			{
+				current = new ZCR_PlannedRoute();
+				current.m_iId = v[1].ToInt();
+				current.m_vFrom = Vector(v[2].ToFloat(), 0, v[3].ToFloat());
+				current.m_vTo = Vector(v[4].ToFloat(), 0, v[5].ToFloat());
+				m_aRoutes.Insert(current);
+			}
+			else if (current && v.Count() >= 2)
+				current.m_aPoints.Insert(Vector(v[0].ToFloat(), 0, v[1].ToFloat()));
+		}
+		f.Close();
+		Print(string.Format("[ZCR][ROUTE] loaded=%1", m_aRoutes.Count()), LogLevel.NORMAL);
+	}
+
+	// The planned route from where the car started to its goal: its start within 30 m of the car's spawn, its end within
+	// 400 m of the goal (the goal is the base's nearest road point), the nearest such.
+	protected ZCR_PlannedRoute RouteFor(ZCR_DriveCar car, vector target)
+	{
+		if (m_aRoutes.IsEmpty() || car.m_vStart == vector.Zero || !car.m_bToB)
+			return null;
+		ZCR_PlannedRoute best;
+		float bestM = 400;
+		foreach (ZCR_PlannedRoute r : m_aRoutes)
+		{
+			if (vector.DistanceXZ(r.m_vFrom, car.m_vStart) > 30)
+				continue;
+			float d = vector.DistanceXZ(r.m_vTo, target);
+			if (d < bestM)
+			{
+				bestM = d;
+				best = r;
+			}
+		}
+		return best;
+	}
+
 	// The car's own B ("spot>goal"), else the test's.
 	protected vector B(ZCR_DriveCar car)
 	{
@@ -631,6 +703,7 @@ class ZCR_DriveTest
 		car.m_iSpawnedAt = now;
 		car.m_iConvoy = m_iConvoy;
 		car.m_vGoal = ownGoal;
+		car.m_vStart = start;
 		if (m_bConvoy)
 		{
 			if (m_iConvoySpawned == 0)
@@ -882,6 +955,37 @@ class ZCR_DriveTest
 		AIWaypoint old = car.m_Waypoint;
 		AIWaypoint oldVia = car.m_Via;
 		car.m_Via = null;
+		foreach (AIWaypoint rw : car.m_aRouteWps)
+		{
+			if (rw)
+			{
+				car.m_Group.RemoveWaypoint(rw);
+				RplComponent.DeleteRplEntity(rw, false);
+			}
+		}
+		car.m_aRouteWps.Clear();
+		ZCR_PlannedRoute planned = RouteFor(car, target);
+		if (planned)
+		{
+			foreach (vector rp : planned.m_aPoints)
+			{
+				if (vector.DistanceXZ(rp, target) < 30)
+					continue;                  // the goal's own waypoint follows
+				vector at = rp;
+				at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
+				params.Transform[3] = at;
+				AIWaypoint rw2 = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+				if (!rw2)
+					continue;
+				rw2.SetCompletionRadius(15);
+				car.m_Group.AddWaypoint(rw2);
+				car.m_aRouteWps.Insert(rw2);
+			}
+			params.Transform[3] = target;
+			Print(string.Format("[ZCR][ROUTE] t=%1 car=%2 route=%3 waypoints=%4 from_x=%5 from_z=%6 to_x=%7 to_z=%8", now, car.m_iIndex, planned.m_iId,
+				car.m_aRouteWps.Count(), Math.Round(planned.m_vFrom[0]), Math.Round(planned.m_vFrom[2]), Math.Round(planned.m_vTo[0]),
+				Math.Round(planned.m_vTo[2])), LogLevel.NORMAL);
+		}
 		if (m_vVia != vector.Zero)
 		{
 			params.Transform[3] = m_vVia;

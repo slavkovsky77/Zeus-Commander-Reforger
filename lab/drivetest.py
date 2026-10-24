@@ -72,8 +72,10 @@ TRACKS = {
     # put on the nearest road 3 m wide or more within 300 m of the base (the survey before ended in a forest).
     # The pole-fence question (review note 393): vans from the Farm's depot spot 2124,2948 to the road point 47 m south-west
     # (2097,2910), across the pasture's wooden fence (PoleFence_01) - 6 of 6 got through in the game window, 0 of 3 in short
-    # headless runs (stopped at the fence 12 m from the road). Run it both ways: watch_test.py and headless drivetest.py.
-    "farm-fence": ("arland-conflict-test", "2124,2948>2097,2910", "2097,2910", "uaz", "", "depots"),
+    # headless runs (stopped at the fence 12 m from the road). The goal is the road point 2087,2853 south of the fence
+    # (a van stopped at the fence is 70 m short; the first try's goal on the fence's road counted those as arrived - a car
+    # arrives within 30 m). Run it both ways: watch_test.py and headless drivetest.py.
+    "farm-fence": ("arland-conflict-test", "2124,2948>2087,2853", "2087,2853", "uaz", "", "depots"),
     "arland-supply": ("arland-conflict-test", "1717,911>2293,1224|1737,948>2293,1224|1626,927>2293,1224|1598,928>2293,1224|1738,906>2293,1224|1680,919>2293,1224|2171,1191>2508,2269|2250,1313>2508,2269|2284,1128>2508,2269|2653,1674>2508,2269|2649,1617>2508,2269|1218,3267>947,2896|1172,3314>947,2896|963,2774>2209,2909|904,2776>2209,2909|1021,2787>2209,2909|1419,1909>1622,903|3256,2885>2508,2269|2124,2948>3297,2860|2292,2927>3297,2860|2294,2982>3297,2860|2154,2909>3297,2860", "2508,2269", "uaz", "", "depots"),
     "arland-depots": ("arland-conflict-test", "1717,911|1737,948|1626,927|1598,928|2171,1191|2250,1313|2284,1128|2653,1674|2649,1617|1218,3267|1172,3314|963,2774|904,2776|1021,2787|1419,1909|3256,2885|1738,906|1680,919", "2000,2000", "uaz", "", "depots"),
     "farm-depots": ("arland-conflict-test", "2124,2948|2292,2927|2294,2982|2154,2909", "3253,2862", "uaz", "", "depots"),
@@ -109,6 +111,9 @@ VARIANTS = {
     "notree": ("-zcrProbeAt 2196,2929,8 -zcrClearTrees -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
     # The navmesh round the Farm regenerated at the start (24 Oct: vans from 3 of the Farm's 4 depot spots drove into two
     # places a van doesn't fit through - is the baked vehicle navmesh stale there?).
+    # The planned supply routes (24 Oct night, review note 394): each van follows the route lab/roadgraph.py planned from its
+    # spot to its goal, as move waypoints every ~100 m and at each junction ($profile:zcr/routes.txt, seeded into the profile).
+    "routes": ("-zcrRoutes", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
     "renav": ("-zcrRenavAt 2000,2750,2500,3100", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
     "probe": ("-zcrProbeAt 2196,2929,8 -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
 }
@@ -154,6 +159,14 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: b
             "--port", str(port), "--us", "none", "--ussr", "none", "--extra", f"-aicfOff -zcrLabWeather -zcrNoFIA -zcrArmourVanilla -zcrNoArmour -zcrTestTitle {_title('driving', track, variant)} {test} {extra}".strip()]
     if mods:
         argv += ["--mods", mods]
+    if "-zcrRoutes" in extra:
+        # The planned routes for this map (python lab/roadgraph.py <map>), seeded into the game's profile as zcr/routes.txt.
+        slug = "everon" if "everon" in map_name or "eden" in map_name else "arland"
+        src = ROOT / ".runtime" / "maps" / slug / "routes.txt"
+        seed = ROOT / ".runtime" / "maps" / slug / "seed"
+        (seed / "zcr").mkdir(parents=True, exist_ok=True)
+        (seed / "zcr" / "routes.txt").write_bytes(src.read_bytes())
+        argv += ["--seed-profile", str(seed)]
     if kind in ARMOUR_KINDS:
         argv += ["--armour"]   # the Workshop tanks and IFVs
     if watch:
@@ -206,6 +219,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .* error=UNREACHABLE", text)),
         "crew_out": len(re.findall(r"event=LOST .* why=crew_out", text)),
         "road_first": len(re.findall(r"\[ZCR\]\[ROADFIRST\]", text)),
+        "routed": len(re.findall(r"\[ZCR\]\[ROUTE\] t=", text)),
         # "depots": per start spot - the access check's verdict and the cars that arrived / were lost from it.
         "depot_spots": depot_spots(text),
         "pairs_through": len(re.findall(r"event=CONVOY .* cars=2 arrived=2 ", text)),

@@ -172,9 +172,21 @@ def layers(map_slug: str) -> dict:
                           "in_tests": sum(i["kind"] == "test" for i in items),
                           "runs": len({i["run"] for i in items}), "last_run": items[-1]["run"]})
     out_traps.sort(key=lambda t: -t["count"])
+    # The planned supply routes (lab/roadgraph.py), when they've been built for this map.
+    routes = []
+    rf = ROOT / ".runtime" / "maps" / map_slug / "routes.json"
+    if rf.exists():
+        try:
+            for r in json.loads(rf.read_text(encoding="utf-8")).get("routes", []):
+                if r.get("ok"):
+                    routes.append({"from": r["from"], "to": r["to"], "length_m": r["length_m"], "shortest_m": r.get("shortest_m"),
+                                   "points": r["points"][::3] + [r["points"][-1]], "waypoints": len(r["waypoints"]),
+                                   "stuck_places": len(r["stuck_places"])})
+        except (OSError, ValueError):
+            pass
     return {"map": map_slug, "runs": scanned, "bases": out_bases,
             "depot_spots": [{k: v for k, v in s.items() if k != "runs"} | {"runs": len(s["runs"])} for s in spots.values()],
-            "depots_built": out_built, "traps": out_traps, "built_s": round(time.time() - started, 1),
+            "depots_built": out_built, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
