@@ -1057,6 +1057,10 @@ class ZCR_Director
 		}
 		else if (cmd == "group+" || cmd == "group-")
 		{
+			// Out of free look, so the camera goes to the picked unit (25 Oct - Martin: "next/prev vehicles didn't work
+			// on the test": they picked cars 13 and 14 while free look kept the camera where it was).
+			if (ZCR_Watch.IsFree())
+				ZCR_Watch.SetFree(false);
 			int dir = 1;
 			if (cmd == "group-")
 				dir = -1;

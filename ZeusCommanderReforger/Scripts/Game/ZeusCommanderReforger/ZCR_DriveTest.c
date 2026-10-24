@@ -62,6 +62,13 @@ class ZCR_DriveCar
 	AIWaypoint m_Board;     // ... and when that doesn't hold, a get-in order for its own car
 	int m_iBoardAt;
 	int m_iTracedAt;        // the last [ZCR][DRIVETEST] event=AT line
+	// The supply run (25 Oct - Martin: "test that the guy actually comes to pick supplies at the supply point and then
+	// actually unloads them"): loaded at its depot's base, unloaded at its goal's base, the base supplies moved for real.
+	float m_fCargo;
+	int m_iLoadUntil;
+	string m_sFromBase;
+	string m_sToBase;
+	string m_sPhase;
 	int m_iPathAt;          // the last event=PATH line
 	bool m_bSeatLogged;     // the empty driver's seat logged once
 }
@@ -329,6 +336,12 @@ class ZCR_DriveTest
 			}
 			Water(car, now);
 			Trace(car, now);
+			if (car.m_iLoadUntil > 0 && now >= car.m_iLoadUntil)
+			{
+				car.m_iLoadUntil = 0;
+				ZCR_Traffic.Release(car.m_Vehicle, "loading");
+				car.m_sPhase = "DELIVERING to " + car.m_sToBase;
+			}
 			if (Evading(car))
 				car.m_iEvadeS++;
 			vector target = m_vA;
@@ -340,11 +353,16 @@ class ZCR_DriveTest
 			m_aLegs.Insert(legS);
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=ARRIVE leg=%3 leg_s=%4 to=%5 evade_s=%6", now, car.m_iIndex, car.m_iLeg, legS, ToName(car.m_bToB),
 				car.m_iEvadeS), LogLevel.NORMAL);
+			if (car.m_fCargo > 0)
+				Unload(car, now);
 			if (m_bConvoy)
 			{
 				car.m_bDone = true;
 				car.m_iArrivedAt = now;
-				Remove(car);
+				if (car.m_sPhase.StartsWith("UNLOADING"))
+					GetGame().GetCallqueue().CallLater(Remove, 8000, false, car);   // seen unloading first
+				else
+					Remove(car);
 				continue;
 			}
 			car.m_bToB = !car.m_bToB;
@@ -557,6 +575,133 @@ class ZCR_DriveTest
 			}
 		}
 		return best;
+	}
+
+	static const int LOAD_S = 10;
+
+	// The base's supplies (Conflict's own store) nearest to a point.
+	protected static SCR_CampaignMilitaryBaseComponent BaseAt(vector p, float within = 400)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return null;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		SCR_CampaignMilitaryBaseComponent best;
+		float bestM = within;
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetOwner())
+				continue;
+			float d = vector.DistanceXZ(base.GetOwner().GetOrigin(), p);
+			if (d < bestM)
+			{
+				bestM = d;
+				best = base;
+			}
+		}
+		return best;
+	}
+
+	protected static SCR_ResourceContainer VanSupplies(IEntity vehicle)
+	{
+		SCR_ResourceComponent resource = SCR_ResourceComponent.FindResourceComponent(vehicle);
+		if (!resource)
+			return null;
+		return resource.GetContainer(EResourceType.SUPPLIES);
+	}
+
+	// Load at the depot's base: its supplies into the van, up to the van's room; the van held still LOAD_S. A base with
+	// fewer supplies than the room gives what it has; the rest comes from the depot's own stock (logged apart).
+	protected void Load(ZCR_DriveCar car, int now)
+	{
+		SCR_ResourceContainer cargo = VanSupplies(car.m_Vehicle);
+		SCR_CampaignMilitaryBaseComponent from = BaseAt(car.m_vStart);
+		SCR_CampaignMilitaryBaseComponent to = BaseAt(B(car));
+		car.m_sFromBase = "the depot";
+		if (from)
+			car.m_sFromBase = ZCR_Strategist.BaseName(from);
+		car.m_sToBase = "the goal";
+		if (to)
+			car.m_sToBase = ZCR_Strategist.BaseName(to);
+		if (!cargo)
+		{
+			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=LOAD none=no_cargo_space", now, car.m_iIndex), LogLevel.NORMAL);
+			return;
+		}
+		float room = cargo.GetMaxResourceValue() - cargo.GetResourceValue();
+		float before = -1;
+		float fromBase;
+		if (from)
+		{
+			before = from.GetSupplies();
+			fromBase = Math.Min(room, before);
+			from.AddSupplies(-Math.Round(fromBase));
+		}
+		float fromStock = room - fromBase;
+		cargo.SetResourceValue(cargo.GetResourceValue() + room);
+		car.m_fCargo = cargo.GetResourceValue();
+		car.m_iLoadUntil = now + LOAD_S;
+		car.m_sPhase = "LOADING at " + car.m_sFromBase;
+		ZCR_Traffic.Limit(car.m_Vehicle, "loading", 0);
+		float after = -1;
+		if (from)
+			after = from.GetSupplies();
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=LOAD base=%3 amount=%4 from_base=%5 from_stock=%6 base_before=%7 base_after=%8 to=%9",
+			now, car.m_iIndex, car.m_sFromBase, Math.Round(car.m_fCargo), Math.Round(fromBase), Math.Round(fromStock), Math.Round(before), Math.Round(after),
+			car.m_sToBase), LogLevel.NORMAL);
+	}
+
+	// Unload at the goal's base: the van's supplies into the base's store; the van held still while it shows.
+	protected void Unload(ZCR_DriveCar car, int now)
+	{
+		SCR_ResourceContainer cargo = VanSupplies(car.m_Vehicle);
+		SCR_CampaignMilitaryBaseComponent to = BaseAt(B(car));
+		float amount = car.m_fCargo;
+		if (cargo)
+			amount = cargo.GetResourceValue();
+		float before = -1;
+		float after = -1;
+		if (to)
+		{
+			before = to.GetSupplies();
+			to.AddSupplies(Math.Round(amount));
+			after = to.GetSupplies();
+		}
+		if (cargo)
+			cargo.SetResourceValue(0);
+		car.m_fCargo = 0;
+		car.m_sPhase = "UNLOADING at " + car.m_sToBase;
+		ZCR_Traffic.Limit(car.m_Vehicle, "loading", 0);
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=UNLOAD base=%3 amount=%4 base_before=%5 base_after=%6", now, car.m_iIndex, car.m_sToBase,
+			Math.Round(amount), Math.Round(before), Math.Round(after)), LogLevel.NORMAL);
+	}
+
+	// The overlay's vehicle tag for a test car (ZCR_VehicleTag): "VAN 12  LOADING at Farm  |  800 supplies  |  1.9 km to go".
+	static string TagFor(IEntity v)
+	{
+		if (!s_Instance || !v)
+			return "";
+		foreach (ZCR_DriveCar c : s_Instance.m_aCars)
+		{
+			if (c.m_Vehicle != v)
+				continue;
+			string text = string.Format("VAN %1", c.m_iIndex);
+			if (!c.m_sPhase.IsEmpty())
+				text += "  " + c.m_sPhase;
+			else if (c.m_bToB)
+				text += "  to " + ZCR_VehicleTag.NearestBase(s_Instance.B(c));
+			SCR_ResourceContainer cargo = VanSupplies(v);
+			if (cargo && cargo.GetResourceValue() > 0)
+				text += string.Format("  |  %1 supplies", Math.Round(cargo.GetResourceValue()));
+			if (!c.m_aRouteWps.IsEmpty())
+				text += "  |  planned route";
+			if (c.m_bToB && !c.m_sPhase.StartsWith("UNLOADING"))
+				text += string.Format("  |  %1 km to go", Math.Round(vector.DistanceXZ(v.GetOrigin(), s_Instance.B(c)) / 100) / 10);
+			return text;
+		}
+		return "";
 	}
 
 	// The car's own B ("spot>goal"), else the test's.
@@ -843,7 +988,11 @@ class ZCR_DriveTest
 		int now = ZCR_LossLog.Seconds();
 		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=CREW crew=%3", now, car.m_iIndex, car.m_Group != null), LogLevel.NORMAL);
 		if (car.m_Group)
+		{
 			Order(car, now);
+			if (m_bDepots && car.m_vGoal != vector.Zero)
+				Load(car, now);
+		}
 	}
 
 	// Under water (23 Oct night: on the Conflict map drivers died where the route crosses water east of A, with no killer -

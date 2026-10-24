@@ -721,11 +721,17 @@ class ZCR_Watch
 			vw.SetVisible(true);
 			TextWidget vt = TextWidget.Cast(vw);
 			string vside = aboardSide.Get(v);
-			vt.SetText(string.Format("%1 %2 (%3)", vside, VehicleName(v), n));
+			// The vehicle's mission on a second line (25 Oct - Martin: "why don't vehicles have tags with their mission and
+			// supplies?"): a test van's goal and cargo, an AI Conflict supply truck's run and cargo (ZCR_VehicleTag).
+			string mission = ZCR_VehicleTag.Mission(v);
+			string vtext = string.Format("%1 %2 (%3)", vside, VehicleName(v), n);
+			if (!mission.IsEmpty())
+				vtext += "\n" + mission;
+			vt.SetText(vtext);
 			vt.SetColor(Tint(vside));
 			vt.SetExactFontSize(17);
-			FrameSlot.SetPos(vt, vs[0] - 60, vs[1] - 12);
-			FrameSlot.SetSize(vt, 300, 26);
+			FrameSlot.SetPos(vt, vs[0] - 60, vs[1] - 30);
+			FrameSlot.SetSize(vt, 560, 50);
 		}
 		foreach (IEntity e : m_aNear)
 		{
