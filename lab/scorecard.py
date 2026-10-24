@@ -70,6 +70,10 @@ def measure(run: Path) -> dict:
     armour = {k: {s: 0 for s in SIDES} for k in ("bought", "lost", "kills", "friendly")}
     armour_assault = {s: set() for s in SIDES}
     drone_dead = {s: [] for s in SIDES}
+    # The drone teams (ZCR_DroneOperator, 24 Oct): flights, goggles on at take-off, the pilot still through a flight
+    # (take-off and landing position within 3 m), sorties out, launches from the bag, loads at the truck.
+    op = {k: {s: 0 for s in SIDES} for k in ("flights", "goggles", "still", "out", "launch", "loaded")}
+    took_off = {}
     lost = {s: 0 for s in SIDES}
     last_t = 0
     for line in open(log, encoding="utf-8", errors="replace"):
@@ -97,6 +101,21 @@ def measure(run: Path) -> dict:
                 danger_high[side].append(num(d.get("high_standing")))
         elif "[ZCR][ANTIDRONE]" in line and side in SIDES and "shot_down=1" in line:
             shot_down[side] += 1
+        elif "[ZCR][OPERATOR]" in line and side in SIDES:
+            ev = d.get("event")
+            if ev == "flying":
+                op["flights"][side] += 1
+                took_off[side] = (num(d.get("x"), 0), num(d.get("z"), 0))
+            elif ev == "landed" and side in took_off:
+                x0, z0 = took_off.pop(side)
+                if ((num(d.get("x"), 0) - x0) ** 2 + (num(d.get("z"), 0) - z0) ** 2) ** 0.5 <= 3:
+                    op["still"][side] += 1
+            elif ev == "goggles" and d.get("ok") == "1":
+                op["goggles"][side] += 1
+        elif "[ZCR][SORTIE]" in line and side in SIDES:
+            ev = d.get("event")
+            if ev in ("out", "launch", "loaded"):
+                op[ev][side] += 1
         elif "[ZCR][ARMOUR]" in line and side in SIDES:
             ev = d.get("event")
             if ev == "BOUGHT":
@@ -175,6 +194,12 @@ def measure(run: Path) -> dict:
             "armour_kills": armour["kills"][s],
             "armour_friendly": armour["friendly"][s],
             "armour_lost": armour["lost"][s],
+            "op_flights": op["flights"][s],
+            "op_goggles_pct": round(100 * op["goggles"][s] / op["flights"][s]) if op["flights"][s] else None,
+            "op_still_pct": round(100 * op["still"][s] / op["flights"][s]) if op["flights"][s] else None,
+            "op_sorties": op["out"][s],
+            "op_launches": op["launch"][s],
+            "op_loads": op["loaded"][s],
         }
     return out
 
@@ -190,6 +215,10 @@ CHECKS = [
     # judged from 3 drone victims of a side on (24 Oct: one standing victim failed a whole match)
     ("down", lambda m: m.get("drone_dead_standing") is None or m.get("drone_dead_n", 3) < 3 or m["drone_dead_standing"] <= 50,
      lambda m: "-" if m.get("drone_dead_standing") is None else f"drone victims {m['drone_dead_standing']}% standing, {m['drone_dead_prone']}% prone"),
+    # The drone teams (24 Oct, kept in KEEP.md): goggles on and the pilot still at 80% of flights, judged from 3 flights.
+    ("operators", lambda m: m.get("op_flights", 0) < 3 or (m["op_goggles_pct"] >= 80 and m["op_still_pct"] >= 80),
+     lambda m: "-" if not m.get("op_flights") else (f"{m['op_flights']} flights, goggles {m['op_goggles_pct']}%, still {m['op_still_pct']}%, "
+                                                    f"{m['op_sorties']} sorties, {m['op_launches']} launches, {m['op_loads']} loads")),
     ("rides", lambda m: m["riding_pct"] >= 25 if m["riding_pct"] is not None else m["rides"] >= 1,
      lambda m: (f"riding in {m['riding_pct']}% of samples, {m['riding_avg']} on average" if m["riding_pct"] is not None
                 else f"{m['rides']} teams boarded (old measure)")),
