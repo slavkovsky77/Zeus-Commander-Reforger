@@ -45,6 +45,8 @@ class ZCR_DriveCar
 	int m_iNearWreckAt;     // first second within 40 m of the wreck, with the wreck between it and its goal
 	bool m_bPastWreck;
 	bool m_bBlockedLogged;
+	vector m_vGoal;         // "depots" with destinations ("spot>goal"): this car's B (zero: the test's B)
+	bool m_bSeatLogged;     // the empty driver's seat logged once
 }
 
 class ZCR_DriveTest
@@ -68,6 +70,9 @@ class ZCR_DriveTest
 	// from it (AICF_DepotAccess, the base builder's new depot check)?
 	protected bool m_bDepots;
 	protected ref array<vector> m_aStarts = {};
+	// A destination per start ("spot>goal", 24 Oct night - Martin: "make it a proper supply test"; the Arland survey's one
+	// finish point was in a forest): the base that depot supplies, put on the nearest road 3 m wide or more within 300 m.
+	protected ref array<vector> m_aGoals = {};
 	protected int m_iConvoy = 1;
 	protected int m_iConvoySpawned;
 	protected int m_iConvoyStart;
@@ -108,7 +113,15 @@ class ZCR_DriveTest
 		if (s_Instance.m_bDepots)
 		{
 			foreach (string s : starts)
-				s_Instance.m_aStarts.Insert(Point(s));
+			{
+				array<string> sg = {};
+				s.Split(">", sg, true);
+				s_Instance.m_aStarts.Insert(Point(sg[0]));
+				vector g = vector.Zero;
+				if (sg.Count() > 1)
+					g = Point(sg[1]);
+				s_Instance.m_aGoals.Insert(g);
+			}
 		}
 		s_Instance.m_bBlast = parts.Count() > 6 && parts[6] == "blast";
 		string ussrCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
@@ -206,8 +219,20 @@ class ZCR_DriveTest
 				m_vVia = OnRoad(m_vVia);
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 track a=%2,%3 b=%4,%5 straight_m=%6 cars=%7 prefab=%8", now, Math.Round(m_vA[0]), Math.Round(m_vA[2]),
 				Math.Round(m_vB[0]), Math.Round(m_vB[2]), Math.Round(vector.DistanceXZ(m_vA, m_vB)), m_iCount, m_sPrefab), LogLevel.NORMAL);
+			foreach (int gk, vector g0 : m_aGoals)
+			{
+				if (g0 == vector.Zero)
+					continue;
+				m_aGoals[gk] = RoadNear(g0, 300, 3);
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 start=%2 goal_x=%3 goal_z=%4 goal_road_m=%5", now, gk + 1, Math.Round(m_aGoals[gk][0]),
+					Math.Round(m_aGoals[gk][2]), Math.Round(vector.DistanceXZ(g0, m_aGoals[gk]))), LogLevel.NORMAL);
+			}
 			foreach (int k, vector s : m_aStarts)
 			{
+				// Is the spawn spot itself clear for a van (24 Oct survey: 8 of 18 vans' drivers never sat in)?
+				string spotBlocker;
+				bool spotClear = SpotClear(s, spotBlocker);
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 start=%2 spot_clear=%3 spot_blocker=%4", now, k + 1, spotClear, spotBlocker), LogLevel.NORMAL);
 				vector road;
 				string blocker;
 				int tried;
@@ -222,22 +247,6 @@ class ZCR_DriveTest
 				Print(string.Format("[ZCR][ACCESS] t=%1 start=%2 x=%3 z=%4 way=%5 cells=%6 sweeps=%7 ms=%8 road_x=%9", now, k + 1, Math.Round(s[0]),
 					Math.Round(s[2]), way, cells, sweeps, ms, Math.Round(wayRoad[0])) + string.Format(" road_z=%1 way_blocker=%2 straight=%3 straight_blocker=%4",
 					Math.Round(wayRoad[2]), wayBlocker, straight, blocker), LogLevel.NORMAL);
-				// Lab: the check's variants - a finer grid, the wooden pole fences left out (do vans push through them?).
-				array<string> ignores = {"PoleFence_01", "PoleFence_01", "PoleFence_01", "PoleFence_01"};
-				array<float> steps = {6, 3, 6, 3};
-				array<float> halves = {1.1, 1.1, 1.6, 1.6};
-				foreach (int vi, string ig : ignores)
-				{
-					AICF_DepotAccess.s_fHalfWidth = halves[vi];
-					vector r2;
-					string b2;
-					int c2, s2;
-					int t0 = System.GetTickCount();
-					int w2 = AICF_DepotAccess.WayOutWith(s, AICF_DepotAccess.REACH_M, steps[vi], ig, r2, b2, c2, s2);
-					Print(string.Format("[ZCR][ACCESS_VARIANT] t=%1 start=%2 step=%3 ignore=%4 way=%5 cells=%6 sweeps=%7 ms=%8 blocker=%9", now, k + 1,
-						steps[vi], ig, w2, c2, s2, System.GetTickCount() - t0, b2) + string.Format(" half=%1", halves[vi]), LogLevel.NORMAL);
-				}
-				AICF_DepotAccess.s_fHalfWidth = 1.1;
 			}
 		}
 		bool wantCar = m_aCars.Count() < m_iCount;
@@ -269,7 +278,14 @@ class ZCR_DriveTest
 			if (!seatLeft)
 				car.m_iOutSince = 0;
 			else if (car.m_iOutSince == 0)
+			{
 				car.m_iOutSince = now;
+				if (!car.m_bSeatLogged)
+				{
+					car.m_bSeatLogged = true;
+					SeatEmpty(car, now);
+				}
+			}
 			if (seatLeft && now - car.m_iOutSince <= 20)
 				continue;
 			if (!car.m_Vehicle || !car.m_Group || AICF_GroupRuntime.CountAliveAgents(car.m_Group) == 0 || seatLeft)
@@ -289,7 +305,7 @@ class ZCR_DriveTest
 				car.m_iEvadeS++;
 			vector target = m_vA;
 			if (car.m_bToB)
-				target = m_vB;
+				target = B(car);
 			if (vector.DistanceXZ(car.m_Vehicle.GetOrigin(), target) > 30)
 				continue;
 			int legS = now - car.m_iLegStart;
@@ -460,6 +476,85 @@ class ZCR_DriveTest
 		return false;
 	}
 
+	// The car's own B ("spot>goal"), else the test's.
+	protected vector B(ZCR_DriveCar car)
+	{
+		if (car.m_vGoal != vector.Zero)
+			return car.m_vGoal;
+		return m_vB;
+	}
+
+	// The nearest point of a road at least minWidth wide within r of p, on the ground; p itself without one.
+	static vector RoadNear(vector p, float r, float minWidth)
+	{
+		vector best = p;
+		float bestM = r;
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (aiWorld && aiWorld.GetRoadNetworkManager())
+		{
+			array<BaseRoad> roads = {};
+			aiWorld.GetRoadNetworkManager().GetRoadsInAABB(p - Vector(r, 60, r), p + Vector(r, 60, r), roads);
+			foreach (BaseRoad road : roads)
+			{
+				if (!road || road.GetWidth() < minWidth)
+					continue;
+				array<vector> points = {};
+				road.GetPoints(points);
+				foreach (vector q : points)
+				{
+					float d = vector.DistanceXZ(q, p);
+					if (d < bestM)
+					{
+						bestM = d;
+						best = q;
+					}
+				}
+			}
+		}
+		best[1] = GetGame().GetWorld().GetSurfaceY(best[0], best[2]);
+		return best;
+	}
+
+	// A van-sized box (2.4 x 2.4 m, 0.4-2 m above the ground) at the spot: is anything solid there?
+	protected static bool SpotClear(vector s, out string blocker)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		TraceBox trace = new TraceBox();
+		trace.Start = Vector(s[0], world.GetSurfaceY(s[0], s[2]) + 1.2, s[2]);
+		trace.Mins = Vector(-1.2, -0.8, -1.2);
+		trace.Maxs = Vector(1.2, 0.8, 1.2);
+		trace.Flags = TraceFlags.ENTS;
+		trace.LayerMask = EPhysicsLayerPresets.Projectile;
+		float hit = world.TracePosition(trace, null);
+		if (hit < 0)
+		{
+			blocker = AICF_DepotAccess.Describe(trace.TraceEnt);
+			return false;
+		}
+		blocker = "-";
+		return true;
+	}
+
+	// The driver's seat empty 10 s after the spawn: where is the crew (in the car, beside it, gone)?
+	protected void SeatEmpty(ZCR_DriveCar car, int now)
+	{
+		array<AIAgent> agents = {};
+		car.m_Group.GetAgents(agents);
+		string crew;
+		foreach (AIAgent agent : agents)
+		{
+			IEntity man = agent.GetControlledEntity();
+			if (!man)
+				continue;
+			ChimeraCharacter c = ChimeraCharacter.Cast(man);
+			bool inside = c && c.IsInVehicle();
+			crew += string.Format(" man_m=%1 in_vehicle=%2", Math.Round(vector.DistanceXZ(man.GetOrigin(), car.m_Vehicle.GetOrigin()) * 10) / 10, inside);
+		}
+		vector at = car.m_Vehicle.GetOrigin();
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SEAT_EMPTY agents=%3 x=%4 z=%5", now, car.m_iIndex, agents.Count(), Math.Round(at[0]),
+			Math.Round(at[2])) + crew, LogLevel.NORMAL);
+	}
+
 	// "depots": the spot the next car starts from.
 	protected vector NextStart()
 	{
@@ -497,10 +592,14 @@ class ZCR_DriveTest
 		bool fromB = m_bBoth && m_aCars.Count() % 2 == 1;
 		vector start = m_vA;
 		vector goal = m_vB;
+		vector ownGoal = vector.Zero;
 		if (m_bDepots && !m_aStarts.IsEmpty())
 		{
 			start = NextStart();               // "depots": the depot spot as given, off the road
 			start[1] = GetGame().GetWorld().GetSurfaceY(start[0], start[2]);
+			ownGoal = m_aGoals[m_iConvoySpawned % m_aStarts.Count()];
+			if (ownGoal != vector.Zero)
+				goal = ownGoal;
 		}
 		else if (m_vA2 != vector.Zero && m_iConvoySpawned % 2 == 1)
 		{
@@ -531,6 +630,7 @@ class ZCR_DriveTest
 		car.m_bToB = !fromB;
 		car.m_iSpawnedAt = now;
 		car.m_iConvoy = m_iConvoy;
+		car.m_vGoal = ownGoal;
 		if (m_bConvoy)
 		{
 			if (m_iConvoySpawned == 0)
@@ -541,6 +641,8 @@ class ZCR_DriveTest
 		string from;
 		if (m_bDepots && !m_aStarts.IsEmpty())
 			from = string.Format(" start=%1", (m_iConvoySpawned - 1) % m_aStarts.Count() + 1);
+		if (ownGoal != vector.Zero)
+			from += string.Format(" goal=%1,%2", Math.Round(ownGoal[0]), Math.Round(ownGoal[2]));
 		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 x=%4 z=%5 convoy=%6", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
 			Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy) + from, LogLevel.NORMAL);
 		// The driver 1.5 s later: seated in the spawn frame, the watched game (a listen server) left the seat empty
@@ -687,7 +789,7 @@ class ZCR_DriveTest
 				continue;
 			vector target = m_vA;
 			if (car.m_bToB)
-				target = m_vB;
+				target = B(car);
 			vector at = car.m_Vehicle.GetOrigin();
 			float d = vector.DistanceXZ(at, m_vWreck);
 			if (car.m_iNearWreckAt == 0)
@@ -767,7 +869,7 @@ class ZCR_DriveTest
 			return;
 		vector target = m_vA;
 		if (car.m_bToB)
-			target = m_vB;
+			target = B(car);
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = target;
@@ -811,7 +913,7 @@ modded class SCR_BaseGameMode
 	protected override void OnGameStart()
 	{
 		super.OnGameStart();
-		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrLosScan") || System.IsCLIParam("zcrCoverScan")))
+		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrLosScan") || System.IsCLIParam("zcrCoverScan") || System.IsCLIParam("zcrMapDump")))
 			ZCR_Driving.Start();
 	}
 }

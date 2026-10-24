@@ -65,6 +65,16 @@ TRACKS = {
     # Every base's depot spots on Arland (24 Oct, the survey for the builder's new access check): the 16 where AI Conflict
     # built a light vehicle depot in the last 13 Arland matches (outside the Farm) and the 2 the check refused in the first
     # build with it (1738,906 behind a wooden rural fence, 1680,919) - one van from each to the middle of the map.
+    # The proper supply test (24 Oct night - Martin: "stop this test, it's shitty, make it a proper supply test"): one van from
+    # every recurring depot spot on Arland (the last 13 matches, the Farm's four included) to a base linked to that depot's
+    # base - US main base -> Moss Hill; Moss Hill, Arleville and Beauregard -> Signal Hill; USSR main base -> Airport Base;
+    # Airport Base -> Farm; Military Training Area -> US main base; Farm -> Beauregard (report 27's vans) - each destination
+    # put on the nearest road 3 m wide or more within 300 m of the base (the survey before ended in a forest).
+    # The pole-fence question (review note 393): vans from the Farm's depot spot 2124,2948 to the road point 47 m south-west
+    # (2097,2910), across the pasture's wooden fence (PoleFence_01) - 6 of 6 got through in the game window, 0 of 3 in short
+    # headless runs (stopped at the fence 12 m from the road). Run it both ways: watch_test.py and headless drivetest.py.
+    "farm-fence": ("arland-conflict-test", "2124,2948>2097,2910", "2097,2910", "uaz", "", "depots"),
+    "arland-supply": ("arland-conflict-test", "1717,911>2293,1224|1737,948>2293,1224|1626,927>2293,1224|1598,928>2293,1224|1738,906>2293,1224|1680,919>2293,1224|2171,1191>2508,2269|2250,1313>2508,2269|2284,1128>2508,2269|2653,1674>2508,2269|2649,1617>2508,2269|1218,3267>947,2896|1172,3314>947,2896|963,2774>2209,2909|904,2776>2209,2909|1021,2787>2209,2909|1419,1909>1622,903|3256,2885>2508,2269|2124,2948>3297,2860|2292,2927>3297,2860|2294,2982>3297,2860|2154,2909>3297,2860", "2508,2269", "uaz", "", "depots"),
     "arland-depots": ("arland-conflict-test", "1717,911|1737,948|1626,927|1598,928|2171,1191|2250,1313|2284,1128|2653,1674|2649,1617|1218,3267|1172,3314|963,2774|904,2776|1021,2787|1419,1909|3256,2885|1738,906|1680,919", "2000,2000", "uaz", "", "depots"),
     "farm-depots": ("arland-conflict-test", "2124,2948|2292,2927|2294,2982|2154,2909", "3253,2862", "uaz", "", "depots"),
     "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
