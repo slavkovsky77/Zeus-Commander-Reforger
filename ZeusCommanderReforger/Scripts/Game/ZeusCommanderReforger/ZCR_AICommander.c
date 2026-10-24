@@ -100,6 +100,7 @@ modded class AICF_AICommander
 			base = null;
 		if (!ZCR_Storm.Set(m_sFactionKey, base))
 			return;
+		ZCR_Tactical.EndStorm(m_sFactionKey);   // the previous storm's squads fight normally again
 		if (!base)
 		{
 			Print(string.Format("[ZCR][STORM] t=%1 faction=%2 end", ZCR_LossLog.Seconds(), m_sFactionKey), LogLevel.NORMAL);
@@ -114,6 +115,8 @@ modded class AICF_AICommander
 				continue;
 			if (m_OrderPlanner && m_OrderPlanner.RebuildCurrentOrder(slot, m_Faction, "ZCR_STORM"))
 			{
+				// The tactical layer: the squad pushes in (with DCO: its contact drills and overmatch off - ZCR_DCO).
+				ZCR_Tactical.Storming(slot.GetGroup(), true, m_sFactionKey);
 				squads++;
 				men += AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
 			}

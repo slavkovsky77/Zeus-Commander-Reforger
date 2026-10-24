@@ -6,6 +6,7 @@
 class ZCR_Tactical
 {
 	protected static ref ZCR_Tactical s_Instance;
+	protected ref map<SCR_AIGroup, string> m_mStorming = new map<SCR_AIGroup, string>();   // squad -> its faction
 
 	static ZCR_Tactical Get()
 	{
@@ -25,11 +26,33 @@ class ZCR_Tactical
 	{
 	}
 
-	static void Storming(SCR_AIGroup group, bool storming)
+	static void Storming(SCR_AIGroup group, bool storming, string faction = "")
 	{
 		if (!group)
 			return;
 		Get().SetStorming(group, storming);
-		Print(string.Format("[ZCR][TACTICAL] t=%1 group=%2 storming=%3 layer=%4", ZCR_LossLog.Seconds(), group.GetID(), storming, Get().Layer()), LogLevel.NORMAL);
+		if (storming)
+			Get().m_mStorming.Set(group, faction);
+		else
+			Get().m_mStorming.Remove(group);
+		Print(string.Format("[ZCR][TACTICAL] t=%1 group=%2 storming=%3 layer=%4 faction=%5", ZCR_LossLog.Seconds(), group.GetID(), storming, Get().Layer(), faction), LogLevel.NORMAL);
+	}
+
+	// A faction's storm is over (or moves to another base): its storming squads fight normally again.
+	static void EndStorm(string faction)
+	{
+		array<SCR_AIGroup> done = {};
+		foreach (SCR_AIGroup g, string f : Get().m_mStorming)
+		{
+			if (f == faction)
+				done.Insert(g);
+		}
+		foreach (SCR_AIGroup g : done)
+		{
+			if (g)
+				Storming(g, false, faction);
+			else
+				Get().m_mStorming.Remove(g);
+		}
 	}
 }
