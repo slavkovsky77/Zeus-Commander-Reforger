@@ -74,6 +74,7 @@ class ZCR_Push
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("push");   // ZCR_Cost: our scripts' share of the frame time
 		int now = NowMs();
 		for (int i = s_aJobs.Count() - 1; i >= 0; i--)
 		{

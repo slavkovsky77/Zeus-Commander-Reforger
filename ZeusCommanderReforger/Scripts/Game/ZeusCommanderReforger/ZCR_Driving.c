@@ -187,6 +187,7 @@ class ZCR_Driving
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("driving");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);

@@ -155,6 +155,7 @@ class ZCR_Director
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("director");   // ZCR_Cost: our scripts' share of the frame time
 		// Lab (22 Oct, crash hunt): -zcrNoDirector - the camera stays where it starts, no shots across the map.
 		if (System.IsCLIParam("zcrNoDirector"))
 			return;

@@ -376,6 +376,7 @@ class ZCR_Sampler
 
 	void Sample()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("sampler");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		Forget(now);
 		map<IEntity, ref ZCR_SoldierState> next = new map<IEntity, ref ZCR_SoldierState>();

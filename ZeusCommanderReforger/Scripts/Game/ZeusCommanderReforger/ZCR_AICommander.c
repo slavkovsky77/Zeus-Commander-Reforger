@@ -4,6 +4,7 @@ modded class AICF_AICommander
 {
 	override bool Tick(AICF_MatchController matchController, string reason)
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("commander");
 		if (Replication.IsServer() && IsEnabled() && m_Faction)
 		{
 			ZCR_Trace.Begin(m_sFactionKey);   // [ZCR][STEP] / [ZCR][SLOW] (crash hunting)

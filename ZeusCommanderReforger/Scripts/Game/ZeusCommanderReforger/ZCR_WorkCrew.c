@@ -51,6 +51,7 @@ class ZCR_WorkCrew
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("workcrew");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		array<SCR_CampaignBuildingCompositionComponent> sites = {};
 		array<Faction> factions = {};

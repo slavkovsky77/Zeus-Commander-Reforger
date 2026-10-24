@@ -62,6 +62,7 @@ class ZCR_VehicleGuns
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("vehguns");   // ZCR_Cost: our scripts' share of the frame time
 		s_mManned.Clear();
 		s_mEmpty.Clear();
 		array<AIAgent> agents = {};

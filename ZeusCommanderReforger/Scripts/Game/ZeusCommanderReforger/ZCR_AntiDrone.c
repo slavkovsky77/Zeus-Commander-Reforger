@@ -59,6 +59,7 @@ class ZCR_AntiDrone
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("antidrone");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		BaseWorld world = GetGame().GetWorld();
 		// Old bursts' spheres: kept only while referenced by a running behaviour (they are refs there).

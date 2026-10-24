@@ -192,6 +192,7 @@ class ZCR_Armour
 
 	protected static void Guard()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("armour");   // ZCR_Cost: our scripts' share of the frame time
 		foreach (ZCR_ArmourUnit unit : s_aUnits)
 		{
 			if (!unit.m_Vehicle || !unit.m_Group)

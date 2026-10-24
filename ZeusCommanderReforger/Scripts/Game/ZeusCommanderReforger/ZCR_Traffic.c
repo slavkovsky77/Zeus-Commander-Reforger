@@ -112,6 +112,7 @@ class ZCR_Traffic
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("traffic");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		array<IEntity> cars = {};
 		ZCR_Driving.DrivenNow(cars);

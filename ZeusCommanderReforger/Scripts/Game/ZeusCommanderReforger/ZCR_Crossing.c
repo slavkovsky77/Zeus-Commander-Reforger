@@ -95,6 +95,7 @@ class ZCR_Crossing
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("crossing");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		// Ends first.
 		array<IEntity> done = {};

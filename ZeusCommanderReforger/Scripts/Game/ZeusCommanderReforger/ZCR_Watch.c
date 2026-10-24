@@ -68,6 +68,7 @@ modded class ArmaReforgerScripted
 	override void OnUpdate(BaseWorld world, float timeslice)
 	{
 		super.OnUpdate(world, timeslice);
+		ZCR_CostScope cost = new ZCR_CostScope("watch_hud");
 		ZCR_Watch.Update(timeslice);
 	}
 }

@@ -24,6 +24,7 @@ class ZCR_Wrecks
 
 	protected void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("wrecks");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		for (int i = m_aWrecks.Count() - 1; i >= 0; i--)
 		{
