@@ -28,6 +28,9 @@ STEP_M = 300
 # A junction gets a waypoint only where the route turns there by more than TURN_DEG (24 Oct night: a waypoint every ~100 m
 # and at every road change made the vans brake at each - median trip 261 s against the game planner's 173 s).
 TURN_DEG = 30
+# The first waypoint FIRST_M along the route, so a truck leaving a depot gets onto the road at once (24 Oct night: with the
+# first one 300 m along, the Farm's van crossed the farm fields to it - 337 s for a 1.5 km route the game's driver did in 184).
+FIRST_M = 100
 TRAP_M = 20
 TRAP_COST_M = 400
 
@@ -179,7 +182,7 @@ def waypoints(g: Graph, nodes, step=STEP_M):
         p = nodes[i - 1]
         run += math.hypot(g.x[n] - g.x[p], g.z[n] - g.z[p])
         switch = i + 1 < len(nodes) and g.road[nodes[i + 1]] != g.road[n] and turn(g, nodes, i) >= TURN_DEG
-        if run >= step or switch or i == len(nodes) - 1:
+        if run >= (FIRST_M if not out else step) or switch or i == len(nodes) - 1:
             out.append([round(g.x[n], 1), round(g.z[n], 1)])
             run = 0.0
     # Drop waypoints closer than 60 m to the one before (junction pieces make clusters).
