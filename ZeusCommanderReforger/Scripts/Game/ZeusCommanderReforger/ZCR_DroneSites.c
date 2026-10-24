@@ -243,6 +243,21 @@ class ZCR_DroneSites
 		return null;
 	}
 
+	// Where the site of this operator team is (its truck), for the team's resupply.
+	static vector SupplyOf(SCR_AIGroup operators)
+	{
+		foreach (ZCR_DroneSite s : s_aSites)
+		{
+			if (s.m_Operators == operators)
+			{
+				if (s.m_Truck)
+					return s.m_Truck.GetOrigin();
+				return s.m_vPos;
+			}
+		}
+		return vector.Zero;
+	}
+
 	protected static string Name(vector at)
 	{
 		string name = "the field";
@@ -341,7 +356,10 @@ class ZCR_DroneSites
 	// The move, a step every commander tick: pack (board) -> drive -> unload -> set up.
 	protected static void Move(ZCR_DroneSite s, vector front, int now)
 	{
-		if (s.m_bMain || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
+		// The operators no longer ride the truck (17:58: boarding went in/out, in/out - and Martin: the operators walk out on
+		// sorties with drones in their bags and resupply at the truck; Zeus Commander plans where the truck goes). The hops
+		// stay behind -zcrSiteHops.
+		if (!System.IsCLIParam("zcrSiteHops") || s.m_bMain || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
 			return;                            // the main base's site is the static one
 		if (s.m_iMove == 0)
 		{

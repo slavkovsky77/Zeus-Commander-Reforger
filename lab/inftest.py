@@ -230,7 +230,11 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     # Drone sites that move (the farm-site storm): packs started, set-ups at a new spot, boardings that failed.
     site = [l for l in lines if "[ZCR][DRONESITE]" in l and " move=" in l]
     out.update({"site_packs": sum(" move=pack " in l for l in site), "site_moves": sum(" move=set " in l for l in site),
-                "site_failed": sum(" move=failed" in l for l in site)})
+                "site_failed": sum(" move=failed" in l for l in site),
+                # Sorties (operators with drones in their bags, resupplying at the truck): out, launches, resupplies.
+                "sorties": sum("[ZCR][SORTIE]" in l and " event=out " in l for l in lines),
+                "sortie_launches": sum("[ZCR][SORTIE]" in l and " event=launch " in l for l in lines),
+                "resupplies": sum("[ZCR][SORTIE]" in l and " event=loaded " in l for l in lines)})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",

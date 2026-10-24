@@ -29,6 +29,27 @@ class ZCR_OperatorMan
 	bool m_bMoving;         // the drone site is moving (ZCR_DroneSites): no holding at the post, no flying
 }
 
+// A team out on sorties (Martin, 24 Oct 17:58: "operators should have larger bags with some amount of drones, then there
+// would be the drone truck or a static drone arsenal and they would resupply there when they are out of them"; "Zeus
+// Commander should actually plan where to move the drone truck, the drone operator just knows if he has somewhere close to
+// resupply"): the pilot carries CARRY drones; the team walks to a launch position in cover between its resupply point and
+// the target, launches them one at a time, walks back to the resupply point (the drone truck or the static arsenal), loads
+// for LOAD_S and goes out to a new position.
+//   [ZCR][SORTIE] t= side= event=out|launch|empty|resupply|loaded drones= x= z= ...
+class ZCR_OperatorTeam
+{
+	SCR_AIGroup m_Group;
+	string m_sSide;
+	vector m_vSupply;        // where it resupplies
+	vector m_vGoal;          // what its drones go for
+	int m_iCarried;
+	int m_iState;            // 0 to a launch position, 1 at it (launching), 2 to resupply, 3 loading
+	int m_iStateAt;
+	int m_iLastLaunchAt;
+	int m_iSorties;
+	vector m_vPos;           // the launch position
+}
+
 class ZCR_DroneOperator
 {
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
@@ -39,6 +60,10 @@ class ZCR_DroneOperator
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
 	static const int MAX_FROZEN_S = 120;    // the pilot's AI back on after this long in one flight
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
+	static const int CARRY = 4;             // drones in the pilot's bag
+	static const int LOAD_S = 45;
+	static const float SUPPLY_NEAR_M = 15;
+	static ref array<ref ZCR_OperatorTeam> s_aTeams = {};
 	static ref array<ref ZCR_OperatorMan> s_aMen = {};
 	protected static bool s_bStarted;
 	protected static int s_iNextLog;
@@ -99,6 +124,173 @@ class ZCR_DroneOperator
 		{
 			s_bStarted = true;
 			GetGame().GetCallqueue().CallLater(Tick, 1000, true);
+		}
+	}
+
+	// The team goes out on sorties from 'supply' against 'goal' (the infantry test's drone site; later the commander's).
+	static void Sortie(SCR_AIGroup group, string side, vector supply, vector goal)
+	{
+		if (!group || Team(group))
+			return;
+		ZCR_OperatorTeam team = new ZCR_OperatorTeam();
+		team.m_Group = group;
+		team.m_sSide = side;
+		team.m_vSupply = supply;
+		team.m_vGoal = goal;
+		team.m_iCarried = CARRY;
+		team.m_iState = -1;               // out to the first position once the men are registered
+		s_aTeams.Insert(team);
+	}
+
+	static ZCR_OperatorTeam Team(SCR_AIGroup group)
+	{
+		foreach (ZCR_OperatorTeam team : s_aTeams)
+		{
+			if (team.m_Group == group)
+				return team;
+		}
+		return null;
+	}
+
+	// May the team launch now, and from where: at its launch position with drones in the bag.
+	static bool CanLaunch(SCR_AIGroup group, out vector from)
+	{
+		ZCR_OperatorTeam team = Team(group);
+		if (!team || team.m_iState != 1 || team.m_iCarried <= 0)
+			return false;
+		ChimeraCharacter pilot = Pilot(group);
+		if (!pilot || vector.DistanceXZ(pilot.GetOrigin(), team.m_vPos) > STAY_M)
+			return false;
+		from = pilot.GetOrigin() + Vector(12, 0, 0);
+		return true;
+	}
+
+	static void Launched(SCR_AIGroup group)
+	{
+		ZCR_OperatorTeam team = Team(group);
+		if (!team)
+			return;
+		team.m_iCarried--;
+		team.m_iLastLaunchAt = ZCR_LossLog.Seconds();
+		Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=launch drones=%3", team.m_iLastLaunchAt, team.m_sSide, team.m_iCarried), LogLevel.NORMAL);
+	}
+
+	// "3 FPVs in the bag", "walking to resupply", "loading at the drone truck", "out to a new position".
+	static string TeamText(SCR_AIGroup group)
+	{
+		ZCR_OperatorTeam team = Team(group);
+		if (!team)
+			return "";
+		if (team.m_iState == 1)
+			return string.Format("%1 FPVs in the bag", team.m_iCarried);
+		if (team.m_iState == 2)
+			return "out of drones - walking back to resupply";
+		if (team.m_iState == 3)
+			return "loading drones at the resupply point";
+		return string.Format("out to a launch position with %1 FPVs", team.m_iCarried);
+	}
+
+	static ChimeraCharacter Pilot(SCR_AIGroup group)
+	{
+		foreach (ZCR_OperatorMan m : s_aMen)
+		{
+			if (m.m_Group == group && m.m_bPilot)
+				return ChimeraCharacter.Cast(m.m_Man);
+		}
+		return null;
+	}
+
+	// The cycle, every second.
+	protected static void Sorties(int now)
+	{
+		foreach (ZCR_OperatorTeam team : s_aTeams)
+		{
+			ChimeraCharacter pilot = Pilot(team.m_Group);
+			if (!pilot || !pilot.GetCharacterController() || pilot.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
+				continue;
+			vector at = pilot.GetOrigin();
+			if (team.m_iState == -1 || (team.m_iState == 3 && now - team.m_iStateAt >= LOAD_S))
+			{
+				if (team.m_iState == 3)
+				{
+					team.m_iCarried = CARRY;
+					Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=loaded drones=%3", now, team.m_sSide, team.m_iCarried), LogLevel.NORMAL);
+				}
+				team.m_vPos = LaunchPosition(pilot, team);
+				team.m_iState = 0;
+				team.m_iStateAt = now;
+				team.m_iSorties++;
+				SetPost(team.m_Group, team.m_vPos);   // the spot the search found is already in cover (NewPost would look round the pilot, at the truck)
+				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=out sortie=%3 drones=%4 from_supply=%5 to_goal=%6 x=%7 z=%8", now, team.m_sSide, team.m_iSorties,
+					team.m_iCarried, Math.Round(vector.DistanceXZ(team.m_vPos, team.m_vSupply)), Math.Round(vector.DistanceXZ(team.m_vPos, team.m_vGoal)),
+					Math.Round(team.m_vPos[0]), Math.Round(team.m_vPos[2])), LogLevel.NORMAL);
+				continue;
+			}
+			if (team.m_iState == 0 && vector.DistanceXZ(at, team.m_vPos) <= STAY_M)
+			{
+				team.m_iState = 1;
+				team.m_iStateAt = now;
+				continue;
+			}
+			// Out of drones and the last one down (a flight takes ~20-30 s): back to resupply.
+			if (team.m_iState == 1 && team.m_iCarried <= 0 && now - team.m_iLastLaunchAt >= 40 && !IsFlying(pilot))
+			{
+				team.m_iState = 2;
+				team.m_iStateAt = now;
+				SetPost(team.m_Group, team.m_vSupply);
+				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=empty to_supply=%3", now, team.m_sSide, Math.Round(vector.DistanceXZ(at, team.m_vSupply))), LogLevel.NORMAL);
+				continue;
+			}
+			if (team.m_iState == 2 && vector.DistanceXZ(at, team.m_vSupply) <= SUPPLY_NEAR_M)
+			{
+				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=resupply walk_s=%3", now, team.m_sSide, now - team.m_iStateAt), LogLevel.NORMAL);
+				team.m_iState = 3;
+				team.m_iStateAt = now;
+			}
+		}
+	}
+
+	// A launch position: toward the goal from the resupply point, 200-450 m out and up to 150 m to a side, the one with a roof or
+	// tree crowns within 30 m (the team takes its post there); none of 16 with cover - the first tried.
+	protected static vector LaunchPosition(ChimeraCharacter pilot, ZCR_OperatorTeam team)
+	{
+		vector dir = team.m_vGoal - team.m_vSupply;
+		dir[1] = 0;
+		float span = dir.Length();
+		if (span < 1)
+			dir = Vector(0, 0, 1);
+		dir.Normalize();
+		vector side = Vector(dir[2], 0, -dir[0]);
+		vector first;
+		for (int tries; tries < 16; tries++)
+		{
+			float reach = Math.RandomFloat(200, 450);
+			if (span > 1)
+				reach = Math.Min(reach, span - 250);     // not closer than 250 m to the goal
+			vector cand = team.m_vSupply + dir * Math.Max(reach, 50) + side * Math.RandomFloat(-150, 150);
+			cand[1] = GetGame().GetWorld().GetSurfaceY(cand[0], cand[2]);
+			if (tries == 0)
+				first = cand;
+			vector hide;
+			if (ZCR_DroneThreat.CoverNear(pilot, cand, 30, hide))
+				return hide;
+		}
+		return first;
+	}
+
+	// The team's post without a search for cover (the resupply point).
+	static void SetPost(SCR_AIGroup group, vector post)
+	{
+		int now = ZCR_LossLog.Seconds();
+		foreach (ZCR_OperatorMan m : s_aMen)
+		{
+			if (m.m_Group != group)
+				continue;
+			m.m_vPost = post;
+			if (!m.m_bPilot)
+				m.m_vPost = post + Vector(3, 0, -3);
+			if (m.m_Man)
+				ToPost(m, now);
 		}
 	}
 
@@ -253,6 +445,7 @@ class ZCR_DroneOperator
 	protected static void Tick()
 	{
 		int now = ZCR_LossLog.Seconds();
+		Sorties(now);
 		map<string, int> pilots = new map<string, int>();
 		map<string, int> flying = new map<string, int>();
 		foreach (ZCR_OperatorMan m : s_aMen)

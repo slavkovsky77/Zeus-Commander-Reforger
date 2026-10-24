@@ -251,17 +251,20 @@ class ZCR_GunTest
 			from = from + Vector(12, 0, 0);   // beside the operators, not on them
 			if (u.m_sKind == "site")
 			{
-				// From the site's launch spot - none while it packs up, drives or sets up again.
+				// From where the team is - only at its launch position with drones in the bag (ZCR_DroneOperator sorties).
 				ZCR_DroneSites.Tick(u.m_sSide, goal);
-				string siteName;
-				if (!ZCR_DroneSites.LaunchFrom(u.m_sSide, goal, from, siteName))
+				if (!ZCR_DroneOperator.CanLaunch(u.m_Group, from))
 				{
-					u.m_iNextLaunch = now + 5;
+					u.m_iNextLaunch = now + 3;
 					continue;
 				}
 			}
 			if (ZCR_Drones.LaunchTest(u.m_sSide, from, goal, DRONE_MAX_UP, DRONES_PER_LAUNCH))
+			{
 				u.m_iNextLaunch = now + DRONE_EVERY_S;
+				if (u.m_sKind == "site")
+					ZCR_DroneOperator.Launched(u.m_Group);
+			}
 			else
 				u.m_iNextLaunch = now + 10;
 		}
@@ -609,7 +612,10 @@ class ZCR_GunTest
 			// (ZCR_DroneSites: after 3 launches, 8 minutes, or once seen).
 			unit.m_Group = ZCR_DroneSites.CreateTest(side, at, target);
 			if (unit.m_Group)
+			{
 				ZCR_Sampler.AddTestGroup(unit.m_Group, side);
+				ZCR_DroneOperator.Sortie(unit.m_Group, side, ZCR_DroneSites.SupplyOf(unit.m_Group), target);   // walks out with drones in the bag
+			}
 			unit.m_iNextLaunch = now + 25;
 		}
 		else if (kind == "squad")
@@ -889,7 +895,7 @@ class ZCR_GunTest
 		if (!u.m_Group || u.m_Vehicle)
 			return string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
 		if (u.m_sKind == "site")
-			return string.Format("DRONE SITE: %1 truck and operators - %2 (moves after 3 launches, 8 min or once seen)", u.m_sSide, ZCR_DroneSites.Text(u.m_sSide));
+			return string.Format("DRONE TEAM: %1 pilot and guard - %2 (resupply: the drone truck)", u.m_sSide, ZCR_DroneOperator.TeamText(u.m_Group));
 		if (u.m_sKind == "drones")
 		{
 			// The caption stays for the whole shot - the pilot's state now is on his tag (ZCR_Watch), not here (24 Oct: shots that
