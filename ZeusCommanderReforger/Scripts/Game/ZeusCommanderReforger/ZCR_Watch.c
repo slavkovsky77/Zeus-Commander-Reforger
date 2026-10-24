@@ -114,6 +114,7 @@ class ZCR_Watch
 	protected bool m_bFollowSeen;
 	protected float m_fNextNear;
 	protected ref array<IEntity> m_aNear = {};
+	protected ref array<IEntity> m_aNearVehicles = {};   // vehicles near the spot (their crews don't come up in the soldier query)
 	// Free look: the camera is the watcher's - WASD, right mouse held to look, Shift faster, Q/E down/up.
 	protected bool m_bFree;
 	protected float m_fOrbitYaw;          // the watcher's turn round the shot (right mouse), 0 = from the south
@@ -692,6 +693,8 @@ class ZCR_Watch
 			m_fNextNear = m_fClock + 0.5;
 			m_aNear.Clear();
 			world.QueryEntitiesBySphere(m_vSpot, 90, OnNear, OnlyCharacters, EQueryEntitiesFlags.DYNAMIC);
+			m_aNearVehicles.Clear();
+			world.QueryEntitiesBySphere(m_vSpot, 90, OnNearVehicle, OnlyVehicles, EQueryEntitiesFlags.DYNAMIC);
 		}
 		// Soldiers in a vehicle: one tag over the vehicle - side, vehicle, how many aboard.
 		map<IEntity, int> aboard = new map<IEntity, int>();
@@ -706,6 +709,30 @@ class ZCR_Watch
 				aboard.Set(root, aboard.Get(root) + 1);
 				aboardSide.Set(root, ZCR_LossLog.SideOf(e));
 			}
+		}
+		// Vehicles found directly, crews counted from their seats (25 Oct - Martin: "I still don't see tags over vehicles":
+		// seated crews didn't come up in the soldier query, so no vehicle ever got a tag); a vehicle with a mission (a test
+		// van, a supply truck) gets its tag even empty.
+		foreach (IEntity veh : m_aNearVehicles)
+		{
+			if (!veh || aboard.Contains(veh))
+				continue;
+			array<BaseCompartmentSlot> seats = {};
+			AICF_FIAPatrolCrew.Seats(veh, seats);
+			int crew;
+			string crewSide;
+			foreach (BaseCompartmentSlot seat : seats)
+			{
+				if (!seat || !seat.GetOccupant())
+					continue;
+				crew++;
+				if (crewSide.IsEmpty())
+					crewSide = ZCR_LossLog.SideOf(seat.GetOccupant());
+			}
+			if (crew == 0 && ZCR_VehicleTag.Mission(veh).IsEmpty())
+				continue;
+			aboard.Set(veh, crew);
+			aboardSide.Set(veh, crewSide);
 		}
 		foreach (IEntity v, int n : aboard)
 		{
@@ -853,6 +880,18 @@ class ZCR_Watch
 	protected bool OnlyCharacters(IEntity entity)
 	{
 		return ChimeraCharacter.Cast(entity) != null;
+	}
+
+	protected bool OnNearVehicle(IEntity entity)
+	{
+		if (Vehicle.Cast(entity))
+			m_aNearVehicles.Insert(entity);
+		return true;
+	}
+
+	protected bool OnlyVehicles(IEntity entity)
+	{
+		return Vehicle.Cast(entity) != null;
 	}
 
 	protected static Color Tint(string side)
