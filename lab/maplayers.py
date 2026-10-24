@@ -248,11 +248,14 @@ def live(map_slug: str) -> dict:
         if not logs or time.time() - logs[-1].stat().st_mtime > 90:
             continue
         log = logs[-1]
-        if run.name not in _live_world:
+        # The run's map, read once it is in the log (25 Oct: a run seen in its first seconds, before the world line,
+        # was cached as no map and never shown live).
+        if not _live_world.get(run.name):
             with open(log, "rb") as f:
                 w = WORLD.search(f.read(2_000_000))
-            _live_world[run.name] = slug(w.group(1).decode()) if w else ""
-        if _live_world[run.name] != map_slug:
+            if w:
+                _live_world[run.name] = slug(w.group(1).decode())
+        if _live_world.get(run.name) != map_slug:
             continue
         size = log.stat().st_size
         with open(log, "rb") as f:
