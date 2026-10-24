@@ -448,7 +448,11 @@ class ZCR_GunTest
 			if (unit.m_Group && spec.m_sRole == "defend")
 				Waypoint(unit, at, "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et", 40);
 			else if (unit.m_Group && spec.m_sRole == "attack")
+			{
 				Waypoint(unit, target, "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et", 30);
+				if (System.IsCLIParam("zcrStormPush"))
+					ZCR_Tactical.Storming(unit.m_Group, true);   // the tactical layer lets it push (DCO: its contact drills off)
+			}
 		}
 		else
 		{

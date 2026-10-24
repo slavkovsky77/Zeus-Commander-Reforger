@@ -1,0 +1,20 @@
+GameProject
+{
+	ID "ZCR_DCO"
+	GUID "5978896A4BD28E5C"
+	TITLE "Zeus Commander Reforger x DCO_AI bridge"
+	Dependencies
+	{
+		"58D0FB3206B6F859"
+		"CA2CA4E14BB55417"
+		"5EDAAE0D3CC60D6B"
+	}
+	Configurations
+	{
+		GameProjectConfig PC {}
+		GameProjectConfig HEADLESS {}
+		GameProjectConfig XBOX_ONE {}
+		GameProjectConfig XBOX_SERIES {}
+		GameProjectConfig PS4 {}
+	}
+}

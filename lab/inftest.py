@@ -46,6 +46,10 @@ VARIANTS = {
     "dco": ("-zcrStandoff 0", DCO, "the DCO_AI Reforger mod (Workshop) on both squads, alone"),
     # Martin, 23 Oct 22:50: "maybe DCO + our hold-back + something" (the first runs with the hold-back on took the farm 3 of 3)
     "dcoours": ("-zcrSoldierLayer", DCO, "DCO with our soldier layer: hold 60 m from a seen enemy instead of closing in, never standing in danger"),
+    # Our commander storming through DCO (24 Oct): the attacking squad pushes - DCO's contact drills and overmatch off for
+    # that squad (bridge ZCR_DCO); dcopush2 also the attackers' side's pinned / break contact / contact SOP / ambush off.
+    "dcopush": ("-zcrStandoff 0 -zcrStormPush", DCO, "full DCO; the attacking squad is ordered to storm: DCO's contact drills and overmatch off for it (our bridge)"),
+    "dcopush2": ("-zcrStandoff 0 -zcrStormPush", DCO, "as dcopush, and the attackers' side also has DCO's pinned, break-contact, contact-SOP and ambush drills off"),
     "dcoatt": ("-zcrStandoff 0", DCO, "full DCO attacks; the defenders have DCO turned down (all its switches off, the game's perception) - as close to the game's AI as DCO allows"),
     "dcodef": ("-zcrStandoff 0", DCO, "DCO turned down attacks (all its switches off, the game's perception); full DCO defends"),
     "game60": ("", "", "the game's AI with our 60-m hold-back (the first runs, 23 Oct 19:17-20:20)"),
@@ -65,7 +69,10 @@ def _title(name: str, scenario: str, variant: str) -> str:
 # and night behaviour off, perception back to the game's 1.0 (DCO's default 1.5). Written into the run's profile.
 DCO_MIN = {**{k: False for k in ['behATSpecialist', 'behAmbushDrill', 'behAssaultFire', 'behAwareness', 'behBreakContact', 'behBuddyCallout', 'behCombinedArms', 'behContactSOP', 'behEnemyWeapons', 'behExplosionReactions', 'behHearing', 'behLeaderRTOGrenadier', 'behLeanPeek', 'behMGGunner', 'behMarksman', 'behPinned', 'behPistolCQB', 'behPlayerVoice', 'behProneMove', 'behReactionTime', 'behRearm', 'behRearmEnemySources', 'behReloadDiscipline', 'behSecurity360', 'behSpecialistRecovery', 'behSuppressLastKnown', 'behTargetPriority', 'behWindowFire']},
            "cqbEnabled": False, "stragglerEnabled": False, "shareEnabled": False, "nightEnabled": False, "aiPerception": 1.0}
+# The attackers' side with DCO's stalling behaviours off (pinned, break contact, contact SOP, ambush drill).
+DCO_PUSH = {"behPinned": False, "behBreakContact": False, "behContactSOP": False, "behAmbushDrill": False}
 SEEDS = {
+    "dcopush2": {"factions": {"US": DCO_PUSH}},
     "dcoatt": {"factions": {"USSR": DCO_MIN}},   # full DCO attacks (US), the defenders (USSR) DCO turned down
     "dcodef": {"factions": {"US": DCO_MIN}},     # the attackers (US) DCO turned down, full DCO defends (USSR)
 }

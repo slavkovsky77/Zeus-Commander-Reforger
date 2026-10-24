@@ -31,6 +31,8 @@ SERVER_ROOT = STEAM / "Arma Reforger Server"
 GAME_ROOT = STEAM / "Arma Reforger"
 AICF = config.path("paths.ai_conflict")
 OUR_ADDON = "CA2CA4E14BB55417"
+DCO_ID = "5EDAAE0D3CC60D6B"        # DCO_AI Reforger (Workshop)
+DCO_BRIDGE = "5978896A4BD28E5C"    # ZCR_DCO, loaded together with DCO
 # The FPV AI Drones for Reforger mod and Realistic Combat Drones, which it needs (paths.mod_dirs).
 DRONE_DIRS = config.paths("paths.mod_dirs")
 DRONE_ADDONS = "3257E44260058CE5,65AD60E204191D37"
@@ -87,6 +89,8 @@ def command(a, profile: Path) -> list:
         addons += "," + mod_id
         if str(d.parent) not in mod_dirs:
             mod_dirs = mod_dirs + [str(d.parent)]
+        if mod_id == DCO_ID and (ROOT / "ZCR_DCO" / "addon.gproj").exists():
+            addons += "," + DCO_BRIDGE   # our bridge (ZCR_DCO): our commander's orders as DCO's per-group switches
     roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     systems = "Configs/Systems/GameMasterSystems.conf" if "_GM_" in scenario else "Configs/Systems/ConflictSystems.conf"
