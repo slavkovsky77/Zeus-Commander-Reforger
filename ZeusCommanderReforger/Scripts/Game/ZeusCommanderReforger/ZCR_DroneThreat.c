@@ -49,6 +49,8 @@ class ZCR_DroneThreat
 	protected static ref map<IEntity, int> s_mShelterUntil = new map<IEntity, int>();
 	protected static ref map<string, int> s_mShelterRuns = new map<string, int>();
 	protected static ref map<string, int> s_mShelterIn = new map<string, int>();
+	protected static ref map<IEntity, vector> s_mShelterSpot = new map<IEntity, vector>();
+	protected static ref map<IEntity, vector> s_mShelterFrom = new map<IEntity, vector>();
 	// The building search's totals: searches, points inside a building, of them off the navmesh, too near someone, found.
 	protected static ref array<int> s_aSearch = {0, 0, 0, 0, 0};
 
@@ -92,8 +94,18 @@ class ZCR_DroneThreat
 				continue;
 			string ss = ZCR_LossLog.SideOf(sc);
 			s_mShelterRuns.Set(ss, s_mShelterRuns.Get(ss) + 1);
-			if (Inside(GetGame().GetWorld(), sc.GetOrigin(), sc))
+			bool inside = Inside(GetGame().GetWorld(), sc.GetOrigin(), sc);
+			if (inside)
 				s_mShelterIn.Set(ss, s_mShelterIn.Get(ss) + 1);
+			// Each run (24 Oct: 11 runs, 1 inside with the game's AI, 0 of 17 under DCO): how far he had to go, how far he
+			// got, how far is left.   [ZCR][SHELTER_RUN] t= side= to_spot= moved= left= inside= stance=
+			vector spot = s_mShelterSpot.Get(se);
+			vector from = s_mShelterFrom.Get(se);
+			Print(string.Format("[ZCR][SHELTER_RUN] t=%1 side=%2 to_spot=%3 moved=%4 left=%5 inside=%6 stance=%7 x=%8 z=%9", now, ss,
+				Math.Round(vector.Distance(from, spot)), Math.Round(vector.Distance(from, sc.GetOrigin())), Math.Round(vector.Distance(sc.GetOrigin(), spot)), inside,
+				typename.EnumToString(ECharacterStance, sc.GetCharacterController().GetStance()), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			s_mShelterSpot.Remove(se);
+			s_mShelterFrom.Remove(se);
 		}
 		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
@@ -209,6 +221,8 @@ class ZCR_DroneThreat
 		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 		s_mRunningUntil.Set(c, now + 8);
 		s_mShelterUntil.Set(c, now + 8);
+		s_mShelterSpot.Set(c, spot);
+		s_mShelterFrom.Set(c, c.GetOrigin());
 		return true;
 	}
 
@@ -265,7 +279,11 @@ class ZCR_DroneThreat
 			s_mRunningUntil.Set(c, now + 12);
 			// Into a building: not stopped by the get-down when the drone comes close.
 			if (Inside(GetGame().GetWorld(), spot + Vector(0, 0.2, 0), c))
+			{
 				s_mShelterUntil.Set(c, now + 12);
+				s_mShelterSpot.Set(c, spot);
+				s_mShelterFrom.Set(c, c.GetOrigin());
+			}
 			return;
 		}
 		// No cover near: spread out first - away from the drone, each his own way, 15-25 m, at least
