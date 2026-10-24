@@ -58,8 +58,9 @@ class ZCR_DroneOperator
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
 	static const ResourceName CONTROLLER = "{E2434ED1318D8476}Prefabs/Characters/Items/DroneController.et";
 	// The pilot's big bag (Martin, 18:20: "let's give the drone operator a big backpack, and he only uses the goggles when he
-	// is driving drones"): the game's ALICE with frame (US), Kolobok (Soviet).
-	static const ResourceName BAG_US = "{841162A79157C494}Prefabs/Items/Equipment/Backpacks/Backpack_ALICE_Medium_frame.et";
+	// is driving drones"): the game's ALICE, assembled (US - the "frame" prefab is the bare pack frame: 18:33, "one last missing
+	// thing is giving him a backpack"), Kolobok (Soviet).
+	static const ResourceName BAG_US = "{5C5C6EE05EE2FF1A}Prefabs/Items/Equipment/Backpacks/Backpack_ALICE_Medium_assembled.et";
 	static const ResourceName BAG_USSR = "{41A9C55B61F375F0}Prefabs/Items/Equipment/Backpacks/Backpack_Kolobok.et";
 	static const float POST_COVER_M = 25;
 	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
