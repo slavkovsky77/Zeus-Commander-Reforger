@@ -159,6 +159,21 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     # head count said 8 US lost, the death log 4, and 5 US soldiers stood on the farm at the end).
     all_deaths = [kv(l) for l in text.splitlines() if "[ZCR][LOSS]" in l and " kind=man " in l]
     lost = {s: sum(1 for d in all_deaths if d.get("side") == s.upper()) for s in ("us", "ussr")}
+    # Drone storms (24 Oct): drones launched at each side, soldiers lost to them (no killer, as scorecard.py's 'down'),
+    # and to their own side's fire (the farm storm with the defenders' drones: 3 of 9 US soldiers shot by their own team
+    # leader firing at a drone over the squad).
+    lines = text.splitlines()
+    launched = {s: sum(int(kv(l).get("drones", 1) or 1) for l in lines if "why=test-operator" in l and f" side={s.upper()} " not in l)
+                for s in ("us", "ussr")}
+    by_drone = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("killer_kind") in ("none", "") and d.get("stance"))
+                for s in ("us", "ussr")}
+    friendly = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("relation") == "KILLED_BY_FRIENDLY_AI") for s in ("us", "ussr")}
+    held = {s: sum(int(kv(l).get("held_friend", 0) or 0) for l in lines if "[ZCR][ANTIDRONE]" in l and f" side={s.upper()} " in l)
+            for s in ("us", "ussr")}
+    shot_down = {s: sum(1 for l in lines if "[ZCR][ANTIDRONE]" in l and "shot_down=1" in l and f" side={s.upper()} " in l) for s in ("us", "ussr")}
+    for s in ("us", "ussr"):
+        out.update({f"{s}_drones_at": launched[s], f"{s}_drone_lost": by_drone[s], f"{s}_ff": friendly[s], f"{s}_held_friend": held[s],
+                    f"{s}_shot_down": shot_down[s]})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",

@@ -6,8 +6,12 @@
 // keep reacting as before (down, cover). Rifle fire at a small fast drone rarely hits: each shooter with
 // a line of sight has a 3% chance a second to bring it down (6% for a machine gunner, x1.5 under 50 m);
 // a hit drone is destroyed through its damage component (deleted if it has none) and logged.
+// No fire into friends (24 Oct, drone storm at the farm: 3 of 9 US soldiers shot by their own team leader firing at
+// a drone over the squad and diving on the squad leader): a soldier holds fire - and stops a running burst - while a
+// friend is within 8 m of the drone or near his line of fire (1.5 m from it at the muzzle, widening to the 4-m sphere
+// the burst is aimed into); the next soldier in line who has a clear shot fires instead.
 // Measured: [ZCR][ANTIDRONE] t= side= shot_down= by= distance= at each hit, and every 30 s
-// t= side= shooters= drones_engaged= shot_down_total=. Both sides; -zcrNoAntiDrone turns it off.
+// t= side= shooters= drones_engaged= shot_down_total= held_friend=. Both sides; -zcrNoAntiDrone turns it off.
 class ZCR_AntiDroneTarget
 {
 	IEntity m_Drone;
@@ -20,6 +24,8 @@ class ZCR_AntiDrone
 	protected static bool s_bStarted;
 	protected ref array<ref ZCR_AntiDroneTarget> m_aTargets = {};
 	protected ref map<IEntity, int> m_mFiringUntil = new map<IEntity, int>();
+	protected ref map<IEntity, SCR_AISuppressBehavior> m_mBurst = new map<IEntity, SCR_AISuppressBehavior>();
+	protected ref map<string, int> m_mHeld = new map<string, int>();
 	protected ref map<string, int> m_mShotDown = new map<string, int>();
 	protected ref map<string, int> m_mShooters = new map<string, int>();
 	protected ref map<string, int> m_mEngaged = new map<string, int>();
@@ -28,6 +34,9 @@ class ZCR_AntiDrone
 	protected int m_iNextLog;
 	static const float RANGE = 120;
 	static const int SHOOTERS = 3;
+	static const float SPHERE_M = 4;
+	static const float FRIEND_NEAR_M = 8;
+	static const float FRIEND_LINE_M = 1.5;
 
 	static void Start()
 	{
@@ -52,7 +61,7 @@ class ZCR_AntiDrone
 	{
 		ZCR_AntiDroneTarget t = new ZCR_AntiDroneTarget();
 		t.m_Drone = drone;
-		t.m_Volume = new ZCR_SafeSphere(at, 4);
+		t.m_Volume = new ZCR_SafeSphere(at, SPHERE_M);
 		m_aTargets.Insert(t);
 		return t;
 	}
@@ -106,16 +115,28 @@ class ZCR_AntiDrone
 			string by;
 			float byDist;
 			string side = ZCR_LossLog.SideOf(shooters[0]);
-			for (int k; k < shooters.Count() && k < SHOOTERS; k++)
+			int fired;
+			for (int k; k < shooters.Count() && fired < SHOOTERS; k++)
 			{
 				ChimeraCharacter c = shooters[k];
+				if (FriendInFire(c, side, c.EyePosition(), dp))
+				{
+					m_mHeld.Set(side, m_mHeld.Get(side) + 1);
+					StopBurst(c);
+					continue;
+				}
+				fired++;
 				m_mShooters.Set(side, m_mShooters.Get(side) + 1);
 				// The game's suppress behaviour at the drone, a 3 s burst re-aimed while it is near.
 				if (!m_mFiringUntil.Contains(c) || now >= m_mFiringUntil.Get(c))
 				{
 					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(c);
 					if (utility)
-						ZCR_Reserved.Add(utility, new SCR_AISuppressBehavior(utility, null, target.m_Volume, 3, 3, 80));
+					{
+						SCR_AISuppressBehavior burst = new SCR_AISuppressBehavior(utility, null, target.m_Volume, 3, 3, 80);
+						ZCR_Reserved.Add(utility, burst);
+						m_mBurst.Set(c, burst);
+					}
 					m_mFiringUntil.Set(c, now + 3);
 				}
 				float d = vector.Distance(c.EyePosition(), dp);
@@ -131,7 +152,8 @@ class ZCR_AntiDrone
 					byDist = d;
 				}
 			}
-			m_mEngaged.Set(side, m_mEngaged.Get(side) + 1);
+			if (fired > 0)
+				m_mEngaged.Set(side, m_mEngaged.Get(side) + 1);
 			if (down)
 			{
 				m_mShotDown.Set(side, m_mShotDown.Get(side) + 1);
@@ -147,12 +169,51 @@ class ZCR_AntiDrone
 			array<string> sides = {"US", "USSR"};
 			foreach (string s : sides)
 			{
-				if (m_mShooters.Get(s) > 0 || m_mShotDown.Get(s) > 0)
-					Print(string.Format("[ZCR][ANTIDRONE] t=%1 side=%2 shooters=%3 drones_engaged=%4 shot_down_total=%5", now, s, m_mShooters.Get(s), m_mEngaged.Get(s), m_mShotDown.Get(s)), LogLevel.NORMAL);
+				if (m_mShooters.Get(s) > 0 || m_mShotDown.Get(s) > 0 || m_mHeld.Get(s) > 0)
+					Print(string.Format("[ZCR][ANTIDRONE] t=%1 side=%2 shooters=%3 drones_engaged=%4 shot_down_total=%5 held_friend=%6", now, s, m_mShooters.Get(s),
+						m_mEngaged.Get(s), m_mShotDown.Get(s), m_mHeld.Get(s)), LogLevel.NORMAL);
 				m_mShooters.Set(s, 0);
 				m_mEngaged.Set(s, 0);
+				m_mHeld.Set(s, 0);
 			}
 		}
+	}
+
+	// A friend of the shooter's side (alive or down, not the shooter) near the drone or near the line from the eye to it.
+	protected bool FriendInFire(ChimeraCharacter shooter, string side, vector eye, vector dp)
+	{
+		vector line = dp - eye;
+		float len2 = line.LengthSq();
+		foreach (IEntity e : m_aFound)
+		{
+			ChimeraCharacter f = ChimeraCharacter.Cast(e);
+			if (!f || f == shooter || ZCR_LossLog.SideOf(f) != side)
+				continue;
+			CharacterControllerComponent ctl = f.GetCharacterController();
+			if (!ctl || ctl.GetLifeState() == ECharacterLifeState.DEAD)
+				continue;
+			vector p = f.GetOrigin() + vector.Up;
+			if (vector.Distance(p, dp) < FRIEND_NEAR_M)
+				return true;
+			if (len2 < 1)
+				continue;
+			float along = vector.Dot(p - eye, line) / len2;
+			if (along <= 0 || along >= 1)
+				continue;
+			if (vector.Distance(p, eye + line * along) < FRIEND_LINE_M + SPHERE_M * along)
+				return true;
+		}
+		return false;
+	}
+
+	// The shooter's running burst ends at once (the game's suppress behaviour would keep firing for its 3 s).
+	protected void StopBurst(ChimeraCharacter c)
+	{
+		SCR_AISuppressBehavior burst = m_mBurst.Get(c);
+		if (burst && burst.GetActionState() == EAIActionState.RUNNING)
+			burst.Fail();
+		m_mBurst.Remove(c);
+		m_mFiringUntil.Remove(c);
 	}
 
 	protected static bool IsGunner(ChimeraCharacter c)
