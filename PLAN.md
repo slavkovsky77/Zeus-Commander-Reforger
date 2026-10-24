@@ -127,6 +127,9 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Next] One FPV wrecks a house (366) | Martin: "drones destroy that building :D" - check the OG-7V blast against Reforger's destructible buildings; if one FPV levels a house, tone down its damage to buildings.
 - [Next] The report tool for sub-lab storms (364) | lab/report.py good/bad picks the latest main-battle match; storms (videos/*inftest*) need their own match lookup.
 
+- [In progress] Supply vans stuck at the Farm (382-386) | Report 27: two supply vans from the Farm's depot dodged each other at the farm wall's corner (the game's move-from-incoming-vehicle on both) and our spacing rule stopped them; in the lab the depot's route went into a gap too narrow for a van (UNREACHABLE, drivers out) and the road east has a closed barrier. Fixes in test: dodge breaker (39ebe09), detour from a dead end and gates/barriers opening ahead of our vehicles (fc6fdb0). Driving sub-lab scenarios farm / farm-conflict.
+- [Todo] Builders put supply points and depots where they block (386) | Martin: 'make infantry build supply points in accessible places - the AI places them directly on the road or blocking the base'. A placement check in our AI Conflict fork's base builder: off roads, clearance in front of vehicle spawn slots; measured in the lab.
+
 ## AI Conflict
 - [Fixed] The doctrine never planned on Everon with fireteams (151) | The situation report passed 8191 characters and was cut; now joined, not formatted.
 - [In progress] Rework AI Conflict itself, fork it, don't hack around it - our own version (139, 177) | Local branch zcr: fireteams of 3-5 that leave at once, covered march steps at a jog, infantry riding light vehicles; its plumbing (spawning, supplies, capture) stays.
