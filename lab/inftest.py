@@ -62,6 +62,9 @@ VARIANTS = {
     "dcopush2": ("-zcrStandoff 0 -zcrStormPush", DCO, "as dcopush, and the attackers' side also has DCO's pinned, break-contact, contact-SOP and ambush drills off"),
     "dcoatt": ("-zcrStandoff 0", DCO, "full DCO attacks; the defenders have DCO turned down (all its switches off, the game's perception) - as close to the game's AI as DCO allows"),
     "dcodef": ("-zcrStandoff 0", DCO, "DCO turned down attacks (all its switches off, the game's perception); full DCO defends"),
+    # Drone storms (24 Oct): own-side kills next to drones even with our anti-drone fire holding near friends - is it our
+    # fire or DCO's own? The same storm without our small-arms fire at drones (our drone reactions - down, cover - stay).
+    "dconoad": ("-zcrStandoff 0 -zcrNoAntiDrone", DCO, "DCO on both squads; our small-arms fire at drones off (soldiers still go down and to cover from drones)"),
     "game60": ("", "", "the game's AI with our 60-m hold-back (the first runs, 23 Oct 19:17-20:20)"),
     "dco60": ("", DCO, "DCO with our 60-m hold-back (the first runs, 23 Oct 19:30-20:20)"),
 }
@@ -165,9 +168,23 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     lines = text.splitlines()
     launched = {s: sum(int(kv(l).get("drones", 1) or 1) for l in lines if "why=test-operator" in l and f" side={s.upper()} " not in l)
                 for s in ("us", "ussr")}
+    # A drone's blast can credit the soldiers it kills to a friend ("killed by friendly AI": 24 Oct, the farm storm without
+    # any fire at drones - the grenadier 5 m from the drone's target, 35 ms after him): a "friendly" death within 0.25 s of
+    # a drone detonating or of a death with no killer is the drone's (by the log's clock; a real shot 0.6 s before a blast
+    # stays friendly fire).
+    def clock(l):
+        m = re.match(r"(\d+):(\d+):(\d+\.\d+)", l)
+        return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else None
+    loss_lines = [l for l in lines if "[ZCR][LOSS]" in l and " kind=man " in l]
+    blasts = [c for c in (clock(l) for l in lines if re.search(r"FPVAI: drone\d+ detonated", l)) if c is not None]
+    blasts += [c for c in (clock(l) for l in loss_lines if "killer_kind=none" in l) if c is not None]
+    def splash(l):
+        c = clock(l)
+        return c is not None and any(abs(c - b) <= 0.25 for b in blasts)
+    ff = [(kv(l), splash(l)) for l in loss_lines if "relation=KILLED_BY_FRIENDLY_AI" in l]
     by_drone = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("killer_kind") in ("none", "") and d.get("stance"))
-                for s in ("us", "ussr")}
-    friendly = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("relation") == "KILLED_BY_FRIENDLY_AI") for s in ("us", "ussr")}
+                + sum(1 for d, sp in ff if d.get("side") == s.upper() and sp) for s in ("us", "ussr")}
+    friendly = {s: sum(1 for d, sp in ff if d.get("side") == s.upper() and not sp) for s in ("us", "ussr")}
     held = {s: sum(int(kv(l).get("held_friend", 0) or 0) for l in lines if "[ZCR][ANTIDRONE]" in l and f" side={s.upper()} " in l)
             for s in ("us", "ussr")}
     shot_down = {s: sum(1 for l in lines if "[ZCR][ANTIDRONE]" in l and "shot_down=1" in l and f" side={s.upper()} " in l) for s in ("us", "ussr")}

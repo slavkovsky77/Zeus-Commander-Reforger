@@ -10,7 +10,7 @@ runner = "lab/inftest.py"
 minutes = 12
 units = 1
 scenarios = ["storm-foot", "storm-village", "farm-drones-att", "farm-drones-def", "farm-drones-both", "village-drones-att", "village-drones-def", "village-drones-both"]
-variants = ["game", "ours", "dco", "dcoours", "dcopush", "dcopush2", "dcoatt", "dcodef", "game60", "dco60"]
+variants = ["game", "ours", "dco", "dcoours", "dcopush", "dcopush2", "dcoatt", "dcodef", "dconoad", "game60", "dco60"]
 baseline = "game"
 candidate = "dco"
 score = "10*taken + ussr_lost - us_lost + (us_cover or 0)/10 - (died_open_pct or 0)/20"
@@ -40,6 +40,7 @@ dcopush = "DCO, storming squad pushes"
 dcopush2 = "DCO, storming side pushes"
 dcoatt = "DCO attacks, DCO-min defends"
 dcodef = "DCO-min attacks, DCO defends"
+dconoad = "DCO, no fire at drones"
 game60 = "Game's AI + our hold-back (first runs)"
 dco60 = "DCO + our hold-back (first runs)"
 
@@ -52,6 +53,7 @@ dcopush = "full DCO on both squads; the attacking squad is ordered to storm, so 
 dcopush2 = "as dcopush, and the attackers' side also has DCO's pinned, break-contact, contact-SOP and ambush behaviours off (per-faction settings)"
 dcoatt = "full DCO on the attackers; the defenders get DCO turned down (all its behaviour switches off, the game's perception) - as close to the game's AI as DCO allows (it can't be switched off for one side)"
 dcodef = "the attackers get DCO turned down; full DCO on the defenders"
+dconoad = "DCO on both squads with our small-arms fire at drones off; our drone reactions (down, cover) stay - is the own-side fire next to drones ours or DCO's?"
 game60 = "the first runs (19:17-20:20): the game's AI with our 60-m hold-back still on - it is always loaded with our mod"
 dco60 = "the first runs (19:30-20:20): DCO with our 60-m hold-back still on"
 
