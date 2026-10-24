@@ -98,7 +98,8 @@ class ZCR_Driving
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)
 		ZCR_DoorProbe.Start();     // lab: doors and gates near given points, how open (-zcrDoorProbe)
 		ZCR_OpenGates.Start();
-		ZCR_GateAhead.Start();     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
+		ZCR_GateAhead.Start();
+		ZCR_RoadFirst.Start();     // off-road with a far goal: to the nearest proper road first (24 Oct, the Farm)     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
 		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
 

@@ -339,3 +339,129 @@ class ZCR_RoadsAt
 		}
 	}
 }
+
+// Road first (24 Oct, Martin: "they should fucking use the road when coming to the base!!!"; the Farm: no road runs through
+// the wall corner's gap - the depot's vans drove straight across the field into it, while vans starting on the road went
+// round by the roads and arrived): a driven vehicle more than OFFROAD_M off any road with its current waypoint more than
+// FAR_M away first drives to the nearest proper road (MIN_WIDTH m wide or more) within 150 m - its own route goes on from
+// there along the roads. Once per waypoint a vehicle, every 2 s. -zcrNoRoadFirst off.
+//   [ZCR][ROADFIRST] t= side= vehicle= road_m= width= goal_m= x= z= road_x= road_z=
+class ZCR_RoadFirst
+{
+	static const float OFFROAD_M = 15;
+	static const float FAR_M = 250;
+	static const float MIN_WIDTH = 4;
+	protected static ref ZCR_RoadFirst s_Instance;
+	protected ref map<IEntity, AIWaypoint> m_mDone = new map<IEntity, AIWaypoint>();
+	protected ref map<IEntity, AIWaypoint> m_mOurs = new map<IEntity, AIWaypoint>();
+
+	static void Start()
+	{
+		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoRoadFirst"))
+			return;
+		s_Instance = new ZCR_RoadFirst();
+		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
+	}
+
+	protected void Tick()
+	{
+		ZCR_CostScope cost = new ZCR_CostScope("roadfirst");
+		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
+		if (!aiWorld || !aiWorld.GetRoadNetworkManager())
+			return;
+		array<IEntity> cars = {};
+		ZCR_Driving.DrivenNow(cars);
+		foreach (IEntity v : cars)
+		{
+			if (!v || ZCR_Armour.IsUnit(v))
+				continue;
+			SCR_AIGroup group = DriverGroupOf(v);
+			if (!group)
+				continue;
+			AIWaypoint w = group.GetCurrentWaypoint();
+			if (!w || w == m_mDone.Get(v) || w == m_mOurs.Get(v))
+				continue;
+			m_mDone.Set(v, w);
+			vector at = v.GetOrigin();
+			vector goal = w.GetOrigin();
+			if (vector.DistanceXZ(at, goal) < FAR_M)
+				continue;
+			BaseRoad road;
+			float off;
+			aiWorld.GetRoadNetworkManager().GetClosestRoad(at, road, off, true);
+			if (road && off <= OFFROAD_M)
+				continue;                      // on a road already
+			vector q;
+			float width;
+			if (!NearestProperRoad(aiWorld, at, q, width))
+				continue;
+			EntitySpawnParams params = new EntitySpawnParams();
+			params.TransformMode = ETransformMode.WORLD;
+			params.Transform[3] = q;
+			AIWaypoint first = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+			if (!first)
+				continue;
+			first.SetCompletionRadius(10);
+			group.AddWaypointAt(first, 0);
+			m_mOurs.Set(v, first);
+			Print(string.Format("[ZCR][ROADFIRST] t=%1 side=%2 vehicle=%3 road_m=%4 width=%5 goal_m=%6 x=%7 z=%8 road_x=%9", ZCR_LossLog.Seconds(),
+				ZCR_Driving.DrivenSide(v), ZCR_LossLog.ShortName(v), Math.Round(vector.DistanceXZ(at, q)), Math.Round(width * 10) / 10,
+				Math.Round(vector.DistanceXZ(at, goal)), Math.Round(at[0]), Math.Round(at[2]), Math.Round(q[0])) + string.Format(" road_z=%1", Math.Round(q[2])),
+				LogLevel.NORMAL);
+		}
+	}
+
+	// The nearest point of a road at least MIN_WIDTH wide within 150 m (a ring search; the closest road of each point).
+	protected static bool NearestProperRoad(SCR_AIWorld aiWorld, vector at, out vector best, out float bestWidth)
+	{
+		float bestM = 1e9;
+		array<float> rings = {0, 20, 40, 60, 90, 120, 150};
+		foreach (float r : rings)
+		{
+			int steps = 12;
+			if (r == 0)
+				steps = 1;
+			for (int k; k < steps; k++)
+			{
+				float a = k * (360 / steps) * Math.DEG2RAD;
+				vector p = at + Vector(Math.Cos(a), 0, Math.Sin(a)) * r;
+				BaseRoad road;
+				float dist;
+				aiWorld.GetRoadNetworkManager().GetClosestRoad(p, road, dist, true);
+				if (!road || road.GetWidth() < MIN_WIDTH)
+					continue;
+				array<vector> points = {};
+				road.GetPoints(points);
+				foreach (vector q : points)
+				{
+					float m = vector.DistanceXZ(q, at);
+					if (m < bestM && !AICF_BadRoadPoints.IsBad(q, 20))
+					{
+						bestM = m;
+						best = q;
+						bestWidth = road.GetWidth();
+					}
+				}
+			}
+			if (bestM < r)
+				break;                         // nothing nearer is left in the rings further out
+		}
+		return bestM <= 150;
+	}
+
+	protected static SCR_AIGroup DriverGroupOf(IEntity vehicle)
+	{
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(vehicle, seats);
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (!seat || seat.GetType() != ECompartmentType.PILOT || !seat.GetOccupant())
+				continue;
+			AIControlComponent control = AIControlComponent.Cast(seat.GetOccupant().FindComponent(AIControlComponent));
+			if (!control || !control.GetControlAIAgent())
+				return null;
+			return SCR_AIGroup.Cast(control.GetControlAIAgent().GetParentGroup());
+		}
+		return null;
+	}
+}

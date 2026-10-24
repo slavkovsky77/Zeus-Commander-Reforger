@@ -167,6 +167,7 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "gates_opened": len(re.findall(r"\[ZCR\]\[GATEAHEAD\] .* gate=", text)),
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .* error=UNREACHABLE", text)),
         "crew_out": len(re.findall(r"event=LOST .* why=crew_out", text)),
+        "road_first": len(re.findall(r"\[ZCR\]\[ROADFIRST\]", text)),
         "pairs_through": len(re.findall(r"event=CONVOY .* cars=2 arrived=2 ", text)),
         "pair_last_s": (sorted(int(m) for m in re.findall(r"event=CONVOY .* last_s=(\d+)", text) if int(m) >= 0) or [None])[-1],
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
