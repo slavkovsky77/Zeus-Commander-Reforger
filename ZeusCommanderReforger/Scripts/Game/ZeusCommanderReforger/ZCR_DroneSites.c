@@ -216,12 +216,24 @@ class ZCR_DroneSites
 
 	// The infantry test's drone site (kind "site", Martin 24 Oct: "we could test it again in a simpler scenario"): a site
 	// set up at 'at' facing 'front', ready in 20 s; its operator team for the test to follow (null if it couldn't be set up).
+	// Tried at 'at', then around it out to 360 m (17:21: no clear launch spot at the first point - no site, the storm over at 30 s).
 	static SCR_AIGroup CreateTest(string side, vector at, vector front)
 	{
-		int n = s_aSites.Count();
-		if (!Create(side, at, front, false, ZCR_LossLog.Seconds() + 20) || s_aSites.Count() == n)
-			return null;
-		return s_aSites[s_aSites.Count() - 1].m_Operators;
+		for (int ring; ring <= 3; ring++)
+		{
+			for (int k; k < 8; k++)
+			{
+				if (ring == 0 && k > 0)
+					break;
+				float r = k * 45 * Math.DEG2RAD;
+				vector base = at + Vector(Math.Cos(r), 0, Math.Sin(r)) * (ring * 120);
+				base[1] = GetGame().GetWorld().GetSurfaceY(base[0], base[2]);
+				int n = s_aSites.Count();
+				if (Create(side, base, front, false, ZCR_LossLog.Seconds() + 20) && s_aSites.Count() > n)
+					return s_aSites[s_aSites.Count() - 1].m_Operators;
+			}
+		}
+		return null;
 	}
 
 	protected static string Name(vector at)
