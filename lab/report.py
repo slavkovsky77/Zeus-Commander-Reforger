@@ -37,9 +37,14 @@ def started(run: Path) -> datetime:
     return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
 
 
+# Watched runs: the main battle's matches (w12-...-solo-...) and the sub-lab tests in the window (inftest-...-watch-...,
+# guntest-, drivetest-; 24 Oct: a good report from a drone storm was filed against the last main battle).
+WATCHED = re.compile(r"^(w\d+-.*-solo|(inftest|guntest|drivetest)-.*-watch)-\d{8}-\d{6}$")
+
+
 def watched_at(moment: datetime) -> Path:
-    """The watched match running at 'moment': the last one started before it."""
-    runs = [r for r in RUNS.iterdir() if r.is_dir() and re.match(r"w\d+-.*-solo-\d{8}-\d{6}$", r.name)
+    """The watched match or test running at 'moment': the last one started before it."""
+    runs = [r for r in RUNS.iterdir() if r.is_dir() and WATCHED.match(r.name)
             and list(r.glob("logs/*/console.log")) and started(r) <= moment]
     return max(runs, key=started)
 
@@ -55,9 +60,34 @@ def wall(line: str, start: datetime):
     return t
 
 
+def test_recording(run: Path):
+    """A sub-lab test's recording (lab/watch_test.py): videos/YYYY-MM-DD_HHMM_<label>.mp4|.mkv started within 2 minutes
+    of the run; its start from the video notes' 'Recording started:' line, else the run's start + 20 s (the window
+    appears ~15 s in, the recording 5 s later)."""
+    label = re.sub(r"-\d{8}-\d{6}$", "", run.name)
+    begin = started(run)
+    for ext in (".mp4", ".mkv"):
+        for v in sorted(VIDEOS.glob(f"*_{label}{ext}")):
+            m = re.match(r"(\d{4}-\d{2}-\d{2}_\d{4})_", v.name)
+            if not m:
+                continue
+            at = datetime.strptime(m.group(1), "%Y-%m-%d_%H%M")
+            if not timedelta(minutes=-1) <= at - begin <= timedelta(minutes=2):
+                continue
+            notes = v.with_suffix(".md")
+            if notes.exists():
+                s = re.search(r"Recording started: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", notes.read_text(encoding="utf-8", errors="replace"))
+                if s:
+                    return v, datetime.strptime(s.group(1), "%Y-%m-%d %H:%M:%S")
+            return v, begin + timedelta(seconds=20)
+    return None, None
+
+
 def recording_of(run: Path):
     """(video file, wall clock when its recording started) for the watched match in 'run': the
     recording of its label that started within 5 minutes after the match (labels repeat on restarts)."""
+    if "-watch-" in run.name:
+        return test_recording(run)
     label = run.name.split("-solo-")[0]
     begin = started(run)
     if not WATCH_LOG.exists():
@@ -158,11 +188,19 @@ def main() -> int:
     card = ""
     try:
         sys.path.insert(0, str(ROOT / "lab"))
-        import scorecard
-        text, _ = scorecard.report(scorecard.measure(run))
-        card = text
+        if "-watch-" in run.name:
+            # A sub-lab test: its runner's own summary (inftest, guntest, drivetest), not the main battle's scorecard.
+            runner = __import__(run.name.split("-", 1)[0])
+            parts = re.sub(r"-watch-\d{8}-\d{6}$", "", run.name).split("-", 1)[1]
+            scenario, variant = parts.rsplit("-", 1)
+            r = runner.summarize(run, scenario, variant)
+            card = "\n".join(f"{k}: {v}" for k, v in r.items() if v not in (None, "", 0) and not isinstance(v, (dict, list)))
+        else:
+            import scorecard
+            text, _ = scorecard.report(scorecard.measure(run))
+            card = text
     except Exception as e:
-        card = f"(scorecard: {e})"
+        card = f"(summary: {e})"
     summary = [
         f"# Report {n} ({a.kind}): {a.text}",
         "",

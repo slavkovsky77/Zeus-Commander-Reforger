@@ -62,6 +62,7 @@ def main() -> int:
     runner = subprocess.Popen([sys.executable, "-u", str(HERE / f"{a.runner}.py"), a.scenario, "--variant", a.variant, "--minutes", str(a.minutes), "--watch", "--port", "2178", "--speed", str(a.speed)] + (["--cars", str(a.cars)] if a.cars else []),
                               cwd=str(ROOT))
     ff = None
+    rec_start = datetime.now()
     t0 = time.time()
     while runner.poll() is None and ff is None and time.time() - t0 < 300:
         pid = game_pid(tag)
@@ -69,6 +70,7 @@ def main() -> int:
         if hwnd:
             time.sleep(5)
             ff = watch_loop.ffmpeg_start(mkv, hwnd)
+            rec_start = datetime.now()     # for lab/report.py: frames at the moment of Martin's remark
             print(f"recording the game window -> {mkv}", flush=True)
         else:
             time.sleep(5)
@@ -81,6 +83,8 @@ def main() -> int:
             mkv.unlink(missing_ok=True)
             print(f"video: {mp4}", flush=True)
             describe(mp4, a, tag)
+            with open(mp4.with_suffix(".md"), "a", encoding="utf-8") as f:
+                f.write(f"\nRecording started: {rec_start:%Y-%m-%d %H:%M:%S}\n")
     else:
         print("no game window found - nothing recorded", flush=True)
     return runner.returncode or 0
