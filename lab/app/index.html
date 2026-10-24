@@ -65,6 +65,11 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .maplbl { font: 700 12px var(--f-display); letter-spacing: .02em; background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: none; padding: 2px 6px; }
 .maplbl::before { display: none; }
 .map-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.mapsel { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid #7a3fd1; border-radius: 8px; background: var(--panel); line-height: 1.5; }
+.mapsel button { margin-left: 8px; font: 13px var(--f-body); padding: 2px 10px; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+table.missions tr[data-key] { cursor: pointer; }
+table.missions tr[data-key]:hover td { background: var(--field); }
+table.missions tr.on td { background: color-mix(in srgb, #7a3fd1 18%, transparent); }
 .map-controls label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
 .map-controls select { font: 14px var(--f-body); padding: 4px 6px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
 .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 16px; font-size: 13.5px; }
@@ -343,8 +348,10 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div><span class="dot" style="background:#e07b00"></span>Orange: vehicles stuck or given up there (bigger = more often)</div>
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:4px;vertical-align:3px"></span>Purple line: a planned supply route (lab/roadgraph.py)</div>
         <div><span class="dot" style="background:var(--us)"></span>Live: a team (blue US, red USSR), a line to the base it heads for</div>
-        <div><span class="dot" style="background:#a05a00;border-radius:2px"></span>Live: a supply truck or test van; dashed: the game's own path now</div>
+        <div><span class="dot" style="background:#a05a00;border-radius:2px"></span>Live: a supply truck (square) or test van (dot) - click one for its route</div>
+        <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:6px;vertical-align:2px"></span>Selected: its planned route; solid: where it drove; white dashes: the game's path now; ring: its goal</div>
       </div>
+      <div id="map-sel"></div>
       <div id="map-missions"></div>
       <p class="muted">Map © <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>, drawn from the game's files; not affiliated with Bohemia Interactive. Layers from our run logs since 20 Oct (lab/maplayers.py).</p>
     </div>
@@ -375,6 +382,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         try { const saved = localStorage.getItem("lab-" + id); if (saved) $(id).value = saved; } catch (_) {}
         $(id).addEventListener("change", () => { try { localStorage.setItem("lab-" + id, $(id).value); } catch (_) {} this.layers(); });
       }
+      try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
       for (const k of ["bases", "spots", "built", "traps", "routes"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
@@ -393,6 +401,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       this.tiles();
       this.view.fitBounds([[0, 0], [meta.worldSize, meta.worldSize]]);
       for (const k of ["traps", "routes", "built", "spots", "bases", "live"]) this.groups[k] = L.layerGroup();   // drawn bottom to top
+      this.view.on("click", () => { if (this.sel) this.pick(this.sel); });
       this.toggle();
       this.layers();
       this.live();
@@ -412,54 +421,129 @@ video { width: 100%; border-radius: 8px; background: #000; }
       for (const k of ["traps", "routes", "built", "spots", "bases"]) {
         const g = this.groups[k];
         if (!g || !this.view) continue;
-        if ($("map-l-" + k).checked) g.addTo(this.view); else g.remove();
+        if ($("map-l-" + k).checked && !(k === "routes" && this.sel)) g.addTo(this.view); else g.remove();   // one selected: its route alone
       }
     },
+    // The live layer (every 5 s while the tab is open). A click on a van, truck or team - or its row in the table - selects
+    // it (25 Oct - Martin: "on the map if I click on the van it should show me his route"): its planned route, the game's
+    // path now, where it has driven, its goal; a click on the empty map clears it.
+    sel: null, d: null,
     async live() {
       const g = this.groups.live;
       if (!g || !this.view) return;
-      if (!$("map-l-live").checked) { g.remove(); $("map-missions").innerHTML = ""; return; }
+      if (!$("map-l-live").checked) { g.remove(); $("map-missions").innerHTML = ""; $("map-sel").innerHTML = ""; return; }
       g.addTo(this.view);
-      let d;
-      try { d = await (await fetch(`/api/map/live?map=${this.name}`)).json(); } catch (e) { return; }
+      try { this.d = await (await fetch(`/api/map/live?map=${this.name}`)).json(); } catch (e) { return; }
+      this.draw();
+    },
+    pick(key, fit) {
+      this.sel = this.sel === key ? null : key;
+      this.toggle();
+      this.draw();
+      if (fit && this.sel && this.selBounds) this.view.fitBounds(this.selBounds, { padding: [30, 30], maxZoom: this.view.getZoom() + 2 });
+    },
+    len(pts) { let m = 0; for (let i = 1; i < (pts || []).length; i++) m += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return m; },
+    left(pts, x, z) {   // the route from its point nearest to (x, z) to its end
+      if (!pts || !pts.length) return 0;
+      let best = 0, bd = Infinity;
+      pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = i; } });
+      return bd + this.len(pts.slice(best));
+    },
+    km(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; },
+    draw() {
+      const g = this.groups.live, d = this.d;
+      if (!g || !d) return;
       g.clearLayers();
-      if (!d.live) { $("map-missions").innerHTML = '<p class="muted">No game running on this map right now - the live layer shows teams, supply trucks and test vans while one runs.</p>'; return; }
+      this.selBounds = null;
+      if (!d.live) {
+        $("map-missions").innerHTML = '<p class="muted">No game running on this map right now - the live layer shows teams, supply trucks and test vans while one runs.</p>';
+        $("map-sel").innerHTML = "";
+        return;
+      }
       const side = { US: this.css("--us"), USSR: this.css("--ussr"), FIA: this.css("--fia") };
       const baseAt = {};
       for (const b of (this.lastBases || [])) baseAt[b.name] = b;
+      const trails = d.trails || {};
+      const sel = this.sel, dim = (k) => sel && sel !== k ? .35 : 1;
+      const opts = (o) => Object.assign({ bubblingMouseEvents: false }, o);
+      const ll = (pts) => pts.map(p => [p[1], p[0]]);
+      const extra = [];   // the selected one's lines, drawn under the markers
+      let info = "";
+      const drawSel = (key, x, z, colour, route, path, goal) => {
+        const tr = trails[key] || [];
+        const all = [[x, z]];
+        if (tr.length > 1) { extra.push(L.polyline(ll(tr), { color: colour, weight: 3, opacity: .55, interactive: false })); all.push(...tr); }
+        if (route && route.length > 1) { extra.push(L.polyline(ll(route), { color: "#7a3fd1", weight: 6, opacity: .8, interactive: false })); all.push(...route); }
+        if (path && path.length > 1) { extra.push(L.polyline(ll(path), { color: "#fff", weight: 2.5, opacity: .95, dashArray: "6 5", interactive: false })); }
+        if (goal) {
+          extra.push(L.circleMarker([goal[1], goal[0]], { radius: 9, color: "#7a3fd1", weight: 3, fillColor: "#fff", fillOpacity: .9, interactive: false }));
+          all.push(goal);
+        }
+        if (tr.length) extra.push(L.circleMarker([tr[0][1], tr[0][0]], { radius: 5, color: colour, weight: 2, fillColor: "#fff", fillOpacity: 1, interactive: false }));
+        extra.push(L.circleMarker([z, x], { radius: 13, color: this.css("--accent"), weight: 3, fill: false, interactive: false }));
+        this.selBounds = L.latLngBounds(ll(all));
+        return tr;
+      };
+      const markers = [];
       for (const t of d.teams) {
-        const c = side[t.side] || this.css("--muted");
-        const b = baseAt[t.to];
-        if (b) L.polyline([[t.z, t.x], [b.z, b.x]], { color: c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }).addTo(g);
-        L.circleMarker([t.z, t.x], { radius: 4 + Math.min(4, t.men || 0), color: "#fff", weight: 1.5, fillColor: c, fillOpacity: .95 })
+        const key = `team:${t.side}:${t.id}`, c = side[t.side] || this.css("--muted"), b = baseAt[t.to];
+        if (key === sel) {
+          const tr = drawSel(key, t.x, t.z, c, null, null, b ? [b.x, b.z] : null);
+          info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc((t.role || "").toLowerCase())}${t.ride ? ", riding" : ", on foot"}${b ? ` → ${esc(t.to)}, ${this.km(Math.hypot(b.x - t.x, b.z - t.z))} to go (straight)` : ""} · moved ${this.km(this.len(tr))} on this map so far`;
+        } else if (b && !sel) extra.push(L.polyline([[t.z, t.x], [b.z, b.x]], { color: c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
+        markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: "#fff", weight: 1.5, fillColor: c, fillOpacity: .95 * dim(key), opacity: dim(key) }))
           .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc((t.role || "").toLowerCase())}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " → " + esc(t.to) : ""}`)
-          .addTo(g);
+          .on("click", () => this.pick(key)));
       }
-      const rows = [];
+      const rows = [], seen = new Set();
       for (const v of d.vans) {
-        const r = d.routes[v.id];
-        if (r) L.polyline(r.map(p => [p[1], p[0]]), { color: "#7a3fd1", weight: 4, opacity: .55, interactive: false }).addTo(g);
-        const p = d.paths[v.id];
-        if (p) L.polyline(p.map(q => [q[1], q[0]]), { color: "#a05a00", weight: 2, opacity: .9, dashArray: "5 5", interactive: false }).addTo(g);
-        L.circleMarker([v.z, v.x], { radius: 6, color: "#fff", weight: 2, fillColor: "#a05a00", fillOpacity: 1 })
-          .bindTooltip(`Van ${esc(v.id)}: ${esc((v.phase || "").toLowerCase())}${v.to ? " → " + esc(v.to) : ""}, ${Math.round(v.cargo || 0)} supplies, ${Math.round(v.kmh || 0)} km/h`)
-          .addTo(g);
-        rows.push([`Van ${v.id}`, "test", (v.phase || "").toLowerCase(), "depot", v.to || "", `${Math.round(v.cargo || 0)}`, `${Math.round(v.kmh || 0)}`, v.route >= 0 ? "planned" : "game's"]);
+        const key = `van:${v.id}`, r = d.routes[v.id], p = d.paths[v.id];
+        seen.add(key);
+        if (key === sel) {
+          const goal = r ? r[r.length - 1] : (baseAt[v.to] ? [baseAt[v.to].x, baseAt[v.to].z] : null);
+          const tr = drawSel(key, v.x, v.z, "#a05a00", r, p, goal);
+          const leftM = r ? this.left(r, v.x, v.z) : (goal ? Math.hypot(goal[0] - v.x, goal[1] - v.z) : 0);
+          info = `<b>Van ${esc(v.id)}</b> - ${esc((v.phase || "").toLowerCase())}${v.to ? " → " + esc(v.to) : ""} · ${Math.round(v.cargo || 0)} supplies · ${Math.round(v.kmh || 0)} km/h<br>`
+            + (r ? `Planned route ${this.km(this.len(r))} (purple), about ${this.km(leftM)} left` : `No planned route - the game's own driver picks the way${goal ? `, ${this.km(leftM)} to go (straight)` : ""}`)
+            + ` · driven ${this.km(this.len(tr))} (solid)${p ? " · white dashes: the path the game plans right now" : ""}`;
+        }
+        markers.push(L.circleMarker([v.z, v.x], opts({ radius: 7, color: "#fff", weight: 2, fillColor: "#a05a00", fillOpacity: dim(key), opacity: dim(key) }))
+          .bindTooltip(`Van ${esc(v.id)}: ${esc((v.phase || "").toLowerCase())}${v.to ? " → " + esc(v.to) : ""}, ${Math.round(v.cargo || 0)} supplies, ${Math.round(v.kmh || 0)} km/h - click for its route`)
+          .on("click", () => this.pick(key)));
+        rows.push([key, `Van ${v.id}`, "test", (v.phase || "").toLowerCase(), "depot", v.to || "", `${Math.round(v.cargo || 0)}`, `${Math.round(v.kmh || 0)}`, v.route >= 0 ? "planned" : "game's"]);
       }
       for (const t of d.trucks) {
-        const c = side[t.side] || "#a05a00";
-        const b = baseAt[t.to];
-        if (b) L.polyline([[t.z, t.x], [b.z, b.x]], { color: c, weight: 2, opacity: .6, dashArray: "8 4", interactive: false }).addTo(g);
-        L.rectangle([[t.z - 18, t.x - 18], [t.z + 18, t.x + 18]], { color: "#fff", weight: 2, fillColor: c, fillOpacity: 1 })
-          .bindTooltip(`${esc(t.side)} supply truck ${esc(t.id)}: ${esc((t.phase || "").replace(/_/g, " ").toLowerCase())}, ${esc(t.from || "")} → ${esc(t.to || "")}, ${t.cargo >= 0 ? Math.round(t.cargo) + "/" + Math.round(t.cap) : "?"} supplies`)
-          .addTo(g);
-        rows.push([`Truck ${t.id}`, t.side, (t.phase || "").replace(/_/g, " ").toLowerCase(), t.from || "", t.to || "", t.cargo >= 0 ? `${Math.round(t.cargo)}/${Math.round(t.cap)}` : "?", `${Math.round(t.kmh || 0)}`, ""]);
+        const key = `truck:${t.side}:${t.id}`, c = side[t.side] || "#a05a00", b = baseAt[t.to];
+        if (key === sel) {
+          const route = t.wps && t.wps.length ? [[t.x, t.z], ...t.wps] : null;
+          const tr = drawSel(key, t.x, t.z, c, route, null, route ? route[route.length - 1] : (b ? [b.x, b.z] : null));
+          info = `<b>${esc(t.side)} supply truck ${esc(t.id)}</b> - ${esc((t.phase || "").replace(/_/g, " ").toLowerCase())}, ${esc(t.from || "")} → ${esc(t.to || "")} · ${t.cargo >= 0 ? Math.round(t.cargo) + "/" + Math.round(t.cap) : "?"} supplies · ${Math.round(t.kmh || 0)} km/h<br>`
+            + (route ? `Road route ahead ${this.km(this.len(route))} (purple, the road graph's waypoints)` : "No road route - the game's own driver picks the way") + ` · driven ${this.km(this.len(tr))} (solid)`;
+        } else if (b && !sel) extra.push(L.polyline([[t.z, t.x], [b.z, b.x]], { color: c, weight: 2, opacity: .6, dashArray: "8 4", interactive: false }));
+        markers.push(L.rectangle([[t.z - 18, t.x - 18], [t.z + 18, t.x + 18]], opts({ color: "#fff", weight: 2, fillColor: c, fillOpacity: dim(key), opacity: dim(key) }))
+          .bindTooltip(`${esc(t.side)} supply truck ${esc(t.id)}: ${esc((t.phase || "").replace(/_/g, " ").toLowerCase())}, ${esc(t.from || "")} → ${esc(t.to || "")}, ${t.cargo >= 0 ? Math.round(t.cargo) + "/" + Math.round(t.cap) : "?"} supplies - click for its route`)
+          .on("click", () => this.pick(key)));
+        rows.push([key, `Truck ${t.id}`, t.side, (t.phase || "").replace(/_/g, " ").toLowerCase(), t.from || "", t.to || "", t.cargo >= 0 ? `${Math.round(t.cargo)}/${Math.round(t.cap)}` : "?", `${Math.round(t.kmh || 0)}`, t.wps ? "road graph" : ""]);
       }
+      // A selected van that has finished (delivered and gone): its whole drive.
+      if (sel && sel.startsWith("van:") && !seen.has(sel) && trails[sel]) {
+        const tr = trails[sel], end = tr[tr.length - 1];
+        drawSel(sel, end[0], end[1], "#a05a00", null, null, null);
+        info = `<b>Van ${esc(sel.slice(4))}</b> - finished: delivered and taken off the map · drove ${this.km(this.len(tr))} (solid)`;
+      }
+      for (const l of extra) l.addTo(g);
+      for (const m of markers) m.addTo(g);
+      $("map-sel").innerHTML = sel
+        ? `<div class="mapsel">${info || "It isn't on the map any more."} <button type="button" id="map-sel-clear">Clear</button></div>`
+        : `<p class="muted">Click a van, truck or team on the map - or a row below - to see its route.</p>`;
+      const clr = $("map-sel-clear");
+      if (clr) clr.onclick = () => this.pick(sel);
       $("map-missions").innerHTML = rows.length ? `<h3 style="margin:6px 0">Supply missions now <span class="muted mono">(${esc(d.run)}, game t=${d.t} s)</span></h3>
-        <div style="overflow-x:auto"><table class="mono" style="border-collapse:collapse;width:100%;font-size:13px">
+        <div style="overflow-x:auto"><table class="mono missions" style="border-collapse:collapse;width:100%;font-size:13px">
         <tr>${["Vehicle", "Side", "Doing", "From", "To", "Supplies", "km/h", "Route"].map(h => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)">${h}</th>`).join("")}</tr>
-        ${rows.map(r => `<tr>${r.map(c => `<td style="padding:4px 8px;border-bottom:1px solid var(--line)">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>`
+        ${rows.map(r => `<tr data-key="${esc(r[0])}"${r[0] === sel ? ' class="on"' : ""}>${r.slice(1).map(c => `<td style="padding:4px 8px;border-bottom:1px solid var(--line)">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>`
         : `<p class="muted">${d.teams.length} teams live, no supply missions right now.</p>`;
+      for (const tr of $("map-missions").querySelectorAll("tr[data-key]")) tr.onclick = () => this.pick(tr.dataset.key, true);
     },
     async layers() {
       let d;

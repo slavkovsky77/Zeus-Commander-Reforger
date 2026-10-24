@@ -2,7 +2,7 @@
 // that kind of thing - that can be done in the Commander Lab"): every LIVE_S seconds one line per team, AI Conflict supply
 // truck and drive-test van, read by lab/app/server.py (/api/map/live) and drawn on the Map tab. Names last, spaces as _.
 //   [ZCR][LIVE] t= kind=team side= id= role= men= ride= x= z= to=
-//   [ZCR][LIVE] t= kind=truck side= id= phase= cargo= cap= kmh= x= z= from= to=
+//   [ZCR][LIVE] t= kind=truck side= id= phase= cargo= cap= kmh= x= z= wps=x,z;x,z from= to=
 //   [ZCR][LIVE] t= kind=van id= phase= cargo= kmh= route= x= z= to=
 // -zcrNoLiveMap off.
 class ZCR_LiveMap
@@ -80,9 +80,20 @@ class ZCR_LiveMap
 			string side = "?";
 			if (w.m_Faction)
 				side = w.m_Faction.GetFactionKey();
+			// The road route still ahead (AICF_RoadGraph's waypoints, then the job's own), for the map's click-a-truck view.
+			string wps;
+			foreach (AIWaypoint rw : w.m_aRouteWaypoints)
+			{
+				if (rw)
+					wps += string.Format("%1,%2;", Math.Round(rw.GetOrigin()[0]), Math.Round(rw.GetOrigin()[2]));
+			}
+			if (w.m_Waypoint)
+				wps += string.Format("%1,%2", Math.Round(w.m_Waypoint.GetOrigin()[0]), Math.Round(w.m_Waypoint.GetOrigin()[2]));
+			if (wps.IsEmpty())
+				wps = "-";
 			Print(string.Format("[ZCR][LIVE] t=%1 kind=truck side=%2 id=%3 phase=%4 cargo=%5 cap=%6 kmh=%7 x=%8 z=%9", now, side, w.m_iSlot,
 				typename.EnumToString(AICF_ELogisticsPhase, w.m_ePhase), Math.Round(cargo), Math.Round(cap), Math.Round(kmh), Math.Round(p[0]), Math.Round(p[2]))
-				+ string.Format(" from=%1 to=%2", from, to), LogLevel.NORMAL);
+				+ string.Format(" wps=%1 from=%2 to=%3", wps, from, to), LogLevel.NORMAL);
 		}
 		ZCR_DriveTest.LiveLines(now);
 	}

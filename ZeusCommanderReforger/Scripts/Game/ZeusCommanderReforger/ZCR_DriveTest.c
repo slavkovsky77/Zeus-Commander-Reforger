@@ -415,7 +415,10 @@ class ZCR_DriveTest
 			if (c.m_bLost || c.m_bDone || !c.m_Vehicle)
 				continue;
 			units.Insert(c.m_Vehicle);
-			labels.Insert(string.Format("TEST CAR %1 to %2, leg %3", c.m_iIndex, ToName(c.m_bToB), c.m_iLeg));
+			if (s_Instance.m_bDepots)
+				labels.Insert(TagFor(c.m_Vehicle));
+			else
+				labels.Insert(string.Format("TEST CAR %1 to %2, leg %3", c.m_iIndex, ToName(c.m_bToB), c.m_iLeg));
 		}
 	}
 
@@ -423,6 +426,8 @@ class ZCR_DriveTest
 	{
 		if (!s_Instance)
 			return null;
+		if (s_Instance.m_bDepots)
+			return s_Instance.SupplyShot(label);
 		ZCR_DriveCar pick;
 		float best = 200;
 		int now = ZCR_LossLog.Seconds();
@@ -472,6 +477,40 @@ class ZCR_DriveTest
 		if (s_Instance.m_bConvoy)
 			who = string.Format("CONVOY %1, CAR", pick.m_iConvoy);
 		label = string.Format("%1 %2 to %3, leg %4, %5 s%6", who, pick.m_iIndex, ToName(pick.m_bToB), pick.m_iLeg, now - pick.m_iLegStart, where);
+		return pick.m_Vehicle;
+	}
+
+	// AUTO on the supply run (25 Oct - Martin: "auto doesn't work": it showed the vans in number order every 25 s, standing
+	// ones too, captioned "CONVOY 1, CAR 7 to B"): a van loading or unloading first; then one whose driver isn't in yet
+	// (the game window seats far drivers only near the camera); then the next one on the move; else the next at all.
+	// The caption is the van's tag.
+	protected IEntity SupplyShot(out string label)
+	{
+		int n = m_aCars.Count();
+		ZCR_DriveCar pick;
+		for (int pass; !pick && pass < 4 && n > 0; pass++)
+		{
+			for (int i = 1; !pick && i <= n; i++)
+			{
+				ZCR_DriveCar c = m_aCars[(m_iCamTurn + i) % n];
+				bool unloading = c.m_sPhase.StartsWith("UNLOADING");
+				if (c.m_bLost || !c.m_Vehicle || (c.m_bDone && !unloading))
+					continue;
+				if (pass == 0 && !unloading && !c.m_sPhase.StartsWith("LOADING"))
+					continue;
+				if (pass == 1 && (c.m_bDone || !c.m_Group || Driven(c)))
+					continue;
+				if (pass == 2 && (!c.m_Vehicle.GetPhysics() || c.m_Vehicle.GetPhysics().GetVelocity().Length() < 1.5))
+					continue;
+				pick = c;
+				m_iCamTurn = (m_iCamTurn + i) % n;
+			}
+		}
+		if (!pick)
+			return null;
+		label = TagFor(pick.m_Vehicle);
+		if (!pick.m_bDone && pick.m_Group && !Driven(pick))
+			label += "  |  waiting for its driver to get in";
 		return pick.m_Vehicle;
 	}
 
@@ -661,21 +700,32 @@ class ZCR_DriveTest
 		float amount = car.m_fCargo;
 		if (cargo)
 			amount = cargo.GetResourceValue();
+		// Only what the base's store has room for (25 Oct: Moss Hill, the Farm and Beauregard were full after one or two
+		// vans and the rest vanished; Signal Hill has no store at all); the rest stays in the van.
 		float before = -1;
 		float after = -1;
+		float room;
+		float storage = -1;
 		if (to)
 		{
 			before = to.GetSupplies();
-			to.AddSupplies(Math.Round(amount));
+			storage = to.GetSuppliesMax();
+			room = Math.Max(0, Math.Min(amount, storage - before));
+			to.AddSupplies(Math.Round(room));
 			after = to.GetSupplies();
 		}
+		float kept = amount - room;
 		if (cargo)
-			cargo.SetResourceValue(0);
-		car.m_fCargo = 0;
+			cargo.SetResourceValue(kept);
+		car.m_fCargo = kept;
 		car.m_sPhase = "UNLOADING at " + car.m_sToBase;
+		if (storage <= 0)
+			car.m_sPhase += " - no supply store here";
+		else if (kept > 0)
+			car.m_sPhase += string.Format(" - store full, %1 kept", Math.Round(kept));
 		ZCR_Traffic.Limit(car.m_Vehicle, "loading", 0);
-		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=UNLOAD base=%3 amount=%4 base_before=%5 base_after=%6", now, car.m_iIndex, car.m_sToBase,
-			Math.Round(amount), Math.Round(before), Math.Round(after)), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=UNLOAD base=%3 amount=%4 base_before=%5 base_after=%6 storage=%7 kept=%8", now, car.m_iIndex,
+			car.m_sToBase, Math.Round(room), Math.Round(before), Math.Round(after), Math.Round(storage), Math.Round(kept)), LogLevel.NORMAL);
 	}
 
 	// The live map's van lines (ZCR_LiveMap): where each car is, what it does, its cargo and goal.

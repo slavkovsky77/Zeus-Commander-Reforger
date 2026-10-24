@@ -1014,6 +1014,9 @@ class ZCR_Director
 		}
 		else if (cmd == "auto")
 		{
+			// Out of free look, so the director's shots show (25 Oct - Martin: "auto doesn't work").
+			if (ZCR_Watch.IsFree())
+				ZCR_Watch.SetFree(false);
 			m_bLocked = false;
 			m_bHold = false;
 			m_fZoom = 1;
@@ -1046,7 +1049,9 @@ class ZCR_Director
 			m_sKind = cmd.Substring(5, cmd.Length() - 5);
 			m_iGroupsAt = -1000;
 			Print(string.Format("[ZCR][CAMUI] t=%1 step through %2", now, m_sKind), LogLevel.NORMAL);
-			StepGroup(now, 1);
+			// A lab test's own vehicles (25 Oct: VEHICLES said "no vehicles now" on the supply test).
+			if (m_sKind == "drones" || !StepTest(now, 1))
+				StepGroup(now, 1);
 		}
 		else if (cmd == "point+" || cmd == "point-")
 		{
@@ -1089,9 +1094,15 @@ class ZCR_Director
 			return false;
 		m_iTestTurn = (m_iTestTurn + dir + units.Count()) % units.Count();
 		IEntity u = units[m_iTestTurn];
+		// Held until AUTO, like a picked team (25 Oct: the picked van went after 17 s - an earlier tap's 30 s spot timer
+		// released it - and AUTO showed ON meanwhile).
+		if (ZCR_Watch.IsFree())
+			ZCR_Watch.SetFree(false);
 		m_bHold = true;
+		m_bLocked = true;
+		m_iSpotUntil = 0;
 		m_iShotEnd = now + 25;
-		Show(u.GetOrigin(), 30, 14, u, string.Format("%1 (%2 of %3)", labels[m_iTestTurn], m_iTestTurn + 1, units.Count()), false);
+		Show(u.GetOrigin(), 30, 14, u, string.Format("FOLLOWING %1 (%2 of %3)", labels[m_iTestTurn], m_iTestTurn + 1, units.Count()), false);
 		return true;
 	}
 
@@ -1342,16 +1353,26 @@ class ZCR_Director
 	protected void StepPoint(int now, int dir)
 	{
 		array<int> nodes = {};
+		array<vector> spots = {};
+		array<string> names = {};
+		array<string> owners = {};
 		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
 		{
 			// One side: its own bases and the one it attacks.
 			if (!m_sFocus.IsEmpty() && ZCR_Strategist.s_mNodeOwner.Get(node) != m_sFocus && node != ZCR_StrategicPlan.Get(m_sFocus).GetMainEffort())
 				continue;
-			int at = 0;
-			while (at < nodes.Count() && nodes[at] < node)
-				at++;
-			nodes.InsertAt(node, at);
+			int slot = 0;
+			while (slot < nodes.Count() && nodes[slot] < node)
+				slot++;
+			nodes.InsertAt(node, slot);
+			spots.InsertAt(pos, slot);
+			names.InsertAt(ZCR_Strategist.s_mNodeName.Get(node), slot);
+			owners.InsertAt(ZCR_Strategist.s_mNodeOwner.Get(node), slot);
 		}
+		// A lab test runs with AI Conflict off - no commander's map (25 Oct - Martin: "next/prev point doesn't work
+		// here"): the map's own bases.
+		if (nodes.IsEmpty())
+			MapBases(nodes, spots, names, owners);
 		if (nodes.IsEmpty())
 			return;
 		int i = nodes.Find(m_iPoint);
@@ -1364,7 +1385,7 @@ class ZCR_Director
 		else
 			i = (i + dir + nodes.Count()) % nodes.Count();
 		m_iPoint = nodes[i];
-		vector at = ZCR_Strategist.s_mNodePos.Get(m_iPoint);
+		vector at = spots[i];
 		int us, ussr;
 		foreach (IEntity e : m_aMen)
 		{
@@ -1379,10 +1400,54 @@ class ZCR_Director
 		m_bHold = true;
 		m_bLocked = true;
 		m_iSpotUntil = 0;
-		string label = string.Format("LOCKED - POINT %1 (%2) - within 300 m: US %3, USSR %4", ZCR_Strategist.s_mNodeName.Get(m_iPoint),
-			ZCR_Strategist.s_mNodeOwner.Get(m_iPoint), us, ussr);
+		string label = string.Format("LOCKED - POINT %1 (%2) - within 300 m: US %3, USSR %4", names[i], owners[i], us, ussr);
+		SCR_CampaignMilitaryBaseComponent store = BaseNear(at);
+		if (store)
+			label += string.Format(" - supplies %1", Math.Round(store.GetSupplies()));
 		Show(at, 180, 150, null, label, true);
-		Print(string.Format("[ZCR][CAMUI] t=%1 point %2", now, ZCR_Strategist.s_mNodeName.Get(m_iPoint)), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][CAMUI] t=%1 point %2", now, names[i]), LogLevel.NORMAL);
+	}
+
+	// The map's own bases (Conflict's), in the system's order - the points when no commander has mapped them.
+	protected void MapBases(notnull array<int> ids, notnull array<vector> spots, notnull array<string> names, notnull array<string> owners)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetOwner())
+				continue;
+			string owner = "-";
+			if (base.GetFaction())
+				owner = base.GetFaction().GetFactionKey();
+			if (!m_sFocus.IsEmpty() && owner != m_sFocus)
+				continue;
+			ids.Insert(ids.Count());
+			spots.Insert(base.GetOwner().GetOrigin());
+			names.Insert(ZCR_Strategist.BaseName(base));
+			owners.Insert(owner);
+		}
+	}
+
+	// The Conflict base at a point (within 60 m) - its supplies for the POINT caption.
+	protected static SCR_CampaignMilitaryBaseComponent BaseNear(vector p)
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return null;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (base && base.GetOwner() && vector.DistanceXZ(base.GetOwner().GetOrigin(), p) < 60)
+				return base;
+		}
+		return null;
 	}
 
 	// NEXT / PREV GROUP: every team on the map, the two sides in turn (Martin: "I can only switch between

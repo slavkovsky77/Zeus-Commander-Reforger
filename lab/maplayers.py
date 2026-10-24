@@ -224,6 +224,21 @@ PATH_OF = re.compile(r"car=(\d+) event=PATH n=\d+ pts=(\S+)")
 _live_world = {}
 
 
+def run_routes(run: Path) -> list:
+    """The run's own planned routes (its seeded profile/zcr/routes.txt): [((fx, fz, tx, tz), [[x, z], ...]), ...] by number."""
+    f = run / "profile" / "zcr" / "routes.txt"
+    out = []
+    if not f.exists():
+        return out
+    for line in f.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if parts[:1] == ["route"] and len(parts) >= 7:
+            out.append((tuple(int(float(v)) for v in parts[2:6]), []))
+        elif len(parts) == 2 and out:
+            out[-1][1].append([float(parts[0]), float(parts[1])])
+    return out
+
+
 def live(map_slug: str) -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
     test vans - with each van's planned route and the game's current path (lab app /api/map/live)."""
@@ -248,10 +263,27 @@ def live(map_slug: str) -> dict:
             return {"run": run.name, "live": False}
         last = max(r[0] for r in rows)
         units = {"team": [], "truck": [], "van": []}
+        # Where each vehicle and team has been (the click-a-van view): "van:7", "truck:US:2", "team:USSR:A3" -> [[x, z], ...].
+        trails = {}
+        for tt, kind, rest in rows:
+            u = dict(kv.split("=", 1) for kv in rest.split() if "=" in kv)
+            key = f"{kind}:{u.get('id')}" if kind == "van" else f"{kind}:{u.get('side')}:{u.get('id')}"
+            try:
+                pt = [float(u["x"]), float(u["z"])]
+            except (KeyError, ValueError):
+                continue
+            tr = trails.setdefault(key, [])
+            if not tr or abs(tr[-1][0] - pt[0]) + abs(tr[-1][1] - pt[1]) > 4:
+                tr.append(pt)
         for tt, kind, rest in rows:
             if tt < last - 4 or kind not in units:
                 continue
             u = dict(kv.split("=", 1) for kv in rest.split() if "=" in kv)
+            # A truck's road route still ahead (ZCR_LiveMap wps=x,z;x,z).
+            if u.get("wps", "-") != "-":
+                u["wps"] = [[float(v) for v in xy.split(",")] for xy in u["wps"].split(";") if "," in xy]
+            else:
+                u.pop("wps", None)
             for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route"):
                 if k in u:
                     try:
@@ -264,14 +296,26 @@ def live(map_slug: str) -> dict:
             units[kind].append(u)
         # Vans: their planned route (lab/roadgraph.py routes.json, by the route the game picked) and the game's own path now.
         paths = {m.group(1): [[float(v) for v in xy.split(",")] for xy in m.group(2).split(";")] for m in PATH_OF.finditer(tail)}
+        # The route number is the line in the run's own routes.txt (seeded at its start); its road points come from
+        # routes.json by the same ends, else the run's waypoints themselves (routes.json rebuilt since).
         routes = {}
         rf = ROOT / ".runtime" / "maps" / map_slug / "routes.json"
-        if units["van"] and rf.exists():
-            ok = [r for r in json.loads(rf.read_text(encoding="utf-8")).get("routes", []) if r.get("ok")]
+        mine = run_routes(run)
+        if units["van"] and (rf.exists() or mine):
+            ok = [r for r in json.loads(rf.read_text(encoding="utf-8")).get("routes", []) if r.get("ok")] if rf.exists() else []
+            by_ends = {(round(r["a"][0]), round(r["a"][1]), round(r["b"][0]), round(r["b"][1])): r for r in ok}
             for v in units["van"]:
                 ri = int(v.get("route", -1))
-                if 0 <= ri < len(ok):
+                if ri < 0:
+                    continue
+                if mine:
+                    if ri >= len(mine):
+                        continue
+                    ends, wps = mine[ri]
+                    r = by_ends.get(ends)
+                    routes[v["id"]] = r["points"][::2] + [r["points"][-1]] if r else wps
+                elif ri < len(ok):
                     routes[v["id"]] = ok[ri]["points"][::2] + [ok[ri]["points"][-1]]
         return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"],
-                "paths": paths, "routes": routes}
+                "paths": paths, "routes": routes, "trails": trails}
     return {"live": False}
