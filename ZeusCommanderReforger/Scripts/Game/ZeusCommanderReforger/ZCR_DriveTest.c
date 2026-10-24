@@ -63,6 +63,11 @@ class ZCR_DriveTest
 	protected int m_iNextSum = 60;
 	protected bool m_bConvoy;
 	protected vector m_vA2;          // "pair": the second start point
+	// "depots" (24 Oct, report 27 / note 386): every start point as given (AI Conflict's depot spots, off the road), one car
+	// from each in turn, all leaving together; at the start a [ZCR][ACCESS] line a spot - can a van drive straight to a road
+	// from it (AICF_DepotAccess, the base builder's new depot check)?
+	protected bool m_bDepots;
+	protected ref array<vector> m_aStarts = {};
 	protected int m_iConvoy = 1;
 	protected int m_iConvoySpawned;
 	protected int m_iConvoyStart;
@@ -98,7 +103,13 @@ class ZCR_DriveTest
 		if (parts.Count() > 4 && parts[4] != "-")
 			s_Instance.m_vVia = Point(parts[4]);
 		s_Instance.m_bBoth = parts.Count() > 5 && parts[5] == "both";
-		s_Instance.m_bConvoy = parts.Count() > 5 && (parts[5] == "convoy" || parts[5] == "pair");
+		s_Instance.m_bConvoy = parts.Count() > 5 && (parts[5] == "convoy" || parts[5] == "pair" || parts[5] == "depots");
+		s_Instance.m_bDepots = parts.Count() > 5 && parts[5] == "depots";
+		if (s_Instance.m_bDepots)
+		{
+			foreach (string s : starts)
+				s_Instance.m_aStarts.Insert(Point(s));
+		}
 		s_Instance.m_bBlast = parts.Count() > 6 && parts[6] == "blast";
 		string ussrCrew = "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et";
 		if (parts.Count() > 3 && parts[3] == "uaz")
@@ -194,6 +205,16 @@ class ZCR_DriveTest
 				m_vVia = OnRoad(m_vVia);
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 track a=%2,%3 b=%4,%5 straight_m=%6 cars=%7 prefab=%8", now, Math.Round(m_vA[0]), Math.Round(m_vA[2]),
 				Math.Round(m_vB[0]), Math.Round(m_vB[2]), Math.Round(vector.DistanceXZ(m_vA, m_vB)), m_iCount, m_sPrefab), LogLevel.NORMAL);
+			foreach (int k, vector s : m_aStarts)
+			{
+				vector road;
+				string blocker;
+				int tried;
+				int ok = AICF_DepotAccess.RoadReachable(s, AICF_DepotAccess.REACH_M, road, blocker, tried);
+				Print(string.Format("[ZCR][ACCESS] t=%1 start=%2 x=%3 z=%4 road=%5 road_x=%6 road_z=%7 road_m=%8 tried=%9", now, k + 1, Math.Round(s[0]),
+					Math.Round(s[2]), ok, Math.Round(road[0]), Math.Round(road[2]), Math.Round(vector.DistanceXZ(s, road)), tried) + " blocker=" + blocker,
+					LogLevel.NORMAL);
+			}
 		}
 		bool wantCar = m_aCars.Count() < m_iCount;
 		if (m_bConvoy)
@@ -206,8 +227,8 @@ class ZCR_DriveTest
 			m_iNextSpawn = now + 12;
 			if (m_bConvoy)
 				m_iNextSpawn = now + 2;
-			if (m_vA2 != vector.Zero)
-				m_iNextSpawn = now;            // the pair leaves together
+			if (m_vA2 != vector.Zero || m_bDepots)
+				m_iNextSpawn = now;            // the pair (the depots' cars) leave together
 		}
 		if (m_bBlast)
 			BlastTick(now);
@@ -235,6 +256,8 @@ class ZCR_DriveTest
 					at = car.m_Vehicle.GetOrigin();
 				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=LOST leg=%3 why=%4 x=%5 z=%6", now, car.m_iIndex, car.m_iLeg, LostWhy(car),
 					Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+				if (m_bDepots)
+					Remove(car);               // each depot spot on its own: a stuck van doesn't block the next one from it
 				continue;
 			}
 			Water(car, now);
@@ -413,16 +436,25 @@ class ZCR_DriveTest
 		return false;
 	}
 
+	// "depots": the spot the next car starts from.
+	protected vector NextStart()
+	{
+		return m_aStarts[m_iConvoySpawned % m_aStarts.Count()];
+	}
+
 	protected bool StartBusy()
 	{
 		float clear = 10;
 		if (m_bConvoy)
 			clear = 15;
+		vector a = m_vA;
+		if (m_bDepots && !m_aStarts.IsEmpty())
+			a = NextStart();
 		foreach (ZCR_DriveCar c : m_aCars)
 		{
 			if (c.m_bDone)
 				continue;
-			if (c.m_Vehicle && (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vA) < clear || (m_bBoth && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vB) < clear)))
+			if (c.m_Vehicle && (vector.DistanceXZ(c.m_Vehicle.GetOrigin(), a) < clear || (m_bBoth && vector.DistanceXZ(c.m_Vehicle.GetOrigin(), m_vB) < clear)))
 				return true;
 		}
 		return false;
@@ -441,7 +473,12 @@ class ZCR_DriveTest
 		bool fromB = m_bBoth && m_aCars.Count() % 2 == 1;
 		vector start = m_vA;
 		vector goal = m_vB;
-		if (m_vA2 != vector.Zero && m_iConvoySpawned % 2 == 1)
+		if (m_bDepots && !m_aStarts.IsEmpty())
+		{
+			start = NextStart();               // "depots": the depot spot as given, off the road
+			start[1] = GetGame().GetWorld().GetSurfaceY(start[0], start[2]);
+		}
+		else if (m_vA2 != vector.Zero && m_iConvoySpawned % 2 == 1)
 		{
 			start = m_vA2;                     // "pair": the second car from the second start (off the road, as a depot slot)
 			start[1] = GetGame().GetWorld().GetSurfaceY(start[0], start[2]);
@@ -477,8 +514,11 @@ class ZCR_DriveTest
 			m_iConvoySpawned++;
 		}
 		m_aCars.Insert(car);
+		string from;
+		if (m_bDepots && !m_aStarts.IsEmpty())
+			from = string.Format(" start=%1", (m_iConvoySpawned - 1) % m_aStarts.Count() + 1);
 		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=SPAWN prefab=%3 x=%4 z=%5 convoy=%6", now, car.m_iIndex, ZCR_LossLog.ShortName(vehicle),
-			Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy), LogLevel.NORMAL);
+			Math.Round(pose[3][0]), Math.Round(pose[3][2]), car.m_iConvoy) + from, LogLevel.NORMAL);
 		// The driver 1.5 s later: seated in the spawn frame, the watched game (a listen server) left the seat empty
 		// (review note 314: "car 2 at B" never moved).
 		GetGame().GetCallqueue().CallLater(Crew, 1500, false, car);

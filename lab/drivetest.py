@@ -58,6 +58,11 @@ TRACKS = {
     # and dodged each other for 100+ s (the game's move-from-incoming-vehicle on both) while our spacing rule stopped them.
     "farm": ("arland-test", "2141,2938|2112,2943", "3253,2862", "uaz", "", "pair"),
     "farm-conflict": ("arland-conflict-test", "2141,2938|2112,2943", "3253,2862", "uaz", "", "pair"),
+    # The Farm's depot spots (24 Oct, report 27 / note 386 - Martin: "the lab should make infantry build supply points in
+    # accessible places"): where AI Conflict built the Farm's light vehicle depot in the last 13 Arland matches - 2124,2948
+    # (the walled pasture, 2 matches: the vans never got out), 2292,2927 (5), 2294,2982 (3), 2154,2909 (2) - one van from each
+    # in turn to the source base; [ZCR][ACCESS] says per spot whether the builder's new depot check passes it.
+    "farm-depots": ("arland-conflict-test", "2124,2948|2292,2927|2294,2982|2154,2909", "3253,2862", "uaz", "", "depots"),
     "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
@@ -99,6 +104,21 @@ def _title(name: str, scenario: str, variant: str) -> str:
     sys.path.insert(0, str(ROOT / "lab"))
     import sublab
     return sublab.title(name, scenario, variant)
+
+
+def depot_spots(text: str) -> str:
+    """'1:2124,2948 access=0 1/3' per spot: the access check (1 a road reachable, 0 walled in, -1 no road near), arrived/cars."""
+    spots = {}
+    for m in re.finditer(r"\[ZCR\]\[ACCESS\] .*start=(\d+) x=(\d+) z=(\d+) road=(-?\d+)", text):
+        spots[m.group(1)] = {"at": f"{m.group(2)},{m.group(3)}", "access": m.group(4), "cars": set(), "arrived": 0}
+    for m in re.finditer(r"car=(\d+) event=SPAWN .* start=(\d+)", text):
+        if m.group(2) in spots:
+            spots[m.group(2)]["cars"].add(m.group(1))
+    for m in re.finditer(r"car=(\d+) event=ARRIVE", text):
+        for v in spots.values():
+            if m.group(1) in v["cars"]:
+                v["arrived"] += 1
+    return "; ".join(f"{k}:{v['at']} access={v['access']} {v['arrived']}/{len(v['cars'])}" for k, v in spots.items())
 
 
 def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: bool = False, speed: float = 3) -> dict:
@@ -168,6 +188,8 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .* error=UNREACHABLE", text)),
         "crew_out": len(re.findall(r"event=LOST .* why=crew_out", text)),
         "road_first": len(re.findall(r"\[ZCR\]\[ROADFIRST\]", text)),
+        # "depots": per start spot - the access check's verdict and the cars that arrived / were lost from it.
+        "depot_spots": depot_spots(text),
         "pairs_through": len(re.findall(r"event=CONVOY .* cars=2 arrived=2 ", text)),
         "pair_last_s": (sorted(int(m) for m in re.findall(r"event=CONVOY .* last_s=(\d+)", text) if int(m) >= 0) or [None])[-1],
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),
