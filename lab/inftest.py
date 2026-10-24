@@ -41,8 +41,8 @@ SCENARIOS = {
     "village-drones-att": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend"),
     "village-drones-def": ("squad:1:1920,1138:attack", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
     # Drone sites that move (24 Oct, Martin: "yeah I love this"): a US drone site (truck + operators) 640 m south of the farm
-    # launches at the Soviet squad holding it, packs up after 3 launches and sets up 300-500 m away.
-    "farm-site": ("site:1:2270,600:support", "squad:1:2270,1238:defend"),
+    # launches at the two Soviet squads holding it, packs up after 3 launches and sets up 200-600 m away.
+    "farm-site": ("site:1:2270,600:support", "squad:2:2270,1238:defend"),   # two squads: long enough for two moves
     "village-drones-both": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
 }
 SCENARIO_WORDS = {

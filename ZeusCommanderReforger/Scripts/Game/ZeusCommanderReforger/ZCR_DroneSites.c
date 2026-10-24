@@ -9,7 +9,7 @@
 // every third team at it. Logs [ZCR][DRONESITE]; -zcrNoDroneSites: drones from any own base as before.
 // Sites move (Martin, 24 Oct 16:05, on 'real drone teams move after a few launches so they're harder to find': "yeah I love
 // this"): after MOVE_AFTER launches, MOVE_EVERY_S at one spot, or as soon as the enemy has seen it, a site whose last
-// launch is a minute old packs up - the operators get into the truck, drive 300-500 m to clear ground not toward the
+// launch is a minute old packs up - the operators get into the truck, drive 200-600 m to clear ground not toward the
 // front, get out, take a new post in cover and are ready again SETUP_AFTER_MOVE s later. No launches while it moves.
 //   [ZCR][DRONESITE] t= side= move=pack|drive|unload|set|failed_boarding at= why=launches|time|seen ...
 // -zcrStaticDroneSites: no moves.
@@ -456,7 +456,8 @@ class ZCR_DroneSites
 			Math.Round(s.m_vPos[0]), Math.Round(s.m_vPos[2])), LogLevel.NORMAL);
 	}
 
-	// Clear ground 300-500 m off, not toward the front (within 100 degrees of straight away from it), not the sea.
+	// Clear ground 200-600 m off, not toward the front (within 120 degrees of straight away from it), not the sea; 24 tries
+	// (17:37, wooded ground by the farm: 8 tries at 300-500 m found none and the move was called off).
 	protected static bool NewSpot(ZCR_DroneSite s, vector front, out vector to)
 	{
 		vector here = s.m_vPos;
@@ -465,11 +466,11 @@ class ZCR_DroneSites
 		if (front == vector.Zero || away.Length() < 1)
 			away = Vector(0, 0, -1);
 		away.Normalize();
-		for (int tries; tries < 8; tries++)
+		for (int tries; tries < 24; tries++)
 		{
-			float r = Math.RandomFloat(-100, 100) * Math.DEG2RAD;
+			float r = Math.RandomFloat(-120, 120) * Math.DEG2RAD;
 			vector dir = Vector(away[0] * Math.Cos(r) - away[2] * Math.Sin(r), 0, away[0] * Math.Sin(r) + away[2] * Math.Cos(r));
-			vector cand = here + dir * Math.RandomFloat(300, 500);
+			vector cand = here + dir * Math.RandomFloat(200, 600);
 			vector spot;
 			if (ZCR_Drones.ClearSpot(cand, cand + dir * 100, spot))
 			{
