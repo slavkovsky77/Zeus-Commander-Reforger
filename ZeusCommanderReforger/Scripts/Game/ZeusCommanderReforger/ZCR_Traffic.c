@@ -8,6 +8,7 @@
 //              to close up; beyond: free. A stop held 10 s becomes a 6 km/h creep, so the engine's own avoidance can
 //              steer round and nobody waits forever.
 //   oncoming - ZCR_Oncoming's 15 km/h for a vehicle coming the other way.
+//   dodge    - ZCR_Dodge: of two drivers dodging each other, one holds still (0) while the other goes.
 //   lab      - -zcrCruiseSpeed N (the lab's speed cap).
 // Not our armour (its guard sets its speed) and not a vehicle under a push. Four times a second.
 //   [ZCR][SPACING] t= side= vehicle= ahead= gap_m= band= kmh= ahead_kmh= x= z=   (a vehicle enters stop / crawl / creep; 10 s a vehicle)
@@ -118,6 +119,7 @@ class ZCR_Traffic
 		ZCR_Driving.DrivenNow(cars);
 		if (!System.IsCLIParam("zcrNoSpacing"))
 			Spacing(cars, now);
+		ZCR_Dodge.Tick(cars, now);          // two drivers dodging each other: one gives way (24 Oct, report 27)
 		float lab = ZCR_Driving.CruiseLimit();
 		if (lab > 0)
 		{
@@ -161,6 +163,8 @@ class ZCR_Traffic
 			{
 				if (!b || b == a || ZCR_Driving.DrivenSide(b) != side)
 					continue;
+				if (ZCR_Dodge.IsYielding(b))
+					continue;                  // giving way to us (ZCR_Dodge): no stop for it
 				vector rel = b.GetOrigin() - pa;
 				rel[1] = 0;
 				float along = vector.Dot(rel, fa);
