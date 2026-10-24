@@ -31,6 +31,11 @@ class ZCR_Tactical
 	{
 	}
 
+	// A team that must stay where it is (the drone operators, ZCR_DroneOperator): the tactical layer's own squad moves off.
+	void HoldStill(SCR_AIGroup group)
+	{
+	}
+
 	static void Storming(SCR_AIGroup group, bool storming, string faction = "")
 	{
 		if (!group)

@@ -28,7 +28,8 @@ class ZCR_DroneOperator
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
 	static const ResourceName CONTROLLER = "{E2434ED1318D8476}Prefabs/Characters/Items/DroneController.et";
 	static const float POST_COVER_M = 25;
-	static const float HOLD_M = 3;
+	static const float HOLD_M = 3;          // the pilot while he flies
+	static const float STAY_M = 8;          // the pilot between flights, the guard always
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
 	static ref array<ref ZCR_OperatorMan> s_aMen = {};
 	protected static bool s_bStarted;
@@ -80,8 +81,9 @@ class ZCR_DroneOperator
 			if (m.m_bPilot)
 				Kit(m);
 		}
-		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=post men=%3 cover=%4 x=%5 z=%6", now, side, agents.Count(), spot != vector.Zero,
-			Math.Round(post[0]), Math.Round(post[2])), LogLevel.NORMAL);
+		ZCR_Tactical.Get().HoldStill(group);   // DCO: its squad moves off for the team
+		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=post men=%3 cover=%4 x=%5 z=%6 layer=%7", now, side, agents.Count(), spot != vector.Zero,
+			Math.Round(post[0]), Math.Round(post[2]), ZCR_Tactical.Get().Layer()), LogLevel.NORMAL);
 		if (!s_bStarted)
 		{
 			s_bStarted = true;
@@ -191,8 +193,16 @@ class ZCR_DroneOperator
 			ChimeraCharacter c = ChimeraCharacter.Cast(m.m_Man);
 			if (!c || !c.GetCharacterController() || c.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
 				continue;
+			// Both stay at the post, flying or not (the village storm, 15:40: the pilot 26-60 m off it between flights).
 			if (!m.m_bPilot)
+			{
+				if (vector.DistanceXZ(c.GetOrigin(), m.m_vPost) > STAY_M && now >= m.m_iAgainAt && !ZCR_DroneThreat.Sheltering(c))
+				{
+					ToPost(m, now);
+					s_mHolds.Set(m.m_sSide, s_mHolds.Get(m.m_sSide) + 1);
+				}
 				continue;
+			}
 			pilots.Set(m.m_sSide, pilots.Get(m.m_sSide) + 1);
 			bool up = Flying(m.m_sSide, c.GetOrigin());
 			if (up != m.m_bFlying)
@@ -216,7 +226,14 @@ class ZCR_DroneOperator
 				}
 			}
 			else
+			{
 				Hands(c, m.m_Controller, false);
+				if (vector.DistanceXZ(c.GetOrigin(), m.m_vPost) > STAY_M && now >= m.m_iAgainAt && !ZCR_DroneThreat.Sheltering(c))
+				{
+					ToPost(m, now);
+					s_mHolds.Set(m.m_sSide, s_mHolds.Get(m.m_sSide) + 1);
+				}
+			}
 		}
 		if (now >= s_iNextLog)
 		{

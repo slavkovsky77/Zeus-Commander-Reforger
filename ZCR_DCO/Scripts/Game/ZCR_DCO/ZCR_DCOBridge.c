@@ -60,6 +60,17 @@ modded class ZCR_Tactical
 		}
 	}
 
+	// The drone operators stay at their post (24 Oct 15:40, the village storm: the pilot 26-60 m off it between and even
+	// during flights): every one of DCO's group features off for the team - contact drills, overmatch, CQB, explosion
+	// reactions, rearm, ... (DCO's own per-group switch).
+	static const int ALL_FEATURES = 4095;
+
+	override void HoldStill(SCR_AIGroup group)
+	{
+		if (group)
+			group.DCO_SetFeatureOff(ALL_FEATURES, "zeus_commander_operator");
+	}
+
 	// Only with -zcrStormPush (24 Oct 12:00: the push experiment failed - storming squads without DCO's drills died in the
 	// open, 1 of 4 positions taken), so matches run plain DCO; the hook stays for the next idea.
 	override void SetStorming(SCR_AIGroup group, bool storming)
