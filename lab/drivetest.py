@@ -92,7 +92,7 @@ def _title(name: str, scenario: str, variant: str) -> str:
     return sublab.title(name, scenario, variant)
 
 
-def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: bool = False) -> dict:
+def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: bool = False, speed: float = 3) -> dict:
     map_name, a, b, kind, via, both = TRACKS[track]
     extra, mods = VARIANTS[variant]
     mode = ("both" if both else "") if isinstance(both, bool) else both
@@ -110,7 +110,12 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: b
     if kind in ARMOUR_KINDS:
         argv += ["--armour"]   # the Workshop tanks and IFVs
     if watch:
-        argv += ["--watch", "--solo"]   # in the game window (lab/watch_test.py records it)
+        # The game window at 3x by default (Martin, 24 Oct: "make default speed 3x"): the game's own time multiplier
+        # (-zcrSpeed, as the watched matches); the test still lasts 'minutes' game minutes.
+        argv += ["--watch", "--solo"]
+        if speed > 1:
+            argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
+            argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))   # in the game window (lab/watch_test.py records it)
     subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
                    creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
@@ -168,10 +173,11 @@ def main():
     ap.add_argument("--minutes", type=float, default=8)
     ap.add_argument("--cars", type=int, default=6)
     ap.add_argument("--port", type=int, default=2148)
+    ap.add_argument("--speed", type=float, default=3, help="with --watch: the game's time multiplier (default 3x)")
     ap.add_argument("--watch", action="store_true", help="in the game window (only when nobody else uses the game)")
     a = ap.parse_args()
     for track in a.tracks:
-        r = run(track, a.variant, a.minutes, a.cars, a.port, a.watch)
+        r = run(track, a.variant, a.minutes, a.cars, a.port, a.watch, a.speed)
         print(" ".join(f"{k}={v}" for k, v in r.items()), flush=True)
 
 

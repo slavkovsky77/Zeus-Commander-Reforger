@@ -52,13 +52,14 @@ def main() -> int:
     ap.add_argument("scenario")
     ap.add_argument("--variant", default="game")
     ap.add_argument("--minutes", type=float, default=12)
+    ap.add_argument("--speed", type=float, default=3, help="the game's time multiplier (default 3x)")
     ap.add_argument("--cars", type=int, default=0, help="drive tests: vehicles (0: the runner's default)")
     a = ap.parse_args()
     tag = f"{a.runner}-{a.scenario}-{a.variant}-watch"
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     VIDEOS.mkdir(exist_ok=True)
     mkv = VIDEOS / f"{stamp}_{tag}.mkv"
-    runner = subprocess.Popen([sys.executable, "-u", str(HERE / f"{a.runner}.py"), a.scenario, "--variant", a.variant, "--minutes", str(a.minutes), "--watch", "--port", "2178"] + (["--cars", str(a.cars)] if a.cars else []),
+    runner = subprocess.Popen([sys.executable, "-u", str(HERE / f"{a.runner}.py"), a.scenario, "--variant", a.variant, "--minutes", str(a.minutes), "--watch", "--port", "2178", "--speed", str(a.speed)] + (["--cars", str(a.cars)] if a.cars else []),
                               cwd=str(ROOT))
     ff = None
     t0 = time.time()

@@ -94,7 +94,7 @@ def seed(variant: str):
     return d
 
 
-def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False) -> dict:
+def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 3) -> dict:
     us, ussr = SCENARIOS[scenario]
     extra, mods, _ = VARIANTS[variant]
     label = f"inftest-{scenario}-{variant}-p{port}" if not watch else f"inftest-{scenario}-{variant}-watch"
@@ -106,7 +106,12 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     if seed(variant):
         argv += ["--seed-profile", str(seed(variant))]
     if watch:
+        # The game window at 3x by default (Martin, 24 Oct: "make default speed 3x"): the game's own time multiplier
+        # (-zcrSpeed, as the watched matches); the test still lasts 'minutes' game minutes.
         argv += ["--watch", "--solo"]
+        if speed > 1:
+            argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
+            argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))
     subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
                    creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
@@ -162,10 +167,11 @@ def main():
     ap.add_argument("--variant", default="game", choices=sorted(VARIANTS))
     ap.add_argument("--minutes", type=float, default=12)
     ap.add_argument("--port", type=int, default=2170)
+    ap.add_argument("--speed", type=float, default=3, help="with --watch: the game's time multiplier (default 3x)")
     ap.add_argument("--watch", action="store_true", help="in the game window (the game hosts it; only when nobody else uses the game)")
     a = ap.parse_args()
     for s in a.scenarios:
-        print(json.dumps(run(s, a.variant, a.minutes, 0, a.port, a.watch)), flush=True)
+        print(json.dumps(run(s, a.variant, a.minutes, 0, a.port, a.watch, a.speed)), flush=True)
 
 
 if __name__ == "__main__":
