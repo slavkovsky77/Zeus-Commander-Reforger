@@ -10,12 +10,16 @@ modded class ZCR_Tactical
 
 	override string Layer()
 	{
+		if (System.IsCLIParam("zcrStormPush"))
+			return "dco-push";
 		return "dco";
 	}
 
+	// Only with -zcrStormPush (24 Oct 12:00: the push experiment failed - storming squads without DCO's drills died in the
+	// open, 1 of 4 positions taken), so matches run plain DCO; the hook stays for the next idea.
 	override void SetStorming(SCR_AIGroup group, bool storming)
 	{
-		if (!group)
+		if (!group || !System.IsCLIParam("zcrStormPush"))
 			return;
 		int off = group.DCO_GetFeatureOff();
 		if (storming)
