@@ -51,6 +51,7 @@ class ZCR_DroneThreat
 	protected static ref map<string, int> s_mShelterIn = new map<string, int>();
 	protected static ref map<IEntity, vector> s_mShelterSpot = new map<IEntity, vector>();
 	protected static ref map<IEntity, vector> s_mShelterFrom = new map<IEntity, vector>();
+	protected static ref map<IEntity, float> s_mShelterClosest = new map<IEntity, float>();
 	// The building search's totals: searches, points inside a building, of them off the navmesh, too near someone, found.
 	protected static ref array<int> s_aSearch = {0, 0, 0, 0, 0};
 
@@ -79,12 +80,18 @@ class ZCR_DroneThreat
 			Up(pe);
 			s_mProneUntil.Remove(pe);
 		}
-		// Runs into a building that are over: did he get in?
+		// Runs into a building that are over: did he get in? (and how close he came, every second)
 		array<IEntity> ended = {};
 		foreach (IEntity se, int until : s_mShelterUntil)
 		{
 			if (!se || now >= until)
 				ended.Insert(se);
+			else if (s_mShelterSpot.Contains(se))
+			{
+				float gap = vector.Distance(se.GetOrigin(), s_mShelterSpot.Get(se));
+				if (!s_mShelterClosest.Contains(se) || gap < s_mShelterClosest.Get(se))
+					s_mShelterClosest.Set(se, gap);
+			}
 		}
 		foreach (IEntity se : ended)
 		{
@@ -98,14 +105,20 @@ class ZCR_DroneThreat
 			if (inside)
 				s_mShelterIn.Set(ss, s_mShelterIn.Get(ss) + 1);
 			// Each run (24 Oct: 11 runs, 1 inside with the game's AI, 0 of 17 under DCO): how far he had to go, how far he
-			// got, how far is left.   [ZCR][SHELTER_RUN] t= side= to_spot= moved= left= inside= stance=
+			// got, how close he came, how far is left.
+			//   [ZCR][SHELTER_RUN] t= side= to_spot= moved= closest= left= inside= stance= x= z=
 			vector spot = s_mShelterSpot.Get(se);
 			vector from = s_mShelterFrom.Get(se);
-			Print(string.Format("[ZCR][SHELTER_RUN] t=%1 side=%2 to_spot=%3 moved=%4 left=%5 inside=%6 stance=%7 x=%8 z=%9", now, ss,
-				Math.Round(vector.Distance(from, spot)), Math.Round(vector.Distance(from, sc.GetOrigin())), Math.Round(vector.Distance(sc.GetOrigin(), spot)), inside,
-				typename.EnumToString(ECharacterStance, sc.GetCharacterController().GetStance()), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			float closest = vector.Distance(sc.GetOrigin(), spot);
+			if (s_mShelterClosest.Contains(se))
+				closest = Math.Min(closest, s_mShelterClosest.Get(se));
+			Print(string.Format("[ZCR][SHELTER_RUN] t=%1 side=%2 to_spot=%3 moved=%4 closest=%5 left=%6 inside=%7 stance=%8 %9", now, ss,
+				Math.Round(vector.Distance(from, spot)), Math.Round(vector.Distance(from, sc.GetOrigin())), Math.Round(closest),
+				Math.Round(vector.Distance(sc.GetOrigin(), spot)), inside, typename.EnumToString(ECharacterStance, sc.GetCharacterController().GetStance()),
+				string.Format("x=%1 z=%2", Math.Round(spot[0]), Math.Round(spot[2]))), LogLevel.NORMAL);
 			s_mShelterSpot.Remove(se);
 			s_mShelterFrom.Remove(se);
+			s_mShelterClosest.Remove(se);
 		}
 		array<vector> taken = {};
 		map<string, int> near = new map<string, int>();
@@ -570,7 +583,10 @@ class ZCR_DroneThreat
 					continue;
 				s_aSearch[1] = s_aSearch[1] + 1;
 				vector nav = p;
-				if ((pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav)) || vector.DistanceXZ(nav, p) > 2)
+				// The walkable point itself inside too (24 Oct: snapped up to 2 m, it was often outside the wall - soldiers
+				// arrived 1-2 m from the spot and stood outside; 0 of 8 in under DCO).
+				if ((pathfinding && !pathfinding.GetClosestPositionOnNavmesh(p, "2 3 2", nav)) || vector.DistanceXZ(nav, p) > 2
+					|| !Inside(world, nav + Vector(0, 0.2, 0), c))
 				{
 					s_aSearch[2] = s_aSearch[2] + 1;
 					continue;
