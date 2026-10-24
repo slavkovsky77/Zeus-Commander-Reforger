@@ -28,7 +28,7 @@ class ZCR_DroneOperator
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
 	static const ResourceName CONTROLLER = "{E2434ED1318D8476}Prefabs/Characters/Items/DroneController.et";
 	static const float POST_COVER_M = 25;
-	static const float HOLD_M = 3;          // the pilot while he flies
+	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
 	static ref array<ref ZCR_OperatorMan> s_aMen = {};

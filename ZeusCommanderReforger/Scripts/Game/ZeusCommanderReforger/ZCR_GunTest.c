@@ -842,11 +842,10 @@ class ZCR_GunTest
 			return string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
 		if (u.m_sKind == "drones")
 		{
-			string state = "between flights, rifle in hand";
-			if (ZCR_DroneOperator.IsFlying(e))
-				state = "flying an FPV - goggles on, controller in hand, holding still";
-			return string.Format("DRONE OPERATOR: %1 pilot %2 (one FPV every %3 s, %4 men in the team)", u.m_sSide, state, DRONE_EVERY_S,
-				AICF_GroupRuntime.CountAliveAgents(u.m_Group));
+			// The caption stays for the whole shot - the pilot's state now is on his tag (ZCR_Watch), not here (24 Oct: shots that
+			// began as a drone took off said "between flights" all through the flight).
+			return string.Format("DRONE OPERATOR: %1 pilot (FPV goggles; the controller in hand and holding still while his FPV flies) and his guard - one FPV every %2 s, %3 men alive",
+				u.m_sSide, DRONE_EVERY_S, AICF_GroupRuntime.CountAliveAgents(u.m_Group));
 		}
 		string doing = "holding";
 		if (u.m_sRole == "attack" || u.m_sKind == "riders")
