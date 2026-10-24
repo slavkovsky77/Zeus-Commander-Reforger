@@ -84,18 +84,20 @@ def _roads(slug: str = "arland"):
     return [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
-def road_gap(x: float, z: float, roads) -> float:
+def road_gap(x: float, z: float, roads, near: float = 60) -> float:
     """Metres from (x, z) to the nearest road's edge (negative: on the road)."""
     best = 1e9
     for r in roads:
         p, half = r["p"], r.get("w", 4) / 2
         for (ax, az), (bx, bz) in zip(p, p[1:]):
-            if min(ax, bx) - 60 > x or max(ax, bx) + 60 < x or min(az, bz) - 60 > z or max(az, bz) + 60 < z:
+            if near and (min(ax, bx) - near > x or max(ax, bx) + near < x or min(az, bz) - near > z or max(az, bz) + near < z):
                 continue
             dx, dz = bx - ax, bz - az
             L = dx * dx + dz * dz
             t = 0 if L == 0 else max(0, min(1, ((x - ax) * dx + (z - az) * dz) / L))
             best = min(best, math.hypot(x - (ax + t * dx), z - (az + t * dz)) - half)
+    if best > 1e8 and near:
+        return road_gap(x, z, roads, 0)   # no road segment near: the whole network
     return best
 
 
