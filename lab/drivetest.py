@@ -62,6 +62,10 @@ TRACKS = {
     # accessible places"): where AI Conflict built the Farm's light vehicle depot in the last 13 Arland matches - 2124,2948
     # (the walled pasture, 2 matches: the vans never got out), 2292,2927 (5), 2294,2982 (3), 2154,2909 (2) - one van from each
     # in turn to the source base; [ZCR][ACCESS] says per spot whether the builder's new depot check passes it.
+    # Every base's depot spots on Arland (24 Oct, the survey for the builder's new access check): the 16 where AI Conflict
+    # built a light vehicle depot in the last 13 Arland matches (outside the Farm) and the 2 the check refused in the first
+    # build with it (1738,906 behind a wooden rural fence, 1680,919) - one van from each to the middle of the map.
+    "arland-depots": ("arland-conflict-test", "1717,911|1737,948|1626,927|1598,928|2171,1191|2250,1313|2284,1128|2653,1674|2649,1617|1218,3267|1172,3314|963,2774|904,2776|1021,2787|1419,1909|3256,2885|1738,906|1680,919", "2000,2000", "uaz", "", "depots"),
     "farm-depots": ("arland-conflict-test", "2124,2948|2292,2927|2294,2982|2154,2909", "3253,2862", "uaz", "", "depots"),
     "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
