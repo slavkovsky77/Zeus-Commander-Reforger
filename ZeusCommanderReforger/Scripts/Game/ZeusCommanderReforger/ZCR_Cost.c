@@ -20,6 +20,44 @@ class ZCR_Cost
 		Flush();
 	}
 
+	// Who the game's AI characters are (24 Oct: 152 AI characters with 83 squad soldiers sampled): per side on foot / in a
+	// vehicle (drones included), and the rest.
+	//   [ZCR][POP] t= us_foot= us_veh= ussr_foot= ussr_veh= fia= other= total=
+	protected static void Population(int now)
+	{
+		array<AIAgent> agents = {};
+		GetGame().GetAIWorld().GetAIAgents(agents);
+		int usFoot, usVeh, ussrFoot, ussrVeh, fia, other, total;
+		foreach (AIAgent a : agents)
+		{
+			ChimeraCharacter c = null;
+			if (a)
+				c = ChimeraCharacter.Cast(a.GetControlledEntity());
+			if (!c)
+				continue;
+			CharacterControllerComponent ctl = c.GetCharacterController();
+			if (ctl && ctl.GetLifeState() == ECharacterLifeState.DEAD)
+				continue;
+			total++;
+			string side = ZCR_LossLog.SideOf(c);
+			bool veh = c.IsInVehicle();
+			if (side == "US" && veh)
+				usVeh++;
+			else if (side == "US")
+				usFoot++;
+			else if (side == "USSR" && veh)
+				ussrVeh++;
+			else if (side == "USSR")
+				ussrFoot++;
+			else if (side == "FIA")
+				fia++;
+			else
+				other++;
+		}
+		Print(string.Format("[ZCR][POP] t=%1 us_foot=%2 us_veh=%3 ussr_foot=%4 ussr_veh=%5 fia=%6 other=%7 total=%8", now, usFoot, usVeh, ussrFoot, ussrVeh, fia,
+			other, total), LogLevel.NORMAL);
+	}
+
 	protected static void Flush()
 	{
 		int now = ZCR_LossLog.Seconds();
@@ -58,6 +96,7 @@ class ZCR_Cost
 			top += string.Format("%1:%2/%3", names[k], s_mMs.Get(names[k]), s_mMax.Get(names[k]));
 		}
 		Print(string.Format("[ZCR][COST] t=%1 wall_ms=%2 ours_ms=%3 ours_pct=%4 top=%5", now, wall, ours, Math.Round(1000.0 * ours / wall) / 10, top), LogLevel.NORMAL);
+		Population(now);
 		s_mMs.Clear();
 		s_mMax.Clear();
 	}
