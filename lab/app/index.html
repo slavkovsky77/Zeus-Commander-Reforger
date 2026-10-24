@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#121816">
 <title>Commander Lab</title>
+<link rel="stylesheet" href="/vendor/leaflet.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
 /* An ops board for the improvement loop: tabs on top, the live match first. US blue, USSR red (BLUFOR/OPFOR). */
@@ -58,6 +59,16 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .sublab-card .question { font-size: 17px; margin: 0; }
 .ended { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; display: grid; gap: 4px; }
 .ended p { margin: 0; line-height: 1.55; max-width: 80ch; }
+/* Map tab: Enfumap's tiles with our layers (lab/maplayers.py). */
+#mapview { height: min(72vh, 760px); border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+.leaflet-container { font: 13px var(--f-body); }
+.maplbl { font: 700 12px var(--f-display); letter-spacing: .02em; background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: none; padding: 2px 6px; }
+.maplbl::before { display: none; }
+.map-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.map-controls label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.map-controls select { font: 14px var(--f-body); padding: 4px 6px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 16px; font-size: 13.5px; }
+.legend span.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 2px solid transparent; }
 .ended .lead { font-weight: 600; font-size: 1.05em; }
 .summary { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 6px; display: grid; gap: 8px; min-width: 0; }
 .summary > *, .summary .sum-cols > * { min-width: 0; }
@@ -205,6 +216,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <button role="tab" data-tab="crashes">Crashes</button>
     <button role="tab" data-tab="progress">Progress</button>
     <button role="tab" data-tab="sublab">Sub-labs</button>
+    <button role="tab" data-tab="map">Map</button>
     <button role="tab" data-tab="changelog">Changelog</button>
     <button role="tab" data-tab="plan">Plan</button>
   </nav>
@@ -304,11 +316,37 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <p class="muted">One small experiment per issue: the smallest scenario that reproduces it, played with each variant (our rules, mods), scored per run. <span class="mono">lab/sublab.py</span>, definitions in <span class="mono">lab/sublabs/</span>.</p>
     <div id="sublab" style="display:grid;gap:12px"></div>
   </section>
+  <section class="tab" id="tab-map" hidden>
+    <div class="card">
+      <div class="map-controls">
+        <label for="map-name">Map <select id="map-name"><option value="arland">Arland</option><option value="everon">Everon</option></select></label>
+        <label for="map-style">Tiles <select id="map-style"><option value="topo">Topo</option><option value="satellite">Satellite</option><option value="drawn">Drawn</option></select></label>
+        <label for="map-l-bases"><input type="checkbox" id="map-l-bases" checked> Bases</label>
+        <label for="map-l-spots"><input type="checkbox" id="map-l-spots" checked> Depot spots tested</label>
+        <label for="map-l-built"><input type="checkbox" id="map-l-built" checked> Depots built in matches</label>
+        <label for="map-l-traps"><input type="checkbox" id="map-l-traps" checked> Where vehicles get stuck</label>
+      </div>
+      <p class="muted" id="map-sum">Loading the map…</p>
+      <div id="mapview" role="region" aria-label="Map"></div>
+      <div class="legend">
+        <div><span class="dot" style="background:var(--good)"></span>Depot spot: most vans got out</div>
+        <div><span class="dot" style="background:var(--warn)"></span>Depot spot: some vans got out</div>
+        <div><span class="dot" style="background:var(--bad)"></span>Depot spot: no van got out</div>
+        <div><span class="dot" style="background:var(--na)"></span>Depot spot: checked, not driven yet</div>
+        <div><span class="dot" style="border-color:var(--accent);background:transparent"></span>Ring: the builder's access check passes it</div>
+        <div><span class="dot" style="border-color:var(--bad);border-style:dashed;background:transparent"></span>Dashed ring: the check refuses it</div>
+        <div><span class="dot" style="background:var(--muted);border-radius:2px"></span>Square: a depot the builders put there in matches</div>
+        <div><span class="dot" style="background:#e07b00"></span>Orange: vehicles stuck or given up there (bigger = more often)</div>
+      </div>
+      <p class="muted">Map © <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>, drawn from the game's files; not affiliated with Bohemia Interactive. Layers from our run logs since 20 Oct (lab/maplayers.py).</p>
+    </div>
+  </section>
   <section class="tab" id="tab-changelog" hidden><iframe title="Changelog" data-src="/pages/changelog"></iframe></section>
   <section class="tab" id="tab-plan" hidden><iframe title="Plan by theme" data-src="/pages/plan"></iframe></section>
 </main>
 
 <script src="/vendor/echarts.min.js"></script>
+<script src="/vendor/leaflet.js"></script>
 <script src="/charts.js"></script>
 <script>
 (() => {
@@ -317,6 +355,106 @@ video { width: 100%; border-radius: 8px; background: #000; }
   const mmss = (t) => `${Math.floor((t || 0) / 60)}:${String((t || 0) % 60).padStart(2, "0")}`;
   const ago = (iso) => { const t = Date.parse(iso); if (isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.floor(m / 60) + " h ago"; };
   let tab = "live", slow = null;
+
+  // ------------------------------------------------------------ map (Enfumap tiles + our layers from the logs)
+  const MapTab = {
+    view: null, base: null, meta: {}, groups: {}, name: "arland",
+    css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || "#888"; },
+    async open() {
+      if (this.view) { setTimeout(() => this.view.invalidateSize(), 50); return; }
+      for (const id of ["map-name", "map-style"]) $(id).addEventListener("change", () => id === "map-name" ? this.load() : this.tiles());
+      for (const k of ["bases", "spots", "built", "traps"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
+      await this.load();
+    },
+    async load() {
+      this.name = $("map-name").value;
+      let meta = this.meta[this.name];
+      try {
+        if (!meta) { meta = (await (await fetch(`https://enfumap.com/api/v1/maps/${this.name}`)).json()).data; this.meta[this.name] = meta; }
+      } catch (e) { $("map-sum").textContent = "Enfumap didn't answer - the map tiles can't load right now."; return; }
+      const ts = meta.tiles.tileSize, s = ts / meta.worldSize;
+      if (this.view) { this.view.remove(); this.view = null; this.base = null; }
+      const crs = L.extend({}, L.CRS.Simple, { transformation: new L.Transformation(s, 0, -s, ts) });
+      this.view = L.map("mapview", { crs, minZoom: 0, maxZoom: meta.tiles.maxNativeZoom + 2, zoomSnap: 0.5, attributionControl: true });
+      this.tiles();
+      this.view.fitBounds([[0, 0], [meta.worldSize, meta.worldSize]]);
+      for (const k of ["traps", "built", "spots", "bases"]) this.groups[k] = L.layerGroup();   // drawn bottom to top
+      this.toggle();
+      this.layers();
+    },
+    tiles() {
+      const meta = this.meta[this.name], style = $("map-style").value;
+      if (!meta || !this.view) return;
+      if (this.base) this.base.remove();
+      const zoom = (meta.tiles.layerMaxNativeZoom || {})[style];
+      this.base = L.tileLayer("https://enfumap.com" + (meta.tiles.layers[style] || meta.tiles.url), {
+        tileSize: meta.tiles.tileSize, maxNativeZoom: zoom == null ? meta.tiles.maxNativeZoom : zoom, noWrap: true,
+        attribution: 'Map &copy; <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>',
+      }).addTo(this.view);
+      this.base.bringToBack();
+    },
+    toggle() {
+      for (const k of ["traps", "built", "spots", "bases"]) {
+        const g = this.groups[k];
+        if (!g || !this.view) continue;
+        if ($("map-l-" + k).checked) g.addTo(this.view); else g.remove();
+      }
+    },
+    async layers() {
+      let d;
+      try { d = await (await fetch(`/api/map?map=${this.name}`)).json(); } catch (e) { $("map-sum").textContent = "The lab app didn't answer."; return; }
+      if (d.building) {
+        $("map-sum").textContent = "Reading the run logs for this map - the first time takes a few minutes; the layers appear by themselves.";
+        setTimeout(() => { if (this.name === d.map) this.layers(); }, 15000);
+        return;
+      }
+      for (const g of Object.values(this.groups)) g.clearLayers();
+      const owner = { US: this.css("--us"), USSR: this.css("--ussr"), FIA: this.css("--fia") };
+      const byName = {};
+      for (const b of d.bases) byName[b.name + "@" + b.x] = b;
+      const drawn = new Set();
+      for (const b of d.bases) {
+        for (const ln of b.links) {
+          const o = d.bases.find(x => x.name === ln);
+          const key = [b.name, ln].sort().join("|");
+          if (!o || drawn.has(key)) continue;
+          drawn.add(key);
+          L.polyline([[b.z, b.x], [o.z, o.x]], { color: this.css("--muted"), weight: 1.5, dashArray: "4 6", opacity: .7, interactive: false }).addTo(this.groups.bases);
+        }
+      }
+      for (const b of d.bases) {
+        const c = owner[b.owner] || this.css("--muted");
+        L.circleMarker([b.z, b.x], { radius: b.hq ? 11 : 8, color: c, weight: 3, fillColor: c, fillOpacity: .2 })
+          .bindTooltip(esc(b.name), { permanent: true, direction: "top", offset: [0, -8], className: "maplbl" })
+          .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.owner)} at the start${b.hq ? " (main base)" : ""}<br>Linked to ${esc(b.links.join(", "))}<br><span class="mono">${b.x}, ${b.z}</span>`)
+          .addTo(this.groups.bases);
+      }
+      for (const s of d.depot_spots) {
+        const ratio = s.cars ? s.out / s.cars : null;
+        const fill = ratio == null ? this.css("--na") : ratio >= .5 ? this.css("--good") : ratio > 0 ? this.css("--warn") : this.css("--bad");
+        const ring = s.way === 1 ? this.css("--accent") : s.way === 0 ? this.css("--bad") : this.css("--muted");
+        const check = s.way === 1 ? "passes" : s.way === 0 ? "refuses it" : "no road within 70 m (judged as before)";
+        L.circleMarker([s.z, s.x], { radius: 8, color: ring, weight: 3, dashArray: s.way === 0 ? "3 3" : null, fillColor: fill, fillOpacity: .9 })
+          .bindPopup(`<b>Depot spot</b> <span class="mono">${s.x}, ${s.z}</span><br>Vans out: ${s.cars ? `${s.out} of ${s.cars}` : "not driven yet"}<br>The builder's access check: ${check}<br>Tested in ${s.runs} run${s.runs === 1 ? "" : "s"}`)
+          .addTo(this.groups.spots);
+      }
+      for (const b of d.depots_built) {
+        const top = Object.entries(b.factions).sort((a, c) => c[1] - a[1])[0];
+        const c = owner[top ? top[0] : ""] || this.css("--muted");
+        const sz = 4 + Math.min(6, b.count);
+        L.rectangle([[b.z - sz, b.x - sz], [b.z + sz, b.x + sz]], { color: c, weight: 2, fillColor: c, fillOpacity: .35 })
+          .bindPopup(`<b>Depot built here</b> <span class="mono">${b.x}, ${b.z}</span><br>${b.count} time${b.count === 1 ? "" : "s"} in ${b.matches} match${b.matches === 1 ? "" : "es"}: ${esc(Object.entries(b.factions).map(([f, n]) => f + " " + n).join(", "))}`)
+          .addTo(this.groups.built);
+      }
+      for (const tr of d.traps) {
+        L.circleMarker([tr.z, tr.x], { radius: 3 + Math.min(8, 1.4 * Math.sqrt(tr.count)), color: "#e07b00", weight: 1, opacity: .8, fillColor: "#e07b00", fillOpacity: .3 })
+          .bindPopup(`<b>Vehicles stuck here: ${tr.count}</b> <span class="mono">${tr.x}, ${tr.z}</span><br>Route impossible ${tr.unreachable}, stuck ${tr.stuck}, crew got out ${tr.crew_out}<br>In matches ${tr.in_matches}, in tests ${tr.in_tests} (${tr.runs} runs)<br><span class="muted">Last: ${esc(tr.last_run)}</span>`)
+          .addTo(this.groups.traps);
+      }
+      const top = d.traps.slice(0, 3).map(t => `${t.x}, ${t.z} (${t.count})`).join("; ");
+      $("map-sum").textContent = `${d.runs} runs on this map since 20 Oct: ${d.bases.length} bases, ${d.depot_spots.length} depot spots tested, ${d.depots_built.length} places where depots were built, ${d.traps.length} places where vehicles got stuck` + (top ? ` - most often ${top}.` : ".");
+    },
+  };
 
   // ------------------------------------------------------------ tabs
   for (const b of document.querySelectorAll("nav button")) {
@@ -333,6 +471,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     try { localStorage.setItem("lab-tab", name); } catch (_) {}
     if (name === "live") pollLive();
     if (name === "crashes") pollCrashes();
+    if (name === "map") MapTab.open();
   }
   const fromHash = location.hash.slice(1);
   if (fromHash && $("tab-" + fromHash)) show(fromHash);

@@ -29,6 +29,7 @@ LAB = HERE.parent
 ROOT = LAB.parent
 sys.path.insert(0, str(LAB))
 import crashes  # noqa: E402
+import maplayers  # noqa: E402
 import monitor  # noqa: E402
 sys.path.insert(0, str(HERE))
 import progress_specs  # noqa: E402
@@ -47,6 +48,37 @@ def now_iso() -> str:
 
 
 # ---------------------------------------------------------------- slow data, refreshed in the background
+
+class MapLayers:
+    """The Map tab's layers per map (lab/maplayers.py), built in a thread: the first build reads every run's log once
+    (minutes), later ones only new runs. Rebuilt when asked for and older than 5 minutes."""
+    data = {}
+    building = set()
+    lock = threading.Lock()
+
+    @classmethod
+    def get(cls, name: str) -> dict:
+        with cls.lock:
+            d = cls.data.get(name)
+            stale = not d or time.time() - d.get("_at", 0) > 300
+            if stale and name not in cls.building:
+                cls.building.add(name)
+                threading.Thread(target=cls.build, args=(name,), daemon=True).start()
+        return d or {"map": name, "building": True}
+
+    @classmethod
+    def build(cls, name: str):
+        try:
+            d = maplayers.layers(name)
+            d["_at"] = time.time()
+            with cls.lock:
+                cls.data[name] = d
+        except Exception as e:
+            print(f"[app] map {name}: {e}", flush=True)
+        finally:
+            with cls.lock:
+                cls.building.discard(name)
+
 
 class Slow:
     data = {"goals": [], "matches": [], "commits": [], "notes": [], "videos": [], "updated": None}
@@ -413,6 +445,16 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/vendor/echarts.min.js":
                 return self.send(200, (HERE / "vendor" / "echarts.min.js").read_bytes(), "application/javascript",
                                  {"Cache-Control": "max-age=86400"})
+            if path == "/api/map":
+                q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
+                name = q.get("map", "arland")
+                if name not in ("arland", "everon"):
+                    return self.json({"error": "unknown map"}, 404)
+                return self.json(MapLayers.get(name))
+            if path in ("/vendor/leaflet.js", "/vendor/leaflet.css"):
+                f = HERE / "vendor" / path.rsplit("/", 1)[1]
+                ctype = "application/javascript" if f.suffix == ".js" else "text/css"
+                return self.send(200, f.read_bytes(), ctype, {"Cache-Control": "max-age=86400"})
             if path == "/api/frame.jpg":
                 jpg = frame()
                 return self.send(200, jpg, "image/jpeg") if jpg else self.send(404, b"no recording running", "text/plain")
