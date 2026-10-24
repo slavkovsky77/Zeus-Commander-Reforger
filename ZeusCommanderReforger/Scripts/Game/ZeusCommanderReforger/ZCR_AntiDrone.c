@@ -99,7 +99,7 @@ class ZCR_AntiDrone
 				string side = ZCR_LossLog.SideOf(e);
 				if (!c || c.IsInVehicle() || side == droneSide || (side != "US" && side != "USSR"))
 					continue;
-				if (ZCR_DroneThreat.Sheltering(c))      // running into a building: no stopping to shoot
+				if (ZCR_DroneThreat.Sheltering(c) || ZCR_DroneOperator.IsFlying(c))      // running into a building, or flying a drone
 					continue;
 				CharacterControllerComponent ctl = c.GetCharacterController();
 				if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE)

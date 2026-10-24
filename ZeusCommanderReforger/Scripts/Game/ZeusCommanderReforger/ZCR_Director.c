@@ -505,6 +505,13 @@ class ZCR_Director
 		{
 			string gunLabel;
 			IEntity gunUnit = ZCR_GunTest.CameraUnit(gunLabel);
+			if (gunUnit && ZCR_DroneOperator.IsOperator(gunUnit))
+			{
+				// Close enough to see the goggles and the controller (Martin, 24 Oct 15:32).
+				Show(gunUnit.GetOrigin(), 9, 3, gunUnit, gunLabel, false);
+				m_iShotEnd = now + 15;
+				return;
+			}
 			if (gunUnit)
 			{
 				Show(gunUnit.GetOrigin(), 40, 18, gunUnit, gunLabel, false);

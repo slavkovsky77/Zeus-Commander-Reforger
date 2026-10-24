@@ -283,6 +283,15 @@ class ZCR_DroneThreat
 		s_mShelterMove.Set(c, move);
 	}
 
+	// A post in cover near 'at' (the drone operators, ZCR_DroneOperator): inside a building, else under a roof or tree crowns.
+	static bool CoverSpot(ChimeraCharacter c, vector threat, float radius, vector at, out vector spot)
+	{
+		array<vector> none = {};
+		if (FindShelter(c, threat, radius, spot, none))
+			return true;
+		return FindOverhead(c, threat, radius, spot, at, none);
+	}
+
 	// Running into a building now (our fire at drones leaves him out).
 	static bool Sheltering(IEntity c)
 	{

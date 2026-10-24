@@ -179,6 +179,9 @@ class ZCR_DroneSites
 		s.m_Truck = GetGame().SpawnEntityPrefab(truckRes, GetGame().GetWorld(), params);
 		params.Transform[3] = spot + Vector(6, 0, 4);
 		s.m_Operators = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(teamRes, GetGame().GetWorld(), params));
+		// Pilot (goggles, controller, still while he flies) and guard, their post in cover by the truck; tagged on screen.
+		if (s.m_Operators)
+			ZCR_DroneOperator.Register(s.m_Operators, side, spot + Vector(6, 0, 4), spot);
 		s_aSites.Insert(s);
 		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 set_up at=%3 main=%4 ready_in=%5 x=%6 z=%7", ZCR_LossLog.Seconds(), side, s.m_sName, main,
 			readyAt - ZCR_LossLog.Seconds(), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);

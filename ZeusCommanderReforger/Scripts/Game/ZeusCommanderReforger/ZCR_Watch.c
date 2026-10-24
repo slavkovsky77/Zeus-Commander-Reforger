@@ -676,6 +676,7 @@ class ZCR_Watch
 		}
 		used = DrawTags(world, workspace, used);
 		used = DrawDrones(world, workspace, used);
+		used = DrawOperators(world, workspace, used);
 		for (int i = used; i < m_aPool.Count(); i++)
 			m_aPool[i].SetVisible(false);
 	}
@@ -728,7 +729,7 @@ class ZCR_Watch
 		}
 		foreach (IEntity e : m_aNear)
 		{
-			if (!e || e.GetRootParent() != e)
+			if (!e || e.GetRootParent() != e || ZCR_DroneOperator.IsOperator(e))   // operators: their own tag (DrawOperators)
 				continue;
 			vector screen = workspace.ProjWorldToScreen(e.GetOrigin() + Vector(0, 2.3, 0), world);
 			if (screen[2] <= 0)
@@ -765,6 +766,45 @@ class ZCR_Watch
 		name.Replace(".et", "");
 		name.Replace("_", " ");
 		return name;
+	}
+
+	// Drone operators (Martin, 24 Oct 15:32: "the drone operator should be seen in the GUI with some tag that this is a
+	// drone operator, so I know how it works"): at any height, in the side's colour - "US DRONE OPERATOR - flying FPV"
+	// over the pilot (while a drone of his is up), "US drone operator's guard" over the other (close views only).
+	protected int DrawOperators(BaseWorld world, WorkspaceWidget workspace, int used)
+	{
+		foreach (ZCR_OperatorMan m : ZCR_DroneOperator.s_aMen)
+		{
+			ChimeraCharacter c = ChimeraCharacter.Cast(m.m_Man);
+			if (!c || !c.GetCharacterController() || c.GetCharacterController().GetLifeState() == ECharacterLifeState.DEAD)
+				continue;
+			if (!m.m_bPilot && m_fToHeight > 140)
+				continue;
+			vector screen = workspace.ProjWorldToScreen(c.GetOrigin() + Vector(0, 2.4, 0), world);
+			if (screen[2] <= 0)
+				continue;
+			Widget w = Pooled(used, true);
+			used++;
+			if (!w)
+				break;
+			w.SetVisible(true);
+			TextWidget t = TextWidget.Cast(w);
+			string text = m.m_sSide + " drone operator's guard";
+			int size = 14;
+			if (m.m_bPilot)
+			{
+				text = m.m_sSide + " DRONE OPERATOR";
+				if (m.m_bFlying)
+					text += " - flying FPV";
+				size = 18;
+			}
+			t.SetText(text);
+			t.SetColor(Tint(m.m_sSide));
+			t.SetExactFontSize(size);
+			FrameSlot.SetPos(t, screen[0] - 60, screen[1] - 14);
+			FrameSlot.SetSize(t, 360, 26);
+		}
+		return used;
 	}
 
 	// "FPV" over every drone of the commanders' teams in the air, in its side's colour.

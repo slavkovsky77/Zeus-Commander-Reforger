@@ -559,6 +559,9 @@ class ZCR_GunTest
 			ZCR_Sampler.AddTestGroup(unit.m_Group, side);
 			if (unit.m_Group)
 				Waypoint(unit, at, "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et", 15);
+			// Pilot (goggles, controller, holding still while he flies) and guard, a post in cover, tags on the watch screen.
+			if (unit.m_Group)
+				ZCR_DroneOperator.Register(unit.m_Group, side, at, target);
 			unit.m_iNextLaunch = now + 20;
 		}
 		else if (kind == "squad")
@@ -837,6 +840,14 @@ class ZCR_GunTest
 	{
 		if (!u.m_Group || u.m_Vehicle)
 			return string.Format("GUN TEST: %1 %2 %3 - %4 rounds fired", u.m_sSide, u.m_sKind, u.m_iIndex, u.m_iShots);
+		if (u.m_sKind == "drones")
+		{
+			string state = "between flights, rifle in hand";
+			if (ZCR_DroneOperator.IsFlying(e))
+				state = "flying an FPV - goggles on, controller in hand, holding still";
+			return string.Format("DRONE OPERATOR: %1 pilot %2 (one FPV every %3 s, %4 men in the team)", u.m_sSide, state, DRONE_EVERY_S,
+				AICF_GroupRuntime.CountAliveAgents(u.m_Group));
+		}
 		string doing = "holding";
 		if (u.m_sRole == "attack" || u.m_sKind == "riders")
 			doing = "attacking";
