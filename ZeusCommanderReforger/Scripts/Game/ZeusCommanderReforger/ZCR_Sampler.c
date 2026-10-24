@@ -29,6 +29,8 @@ class ZCR_SoldierState
 	float m_fSpeed;        // m/s since the last sample
 	bool m_bInVehicle;
 	string m_sSide;
+	bool m_bSquad;         // ever seen in a squad slot (DCO may move him to a group of its own later); builders, truck
+	                       // crews and operators are followed too but kept out of the crowd, riding and pace numbers
 }
 
 class ZCR_Sampler
@@ -61,7 +63,7 @@ class ZCR_Sampler
 		Start();
 	}
 
-	protected void Track(ChimeraCharacter c, string faction, int now, map<IEntity, ref ZCR_SoldierState> next)
+	protected void Track(ChimeraCharacter c, string faction, int now, map<IEntity, ref ZCR_SoldierState> next, bool squad = false)
 	{
 		if (!c)
 			return;
@@ -84,6 +86,8 @@ class ZCR_Sampler
 		st.m_iStance = ctl.GetStance();
 		st.m_bInVehicle = c.IsInVehicle();
 		st.m_sSide = faction;
+		if (squad)
+			st.m_bSquad = true;
 		next.Set(c, st);
 		Learn(faction, c, now);
 	}
@@ -396,7 +400,7 @@ class ZCR_Sampler
 					ChimeraCharacter c;
 					if (agent)
 						c = ChimeraCharacter.Cast(agent.GetControlledEntity());
-					Track(c, faction, now, next);
+					Track(c, faction, now, next, true);
 				}
 			}
 		}
@@ -425,7 +429,7 @@ class ZCR_Sampler
 			foreach (AIAgent m : members)
 			{
 				if (m)
-					Track(ChimeraCharacter.Cast(m.GetControlledEntity()), gside, now, next);
+					Track(ChimeraCharacter.Cast(m.GetControlledEntity()), gside, now, next, true);
 			}
 		}
 		m_mState = next;
@@ -457,7 +461,7 @@ class ZCR_Sampler
 			int aboard;
 			foreach (IEntity e, ZCR_SoldierState st : m_mState)
 			{
-				if (!e || !st || st.m_sSide != rs || !st.m_bInVehicle)
+				if (!e || !st || st.m_sSide != rs || !st.m_bInVehicle || !st.m_bSquad)
 					continue;
 				aboard++;
 				if (st.m_bMoving)
@@ -470,7 +474,7 @@ class ZCR_Sampler
 			array<IEntity> men = {};
 			foreach (IEntity e, ZCR_SoldierState st : m_mState)
 			{
-				if (e && st && st.m_sSide == side && !st.m_bInVehicle)
+				if (e && st && st.m_sSide == side && !st.m_bInVehicle && st.m_bSquad)
 					men.Insert(e);
 			}
 			if (men.IsEmpty())
@@ -587,7 +591,7 @@ class ZCR_Sampler
 			array<float> paces = {};
 			foreach (IEntity pe, ZCR_SoldierState ps : m_mState)
 			{
-				if (pe && ps && ps.m_sSide == side && !ps.m_bInVehicle && ps.m_bMoving && ps.m_fSpeed < 8)
+				if (pe && ps && ps.m_sSide == side && !ps.m_bInVehicle && ps.m_bMoving && ps.m_fSpeed < 8 && ps.m_bSquad)
 					paces.Insert(ps.m_fSpeed);
 			}
 			int pace = -1;

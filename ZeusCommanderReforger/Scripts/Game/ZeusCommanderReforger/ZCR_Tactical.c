@@ -21,6 +21,11 @@ class ZCR_Tactical
 		return "none";
 	}
 
+	// Every commander tick for a side: the tactical layer can adjust its squads (DCO: detail by distance to known enemies).
+	void Tend(string faction, AICF_FactionState state)
+	{
+	}
+
 	// A squad starts (true) or stops storming its objective: the tactical layer lets it push instead of breaking contact.
 	void SetStorming(SCR_AIGroup group, bool storming)
 	{

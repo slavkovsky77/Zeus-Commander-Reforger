@@ -15,6 +15,51 @@ modded class ZCR_Tactical
 		return "dco";
 	}
 
+	// Squad detail (24 Oct: DCO's own profiler - 4.8 ms a frame, 29% of a 60-FPS frame with 157 soldiers; its advice: set
+	// background squads to Light): every commander tick, a squad with no enemy its side knows of within 800 m gets DCO's
+	// Light detail, one near the enemy full detail. -zcrNoDcoLod off.
+	//   [ZCR][DCOLOD] t= faction= light= full=          (every 60 s)
+	static const float CALM_M = 800;
+	protected ref map<string, int> m_mLodLogAt = new map<string, int>();
+
+	override void Tend(string faction, AICF_FactionState state)
+	{
+		if (!state || System.IsCLIParam("zcrNoDcoLod"))
+			return;
+		int lightOff = DCO_GroupFeatures.PresetOff(DCO_EGroupDetail.LIGHT);
+		int light, full;
+		for (int i; i < state.GetSlotCount(); i++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(i);
+			if (!slot || !slot.GetGroup())
+				continue;
+			SCR_AIGroup g = slot.GetGroup();
+			array<AIAgent> agents = {};
+			g.GetAgents(agents);
+			if (agents.IsEmpty() || !agents[0] || !agents[0].GetControlledEntity())
+				continue;
+			vector at = agents[0].GetControlledEntity().GetOrigin();
+			int want = 0;
+			if (ZCR_Sampler.KnownEnemiesNear(faction, at, CALM_M) == 0)
+			{
+				want = lightOff;
+				light++;
+			}
+			else
+				full++;
+			if (System.IsCLIParam("zcrStormPush") && (g.DCO_GetFeatureOff() & STORM_OFF) == STORM_OFF)
+				want = want | STORM_OFF;
+			if (g.DCO_GetFeatureOff() != want)
+				g.DCO_SetFeatureOff(want, "zeus_commander_lod");
+		}
+		int now = ZCR_LossLog.Seconds();
+		if (now >= m_mLodLogAt.Get(faction))
+		{
+			m_mLodLogAt.Set(faction, now + 60);
+			Print(string.Format("[ZCR][DCOLOD] t=%1 faction=%2 light=%3 full=%4", now, faction, light, full), LogLevel.NORMAL);
+		}
+	}
+
 	// Only with -zcrStormPush (24 Oct 12:00: the push experiment failed - storming squads without DCO's drills died in the
 	// open, 1 of 4 positions taken), so matches run plain DCO; the hook stays for the next idea.
 	override void SetStorming(SCR_AIGroup group, bool storming)
