@@ -157,6 +157,13 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "evade_s": sum(int(m) for m in re.findall(r"event=ARRIVE .* evade_s=(\d+)", text)),
         "evade_max_s": max([int(m) for m in re.findall(r"event=ARRIVE .* evade_s=(\d+)", text)] or [0]),
         "pairs": len(re.findall(r"event=CONVOY ", text)),
+        # The fixes (24 Oct): dodging broken (one gives way), detours from a dead end, gates and barriers opened ahead.
+        "dodge_broken": len(re.findall(r"\[ZCR\]\[DODGE\] t=\d+ side=", text)),
+        "detours": len(re.findall(r"\[ZCR\]\[DETOUR\] .* via_m=", text)),
+        "detour_no_road": len(re.findall(r"\[ZCR\]\[DETOUR\] .* why=no_road", text)),
+        "gates_opened": len(re.findall(r"\[ZCR\]\[GATEAHEAD\] .* gate=", text)),
+        "unreachable": len(re.findall(r"\[ZCR\]\[MOVEFAIL\] .* error=UNREACHABLE", text)),
+        "crew_out": len(re.findall(r"event=LOST .* why=crew_out", text)),
         "pairs_through": len(re.findall(r"event=CONVOY .* cars=2 arrived=2 ", text)),
         "pair_last_s": (sorted(int(m) for m in re.findall(r"event=CONVOY .* last_s=(\d+)", text) if int(m) >= 0) or [None])[-1],
         "oncoming": len(re.findall(r"\[ZCR\]\[ONCOMING\] .* other=", text)),

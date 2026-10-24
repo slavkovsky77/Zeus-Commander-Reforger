@@ -97,7 +97,8 @@ class ZCR_Driving
 		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)
 		ZCR_NavProbe.Start();      // lab: is the vehicle navmesh loaded where the cars drive (-zcrNavProbe)
 		ZCR_DoorProbe.Start();     // lab: doors and gates near given points, how open (-zcrDoorProbe)
-		ZCR_OpenGates.Start();     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
+		ZCR_OpenGates.Start();
+		ZCR_GateAhead.Start();     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)     // lab: every gate on the map open, checked each minute (-zcrOpenGates)
 		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
 
@@ -555,7 +556,10 @@ class ZCR_Driving
 			return;
 		// The point itself, for AI Conflict's ride routing: avoided by later rides this match.
 		if (result == EMoveError.UNREACHABLE)
+		{
 			AICF_BadRoadPoints.Add(location);
+			ZCR_Detour.Unreachable(vehicle, location);   // a road away from the dead end first (24 Oct, the Farm)
+		}
 		int now = ZCR_LossLog.Seconds();
 		int last;
 		if (s_mMoveFailAt.Find(vehicle, last) && now - last < 20)
