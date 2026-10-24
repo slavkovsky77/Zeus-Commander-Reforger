@@ -151,6 +151,7 @@ class ZCR_DriveTest
 		// the first cars hit TM-62M mines east of A in every run (review note 317).
 		AICF_RoadMines.Start();
 		ZCR_ProbeAt.Start();
+		ZCR_RenavAt.Start();      // lab: -zcrRenavAt "x1,z1,x2,z2" - the navmesh there regenerated at the start
 		ZCR_RoadsAt.Start();      // lab: -zcrRoadsAt "x,z,r" - the roads around a spot      // lab: -zcrProbeAt "x,z,r" (-zcrClearTrees) - what stands at a spot
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
 	}
@@ -210,10 +211,17 @@ class ZCR_DriveTest
 				vector road;
 				string blocker;
 				int tried;
-				int ok = AICF_DepotAccess.RoadReachable(s, AICF_DepotAccess.REACH_M, road, blocker, tried);
-				Print(string.Format("[ZCR][ACCESS] t=%1 start=%2 x=%3 z=%4 road=%5 road_x=%6 road_z=%7 road_m=%8 tried=%9", now, k + 1, Math.Round(s[0]),
-					Math.Round(s[2]), ok, Math.Round(road[0]), Math.Round(road[2]), Math.Round(vector.DistanceXZ(s, road)), tried) + " blocker=" + blocker,
-					LogLevel.NORMAL);
+				int straight = AICF_DepotAccess.RoadReachable(s, AICF_DepotAccess.REACH_M, road, blocker, tried);
+				// The way out over the grid (the builder's check): with its cost.
+				vector wayRoad;
+				string wayBlocker;
+				int cells, sweeps;
+				int started = System.GetTickCount();
+				int way = AICF_DepotAccess.WayOut(s, AICF_DepotAccess.REACH_M, wayRoad, wayBlocker, cells, sweeps);
+				int ms = System.GetTickCount() - started;
+				Print(string.Format("[ZCR][ACCESS] t=%1 start=%2 x=%3 z=%4 way=%5 cells=%6 sweeps=%7 ms=%8 road_x=%9", now, k + 1, Math.Round(s[0]),
+					Math.Round(s[2]), way, cells, sweeps, ms, Math.Round(wayRoad[0])) + string.Format(" road_z=%1 way_blocker=%2 straight=%3 straight_blocker=%4",
+					Math.Round(wayRoad[2]), wayBlocker, straight, blocker), LogLevel.NORMAL);
 			}
 		}
 		bool wantCar = m_aCars.Count() < m_iCount;

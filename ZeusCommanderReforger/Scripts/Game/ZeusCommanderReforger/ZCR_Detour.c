@@ -465,3 +465,78 @@ class ZCR_RoadFirst
 		return null;
 	}
 }
+
+// Lab: -zcrRenavAt "x1,z1,x2,z2" - the navmesh of that area regenerated at the start (24 Oct, the Farm: vans from 3 of the
+// 4 depot spots drove to two places where the planner sees a way and a van doesn't fit - 2197,2928 and 2357,2969 - and the
+// crews got out; is the baked vehicle navmesh stale round the farm's fences?). Logs which navmeshes have a tile there, the
+// request, and when no tile is waiting any more: [ZCR][RENAV] t= navmeshes= requested= / t= done=1 waited_s=
+class ZCR_RenavAt
+{
+	protected static vector s_vMin;
+	protected static vector s_vMax;
+	protected static int s_iAt;
+
+	static void Start()
+	{
+		if (!Replication.IsServer() || !System.IsCLIParam("zcrRenavAt"))
+			return;
+		GetGame().GetCallqueue().CallLater(Run, 3000, false);
+	}
+
+	protected static void Run()
+	{
+		string spec;
+		System.GetCLIParam("zcrRenavAt", spec);
+		array<string> v = {};
+		spec.Split(",", v, true);
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (v.Count() < 4 || !aiWorld)
+			return;
+		s_vMin = Vector(v[0].ToFloat(), -100, v[1].ToFloat());
+		s_vMax = Vector(v[2].ToFloat(), 1000, v[3].ToFloat());
+		vector mid = (s_vMin + s_vMax) * 0.5;
+		mid[1] = GetGame().GetWorld().GetSurfaceY(mid[0], mid[2]);
+		string names;
+		array<string> kinds = {"Soldiers", "BTRlike", "LowRes", "Vehicles", "Cars"};
+		foreach (string k : kinds)
+		{
+			NavmeshWorldComponent nav = aiWorld.GetNavmeshWorldComponent(k);
+			if (nav)
+				names += string.Format("%1:%2 ", k, nav.IsTileValid(mid));
+		}
+		aiWorld.RequestNavmeshRebuild(s_vMin, s_vMax);
+		s_iAt = ZCR_LossLog.Seconds();
+		Print(string.Format("[ZCR][RENAV] t=%1 navmeshes=%2requested=%3,%4..%5,%6", s_iAt, names, Math.Round(s_vMin[0]), Math.Round(s_vMin[2]),
+			Math.Round(s_vMax[0]), Math.Round(s_vMax[2])), LogLevel.NORMAL);
+		GetGame().GetCallqueue().CallLater(Wait, 1000, true);
+	}
+
+	protected static void Wait()
+	{
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld)
+			return;
+		int waiting;
+		array<string> kinds = {"Soldiers", "BTRlike", "LowRes", "Vehicles", "Cars"};
+		foreach (string k : kinds)
+		{
+			NavmeshWorldComponent nav = aiWorld.GetNavmeshWorldComponent(k);
+			if (!nav)
+				continue;
+			for (float x = s_vMin[0]; x <= s_vMax[0]; x += 50)
+			{
+				for (float z = s_vMin[2]; z <= s_vMax[2]; z += 50)
+				{
+					vector p = Vector(x, GetGame().GetWorld().GetSurfaceY(x, z), z);
+					if (nav.IsTileRequested(p))
+						waiting++;
+				}
+			}
+		}
+		int now = ZCR_LossLog.Seconds();
+		if (waiting > 0 && now - s_iAt < 120)
+			return;
+		GetGame().GetCallqueue().Remove(Wait);
+		Print(string.Format("[ZCR][RENAV] t=%1 done=%2 waited_s=%3", now, waiting == 0, now - s_iAt), LogLevel.NORMAL);
+	}
+}

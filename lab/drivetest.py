@@ -93,6 +93,9 @@ VARIANTS = {
     "best": ("", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),                         # ours + road price + Competent AI driving
     # The Farm's wall corner (24 Oct): the same with the trees within 8 m of the corner's gap deleted - is it the tree?
     "notree": ("-zcrProbeAt 2196,2929,8 -zcrClearTrees -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
+    # The navmesh round the Farm regenerated at the start (24 Oct: vans from 3 of the Farm's 4 depot spots drove into two
+    # places a van doesn't fit through - is the baked vehicle navmesh stale there?).
+    "renav": ("-zcrRenavAt 2000,2750,2500,3100", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
     "probe": ("-zcrProbeAt 2196,2929,8 -zcrRoadsAt 2180,2920,180", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
 }
 
@@ -107,9 +110,10 @@ def _title(name: str, scenario: str, variant: str) -> str:
 
 
 def depot_spots(text: str) -> str:
-    """'1:2124,2948 access=0 1/3' per spot: the access check (1 a road reachable, 0 walled in, -1 no road near), arrived/cars."""
+    """'1:2124,2948 access=0 1/3' per spot: the builder's access check (1 a way out to a road, 0 walled in, -1 no road near),
+    arrived/cars."""
     spots = {}
-    for m in re.finditer(r"\[ZCR\]\[ACCESS\] .*start=(\d+) x=(\d+) z=(\d+) road=(-?\d+)", text):
+    for m in re.finditer(r"\[ZCR\]\[ACCESS\] .*start=(\d+) x=(\d+) z=(\d+) (?:road|way)=(-?\d+)", text):
         spots[m.group(1)] = {"at": f"{m.group(2)},{m.group(3)}", "access": m.group(4), "cars": set(), "arrived": 0}
     for m in re.finditer(r"car=(\d+) event=SPAWN .* start=(\d+)", text):
         if m.group(2) in spots:
