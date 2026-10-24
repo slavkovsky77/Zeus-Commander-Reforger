@@ -203,9 +203,19 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     held = {s: sum(int(kv(l).get("held_friend", 0) or 0) for l in lines if "[ZCR][ANTIDRONE]" in l and f" side={s.upper()} " in l)
             for s in ("us", "ussr")}
     shot_down = {s: sum(1 for l in lines if "[ZCR][ANTIDRONE]" in l and "shot_down=1" in l and f" side={s.upper()} " in l) for s in ("us", "ussr")}
+    # Cover from drones: drone victims with a roof or tree crown over them (24 Oct cycles 1-2: 11 of 89), and the runs into
+    # a building (ZCR_DroneThreat since 444efbe: ended / inside at the end), the drone threat's covered % near a drone.
+    under = {s: sum(1 for d in all_deaths if d.get("side") == s.upper() and d.get("killer_kind") in ("none", "") and d.get("stance")
+                    and d.get("above") not in (None, "", "none")) for s in ("us", "ussr")}
+    threat = {s: [kv(l) for l in lines if "[ZCR][DRONETHREAT]" in l and f" side={s.upper()} " in l and " near=" in l] for s in ("us", "ussr")}
     for s in ("us", "ussr"):
+        rows = threat[s]
         out.update({f"{s}_drones_at": launched[s], f"{s}_drone_lost": by_drone[s], f"{s}_ff": friendly[s], f"{s}_held_friend": held[s],
-                    f"{s}_shot_down": shot_down[s]})
+                    f"{s}_shot_down": shot_down[s], f"{s}_drone_dead_covered": under[s],
+                    f"{s}_shelter_runs": sum(int(r.get("shelter_runs", 0) or 0) for r in rows),
+                    f"{s}_shelter_in": sum(int(r.get("shelter_in", 0) or 0) for r in rows),
+                    f"{s}_near_drone_covered": round(sum(int(r.get("covered", 0)) * int(r.get("near", 0)) for r in rows) / max(1, sum(int(r.get("near", 0)) for r in rows)))
+                    if rows else None})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",
