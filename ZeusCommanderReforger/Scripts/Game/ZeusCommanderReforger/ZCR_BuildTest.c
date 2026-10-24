@@ -24,12 +24,14 @@ class ZCR_BuildTest
 		s_Instance = new ZCR_BuildTest();
 		GetGame().GetCallqueue().CallLater(s_Instance.Give, 8000, false, spec);
 		GetGame().GetCallqueue().CallLater(s_Instance.Stock, 30000, true);
-		GetGame().GetCallqueue().CallLater(s_Instance.Clear, 10000, true);
+		GetGame().GetCallqueue().CallLater(s_Instance.Clear, 2000, true);
 	}
 
 	// No squads: AI Conflict spawns each side's whole starting roster past the side cap (the cap of 1 from the runner only
-	// stops replacements) - their soldiers are taken off the map as they appear, for the first 3 minutes. Builders and
-	// supply truck crews are not in the squad slots and stay.
+	// stops replacements) - their soldiers are taken off the map as they appear (every 2 s), for the first 3 minutes.
+	// Builders and supply truck crews are not in the squad slots and stay. Taken off as they appear, not 20 s in: deleting
+	// all 120 at once after the roster was ready broke AI Conflict's equipment cleanup (a VM exception in
+	// AICF_EquipmentDraft.Clear); cleared at t=14 (the watched run) there was none and the builders built as before.
 	protected int m_iCleared;
 
 	protected void Clear()

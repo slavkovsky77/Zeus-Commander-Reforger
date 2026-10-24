@@ -170,9 +170,13 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "search_s": _median(search_s), "walk_s": _median(walk_s), "build_s": _median(build_s),
         "blocked": sum(blocked.values()), "blocked_why": ",".join(f"{k}:{v}" for k, v in sorted(blocked.items())),
         "move_fails": len(by("BUILDER_MOVE_FAILED")), "return_blocked": len(by("BUILDER_RETURN_BLOCKED")),
-        # On a road (the footprint's centre within the road) or right beside one (under 3 m from its edge).
-        "on_road": len([g for g in gaps if g < 0]), "by_road": len([g for g in gaps if 0 <= g < 3]),
+        # The log gives a building's centre, not its footprint (a small slot is ~12 m across): on a road = the centre
+        # under 2 m from the road's edge; by a road = 2-8 m (its footprint likely touches the road).
+        "on_road": len([g for g in gaps if g < 2]), "by_road": len([g for g in gaps if 2 <= g < 8]),
         "road_gap_m": _median(gaps),
+        # AI Conflict's supply cache at each base (BASE_STORAGE_PLACED, placed at the start - not by the builders): under 6 m from a road edge (its corner on the road).
+        "cache_road": len([1 for x, z in re.findall(r"BASE_STORAGE_PLACED\] .* x=(-?\d+) z=(-?\d+)", text) if roads and road_gap(float(x), float(z), roads) < 5.6]),
+        "caches": len(re.findall(r"BASE_STORAGE_PLACED\]", text)),
         "no_access": len(re.findall(r"DEPOT_NO_ROAD_ACCESS", text)),
         "sites": " ".join(sites),
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
