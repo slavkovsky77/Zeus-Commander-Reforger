@@ -43,6 +43,7 @@ class ZCR_DroneOperator
 	protected static bool s_bStarted;
 	protected static int s_iNextLog;
 	protected static ref map<string, int> s_mHolds = new map<string, int>();
+	protected static ref map<SCR_AIGroup, bool> s_mCovered = new map<SCR_AIGroup, bool>();   // the team's post has cover
 
 	// The team's soldiers spawn over a few frames: tried again for 10 s until they are there.
 	static void Register(SCR_AIGroup group, string side, vector post, vector threat, int tries = 0)
@@ -90,6 +91,7 @@ class ZCR_DroneOperator
 			if (m.m_bPilot)
 				Kit(m);
 		}
+		s_mCovered.Set(group, spot != vector.Zero);
 		ZCR_Tactical.Get().HoldStill(group);   // DCO: its squad moves off for the team
 		Print(string.Format("[ZCR][OPERATOR] t=%1 side=%2 event=post men=%3 cover=%4 x=%5 z=%6 layer=%7", now, side, agents.Count(), spot != vector.Zero,
 			Math.Round(post[0]), Math.Round(post[2]), ZCR_Tactical.Get().Layer()), LogLevel.NORMAL);
@@ -98,6 +100,12 @@ class ZCR_DroneOperator
 			s_bStarted = true;
 			GetGame().GetCallqueue().CallLater(Tick, 1000, true);
 		}
+	}
+
+	// The team's post in the open (no roof or tree crowns found near it) - false until the team is registered.
+	static bool Exposed(SCR_AIGroup group)
+	{
+		return group && s_mCovered.Contains(group) && !s_mCovered.Get(group);
 	}
 
 	static bool IsOperator(IEntity e)
@@ -151,6 +159,7 @@ class ZCR_DroneOperator
 			if (m.m_Man)
 				ToPost(m, now);
 		}
+		s_mCovered.Set(group, spot != vector.Zero);
 		Print(string.Format("[ZCR][OPERATOR] t=%1 event=new_post cover=%2 x=%3 z=%4", now, spot != vector.Zero, Math.Round(post[0]), Math.Round(post[2])), LogLevel.NORMAL);
 	}
 

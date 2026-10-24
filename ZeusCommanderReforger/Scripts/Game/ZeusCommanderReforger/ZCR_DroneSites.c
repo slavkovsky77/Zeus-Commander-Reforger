@@ -15,7 +15,8 @@
 // Static and mobile (Martin, 17:42: "there can be a static drone station and a mobile one like this, but he should also
 // drive it to some safety"): the main base's site stays put; forward sites move, and the next spot is chosen for safety -
 // overhead cover (trees, a roof) for the operators within 50 m of the truck, and of those the one farthest from the front
-// (cover=0 in the log when none of the tries had any). -zcrStaticDroneSites: no moves.
+// (cover=0 in the log when none of the tries had any). A site whose operators found no cover at their post moves at
+// once (why=exposed, twice at most). -zcrStaticDroneSites: no moves.
 class ZCR_DroneSite
 {
 	string m_sSide;
@@ -37,6 +38,7 @@ class ZCR_DroneSite
 	int m_iMoves;
 	vector m_vTo;
 	string m_sWhy;
+	int m_iExposedMoves;     // moves made because its operators had no cover (at most 2)
 	bool m_bSafe;           // its next spot has overhead cover for the operators
 	bool m_bDue;            // a move is due: no more launches from here, packing once the last drone is down
 	AIWaypoint m_Waypoint;
@@ -355,6 +357,8 @@ class ZCR_DroneSites
 					why = "time";
 				else if (Seen(s, Enemy(s.m_sSide)))
 					why = "seen";
+				else if (s.m_iExposedMoves < 2 && ZCR_DroneOperator.Exposed(s.m_Operators))
+					why = "exposed";               // 17:53: set up in the open - to cover before launching
 				if (why.IsEmpty())
 					return;
 				// Due: no more launches from here (17:24, the farm-site storm: launches every 35 s never left the minute's
@@ -377,6 +381,8 @@ class ZCR_DroneSites
 			s.m_vTo = to;
 			s.m_sWhy = why;
 			s.m_bDue = false;
+			if (why == "exposed")
+				s.m_iExposedMoves++;
 			s.m_iMove = 1;
 			s.m_iMoveAt = now;
 			ZCR_DroneOperator.Moving(s.m_Operators, true);
