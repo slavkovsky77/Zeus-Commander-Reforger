@@ -58,6 +58,11 @@ class ZCR_DriveCar
 	vector m_vGoal;         // "depots" with destinations ("spot>goal"): this car's B (zero: the test's B)
 	vector m_vStart;        // where it was spawned
 	ref array<AIWaypoint> m_aRouteWps = {};   // "routes": the planned route's waypoints before its own
+	int m_iReseats;         // drivers put in the seat by hand (the far-from-camera spawn in the watched game)
+	AIWaypoint m_Board;     // ... and when that doesn't hold, a get-in order for its own car
+	int m_iBoardAt;
+	int m_iTracedAt;        // the last [ZCR][DRIVETEST] event=AT line
+	int m_iPathAt;          // the last event=PATH line
 	bool m_bSeatLogged;     // the empty driver's seat logged once
 }
 
@@ -323,6 +328,7 @@ class ZCR_DriveTest
 				continue;
 			}
 			Water(car, now);
+			Trace(car, now);
 			if (Evading(car))
 				car.m_iEvadeS++;
 			vector target = m_vA;
@@ -612,9 +618,78 @@ class ZCR_DriveTest
 		return true;
 	}
 
+	// The live view (25 Oct - Martin: "can we visualise those decisions in the Commander Lab?"): every 5 s where each car is
+	// and how fast it goes, every 15 s the path the game's planner is driving it along now (GetCurrentPath on the driver's
+	// movement, up to 24 points) - the Lab app's Map tab draws them next to the planned route.
+	//   [ZCR][DRIVETEST] t= car= event=AT x= z= kmh=        [ZCR][DRIVETEST] t= car= event=PATH n= pts=x,z;x,z;...
+	protected void Trace(ZCR_DriveCar car, int now)
+	{
+		if (!car.m_Vehicle || now - car.m_iTracedAt < 5)
+			return;
+		car.m_iTracedAt = now;
+		vector at = car.m_Vehicle.GetOrigin();
+		float kmh;
+		Physics ph = car.m_Vehicle.GetPhysics();
+		if (ph)
+			kmh = ph.GetVelocity().Length() * 3.6;
+		Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=AT x=%3 z=%4 kmh=%5", now, car.m_iIndex, Math.Round(at[0]), Math.Round(at[2]), Math.Round(kmh)),
+			LogLevel.NORMAL);
+		if (now - car.m_iPathAt < 15 || !car.m_Group)
+			return;
+		car.m_iPathAt = now;
+		array<AIAgent> agents = {};
+		car.m_Group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			AIBaseMovementComponent move = agent.GetMovementComponent();
+			if (!move)
+				continue;
+			array<vector> path = {};
+			move.GetCurrentPath(path);
+			if (path.IsEmpty())
+				continue;
+			int stride = Math.Max(1, Math.Ceil(path.Count() / 24.0));
+			string pts;
+			for (int i = 0; i < path.Count(); i += stride)
+			{
+				if (!pts.IsEmpty())
+					pts += ";";
+				pts += string.Format("%1,%2", Math.Round(path[i][0]), Math.Round(path[i][2]));
+			}
+			vector last = path[path.Count() - 1];
+			pts += string.Format(";%1,%2", Math.Round(last[0]), Math.Round(last[2]));
+			Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=PATH n=%3 pts=%4", now, car.m_iIndex, path.Count(), pts), LogLevel.NORMAL);
+			break;
+		}
+	}
+
 	// Put the car's crew man standing beside it into the driver's seat (the far-from-camera spawn in the watched game).
+	// MoveInVehicle reports success there but the man doesn't stay seated (25 Oct, live arland-supply: cars 10-22 reseated
+	// every second for 50 s): after 3 tries the group gets a get-in order for its own car ahead of its route - the way AI
+	// Conflict's soldiers board rides anywhere on the map.
 	protected bool Reseat(ZCR_DriveCar car)
 	{
+		if (car.m_iReseats >= 3)
+		{
+			if (!car.m_Board)
+			{
+				EntitySpawnParams params = new EntitySpawnParams();
+				params.TransformMode = ETransformMode.WORLD;
+				params.Transform[3] = car.m_Vehicle.GetOrigin();
+				SCR_BoardingEntityWaypoint board = SCR_BoardingEntityWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{8AD8C82346156494}Prefabs/AI/Waypoints/AIWaypoint_GetInSelected.et", false, params: params));
+				if (board)
+				{
+					board.SetEntity(car.m_Vehicle);
+					board.SetCompletionRadius(25);
+					car.m_Group.AddWaypointAt(board, 0);
+					car.m_Board = board;
+					car.m_iBoardAt = ZCR_LossLog.Seconds();
+				}
+				Print(string.Format("[ZCR][DRIVETEST] t=%1 car=%2 event=BOARD ordered=%3", ZCR_LossLog.Seconds(), car.m_iIndex, board != null), LogLevel.NORMAL);
+			}
+			return car.m_Board != null && ZCR_LossLog.Seconds() - car.m_iBoardAt < 60;   // boarding: a minute, then lost as usual
+		}
+		car.m_iReseats++;
 		array<AIAgent> agents = {};
 		car.m_Group.GetAgents(agents);
 		foreach (AIAgent agent : agents)
