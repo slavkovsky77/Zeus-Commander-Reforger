@@ -26,6 +26,7 @@ class ZCR_OperatorMan
 	int m_iFrozenAt;
 	int m_iThawUntil;
 	SCR_AIGroup m_Group;
+	SCR_AIMoveIndividuallyBehavior m_Move;   // his last move to the post
 	bool m_bMoving;         // the drone site is moving (ZCR_DroneSites): no holding at the post, no flying
 }
 
@@ -250,8 +251,9 @@ class ZCR_DroneOperator
 		}
 	}
 
-	// A launch position: toward the goal from the resupply point, 200-450 m out and up to 150 m to a side, the one with a roof or
-	// tree crowns within 30 m (the team takes its post there); none of 16 with cover - the first tried.
+	// A launch position near the resupply point (Martin, 18:03: "maybe they should stay close to the truck"; the walks of 330 m
+	// took 240 s out and 137 s back): 100-250 m from it, toward the goal or to a side, the one with a roof or tree crowns
+	// within 30 m (the team takes its post there); none of 16 with cover - the first tried.
 	protected static vector LaunchPosition(ChimeraCharacter pilot, ZCR_OperatorTeam team)
 	{
 		vector dir = team.m_vGoal - team.m_vSupply;
@@ -264,10 +266,10 @@ class ZCR_DroneOperator
 		vector first;
 		for (int tries; tries < 16; tries++)
 		{
-			float reach = Math.RandomFloat(200, 450);
+			float reach = Math.RandomFloat(60, 200);
 			if (span > 1)
 				reach = Math.Min(reach, span - 250);     // not closer than 250 m to the goal
-			vector cand = team.m_vSupply + dir * Math.Max(reach, 50) + side * Math.RandomFloat(-150, 150);
+			vector cand = team.m_vSupply + dir * Math.Max(reach, 0) + side * Math.RandomFloat(-120, 120);
 			cand[1] = GetGame().GetWorld().GetSurfaceY(cand[0], cand[2]);
 			if (tries == 0)
 				first = cand;
@@ -286,6 +288,7 @@ class ZCR_DroneOperator
 		{
 			if (m.m_Group != group)
 				continue;
+			EndMove(m);
 			m.m_vPost = post;
 			if (!m.m_bPilot)
 				m.m_vPost = post + Vector(3, 0, -3);
@@ -345,6 +348,7 @@ class ZCR_DroneOperator
 		{
 			if (m.m_Group != group)
 				continue;
+			EndMove(m);
 			m.m_vPost = post;
 			if (!m.m_bPilot)
 				m.m_vPost = post + Vector(3, 0, -3);
@@ -538,6 +542,13 @@ class ZCR_DroneOperator
 			control.ActivateAI();
 	}
 
+	protected static void EndMove(ZCR_OperatorMan m)
+	{
+		if (m.m_Move && m.m_Move.GetActionState() == EAIActionState.RUNNING)
+			m.m_Move.Complete();
+		m.m_Move = null;
+	}
+
 	// Back to (or off to) his post: above the squad's own moves, below a run into a building from an enemy drone.
 	protected static void ToPost(ZCR_OperatorMan m, int now)
 	{
@@ -545,8 +556,14 @@ class ZCR_DroneOperator
 		SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(c);
 		if (!utility)
 			return;
-		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, m.m_vPost, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 1,
-			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
+		// A new order only when the last one has ended (18:06: a fresh one every 3 s on the walk out and back - 332 in 12
+		// minutes; the operators stopped, turned and started again all the way: "the operator is acting a bit weird").
+		if (m.m_Move && m.m_Move.GetActionState() == EAIActionState.RUNNING)
+			return;
+		SCR_AIMoveIndividuallyBehavior move = new SCR_AIMoveIndividuallyBehavior(utility, null, m.m_vPost, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 1,
+			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0);
+		ZCR_Reserved.Add(utility, move);
+		m.m_Move = move;
 		m.m_iAgainAt = now + 3;
 	}
 
