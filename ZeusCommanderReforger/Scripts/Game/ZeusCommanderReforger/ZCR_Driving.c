@@ -90,6 +90,7 @@ class ZCR_Driving
 		ZCR_DriveTest.Start();     // lab: the driving test track (-zcrDriveTest)
 		ZCR_TrafficSim.Start();    // lab: the traffic simulation (-zcrTrafficSim)
 		ZCR_GunTest.Start();       // lab: the guns test - armour against armour or a squad (-zcrGunTest)
+		ZCR_BuildTest.Start();     // lab: the base-building test - AI Conflict's builders at given bases (-zcrBuildTest)
 		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
 		ZCR_Crossing.Start();      // paths crossing ahead: the later one stops - off (worse in the lab), -zcrCrossing on
 		ZCR_Junction.Start();      // two vehicles heading for the same junction: both 20 km/h there (-zcrNoJunction off)

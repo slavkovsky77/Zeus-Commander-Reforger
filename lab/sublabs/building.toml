@@ -1,0 +1,33 @@
+# Sub-lab "building" - created 2026-10-25 00:57 by lab/sublab.py new
+name = "building"
+question = "Do AI Conflict's infantry builders build a base well - buildings in sensible places, off the roads and not blocking the base, and the builder walking there and finishing them?"
+issue = "builders put supply points and depots on the road or blocking the base (note 386); searches slow, giving up (266, 272); builders blocked or never finishing"
+pass_rule = "every placed building built within the run, none on a road, no builder stuck (blocked or failed moves under 2 a run); then in watched matches each side builds its depot and barracks in the first 10 minutes"
+runner = "lab/buildtest.py"
+minutes = 12.0
+units = 0
+scenarios = ["near2", "near4", "hq", "farm"]
+variants = ["default", "noaccess", "nofort"]
+baseline = "noaccess"
+candidate = "default"
+score = "built - 3*on_road - by_road - 2*move_fails - blocked - open"
+higher_is_better = true
+keys = ["placed", "built", "open", "on_road", "by_road", "gave_up", "walk_s", "build_s", "blocked", "move_fails"]
+title = "Base building"
+main = "built"
+
+# Plain words for the page.
+score_words = "buildings finished, minus 3 for each on a road, 1 for each right beside a road, 2 for each failed builder move, 1 for each time a builder was blocked and 1 for each left unfinished"
+baseline_words = "AI Conflict's builders without our depot access check"
+candidate_words = "AI Conflict's builders with our changes"
+
+[scenario_labels]
+near2 = "HQ + 2 bases a side"
+near4 = "HQ + 4 bases a side"
+hq = "HQ only"
+farm = "The Farm and Beauregard"
+
+[variant_labels]
+default = "Our builders (all changes)"
+noaccess = "Without the depot access check"
+nofort = "No fortifications"

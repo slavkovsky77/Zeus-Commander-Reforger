@@ -4,6 +4,7 @@
 //   [ZCR][LIVE] t= kind=team side= id= role= men= ride= x= z= to=
 //   [ZCR][LIVE] t= kind=truck side= id= phase= cargo= cap= kmh= x= z= wps=x,z;x,z from= to=
 //   [ZCR][LIVE] t= kind=van id= phase= cargo= kmh= route= x= z= to=
+//   [ZCR][LIVE] t= kind=builder side= id= doing= progress= x= z= sx= sz= what= base=   (AI Conflict's base builders)
 // -zcrNoLiveMap off.
 class ZCR_LiveMap
 {
@@ -94,6 +95,30 @@ class ZCR_LiveMap
 			Print(string.Format("[ZCR][LIVE] t=%1 kind=truck side=%2 id=%3 phase=%4 cargo=%5 cap=%6 kmh=%7 x=%8 z=%9", now, side, w.m_iSlot,
 				typename.EnumToString(AICF_ELogisticsPhase, w.m_ePhase), Math.Round(cargo), Math.Round(cap), Math.Round(kmh), Math.Round(p[0]), Math.Round(p[2]))
 				+ string.Format(" wps=%1 from=%2 to=%3", wps, from, to), LogLevel.NORMAL);
+		}
+		// AI Conflict's base builders (25 Oct, the base-building sub-lab): what each does, his site and its progress.
+		array<AICF_BaseBuilder> builders = {};
+		AICF_BaseBuilderService.ZCR_Builders(builders);
+		foreach (AICF_BaseBuilder b : builders)
+		{
+			if (!b.m_Character)
+				continue;
+			vector bp = b.m_Character.GetOrigin();
+			string bside = "?";
+			if (b.m_Faction)
+				bside = b.m_Faction.GetFactionKey();
+			string bbase = "-";
+			if (b.m_Base)
+				bbase = Name(ZCR_Strategist.BaseName(b.m_Base));
+			string progress = ZCR_BuildTest.Progress(b);
+			if (progress.IsEmpty())
+				progress = "-";
+			vector site = b.m_vWorkPosition;
+			if (!b.m_Target)
+				site = bp;
+			Print(string.Format("[ZCR][LIVE] t=%1 kind=builder side=%2 id=%3 doing=%4 progress=%5 x=%6 z=%7 sx=%8 sz=%9", now, bside, b.m_iSlotId,
+				ZCR_BuildTest.Doing(b), progress, Math.Round(bp[0]), Math.Round(bp[2]), Math.Round(site[0]), Math.Round(site[2]))
+				+ string.Format(" what=%1 base=%2", Name(ZCR_BuildTest.What(b)), bbase), LogLevel.NORMAL);
 		}
 		ZCR_DriveTest.LiveLines(now);
 	}

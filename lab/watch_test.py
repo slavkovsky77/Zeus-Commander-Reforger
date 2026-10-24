@@ -40,7 +40,7 @@ def describe(mp4: Path, a, tag: str) -> None:
     r = mod.summarize(runs[-1], a.scenario, a.variant) if runs else {}
     words = getattr(mod, "SCENARIO_WORDS", {}).get(a.scenario, "")
     setup = (getattr(mod, "VARIANTS", {}).get(a.variant) or ("", "", a.variant))[-1]
-    keys = [k for k in ("taken", "taken_s", "us_lost", "ussr_lost", "us_cover", "ussr_cover", "died_open_pct", "fight_m", "legs", "car_hits", "lost") if k in r]
+    keys = [k for k in ("taken", "taken_s", "us_lost", "ussr_lost", "us_cover", "ussr_cover", "died_open_pct", "fight_m", "legs", "car_hits", "lost", "placed", "built", "open", "on_road", "by_road", "walk_s", "build_s", "blocked", "move_fails") if k in r]
     lines = [f"# {a.runner} {a.scenario} - {a.variant}", f"Map Arland - {a.scenario}, {a.variant} ({setup})", "", words, "",
              "| measure | value |", "|---|---|"] + [f"| {k} | {r.get(k)} |" for k in keys] + ["", f"Run: {r.get('run', '')}"]
     mp4.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -48,7 +48,7 @@ def describe(mp4: Path, a, tag: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("runner", choices=["inftest", "guntest", "drivetest"])
+    ap.add_argument("runner", choices=["inftest", "guntest", "drivetest", "buildtest"])
     ap.add_argument("scenario")
     ap.add_argument("--variant", default="game")
     ap.add_argument("--minutes", type=float, default=12)

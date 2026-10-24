@@ -349,6 +349,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:4px;vertical-align:3px"></span>Purple line: a planned supply route (lab/roadgraph.py)</div>
         <div><span class="dot" style="background:var(--us)"></span>Live: a team (blue US, red USSR), a line to the base it heads for</div>
         <div><span class="dot" style="background:#a05a00;border-radius:2px"></span>Live: a supply truck (square) or test van (dot) - click one for its route</div>
+        <div><span class="dot" style="background:var(--us);border-radius:1px;transform:rotate(45deg)"></span>Live: a base builder (diamond), dashed to the building he works on (white square)</div>
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:6px;vertical-align:2px"></span>Selected: its planned route; solid: where it drove; white dashes: the game's path now; ring: its goal</div>
       </div>
       <div id="map-sel"></div>
@@ -525,6 +526,27 @@ video { width: 100%; border-radius: 8px; background: #000; }
           .on("click", () => this.pick(key)));
         rows.push([key, `Truck ${t.id}`, t.side, (t.phase || "").replace(/_/g, " ").toLowerCase(), t.from || "", t.to || "", t.cargo >= 0 ? `${Math.round(t.cargo)}/${Math.round(t.cap)}` : "?", `${Math.round(t.kmh || 0)}`, t.wps ? "road graph" : ""]);
       }
+      // AI Conflict's base builders (25 Oct, the base-building sub-lab): a small diamond in the side's colour, a thin line to
+      // the building he works on (a square, its progress inside the tooltip).
+      for (const b of d.builders || []) {
+        const key = `builder:${b.side}:${b.id}`, c = side[b.side] || this.css("--muted");
+        const doing = (b.doing || "").toLowerCase(), what = b.what && b.what !== "-" ? b.what : "";
+        const hasSite = b.sx != null && (Math.abs(b.sx - b.x) + Math.abs(b.sz - b.z) > 2 || doing === "building");
+        if (hasSite && what) {
+          extra.push(L.polyline([[b.z, b.x], [b.sz, b.sx]], { color: c, weight: key === sel ? 3 : 1.5, opacity: .7, dashArray: "3 4", interactive: false }));
+          extra.push(L.rectangle([[b.sz - 6, b.sx - 6], [b.sz + 6, b.sx + 6]], opts({ color: c, weight: 2, fillColor: "#fff", fillOpacity: .5 }))
+            .bindTooltip(`${esc(b.side)} ${esc(what)} at ${esc(b.base || "")}: ${esc(b.progress || "")} built`));
+        }
+        if (key === sel) {
+          const tr = drawSel(key, b.x, b.z, c, null, null, hasSite ? [b.sx, b.sz] : null);
+          info = `<b>${esc(b.side)} builder</b> of ${esc(b.base || "?")} - ${esc(doing)}${what ? ` · ${esc(what)} ${esc(b.progress || "")}` : ""}${doing === "walking" ? ` · ${this.km(Math.hypot(b.sx - b.x, b.sz - b.z))} to his work spot` : ""} · walked ${this.km(this.len(tr))} (solid)`;
+        }
+        markers.push(L.marker([b.z, b.x], { bubblingMouseEvents: false, opacity: dim(key),
+          icon: L.divIcon({ className: "", iconSize: [14, 14], html: `<div style="width:10px;height:10px;margin:2px;transform:rotate(45deg);background:${c};border:2px solid #fff"></div>` }) })
+          .bindTooltip(`${esc(b.side)} builder of ${esc(b.base || "?")}: ${esc(doing)}${what ? " - " + esc(what) + " " + esc(b.progress || "") : ""} - click for his way`)
+          .on("click", () => this.pick(key)));
+        rows.push([key, `Builder ${b.id}`, b.side, `${doing}${what ? " - " + what : ""}`, b.base || "", "", b.progress && b.progress !== "-" ? b.progress : "", "", ""]);
+      }
       // A selected van that has finished (delivered and gone): its whole drive.
       if (sel && sel.startsWith("van:") && !seen.has(sel) && trails[sel]) {
         const tr = trails[sel], end = tr[tr.length - 1];
@@ -538,11 +560,11 @@ video { width: 100%; border-radius: 8px; background: #000; }
         : `<p class="muted">Click a van, truck or team on the map - or a row below - to see its route.</p>`;
       const clr = $("map-sel-clear");
       if (clr) clr.onclick = () => this.pick(sel);
-      $("map-missions").innerHTML = rows.length ? `<h3 style="margin:6px 0">Supply missions now <span class="muted mono">(${esc(d.run)}, game t=${d.t} s)</span></h3>
+      $("map-missions").innerHTML = rows.length ? `<h3 style="margin:6px 0">Supply missions and builders now <span class="muted mono">(${esc(d.run)}, game t=${d.t} s)</span></h3>
         <div style="overflow-x:auto"><table class="mono missions" style="border-collapse:collapse;width:100%;font-size:13px">
-        <tr>${["Vehicle", "Side", "Doing", "From", "To", "Supplies", "km/h", "Route"].map(h => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)">${h}</th>`).join("")}</tr>
+        <tr>${["Who", "Side", "Doing", "From", "To", "Supplies / built", "km/h", "Route"].map(h => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)">${h}</th>`).join("")}</tr>
         ${rows.map(r => `<tr data-key="${esc(r[0])}"${r[0] === sel ? ' class="on"' : ""}>${r.slice(1).map(c => `<td style="padding:4px 8px;border-bottom:1px solid var(--line)">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>`
-        : `<p class="muted">${d.teams.length} teams live, no supply missions right now.</p>`;
+        : `<p class="muted">${d.teams.length} teams live, no supply missions or builders right now.</p>`;
       for (const tr of $("map-missions").querySelectorAll("tr[data-key]")) tr.onclick = () => this.pick(tr.dataset.key, true);
     },
     async layers() {

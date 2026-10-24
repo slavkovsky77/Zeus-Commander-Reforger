@@ -330,7 +330,7 @@ class ZCR_Director
 	// watching the DCO storm: "what is that? AI Conflict alone against AI Conflict alone?").
 	protected static bool LabTest()
 	{
-		return System.IsCLIParam("aicfOff") && (System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim"));
+		return System.IsCLIParam("zcrBuildTest") || (System.IsCLIParam("aicfOff") && (System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim")));
 	}
 
 	// -zcrTestTitle from the runner: the sub-lab's names for the track and the setup (underscores for spaces).
@@ -360,6 +360,7 @@ class ZCR_Director
 		ZCR_DriveTest.Units(units, labels);
 		ZCR_GunTest.Units(units, labels);
 		ZCR_TrafficSim.Units(units, labels);
+		ZCR_BuildTest.Units(units, labels);
 		string mine = string.Format(": %1 ", side);
 		int shown;
 		foreach (string l : labels)
@@ -489,6 +490,18 @@ class ZCR_Director
 
 	protected void NextShot(int now)
 	{
+		// The base-building test (-zcrBuildTest): follow the builders - one at work first, then one walking to his site.
+		if (ZCR_BuildTest.Active())
+		{
+			string buildLabel;
+			IEntity builder = ZCR_BuildTest.CameraUnit(buildLabel);
+			if (builder)
+			{
+				Show(builder.GetOrigin(), 16, 7, builder, buildLabel, false);
+				m_iShotEnd = now + 25;
+				return;
+			}
+		}
 		// The driving test track (-zcrDriveTest): only its cars move - follow them (near the trap first).
 		if (ZCR_DriveTest.Active())
 		{
@@ -1090,6 +1103,7 @@ class ZCR_Director
 		ZCR_DriveTest.Units(units, labels);
 		ZCR_GunTest.Units(units, labels);
 		ZCR_TrafficSim.Units(units, labels);
+		ZCR_BuildTest.Units(units, labels);
 		if (units.IsEmpty())
 			return false;
 		m_iTestTurn = (m_iTestTurn + dir + units.Count()) % units.Count();

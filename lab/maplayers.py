@@ -48,7 +48,7 @@ def slug(world: str) -> str:
 
 def kind(run: Path) -> str:
     n = run.name
-    if n.startswith("drivetest-"):
+    if n.startswith(("drivetest-", "buildtest-")):
         return "test"
     if re.match(r"w\d+-|b-|depot-check", n):
         return "match"
@@ -263,9 +263,9 @@ def live(map_slug: str) -> dict:
             tail = f.read().decode("utf-8", "replace")
         rows = [(int(m.group(1)), m.group(2), m.group(3)) for m in LIVE.finditer(tail)]
         if not rows:
-            return {"run": run.name, "live": False}
+            continue   # just starting (or no live lines): an older game on this map may still be running
         last = max(r[0] for r in rows)
-        units = {"team": [], "truck": [], "van": []}
+        units = {"team": [], "truck": [], "van": [], "builder": []}
         # Where each vehicle and team has been (the click-a-van view): "van:7", "truck:US:2", "team:USSR:A3" -> [[x, z], ...].
         trails = {}
         for tt, kind, rest in rows:
@@ -287,13 +287,13 @@ def live(map_slug: str) -> dict:
                 u["wps"] = [[float(v) for v in xy.split(",")] for xy in u["wps"].split(";") if "," in xy]
             else:
                 u.pop("wps", None)
-            for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route"):
+            for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route", "sx", "sz"):
                 if k in u:
                     try:
                         u[k] = float(u[k])
                     except ValueError:
                         pass
-            for k in ("to", "from"):
+            for k in ("to", "from", "base", "what"):
                 if k in u:
                     u[k] = u[k].replace("_", " ")
             units[kind].append(u)
@@ -319,6 +319,6 @@ def live(map_slug: str) -> dict:
                     routes[v["id"]] = r["points"][::2] + [r["points"][-1]] if r else wps
                 elif ri < len(ok):
                     routes[v["id"]] = ok[ri]["points"][::2] + [ok[ri]["points"][-1]]
-        return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"],
+        return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
                 "paths": paths, "routes": routes, "trails": trails}
     return {"live": False}
