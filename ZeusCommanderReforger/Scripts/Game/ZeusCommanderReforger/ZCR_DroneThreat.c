@@ -292,6 +292,21 @@ class ZCR_DroneThreat
 		return FindOverhead(c, threat, radius, spot, at, none);
 	}
 
+	// Overhead cover (a roof or tree crowns) within 'radius' of a point away from the soldier (a drone site's next spot) - no
+	// navmesh check there (17:54: every spot 200-600 m off failed it, while the post found on arrival had cover; the navmesh
+	// isn't there far from the soldier).
+	static bool CoverNear(ChimeraCharacter c, vector at, float radius, out vector spot)
+	{
+		array<vector> none = {};
+		return FindOverhead(c, at, radius, spot, at, none, false);
+	}
+
+	// Nothing overhead at 'p' (a drone can take off there).
+	static bool OpenSky(vector p, IEntity self)
+	{
+		return !Overhead(p + Vector(0, 1.2, 0), self);
+	}
+
 	// Running into a building now (our fire at drones leaves him out).
 	static bool Sheltering(IEntity c)
 	{
@@ -542,11 +557,12 @@ class ZCR_DroneThreat
 
 	// A spot within 'radius' (of 'center', default the soldier) under a roof or canopy, on the navmesh,
 	// nearest first and the far side from 'threat' first; none within 6 m of 'avoid'.
-	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero, array<vector> avoid = null)
+	protected static bool FindOverhead(ChimeraCharacter c, vector threat, float radius, out vector spot, vector center = vector.Zero, array<vector> avoid = null,
+		bool navmesh = true)
 	{
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
 		AIPathfindingComponent pathfinding;
-		if (control && control.GetControlAIAgent())
+		if (navmesh && control && control.GetControlAIAgent())
 			pathfinding = AIPathfindingComponent.Cast(control.GetControlAIAgent().FindComponent(AIPathfindingComponent));
 		BaseWorld world = GetGame().GetWorld();
 		vector here = center;
@@ -557,12 +573,14 @@ class ZCR_DroneThreat
 		if (away.Length() < 1)
 			away = Vector(1, 0, 0);
 		away.Normalize();
-		array<float> dists = {0, 6, 12, 18, 24, 30, 36};
+		// Rings every 6 m out to the radius asked (it stopped at 36 m whatever the radius - 24 Oct: the drone operators' 60-m
+		// search for cover never got past 36 m).
+		array<float> dists = {};
+		for (float rd = 0; rd <= radius; rd += 6)
+			dists.Insert(rd);
 		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
 		foreach (float d : dists)
 		{
-			if (d > radius)
-				break;
 			foreach (float a : angles)
 			{
 				if (d == 0 && a != 0)

@@ -40,6 +40,9 @@ SCENARIOS = {
     "farm-drones-both": ("squad:1:2270,788:attack+drones:1:2270,720:support", "squad:1:2270,1238:defend+drones:1:2270,1360:support"),
     "village-drones-att": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend"),
     "village-drones-def": ("squad:1:1920,1138:attack", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
+    # Drone sites that move (24 Oct, Martin: "yeah I love this"): a US drone site (truck + operators) 640 m south of the farm
+    # launches at the two Soviet squads holding it, packs up after 3 launches and sets up 200-600 m away.
+    "farm-site": ("site:1:2270,600:support", "squad:2:2270,1238:defend"),   # two squads: long enough for two moves
     "village-drones-both": ("squad:1:1920,1138:attack+drones:1:1990,1138:support", "squad:1:1470,1138:defend+drones:1:1350,1138:support"),
 }
 SCENARIO_WORDS = {
@@ -123,7 +126,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         argv += ["--mods", mods]
     if seed(variant):
         argv += ["--seed-profile", str(seed(variant))]
-    if "drones:" in us + ussr:
+    if "drones:" in us + ussr or "site:" in us + ussr:
         argv += ["--drones"]   # Martin's FPV AI Drones + Realistic Combat Drones
     if watch:
         # The game window at 3x by default (Martin, 24 Oct: "make default speed 3x"): the game's own time multiplier
@@ -224,6 +227,17 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     search = [kv(l) for l in lines if "[ZCR][SHELTER]" in l]
     if search:
         out.update({f"shelter_{k}": int(search[-1].get(k, 0) or 0) for k in ("searches", "inside_points", "off_navmesh", "crowded", "found")})
+    # Drone sites that move (the farm-site storm): packs started, set-ups at a new spot, boardings that failed.
+    site = [l for l in lines if "[ZCR][DRONESITE]" in l and " move=" in l]
+    out.update({"site_packs": sum(" move=pack " in l for l in site), "site_moves": sum(" move=set " in l for l in site),
+                "site_failed": sum(" move=failed" in l for l in site),
+                # Sorties (operators with drones in their bags, resupplying at the truck): out, launches, resupplies.
+                "sorties": sum("[ZCR][SORTIE]" in l and " event=out " in l for l in lines),
+                "sortie_launches": sum("[ZCR][SORTIE]" in l and " event=launch " in l for l in lines),
+                "resupplies": sum("[ZCR][SORTIE]" in l and " event=loaded " in l for l in lines),
+                # The commander's truck: drives ordered, arrivals.
+                "truck_orders": sum("[ZCR][DRONESITE]" in l and " truck=ordered " in l for l in lines),
+                "truck_parked": sum("[ZCR][DRONESITE]" in l and " truck=parked " in l for l in lines)})
     end = re.findall(r"\[ZCR\]\[TEST_END\] t=(\d+) why=(\w+)", text)
     out.update({
         "ended_s": int(end[-1][0]) if end else None, "ended_why": end[-1][1] if end else "time",
