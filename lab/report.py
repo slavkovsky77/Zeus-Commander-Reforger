@@ -92,8 +92,7 @@ def recording_of(run: Path):
     begin = started(run)
     # Every watch loop's output (24 Oct: the evening loop wrote .runtime/watch_main_24b.out - no frames for report 27).
     logs = sorted((ROOT / ".runtime").glob("watch*.out"), key=lambda f: f.stat().st_mtime)
-    text = "
-".join(f.read_text(encoding="utf-8", errors="replace") for f in logs[-6:])
+    text = "\n".join(f.read_text(encoding="utf-8", errors="replace") for f in logs[-6:])
     for line in text.splitlines():
         m = re.match(r"(\d\d:\d\d:\d\d) recording (\S+)\.mkv", line)
         if not m or label not in m.group(2):
