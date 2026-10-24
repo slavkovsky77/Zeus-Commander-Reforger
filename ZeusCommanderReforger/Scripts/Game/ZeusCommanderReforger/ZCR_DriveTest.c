@@ -222,6 +222,22 @@ class ZCR_DriveTest
 				Print(string.Format("[ZCR][ACCESS] t=%1 start=%2 x=%3 z=%4 way=%5 cells=%6 sweeps=%7 ms=%8 road_x=%9", now, k + 1, Math.Round(s[0]),
 					Math.Round(s[2]), way, cells, sweeps, ms, Math.Round(wayRoad[0])) + string.Format(" road_z=%1 way_blocker=%2 straight=%3 straight_blocker=%4",
 					Math.Round(wayRoad[2]), wayBlocker, straight, blocker), LogLevel.NORMAL);
+				// Lab: the check's variants - a finer grid, the wooden pole fences left out (do vans push through them?).
+				array<string> ignores = {"PoleFence_01", "PoleFence_01", "PoleFence_01", "PoleFence_01"};
+				array<float> steps = {6, 3, 6, 3};
+				array<float> halves = {1.1, 1.1, 1.6, 1.6};
+				foreach (int vi, string ig : ignores)
+				{
+					AICF_DepotAccess.s_fHalfWidth = halves[vi];
+					vector r2;
+					string b2;
+					int c2, s2;
+					int t0 = System.GetTickCount();
+					int w2 = AICF_DepotAccess.WayOutWith(s, AICF_DepotAccess.REACH_M, steps[vi], ig, r2, b2, c2, s2);
+					Print(string.Format("[ZCR][ACCESS_VARIANT] t=%1 start=%2 step=%3 ignore=%4 way=%5 cells=%6 sweeps=%7 ms=%8 blocker=%9", now, k + 1,
+						steps[vi], ig, w2, c2, s2, System.GetTickCount() - t0, b2) + string.Format(" half=%1", halves[vi]), LogLevel.NORMAL);
+				}
+				AICF_DepotAccess.s_fHalfWidth = 1.1;
 			}
 		}
 		bool wantCar = m_aCars.Count() < m_iCount;
