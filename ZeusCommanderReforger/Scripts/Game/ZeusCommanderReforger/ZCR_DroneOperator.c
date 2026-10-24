@@ -34,6 +34,7 @@ class ZCR_DroneOperator
 	static const ResourceName GOGGLES = "{8951045BFE8BC8E4}Prefabs/Characters/HeadGear/FPV_Goggles.et";
 	static const ResourceName CONTROLLER = "{E2434ED1318D8476}Prefabs/Characters/Items/DroneController.et";
 	static const float POST_COVER_M = 25;
+	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
 	static const int MAX_FROZEN_S = 120;    // the pilot's AI back on after this long in one flight
@@ -65,7 +66,7 @@ class ZCR_DroneOperator
 		}
 		ChimeraCharacter pilot = ChimeraCharacter.Cast(agents[0].GetControlledEntity());
 		vector spot;
-		if (ZCR_DroneThreat.CoverSpot(pilot, threat, POST_COVER_M, post, spot))
+		if (ZCR_DroneThreat.CoverSpot(pilot, threat, POST_COVER_M, post, spot) || ZCR_DroneThreat.CoverSpot(pilot, threat, POST_COVER_FAR_M, post, spot))
 			post = spot;
 		int now = ZCR_LossLog.Seconds();
 		foreach (int i, AIAgent a : agents)
@@ -137,7 +138,7 @@ class ZCR_DroneOperator
 		ChimeraCharacter pc;
 		if (pilot)
 			pc = ChimeraCharacter.Cast(pilot.m_Man);
-		if (pc && ZCR_DroneThreat.CoverSpot(pc, threat, POST_COVER_M, post, spot))
+		if (pc && (ZCR_DroneThreat.CoverSpot(pc, threat, POST_COVER_M, post, spot) || ZCR_DroneThreat.CoverSpot(pc, threat, POST_COVER_FAR_M, post, spot)))
 			post = spot;
 		int now = ZCR_LossLog.Seconds();
 		foreach (ZCR_OperatorMan m : s_aMen)

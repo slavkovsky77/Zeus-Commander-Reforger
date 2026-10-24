@@ -12,7 +12,10 @@
 // launch is a minute old packs up - the operators get into the truck, drive 200-600 m to clear ground not toward the
 // front, get out, take a new post in cover and are ready again SETUP_AFTER_MOVE s later. No launches while it moves.
 //   [ZCR][DRONESITE] t= side= move=pack|drive|unload|set|failed_boarding at= why=launches|time|seen ...
-// -zcrStaticDroneSites: no moves.
+// Static and mobile (Martin, 17:42: "there can be a static drone station and a mobile one like this, but he should also
+// drive it to some safety"): the main base's site stays put; forward sites move, and the next spot is chosen for safety -
+// overhead cover (trees, a roof) for the operators within 30 m of the truck, and of those the one farthest from the front
+// (cover=0 in the log when none of the tries had any). -zcrStaticDroneSites: no moves.
 class ZCR_DroneSite
 {
 	string m_sSide;
@@ -34,6 +37,7 @@ class ZCR_DroneSite
 	int m_iMoves;
 	vector m_vTo;
 	string m_sWhy;
+	bool m_bSafe;           // its next spot has overhead cover for the operators
 	bool m_bDue;            // a move is due: no more launches from here, packing once the last drone is down
 	AIWaypoint m_Waypoint;
 }
@@ -335,8 +339,8 @@ class ZCR_DroneSites
 	// The move, a step every commander tick: pack (board) -> drive -> unload -> set up.
 	protected static void Move(ZCR_DroneSite s, vector front, int now)
 	{
-		if (System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
-			return;
+		if (s.m_bMain || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
+			return;                            // the main base's site is the static one
 		if (s.m_iMove == 0)
 		{
 			if (now < s.m_iReadyAt)
@@ -380,8 +384,8 @@ class ZCR_DroneSites
 			if (usage && s.m_Operators.GetGroupUtilityComponent())
 				s.m_Operators.GetGroupUtilityComponent().AddUsableVehicle(usage);
 			Waypoint(s, "{8AD8C82346156494}Prefabs/AI/Waypoints/AIWaypoint_GetInSelected.et", s.m_Truck.GetOrigin(), 25, s.m_Truck);
-			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 move=pack at=%3 why=%4 launches=%5 to=%6 x=%7 z=%8", now, s.m_sSide, s.m_sName, why,
-				s.m_iLaunches, Math.Round(vector.DistanceXZ(s.m_vPos, to)), Math.Round(to[0]), Math.Round(to[2])), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 move=pack at=%3 why=%4 launches=%5 to=%6 cover=%7 x=%8 z=%9", now, s.m_sSide, s.m_sName, why,
+				s.m_iLaunches, Math.Round(vector.DistanceXZ(s.m_vPos, to)), s.m_bSafe, Math.Round(to[0]), Math.Round(to[2])), LogLevel.NORMAL);
 			ZCR_Feed.Note(s.m_sSide, string.Format("the drone team at %1 packs up and moves (%2)", s.m_sName, why));
 			return;
 		}
@@ -457,7 +461,8 @@ class ZCR_DroneSites
 	}
 
 	// Clear ground 200-600 m off, not toward the front (within 120 degrees of straight away from it), not the sea; 24 tries
-	// (17:37, wooded ground by the farm: 8 tries at 300-500 m found none and the move was called off).
+	// (17:37, wooded ground by the farm: 8 tries at 300-500 m found none and the move was called off). Of the tries, the one
+	// with overhead cover for the operators within 30 m and farthest from the front; none with cover - the farthest.
 	protected static bool NewSpot(ZCR_DroneSite s, vector front, out vector to)
 	{
 		vector here = s.m_vPos;
@@ -466,20 +471,44 @@ class ZCR_DroneSites
 		if (front == vector.Zero || away.Length() < 1)
 			away = Vector(0, 0, -1);
 		away.Normalize();
+		ChimeraCharacter pilot;
+		array<AIAgent> agents = {};
+		s.m_Operators.GetAgents(agents);
+		foreach (AIAgent a : agents)
+		{
+			if (!pilot && a)
+				pilot = ChimeraCharacter.Cast(a.GetControlledEntity());
+		}
+		float best = -1;
+		bool bestCover;
 		for (int tries; tries < 24; tries++)
 		{
 			float r = Math.RandomFloat(-120, 120) * Math.DEG2RAD;
 			vector dir = Vector(away[0] * Math.Cos(r) - away[2] * Math.Sin(r), 0, away[0] * Math.Sin(r) + away[2] * Math.Cos(r));
 			vector cand = here + dir * Math.RandomFloat(200, 600);
 			vector spot;
-			if (ZCR_Drones.ClearSpot(cand, cand + dir * 100, spot))
+			if (!ZCR_Drones.ClearSpot(cand, cand + dir * 100, spot))
+				continue;
+			if (vector.DistanceXZ(spot, here) < 150)
+				continue;                      // 17:42: the clear ground found was 10 m from where they stood - no move at all
+			spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
+			vector hide;
+			bool cover = pilot && ZCR_DroneThreat.CoverNear(pilot, spot, 30, hide);
+			float score = vector.DistanceXZ(spot, front);
+			if (front == vector.Zero)
+				score = 0;
+			if (cover)
+				score += 100000;
+			if (score > best)
 			{
-				spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
+				best = score;
+				bestCover = cover;
 				to = spot;
-				return true;
 			}
 		}
-		return false;
+		if (best >= 0)
+			s.m_bSafe = bestCover;
+		return best >= 0;
 	}
 
 	protected static void Aboard(ZCR_DroneSite s, out int aboard, out int alive)

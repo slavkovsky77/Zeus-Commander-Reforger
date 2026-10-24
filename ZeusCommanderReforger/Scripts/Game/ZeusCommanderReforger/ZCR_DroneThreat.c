@@ -292,6 +292,13 @@ class ZCR_DroneThreat
 		return FindOverhead(c, threat, radius, spot, at, none);
 	}
 
+	// Overhead cover (a roof or tree crowns) within 'radius' of a point away from the soldier (a drone site's next spot).
+	static bool CoverNear(ChimeraCharacter c, vector at, float radius, out vector spot)
+	{
+		array<vector> none = {};
+		return FindOverhead(c, at, radius, spot, at, none);
+	}
+
 	// Running into a building now (our fire at drones leaves him out).
 	static bool Sheltering(IEntity c)
 	{
