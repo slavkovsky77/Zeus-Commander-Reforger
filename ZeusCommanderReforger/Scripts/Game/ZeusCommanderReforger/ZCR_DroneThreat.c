@@ -216,14 +216,30 @@ class ZCR_DroneThreat
 		if (!utility || !FindShelter(c, from, DASH_M, spot, taken))
 			return false;
 		taken.Insert(spot);
+		ShelterRun(c, utility, spot, now);
+		return true;
+	}
+
+	// A run into a building, above everything but a player's or Game Master's order (24 Oct, the village storm with the
+	// game's AI: the runs at the move's own priority, 58, lost to the squad's defend (61), watching threats (69) and
+	// suppressing (63) - soldiers moved 2-3 m of 6-10; 1 of 11 got in): the priority the game and DCO give a move away
+	// from danger, +2. 15 s; not stopped by the get-down, the scatter after a blast or our fire at drones.
+	protected static void ShelterRun(ChimeraCharacter c, SCR_AIUtilityComponent utility, vector spot, int now)
+	{
 		Up(c);
 		s_mProneUntil.Remove(c);
-		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
-		s_mRunningUntil.Set(c, now + 8);
-		s_mShelterUntil.Set(c, now + 8);
+		ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2,
+			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
+		s_mRunningUntil.Set(c, now + 15);
+		s_mShelterUntil.Set(c, now + 15);
 		s_mShelterSpot.Set(c, spot);
 		s_mShelterFrom.Set(c, c.GetOrigin());
-		return true;
+	}
+
+	// Running into a building now (our fire at drones leaves him out).
+	static bool Sheltering(IEntity c)
+	{
+		return c && s_mShelterUntil.Contains(c) && ZCR_LossLog.Seconds() < s_mShelterUntil.Get(c);
 	}
 
 	protected bool AddMan(IEntity e)
@@ -271,19 +287,18 @@ class ZCR_DroneThreat
 		vector spot;
 		// A building within 40 m first (Martin 02:05: "three guys killed by drones at Moss Hill, spending
 		// time outdoors - and they have a house there"), else a roof or tree crown within 20 m.
-		if (FindShelter(c, from, 40, spot, taken) || FindOverhead(c, from, 20, spot, vector.Zero, taken))
+		if (FindShelter(c, from, 40, spot, taken))
+		{
+			taken.Insert(spot);
+			ShelterRun(c, utility, spot, now);
+			return;
+		}
+		if (FindOverhead(c, from, 20, spot, vector.Zero, taken))
 		{
 			// Above the attack (90) and the cover layer (98): a drone overhead comes first.
 			taken.Insert(spot);
 			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
-			// Into a building: not stopped by the get-down when the drone comes close.
-			if (Inside(GetGame().GetWorld(), spot + Vector(0, 0.2, 0), c))
-			{
-				s_mShelterUntil.Set(c, now + 12);
-				s_mShelterSpot.Set(c, spot);
-				s_mShelterFrom.Set(c, c.GetOrigin());
-			}
 			return;
 		}
 		// No cover near: spread out first - away from the drone, each his own way, 15-25 m, at least
@@ -352,6 +367,7 @@ class ZCR_DroneThreat
 		GetGame().GetWorld().QueryEntitiesBySphere(at, 40, s_Instance.AddMan, null, EQueryEntitiesFlags.DYNAMIC);
 		int n;
 		float a0 = Math.RandomFloat(0, 360);
+		array<vector> inside = {};
 		foreach (int k, IEntity e : s_aFound)
 		{
 			ChimeraCharacter c = ChimeraCharacter.Cast(e);
@@ -363,9 +379,21 @@ class ZCR_DroneThreat
 			SCR_AIUtilityComponent utility = Utility(c);
 			if (!utility)
 				continue;
+			// Inside already, or on his way in: stays; a building within 15 m: in, not off into the open.
+			if (Sheltering(c) || Inside(GetGame().GetWorld(), c.GetOrigin(), c))
+				continue;
+			vector spot;
+			if (FindShelter(c, at, DASH_M, spot, inside))
+			{
+				inside.Insert(spot);
+				ShelterRun(c, utility, spot, now);
+				s_mReactedAt.Set(c, now);
+				n++;
+				continue;
+			}
 			float r = (a0 + k * 70) * Math.DEG2RAD;
 			vector aim = c.GetOrigin() + Vector(Math.Cos(r), 0, Math.Sin(r)) * Math.RandomFloat(20, 35);
-			vector spot = aim;
+			spot = aim;
 			FindOverhead(c, at, 15, spot, aim);
 			ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, spot, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_INDIVIDUALLY, 70, null, 1.0));
 			s_mRunningUntil.Set(c, now + 12);
