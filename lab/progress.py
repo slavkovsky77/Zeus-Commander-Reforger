@@ -87,6 +87,7 @@ BUILDS = [
     (40, "our vehicle rules: head-on slow-down and spacing", "2026-10-23 01:49", "ZCR Traffic v1: one speed arbiter for every rule, the spacing rule (no rear-ending) and the head-on slow-down (both to 15 km/h); test tracks and the driving sub-lab; the watched block with roads preferred and wider truck turns"),
     (41, "armour: crews stay aboard, spot far, storm; integration tests", "2026-10-23 15:43", "crews of armed vehicles stay aboard while it is intact; guns test and the storm scenario; 12 integration tests; every run reproducible (run.json, rerun.py)"),
     (42, "supply runs; crossing rule; test camera", "2026-10-23 18:13", "supply and manpower runs in the traffic simulation; two vehicles whose paths cross: the later one stops until the other is past; PREV/NEXT through a test's own units"),
+    (43, "DCO as the tactical layer; 50-a-side cap; drone storms and the drone operator", "2026-10-24 15:52", "DCO_AI runs how soldiers fight, our commander where they go; each side capped at 50 AI soldiers; drone storms in the infantry sub-lab (one FPV at a time from a 2-man operator); the drone operator - goggles, controller, still while he flies; soldiers run into buildings from drones"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
