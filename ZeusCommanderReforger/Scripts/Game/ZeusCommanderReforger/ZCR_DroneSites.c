@@ -344,6 +344,7 @@ class ZCR_DroneSites
 			string why = s.m_sWhy;
 			if (!s.m_bDue)
 			{
+				why = "";                      // 17:29: the last move's reason kept and it packed up again at once
 				if (s.m_iLaunches >= MOVE_AFTER)
 					why = "launches";
 				else if (now - s.m_iSetAt >= MOVE_EVERY_S)
@@ -390,9 +391,18 @@ class ZCR_DroneSites
 		{
 			if (alive > 0 && aboard < alive && now - s.m_iMoveAt < BOARD_S)
 				return;
-			if (aboard == 0)
+			// Nobody left behind (17:30: 1 of 2 aboard after 90 s and the truck left): the boarding order once more, up to
+			// twice as long; then the move is called off where they are.
+			if (aboard < alive && now - s.m_iMoveAt < 2 * BOARD_S)
+			{
+				if (!s.m_Waypoint)
+					Waypoint(s, "{8AD8C82346156494}Prefabs/AI/Waypoints/AIWaypoint_GetInSelected.et", s.m_Truck.GetOrigin(), 25, s.m_Truck);
+				return;
+			}
+			if (aboard < alive)
 			{
 				Settle(s, now, "failed_boarding");
+				Waypoint(s, "{C40316EE26846CAB}Prefabs/AI/Waypoints/AIWaypoint_GetOut.et", s.m_Truck.GetOrigin(), 15);   // the ones aboard out again
 				return;
 			}
 			s.m_iMove = 2;
@@ -436,6 +446,8 @@ class ZCR_DroneSites
 		}
 		s.m_iMove = 0;
 		s.m_iLaunches = 0;
+		s.m_bDue = false;
+		s.m_sWhy = "";
 		s.m_iReadyAt = now + SETUP_AFTER_MOVE;
 		s.m_iSetAt = s.m_iReadyAt;
 		ZCR_DroneOperator.Moving(s.m_Operators, false);
