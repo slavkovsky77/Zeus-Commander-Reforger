@@ -95,8 +95,35 @@ class ZCR_Danger
 		}
 	}
 
+	// -zcrDangerDronesOnly (24 Oct, DCO as the tactical layer): only enemy drones count - DCO decides the fighting stance
+	// and knows nothing about drones (the first DCO matches, this layer off: 83-100% of drone victims died standing).
+	protected static float DroneDist(string side, vector p)
+	{
+		float droneDist = 1e9;
+		for (int k; k < ZCR_Drones.s_aDrones.Count(); k++)
+		{
+			IEntity d = ZCR_Drones.s_aDrones[k];
+			if (!d || ZCR_Drones.s_aDroneSide[k] == side)
+				continue;
+			vector dp = d.GetOrigin();
+			if (dp[1] - GetGame().GetWorld().GetSurfaceY(dp[0], dp[2]) < 2)
+				continue;
+			droneDist = Math.Min(droneDist, vector.DistanceXZ(dp, p));
+		}
+		return droneDist;
+	}
+
 	protected int Level(ChimeraCharacter c, string side, vector p, SCR_AIUtilityComponent utility, int now)
 	{
+		if (System.IsCLIParam("zcrDangerDronesOnly"))
+		{
+			float near = DroneDist(side, p);
+			if (near < 150)
+				return HIGH;
+			if (near < 250)
+				return MEDIUM;
+			return 0;
+		}
 		EAIThreatState threat = EAIThreatState.SAFE;
 		if (utility && utility.m_ThreatSystem)
 			threat = utility.m_ThreatSystem.GetState();
