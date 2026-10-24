@@ -71,6 +71,11 @@ def start(o: Namespace, tag: str):
     profile.mkdir(parents=True)
     if o.client or o.solo:
         reforger.window_settings(profile / "profile")
+    # Files for the game profile (e.g. DCO/DCO_GlobalConfig.json with its profiler on): .runtime/watch_profile_seed/.
+    seed = ROOT / ".runtime" / "watch_profile_seed"
+    if seed.is_dir():
+        import shutil
+        shutil.copytree(seed, profile / "profile", dirs_exist_ok=True)
     cmd = reforger.command(o, profile)
     out = open(profile / "stdout.log", "w", encoding="utf-8", errors="replace")
     proc = subprocess.Popen(cmd, cwd=str(Path(cmd[0]).parent), stdout=out, stderr=subprocess.STDOUT)
