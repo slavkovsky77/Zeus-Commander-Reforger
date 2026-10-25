@@ -135,7 +135,7 @@ def finish(job: dict, proc: subprocess.Popen) -> dict:
         line = next((l.strip() for l in out.splitlines() if l.strip().startswith("score=")), "")
         row.update({"scenario": job["scenario"], "variant": job["variant"], "line": line})
     else:
-        runs = sorted((ROOT / ".runtime" / "runs").glob(f"{job['label']}-*"))
+        runs = sorted((ROOT / ".runtime" / "runs").glob(f"{job['label']}-*"), key=lambda r: r.stat().st_mtime)
         row.update({"variant": job["variant"]})
         row.update(match_summary(runs[-1]) if runs else {"error": "no run folder"})
     save(row)

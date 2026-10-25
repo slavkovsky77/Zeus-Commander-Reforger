@@ -67,7 +67,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
             argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))
     subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
                    creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
-    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
+    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"), key=lambda r: r.stat().st_mtime)
     if not runs:
         return {"scenario": scenario, "variant": variant, "error": "no run folder"}
     return summarize(runs[-1], scenario, variant)

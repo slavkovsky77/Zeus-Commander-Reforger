@@ -36,7 +36,7 @@ def describe(mp4: Path, a, tag: str) -> None:
     """<video>.md: what the test was and how it ended (the lab app's recordings list shows its 'Map' line)."""
     import importlib
     mod = importlib.import_module(a.runner)
-    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{tag}-*"))
+    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{tag}-*"), key=lambda r: r.stat().st_mtime)
     r = mod.summarize(runs[-1], a.scenario, a.variant) if runs else {}
     words = getattr(mod, "SCENARIO_WORDS", {}).get(a.scenario, "")
     setup = (getattr(mod, "VARIANTS", {}).get(a.variant) or ("", "", a.variant))[-1]

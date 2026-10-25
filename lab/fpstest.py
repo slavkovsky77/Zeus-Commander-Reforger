@@ -97,7 +97,7 @@ def run(variant: str) -> dict:
     if ff:
         watch_loop.ffmpeg_stop(ff)
         mkv.unlink(missing_ok=True)
-    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
+    runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"), key=lambda r: r.stat().st_mtime)
     r = summarize(runs[-1]) if runs else {"error": "no run folder"}
     r.update({"variant": variant, "at": started.strftime("%Y-%m-%d %H:%M")})
     OUT.mkdir(parents=True, exist_ok=True)
