@@ -43,6 +43,9 @@ VARIANTS = {
     "nodrones3x": (3, None, "", False, "without the drone mods (FPV AI Drones + Realistic Combat Drones) at 3x"),
     "nodrivemods3x": (3, lambda m: m not in DRIVING_MODS, "", True, "without the driving mods (road price, Competent AI driving) at 3x"),
     "cap40_3x": (3, None, "-aicfMaxAgentsPerFaction 40", True, "40 soldiers a side instead of 50 at 3x"),
+    "squads14_3x": (3, None, "-aicfSquadsPerSide 14", True, "14 teams a side instead of 20 (AI Conflict fork: -aicfSquadsPerSide) at 3x"),
+    "squads10_3x": (3, None, "-aicfSquadsPerSide 10", True, "10 teams a side instead of 20 at 3x"),
+    "squads14_2x": (2, None, "-aicfSquadsPerSide 14", True, "14 teams a side at 2x"),
     "teams1_3x": (3, None, "-aicfInfantryDeploySize 1 -aicfMusterSize 1", True, "teams of 1 instead of 2 (half the starting soldiers) at 3x"),
     "cap30_3x": (3, None, "-aicfMaxAgentsPerFaction 30", True, "30 soldiers a side instead of 50 at 3x"),
     "res70_3x": (3, None, "", True, "the watched setup at 3x rendered at 70% resolution (is it the graphics card or the processor?)"),
@@ -135,7 +138,7 @@ def summarize(run_dir: Path) -> dict:
             continue
         m = FPS.search(line)
         if m and t >= 0:
-            b = min(t // 180, 4)   # 3-game-minute buckets: 0-3, 3-6, 6-9, 9-12, 12+
+            b = min(t // 180, 9)   # 3-game-minute buckets: 0-3, 3-6, ... 27-30
             buckets.setdefault(b, []).append((float(m.group(1)), float(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))))
     text = log.read_text(encoding="utf-8", errors="replace")
     census = re.findall(r"\[ZCR\]\[CENSUS\] t=(\d+) total=(\d+) alive=(\d+) dead=(\d+) veh=(\d+) wrecks=(\d+) waypoints=(\d+) groups=(\d+) ms=(\d+) top=(\S*)", text)
@@ -145,6 +148,11 @@ def summarize(run_dir: Path) -> dict:
         out["buckets"][f"{b * 3}-{b * 3 + 3}"] = {
             "fps": round(sum(fps) / len(fps), 1), "fps_low": fps[max(0, len(fps) // 10)], "spikes_pct": round(100 * sum(1 for r in rows if r[1] > 200) / len(rows)),
             "ai": rows[-1][2], "chars": rows[-1][3], "dynamic": rows[-1][4], "samples": len(rows)}
+    # The match itself (does it still fight with fewer teams?): captures, losses, the last score line.
+    out["captures"] = text.count("[ZCR][CAPTURE]")
+    out["losses"] = text.count("[ZCR][LOSS]")
+    score = re.findall(r"\[ZCR\]\[SCORE\] t=\d+ (US=\d+ USSR=\d+)", text)
+    out["score"] = score[-1] if score else ""
     allfps = [r[0] for rows in buckets.values() for r in rows]
     out["fps"] = round(sum(allfps) / len(allfps), 1) if allfps else None
     out["census"] = [{"t": int(c[0]), "total": int(c[1]), "alive": int(c[2]), "dead": int(c[3]), "veh": int(c[4]), "wrecks": int(c[5]),
@@ -173,11 +181,14 @@ def report() -> Path:
 
 
 def main() -> int:
+    global GAME_MINUTES
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("variants", nargs="*", default=["full3x", "full1x", "nodco3x", "nodrones3x", "nodrivemods3x", "cap40_3x", "full2x"])
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--minutes", type=float, default=GAME_MINUTES, help="game minutes per run (12)")
     a = ap.parse_args()
+    GAME_MINUTES = a.minutes
     if a.report:
         print(report().read_text(encoding="utf-8"))
         return 0
