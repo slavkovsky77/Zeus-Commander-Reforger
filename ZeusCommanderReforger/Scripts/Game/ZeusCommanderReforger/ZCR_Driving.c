@@ -103,6 +103,7 @@ class ZCR_Driving
 		ZCR_RoadFirst.Start();     // off-road with a far goal: to the nearest proper road first (24 Oct, the Farm)
 		ZCR_MapDump.Start();       // lab: -zcrMapDump - every road, object and tree cell of the map to $profile:zcr/ (plan page M1)
 		ZCR_LiveMap.Start();       // the Lab app's live map: teams, supply trucks, test vans every 5 s ([ZCR][LIVE])
+		ZCR_Census.Start();        // what piles up in a match: dynamic entities by kind every 2 min ([ZCR][CENSUS])
 		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
 
