@@ -346,6 +346,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <label for="map-l-bases"><input type="checkbox" id="map-l-bases" checked> Bases</label>
         <label for="map-l-spots"><input type="checkbox" id="map-l-spots" checked> Depot spots tested</label>
         <label for="map-l-built"><input type="checkbox" id="map-l-built" checked> Depots built in matches</label>
+        <label for="map-l-buildings"><input type="checkbox" id="map-l-buildings" checked> Everything the builders placed</label>
         <label for="map-l-traps"><input type="checkbox" id="map-l-traps" checked> Where vehicles get stuck</label>
         <label for="map-l-routes"><input type="checkbox" id="map-l-routes" checked> Planned supply routes</label>
         <label for="map-l-live"><input type="checkbox" id="map-l-live" checked> Live: teams, supply trucks, vans</label>
@@ -360,6 +361,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div><span class="dot" style="border-color:var(--accent);background:transparent"></span>Ring: the builder's access check passes it</div>
         <div><span class="dot" style="border-color:var(--bad);border-style:dashed;background:transparent"></span>Dashed ring: the check refuses it</div>
         <div><span class="dot" style="background:var(--muted);border-radius:2px"></span>Square: a depot the builders put there in matches</div>
+        <div><span class="dot" style="background:#8a5a1e;border-radius:2px"></span>Small square: anything the builders placed (brown depot, blue barracks, olive fortification; outline = left unfinished)</div>
         <div><span class="dot" style="background:#e07b00"></span>Orange: vehicles stuck or given up there (bigger = more often)</div>
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:4px;vertical-align:3px"></span>Purple line: a planned supply route (lab/roadgraph.py)</div>
         <div><span class="dot" style="background:var(--us)"></span>Live: a team (blue US, red USSR), a line to the base it heads for</div>
@@ -428,7 +430,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
-      for (const k of ["bases", "spots", "built", "traps", "routes"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
+      for (const k of ["bases", "spots", "built", "buildings", "traps", "routes"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
       await this.load();
     },
     async load() {
@@ -443,7 +445,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       this.view = L.map("mapview", { crs, minZoom: 0, maxZoom: meta.tiles.maxNativeZoom + 2, zoomSnap: 0.5, attributionControl: true });
       this.tiles();
       this.view.fitBounds([[0, 0], [meta.worldSize, meta.worldSize]]);
-      for (const k of ["traps", "routes", "built", "spots", "bases", "live"]) this.groups[k] = L.layerGroup();   // drawn bottom to top
+      for (const k of ["traps", "routes", "buildings", "built", "spots", "bases", "live"]) this.groups[k] = L.layerGroup();   // drawn bottom to top
       this.view.on("click", () => { if (this.sel) this.pick(this.sel); });
       this.toggle();
       this.layers();
@@ -461,7 +463,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       this.base.bringToBack();
     },
     toggle() {
-      for (const k of ["traps", "routes", "built", "spots", "bases"]) {
+      for (const k of ["traps", "routes", "buildings", "built", "spots", "bases"]) {
         const g = this.groups[k];
         if (!g || !this.view) continue;
         if ($("map-l-" + k).checked && !(k === "routes" && this.sel)) g.addTo(this.view); else g.remove();   // one selected: its route alone
@@ -655,6 +657,17 @@ video { width: 100%; border-radius: 8px; background: #000; }
         L.rectangle([[b.z - sz, b.x - sz], [b.z + sz, b.x + sz]], { color: c, weight: 2, fillColor: c, fillOpacity: .35 })
           .bindPopup(`<b>Depot built here</b> <span class="mono">${b.x}, ${b.z}</span><br>${b.count} time${b.count === 1 ? "" : "s"} in ${b.matches} match${b.matches === 1 ? "" : "es"}: ${esc(Object.entries(b.factions).map(([f, n]) => f + " " + n).join(", "))}`)
           .addTo(this.groups.built);
+      }
+      // Everything the builders placed (the base-building sub-lab): a small square in the kind's colour, solid when it was
+      // always finished, an outline when it was sometimes left unfinished.
+      const kindColour = { light_depot: "#8a5a1e", heavy_depot: "#5a3a12", small_barracks: "#3c6e9e", large_barracks: "#28507a", armory: "#7a3fd1", fortification: "#6b7a2e" };
+      for (const b of d.buildings || []) {
+        const top = Object.entries(b.kinds).sort((a, c) => c[1] - a[1])[0];
+        const c = kindColour[top ? top[0] : ""] || this.css("--muted");
+        const sz = 3 + Math.min(5, b.count);
+        L.rectangle([[b.z - sz, b.x - sz], [b.z + sz, b.x + sz]], { color: c, weight: 2, fillColor: c, fillOpacity: b.built === b.count ? .8 : .1 })
+          .bindPopup(`<b>The builders placed here</b> <span class="mono">${b.x}, ${b.z}</span><br>${esc(Object.entries(b.kinds).map(([k, n]) => k.replace(/_/g, " ") + " " + n).join(", "))}<br>Finished ${b.built} of ${b.count} · ${esc(b.factions.join(", "))} · in ${b.runs} run${b.runs === 1 ? "" : "s"}`)
+          .addTo(this.groups.buildings);
       }
       for (const tr of d.traps) {
         L.circleMarker([tr.z, tr.x], { radius: 3 + Math.min(8, 1.4 * Math.sqrt(tr.count)), color: "#e07b00", weight: 1, opacity: .8, fillColor: "#e07b00", fillOpacity: .3 })

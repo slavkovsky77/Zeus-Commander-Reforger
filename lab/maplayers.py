@@ -35,6 +35,10 @@ ARRIVE = re.compile(rb"car=(\d+) event=ARRIVE")
 LOST = re.compile(rb"car=(\d+) event=LOST leg=\d+ why=(\w+) x=(\d+) z=(\d+)")
 MOVEFAIL = re.compile(rb"\[ZCR\]\[MOVEFAIL\] t=(\d+) side=(\w+) vehicle=(\S+) error=(UNREACHABLE|STUCK) x=(\d+) z=(\d+)")
 PLACED = re.compile(rb"CONSTRUCTION_PLACED\][^\n]*?faction=(\w+)[^\n]*?type=(\w+)[^\n]*?position=<(-?[\d.]+),[^,]+,(-?[\d.]+)>")
+# Every building the builders placed (the base-building sub-lab, 25 Oct): its order's token, side, kind, place; built or not.
+PLACED_T = re.compile(rb"CONSTRUCTION_PLACED\][^\n]*?token=(\S+)[^\n]*?faction=(\w+)[^\n]*?type=(\w+)[^\n]*?position=<(-?[\d.]+),[^,]+,(-?[\d.]+)>")
+COMPLETED = re.compile(rb"CONSTRUCTION_COMPLETED\][^\n]*?token=(\S+)")
+CACHE_V = 2
 
 
 def slug(world: str) -> str:
@@ -67,15 +71,15 @@ def read_run(run: Path):
     if cached.exists():
         try:
             d = json.loads(cached.read_text(encoding="utf-8"))
-            if d.get("size") == st.st_size and d.get("mtime") == int(st.st_mtime):
+            if d.get("size") == st.st_size and d.get("mtime") == int(st.st_mtime) and d.get("v") == CACHE_V:
                 return d
         except (OSError, ValueError):
             pass
     data = log.read_bytes()
     w = WORLD.search(data[:2_000_000])
-    d = {"run": run.name, "kind": kind(run), "size": st.st_size, "mtime": int(st.st_mtime),
+    d = {"run": run.name, "kind": kind(run), "size": st.st_size, "mtime": int(st.st_mtime), "v": CACHE_V,
          "map": slug(w.group(1).decode()) if w else "", "access": [], "spawns": {}, "arrived": [], "lost": [],
-         "movefail": [], "placed": [], "bases": []}
+         "movefail": [], "placed": [], "buildings": [], "bases": []}
     if d["map"]:
         d["access"] = [[int(s), int(x), int(z), int(v)] for s, x, z, v in ACCESS.findall(data)]
         d["spawns"] = {c.decode(): [int(x), int(z), int(s)] for c, x, z, s in SPAWN.findall(data)}
@@ -83,6 +87,8 @@ def read_run(run: Path):
         d["lost"] = [[c.decode(), why.decode(), int(x), int(z)] for c, why, x, z in LOST.findall(data)]
         d["movefail"] = [[int(t), side.decode(), veh.decode(), err.decode(), int(x), int(z)] for t, side, veh, err, x, z in MOVEFAIL.findall(data)]
         d["placed"] = [[f.decode(), ty.decode(), round(float(x)), round(float(z))] for f, ty, x, z in PLACED.findall(data) if b"DEPOT" in ty]
+        done = set(COMPLETED.findall(data))
+        d["buildings"] = [[f.decode(), ty.decode(), round(float(x)), round(float(z)), int(tok in done)] for tok, f, ty, x, z in PLACED_T.findall(data)]
         snap = next(iter(run.glob("profile/zcr/snapshots.jsonl")), None)
         if snap:
             try:
@@ -125,7 +131,7 @@ def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
     if since_h:
         floor = max(floor, time.time() - since_h * 3600)
     runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and run_time(r) >= floor), key=run_time)
-    bases, spots, built, traps = [], {}, [], []
+    bases, spots, built, traps, buildings = [], {}, [], [], []
     scanned = 0
     for run in runs:
         d = read_run(run)
@@ -154,6 +160,8 @@ def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
                     spots[key]["out"] += car in arrived
         for f, ty, x, z in d["placed"]:
             built.append({"x": x, "z": z, "faction": f, "type": ty, "run": d["run"]})
+        for f, ty, x, z, done in d.get("buildings") or []:
+            buildings.append({"x": x, "z": z, "faction": f, "type": ty.lower(), "built": done, "run": d["run"]})
         for t, side, veh, err, x, z in d["movefail"]:
             traps.append({"x": x, "z": z, "what": err.lower(), "kind": d["kind"], "run": d["run"], "vehicle": veh})
         for car, why, x, z in d["lost"]:
@@ -172,6 +180,14 @@ def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
             fac[it["faction"]] = fac.get(it["faction"], 0) + 1
         out_built.append({"x": round(g["x"]), "z": round(g["z"]), "count": len(g["items"]), "factions": fac,
                           "matches": len({it["run"] for it in g["items"]})})
+    # Everything the builders placed (25 Oct, the base-building sub-lab): one mark per 12 m, its kinds, how often built.
+    out_buildings = []
+    for g in group(buildings, 12):
+        kinds_n = {}
+        for it in g["items"]:
+            kinds_n[it["type"]] = kinds_n.get(it["type"], 0) + 1
+        out_buildings.append({"x": round(g["x"]), "z": round(g["z"]), "count": len(g["items"]), "built": sum(i["built"] for i in g["items"]),
+                              "kinds": kinds_n, "factions": sorted({i["faction"] for i in g["items"]}), "runs": len({i["run"] for i in g["items"]})})
     out_traps = []
     for g in group(traps, 15):
         items = g["items"]
@@ -197,7 +213,7 @@ def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
             pass
     return {"map": map_slug, "runs": scanned, "since_h": since_h, "kinds": kinds, "bases": out_bases,
             "depot_spots": [{k: v for k, v in s.items() if k != "runs"} | {"runs": len(s["runs"])} for s in spots.values()],
-            "depots_built": out_built, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
+            "depots_built": out_built, "buildings": out_buildings, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
