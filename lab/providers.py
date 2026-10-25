@@ -72,7 +72,9 @@ def extract_json(text: str) -> dict:
     """The first JSON object in a model's answer (it may wrap it in a code fence)."""
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
-        raise ValueError("no JSON object in the answer")
+        # What came back instead (25 Oct: 46-64% of the model's answers a day failed here since 20 Oct and the log kept
+        # only this message - the answer itself, its length and why the model stopped now go into the bridge log).
+        raise ValueError(f"no JSON object in the answer ({len(text)} chars: {text[:300]!r})")
     return json.loads(m.group(0))
 
 
@@ -146,14 +148,24 @@ class OpenRouter(_LLM):
     name = "openrouter"
 
     def ask(self, system: str, user: str) -> str:
+        # 25 Oct: max_tokens 800 -> 2000. Reasoning models (Gemini 3.8 Flash) spend part of the limit thinking before
+        # they answer; at 800 most failed answers were likely empty or cut off (finish_reason "length").
         r = _post("https://openrouter.ai/api/v1/chat/completions",
-                  {"model": self.model, "temperature": 0.4, "max_tokens": 800,
+                  {"model": self.model, "temperature": 0.4, "max_tokens": 2000,
                    "response_format": {"type": "json_object"},
                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
                   {"authorization": f"Bearer {self.key}", "x-title": "Zeus Commander Reforger"}, self.timeout)
         if "error" in r:
             raise RuntimeError(f"openrouter: {r['error']}")
-        return r["choices"][0]["message"]["content"] or ""
+        choice = r["choices"][0]
+        content = choice["message"].get("content") or ""
+        if not re.search(r"\{.*\}", content, re.S):
+            usage = r.get("usage") or {}
+            raise ValueError(f"no JSON object in the answer: finish_reason={choice.get('finish_reason')} "
+                             f"completion_tokens={usage.get('completion_tokens')} "
+                             f"reasoning_tokens={(usage.get('completion_tokens_details') or {}).get('reasoning_tokens')} "
+                             f"content={content[:300]!r}")
+        return content
 
 
 class PhasedRules:
