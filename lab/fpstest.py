@@ -43,6 +43,9 @@ VARIANTS = {
     "nodrones3x": (3, None, "", False, "without the drone mods (FPV AI Drones + Realistic Combat Drones) at 3x"),
     "nodrivemods3x": (3, lambda m: m not in DRIVING_MODS, "", True, "without the driving mods (road price, Competent AI driving) at 3x"),
     "cap40_3x": (3, None, "-aicfMaxAgentsPerFaction 40", True, "40 soldiers a side instead of 50 at 3x"),
+    "cap30_3x": (3, None, "-aicfMaxAgentsPerFaction 30", True, "30 soldiers a side instead of 50 at 3x"),
+    "res70_3x": (3, None, "", True, "the watched setup at 3x rendered at 70% resolution (is it the graphics card or the processor?)"),
+    "fewveh3x": (3, None, "-aicfMaxVehiclesPerFaction 4", True, "at most 4 vehicles a side (16 by default) at 3x"),
     "lod3x": (3, None, "-zcrAILod", True, "the watched setup at 3x with AI detail by distance from the camera (ZCR_AILod)"),
     "lod1x": (1, None, "-zcrAILod", True, "the same at normal speed"),
     # As the watched loop: the game window recorded (ffmpeg, Windows Graphics Capture), and the US on the model.
@@ -77,7 +80,11 @@ def run(variant: str) -> dict:
     if variant in LLM:
         import bridges
         bridges.ensure(("llm-phased",))
-    proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    import os
+    env = dict(os.environ)
+    if variant.startswith("res70"):
+        env["ZCR_RES_SCALE"] = "0.7"
+    proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     ff = None
     mkv = OUT / f"rec-{variant}.mkv"
     if variant in RECORDED:

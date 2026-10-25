@@ -12,6 +12,7 @@ reports for replay.py. The match on screen (for watching and recording) joins wi
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -137,7 +138,7 @@ def window_settings(profile: Path) -> None:
     d = profile / ".save" / name / "settings"
     d.mkdir(parents=True, exist_ok=True)
     lines = ["EngineUserSettings {", " VideoUserSettings VideoUserSettings {", '  MaxFps "60"', "  WindowMode MAXIMIZED",
-             f"  ScreenWidth {w}", f"  ScreenHeight {h}", "  ResolutionScale 1", "  WindowPosX 0", "  WindowPosY 0", " }", "}", ""]
+             f"  ScreenWidth {w}", f"  ScreenHeight {h}", f"  ResolutionScale {os.environ.get('ZCR_RES_SCALE', '1')}", "  WindowPosX 0", "  WindowPosY 0", " }", "}", ""]
     (d / "ReforgerEngineSettings.conf").write_text(chr(10).join(lines), encoding="utf-8")
 
 
