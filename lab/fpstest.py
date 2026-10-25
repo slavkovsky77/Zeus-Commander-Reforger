@@ -114,6 +114,8 @@ def run(variant: str) -> dict:
         mkv.unlink(missing_ok=True)
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"), key=lambda r: r.stat().st_mtime)
     r = summarize(runs[-1]) if runs else {"error": "no run folder"}
+    if runs:
+        close_crash_reporter(runs[-1])
     r.update({"variant": variant, "at": started.strftime("%Y-%m-%d %H:%M")})
     OUT.mkdir(parents=True, exist_ok=True)
     with open(OUT / "results.jsonl", "a", encoding="utf-8") as f:
@@ -158,6 +160,21 @@ def summarize(run_dir: Path) -> dict:
     out["census"] = [{"t": int(c[0]), "total": int(c[1]), "alive": int(c[2]), "dead": int(c[3]), "veh": int(c[4]), "wrecks": int(c[5]),
                       "waypoints": int(c[6]), "groups": int(c[7]), "ms": int(c[8]), "top": c[9]} for c in census]
     return out
+
+
+def close_crash_reporter(run_dir: Path) -> None:
+    """After our game crashed, the game's crash reporter stays open waiting for input and the next game won't start
+    (25 Oct 18:42: the two runs after a crash quit within seconds). Close only the one that started with this crash."""
+    dumps = list(run_dir.glob("logs/*/*.mdmp"))
+    if not dumps:
+        return
+    at = int(dumps[0].stat().st_mtime)
+    script = ("Get-CimInstance Win32_Process -Filter \"Name='CrashReporter.exe'\" | ForEach-Object { "
+              "$t = [int](($_.CreationDate.ToUniversalTime() - [datetime]'1970-01-01').TotalSeconds); "
+              f"if ([math]::Abs($t - {at}) -lt 30) {{ Stop-Process -Id $_.ProcessId -Confirm:$false; \"closed $($_.ProcessId)\" }} }}")
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=30).stdout.strip()
+    if out:
+        print(f"crash reporter of {run_dir.name}: {out}", flush=True)
 
 
 def report() -> Path:
