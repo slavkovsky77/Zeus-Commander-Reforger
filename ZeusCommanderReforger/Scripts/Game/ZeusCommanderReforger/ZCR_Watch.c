@@ -249,6 +249,8 @@ class ZCR_Watch
 		if (Down(KeyCode.KC_LSHIFT) || im.GetActionValue("ManualCameraSpeedBoost") > 0)
 			speed = 100;
 		m_vFreePos = m_vFreePos + move * speed * dt;
+		if (!ZCR_Watch.Finite(m_vFreePos))
+			m_vFreePos = m_Camera.GetOrigin();
 		float ground = world.GetSurfaceY(m_vFreePos[0], m_vFreePos[2]);
 		if (m_vFreePos[1] < ground + 1.5)
 			m_vFreePos[1] = ground + 1.5;
@@ -599,8 +601,23 @@ class ZCR_Watch
 			eye[1] = eyeGround + clearance;
 		vector look = Vector(spot[0], ground + 2, spot[2]) - eye;
 		float pitch = Math.Atan2(look[1], Math.Sqrt(look[0] * look[0] + look[2] * look[2])) * Math.RAD2DEG;
+		// A followed drone or vehicle with a NaN position would hand the camera a NaN transform - the engine asserts on
+		// it (25 Oct: 6 crashes on a bad matrix, drones flying before each): keep last frame's view instead.
+		if (!Finite(eye) || pitch != pitch || m_fOrbitYaw != m_fOrbitYaw)
+			return;
 		m_Camera.SetOrigin(eye);
 		m_Camera.SetYawPitchRoll(Vector(m_fOrbitYaw, pitch, 0));
+	}
+
+	static bool Finite(vector v)
+	{
+		for (int i; i < 3; i++)
+		{
+			float f = v[i];
+			if (f != f || Math.AbsFloat(f) > 100000)
+				return false;
+		}
+		return true;
 	}
 
 	// The overlay: each marker projected onto the screen every frame.
