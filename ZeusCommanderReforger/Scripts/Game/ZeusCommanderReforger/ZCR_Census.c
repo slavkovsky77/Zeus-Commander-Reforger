@@ -11,6 +11,9 @@ class ZCR_Census
 	protected static ref map<string, int> s_mCount;
 	protected static ref array<vector> s_aSample = {};
 	protected static ref map<int, int> s_mLod = new map<int, int>();
+	protected static ref set<AIWaypoint> s_mHeld = new set<AIWaypoint>();
+	protected static ref array<vector> s_aOrphanAt = {};
+	protected static int s_iOrphans;
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
 
 	static void Start()
@@ -59,6 +62,13 @@ class ZCR_Census
 			s_iWaypoints++;
 			string wp = "wp:" + Prefab(e);
 			s_mCount.Set(wp, s_mCount.Get(wp) + 1);
+			// A waypoint no group holds any more (25 Oct: Move waypoints grow ~10 a game minute): where, to find who left it.
+			if (!s_mHeld.Contains(AIWaypoint.Cast(e)))
+			{
+				s_iOrphans++;
+				if (s_aOrphanAt.Count() < 8)
+					s_aOrphanAt.Insert(e.GetOrigin());
+			}
 			return true;
 		}
 		if (AIGroup.Cast(e))
@@ -98,6 +108,23 @@ class ZCR_Census
 		s_mCount = new map<string, int>();
 		s_aSample.Clear();
 		s_mLod.Clear();
+		s_aOrphanAt.Clear();
+		s_iOrphans = 0;
+		// Every waypoint some group still has.
+		s_mHeld.Clear();
+		array<AIAgent> agents = {};
+		if (GetGame().GetAIWorld())
+			GetGame().GetAIWorld().GetAIAgents(agents);
+		foreach (AIAgent a : agents)
+		{
+			AIGroup g = AIGroup.Cast(a);
+			if (!g)
+				continue;
+			array<AIWaypoint> held = {};
+			g.GetWaypoints(held);
+			foreach (AIWaypoint hw : held)
+				s_mHeld.Insert(hw);
+		}
 		s_iAlive = 0;
 		s_iDead = 0;
 		s_iVeh = 0;
@@ -130,6 +157,10 @@ class ZCR_Census
 		for (int l; l <= AIAgent.GetMaxLOD(); l++)
 			lods += string.Format("%1:%2,", l, s_mLod.Get(l));
 		Print(string.Format("[ZCR][CENSUS] t=%1 lod=%2 max_lod=%3", ZCR_LossLog.Seconds(), lods, AIAgent.GetMaxLOD()), LogLevel.NORMAL);
+		string orphans;
+		foreach (vector o : s_aOrphanAt)
+			orphans += string.Format("%1,%2;", Math.Round(o[0]), Math.Round(o[2]));
+		Print(string.Format("[ZCR][CENSUS] t=%1 orphan_waypoints=%2 at=%3", ZCR_LossLog.Seconds(), s_iOrphans, orphans), LogLevel.NORMAL);
 		string at;
 		foreach (vector v : s_aSample)
 			at += string.Format("%1,%2,%3;", Math.Round(v[0]), Math.Round(v[1]), Math.Round(v[2]));
