@@ -9,6 +9,7 @@ class ZCR_Census
 	static const int CENSUS_S = 120;
 	protected static bool s_bStarted;
 	protected static ref map<string, int> s_mCount;
+	protected static ref array<vector> s_aSample = {};
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
 
 	static void Start()
@@ -46,6 +47,8 @@ class ZCR_Census
 		if (AIWaypoint.Cast(e))
 		{
 			s_iWaypoints++;
+			string wp = "wp:" + Prefab(e);
+			s_mCount.Set(wp, s_mCount.Get(wp) + 1);
 			return true;
 		}
 		if (AIGroup.Cast(e))
@@ -53,15 +56,37 @@ class ZCR_Census
 			s_iGroups++;
 			return true;
 		}
+		// Generic entities by their prefab (the bulk: 1158 -> 1488 in 11 minutes of the first FPS test).
 		string name = e.ClassName();
+		if (name == "GenericEntity")
+			name = Prefab(e);
+		// Where the biggest growing kind sits (25 Oct: Inventory_Virtual_Entity 784 -> 839 in 2 minutes): a few positions.
+		if (name == "Inventory_Virtual_Entity" && s_aSample.Count() < 6)
+			s_aSample.Insert(e.GetOrigin());
 		s_mCount.Set(name, s_mCount.Get(name) + 1);
 		return true;
+	}
+
+	// "AIWaypoint_Move" from "{...}Prefabs/AI/Waypoints/AIWaypoint_Move.et"; "no_prefab" without one.
+	protected static string Prefab(IEntity e)
+	{
+		if (!e.GetPrefabData())
+			return "no_prefab";
+		string full = e.GetPrefabData().GetPrefabName();
+		int slash = full.LastIndexOf("/");
+		if (slash >= 0)
+			full = full.Substring(slash + 1, full.Length() - slash - 1);
+		full.Replace(".et", "");
+		if (full.IsEmpty())
+			return "no_prefab";
+		return full;
 	}
 
 	protected static void Tick()
 	{
 		int started = System.GetTickCount();
 		s_mCount = new map<string, int>();
+		s_aSample.Clear();
 		s_iAlive = 0;
 		s_iDead = 0;
 		s_iVeh = 0;
@@ -71,9 +96,9 @@ class ZCR_Census
 		s_iTotal = 0;
 		// The whole map (Everon is 12.8 km; Arland 4 km).
 		GetGame().GetWorld().QueryEntitiesByAABB(Vector(-2000, -1000, -2000), Vector(16000, 3000, 16000), Count, null, EQueryEntitiesFlags.DYNAMIC);
-		// The rest, largest first (top 10).
+		// The rest, largest first (top 16).
 		string top;
-		for (int k; k < 10 && !s_mCount.IsEmpty(); k++)
+		for (int k; k < 16 && !s_mCount.IsEmpty(); k++)
 		{
 			string best;
 			int most = -1;
@@ -90,5 +115,10 @@ class ZCR_Census
 		}
 		Print(string.Format("[ZCR][CENSUS] t=%1 total=%2 alive=%3 dead=%4 veh=%5 wrecks=%6 waypoints=%7 groups=%8 ms=%9", ZCR_LossLog.Seconds(), s_iTotal,
 			s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, System.GetTickCount() - started) + " top=" + top, LogLevel.NORMAL);
+		string at;
+		foreach (vector v : s_aSample)
+			at += string.Format("%1,%2,%3;", Math.Round(v[0]), Math.Round(v[1]), Math.Round(v[2]));
+		if (!at.IsEmpty())
+			Print(string.Format("[ZCR][CENSUS] t=%1 sample=Inventory_Virtual_Entity at=%2", ZCR_LossLog.Seconds(), at), LogLevel.NORMAL);
 	}
 }

@@ -21,6 +21,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = ROOT / ".runtime" / "fpstest"
+sys.path.insert(0, str(HERE))
 GAME_MINUTES = 12
 
 DCO = "5EDAAE0D3CC60D6B"
@@ -42,7 +43,12 @@ VARIANTS = {
     "nodrones3x": (3, None, "", False, "without the drone mods (FPV AI Drones + Realistic Combat Drones) at 3x"),
     "nodrivemods3x": (3, lambda m: m not in DRIVING_MODS, "", True, "without the driving mods (road price, Competent AI driving) at 3x"),
     "cap40_3x": (3, None, "-aicfMaxAgentsPerFaction 40", True, "40 soldiers a side instead of 50 at 3x"),
+    # As the watched loop: the game window recorded (ffmpeg, Windows Graphics Capture), and the US on the model.
+    "rec3x": (3, None, "", True, "the watched setup at 3x, the window recorded as in the watched loop"),
+    "llmrec3x": (3, None, "", True, "exactly the watched match: 3x, recorded, the US on the model strategist (llm-phased)"),
 }
+RECORDED = {"rec3x", "llmrec3x"}
+LLM = {"llmrec3x"}
 
 
 def run(variant: str) -> dict:
@@ -58,14 +64,39 @@ def run(variant: str) -> dict:
     if speed > 1:
         extra += f" -zcrSpeed {speed:g}"
     label = f"fps-{variant}"
+    us = "llm-phased" if variant in LLM else "phased"
     argv = [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland", "--solo", "--watch", "--minutes", str(round(GAME_MINUTES / speed, 2)),
-            "--label", label, "--us", "phased", "--ussr", "phased", "--extra", " ".join(extra.split())]
+            "--label", label, "--us", us, "--ussr", "phased", "--extra", " ".join(extra.split())]
     if mods:
         argv += ["--mods", ",".join(mods)]
     if drones:
         argv += ["--drones"]
     started = datetime.now()
-    subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if variant in LLM:
+        import bridges
+        bridges.ensure(("llm-phased",))
+    proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ff = None
+    mkv = OUT / f"rec-{variant}.mkv"
+    if variant in RECORDED:
+        # The game window recorded exactly as the watched loop does (lab/watch_test.py's way); the file is thrown away.
+        import time
+        import watch_loop
+        import watch_test
+        t0 = time.time()
+        while proc.poll() is None and ff is None and time.time() - t0 < 300:
+            pid = watch_test.game_pid(label)
+            hwnd = watch_loop.game_window(pid) if pid else None
+            if hwnd:
+                time.sleep(5)
+                OUT.mkdir(parents=True, exist_ok=True)
+                ff = watch_loop.ffmpeg_start(mkv, hwnd)
+            else:
+                time.sleep(5)
+    proc.wait()
+    if ff:
+        watch_loop.ffmpeg_stop(ff)
+        mkv.unlink(missing_ok=True)
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
     r = summarize(runs[-1]) if runs else {"error": "no run folder"}
     r.update({"variant": variant, "at": started.strftime("%Y-%m-%d %H:%M")})
