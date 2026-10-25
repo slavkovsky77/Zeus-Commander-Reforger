@@ -43,6 +43,7 @@ VARIANTS = {
     "nodrones3x": (3, None, "", False, "without the drone mods (FPV AI Drones + Realistic Combat Drones) at 3x"),
     "nodrivemods3x": (3, lambda m: m not in DRIVING_MODS, "", True, "without the driving mods (road price, Competent AI driving) at 3x"),
     "cap40_3x": (3, None, "-aicfMaxAgentsPerFaction 40", True, "40 soldiers a side instead of 50 at 3x"),
+    "teams1_3x": (3, None, "-aicfInfantryDeploySize 1 -aicfMusterSize 1", True, "teams of 1 instead of 2 (half the starting soldiers) at 3x"),
     "cap30_3x": (3, None, "-aicfMaxAgentsPerFaction 30", True, "30 soldiers a side instead of 50 at 3x"),
     "res70_3x": (3, None, "", True, "the watched setup at 3x rendered at 70% resolution (is it the graphics card or the processor?)"),
     "fewveh3x": (3, None, "-aicfMaxVehiclesPerFaction 4", True, "at most 4 vehicles a side (16 by default) at 3x"),
@@ -62,9 +63,11 @@ def run(variant: str) -> dict:
     if keep:
         mods = [m for m in mods if keep(m)]
     if add:
-        # the later value of a repeated parameter would be ambiguous - replace it
-        name = add.split()[0]
-        extra = re.sub(rf"{re.escape(name)} \S+", "", extra)
+        # the later value of a repeated parameter would be ambiguous - replace each one given
+        parts = add.split()
+        for k, name in enumerate(parts):
+            if name.startswith("-") and k + 1 < len(parts) and not parts[k + 1].startswith("-"):
+                extra = re.sub(rf"{re.escape(name)} \S+", "", extra)
         extra = f"{extra} {add}"
     if speed > 1:
         extra += f" -zcrSpeed {speed:g}"
