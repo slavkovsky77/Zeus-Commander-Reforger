@@ -10,6 +10,52 @@ class ZCR_Detour
 	protected static ref map<IEntity, int> s_mAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mCount = new map<IEntity, int>();
 
+	// Our waypoints (a detour's, road first's) once their group has passed them (25 Oct: the census found waypoints no group
+	// holds growing ~10 a game minute - some of them ours). Every 20 s, a tracked waypoint its group no longer has, or whose
+	// group is gone, is deleted.
+	protected static ref array<AIWaypoint> s_aTracked = {};
+	protected static ref array<AIGroup> s_aTrackedGroup = {};
+	protected static bool s_bSweeping;
+	protected static int s_iSwept;
+
+	static void Track(AIGroup group, AIWaypoint w)
+	{
+		if (!group || !w)
+			return;
+		s_aTracked.Insert(w);
+		s_aTrackedGroup.Insert(group);
+		if (!s_bSweeping)
+		{
+			s_bSweeping = true;
+			GetGame().GetCallqueue().CallLater(Sweep, 20000, true);
+		}
+	}
+
+	protected static void Sweep()
+	{
+		for (int i = s_aTracked.Count() - 1; i >= 0; i--)
+		{
+			AIWaypoint w = s_aTracked[i];
+			AIGroup g = s_aTrackedGroup[i];
+			bool held;
+			if (w && g)
+			{
+				array<AIWaypoint> list = {};
+				g.GetWaypoints(list);
+				held = list.Contains(w);
+			}
+			if (held)
+				continue;
+			if (w)
+			{
+				RplComponent.DeleteRplEntity(w, false);
+				s_iSwept++;
+			}
+			s_aTracked.Remove(i);
+			s_aTrackedGroup.Remove(i);
+		}
+	}
+
 	static void Unreachable(IEntity vehicle, vector goal)
 	{
 		if (!vehicle || !Replication.IsServer() || System.IsCLIParam("zcrNoDetour") || ZCR_Armour.IsUnit(vehicle))
@@ -38,6 +84,7 @@ class ZCR_Detour
 			return;
 		w.SetCompletionRadius(12);
 		group.AddWaypointAt(w, 0);
+		Track(group, w);
 		s_mCount.Set(vehicle, s_mCount.Get(vehicle) + 1);
 		Print(string.Format("[ZCR][DETOUR] t=%1 side=%2 vehicle=%3 via_m=%4 via_goal_m=%5 goal_m=%6 x=%7 z=%8 via_x=%9", now, side, ZCR_LossLog.ShortName(vehicle),
 			Math.Round(vector.DistanceXZ(at, via)), Math.Round(vector.DistanceXZ(via, goal)), Math.Round(vector.DistanceXZ(at, goal)), Math.Round(at[0]),
@@ -403,6 +450,7 @@ class ZCR_RoadFirst
 				continue;
 			first.SetCompletionRadius(10);
 			group.AddWaypointAt(first, 0);
+			ZCR_Detour.Track(group, first);
 			m_mOurs.Set(v, first);
 			Print(string.Format("[ZCR][ROADFIRST] t=%1 side=%2 vehicle=%3 road_m=%4 width=%5 goal_m=%6 x=%7 z=%8 road_x=%9", ZCR_LossLog.Seconds(),
 				ZCR_Driving.DrivenSide(v), ZCR_LossLog.ShortName(v), Math.Round(vector.DistanceXZ(at, q)), Math.Round(width * 10) / 10,
