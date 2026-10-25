@@ -461,6 +461,19 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/map/live":
                 q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
                 return self.json(maplayers.live(q.get("map", "arland")))
+            # The strategist's decisions (the Decisions tab, note 399): what the model was asked, answered or failed on.
+            if path == "/api/decisions":
+                import decisions
+                q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
+                try:
+                    days = max(1, min(14, int(q.get("days", "2"))))
+                except ValueError:
+                    days = 2
+                return self.json({"stats": decisions.stats(10), "list": decisions.listing(days, q.get("kind", "model"))})
+            if path == "/api/decision":
+                import decisions
+                q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
+                return self.json(decisions.get(unquote(q.get("id", ""))))
             if path in ("/vendor/leaflet.js", "/vendor/leaflet.css"):
                 f = HERE / "vendor" / path.rsplit("/", 1)[1]
                 ctype = "application/javascript" if f.suffix == ".js" else "text/css"

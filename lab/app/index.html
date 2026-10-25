@@ -65,6 +65,20 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .maplbl { font: 700 12px var(--f-display); letter-spacing: .02em; background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: none; padding: 2px 6px; }
 .maplbl::before { display: none; }
 .map-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.dec-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .dec-grid { grid-template-columns: minmax(0, 1fr); } }
+.dec-list { max-height: 78vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+.dec-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.dec-row:hover { background: var(--field); }
+.dec-row.on { background: color-mix(in srgb, #7a3fd1 16%, transparent); }
+.dec-row .intent { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+.badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+.badge.model { background: #7a3fd1; color: #fff; }
+.badge.failed { background: var(--bad); color: #fff; }
+.badge.rules { background: var(--field); color: var(--ink); border: 1px solid var(--line); }
+#decmap { height: min(56vh, 560px); border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+.dec-detail pre { white-space: pre-wrap; word-break: break-word; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-height: 260px; overflow: auto; }
+.dec-stats td, .dec-stats th { padding: 3px 10px; border-bottom: 1px solid var(--line); text-align: left; }
 .mapsel { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid #7a3fd1; border-radius: 8px; background: var(--panel); line-height: 1.5; }
 .mapsel button { margin-left: 8px; font: 13px var(--f-body); padding: 2px 10px; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
 table.missions tr[data-key] { cursor: pointer; }
@@ -222,6 +236,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <button role="tab" data-tab="progress">Progress</button>
     <button role="tab" data-tab="sublab">Sub-labs</button>
     <button role="tab" data-tab="map">Map</button>
+    <button role="tab" data-tab="decisions">Decisions</button>
     <button role="tab" data-tab="changelog">Changelog</button>
     <button role="tab" data-tab="plan">Plan</button>
   </nav>
@@ -355,6 +370,33 @@ video { width: 100%; border-radius: 8px; background: #000; }
       <div id="map-sel"></div>
       <div id="map-missions"></div>
       <p class="muted">Map © <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>, drawn from the game's files; not affiliated with Bohemia Interactive. Layers from our run logs since 20 Oct (lab/maplayers.py).</p>
+    </div>
+  </section>
+  <section class="tab" id="tab-decisions" hidden>
+    <div class="card">
+      <h2 style="margin:0 0 4px">The strategist's decisions</h2>
+      <p class="muted" style="margin:0 0 10px">Every time the model strategist was asked to pick an objective: the situation it saw, what it answered (or why
+        the answer was unusable - then our rules decided), and the plan the game got. Click a decision to see it on the map.</p>
+      <div class="map-controls" style="margin-bottom:10px">
+        <label for="dec-kind">Show <select id="dec-kind"><option value="model">when the model was asked</option><option value="all">every change of objective (rules too)</option></select></label>
+        <label for="dec-days">Days <select id="dec-days"><option value="1">today</option><option value="2" selected>last 2 days</option><option value="7">last week</option></select></label>
+      </div>
+      <div id="dec-stats" style="margin-bottom:12px;overflow-x:auto"></div>
+      <div class="dec-grid">
+        <div class="dec-list" id="dec-list"><p class="muted" style="padding:10px">Loading…</p></div>
+        <div class="dec-detail">
+          <div id="decmap" role="region" aria-label="Decision map"></div>
+          <div class="legend" style="margin-top:6px">
+            <div><span class="dot" style="border:3px solid #7a3fd1;background:transparent"></span>Main effort</div>
+            <div><span class="dot" style="border:2px dashed #7a3fd1;background:transparent"></span>Supporting</div>
+            <div><span class="dot" style="border:2px solid var(--good);background:transparent;border-radius:2px"></span>Hold</div>
+            <div><span class="dot" style="border:2px dashed var(--bad);background:transparent"></span>Avoid</div>
+            <div><span class="dot" style="background:var(--us)"></span>Base / squad colour = owner (blue US, red USSR, green FIA)</div>
+          </div>
+          <div id="dec-text"><p class="muted">Pick a decision on the left.</p></div>
+          <p class="muted">Map © <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>. From the bridge's logs (.runtime/bridge, lab/decisions.py).</p>
+        </div>
+      </div>
     </div>
   </section>
   <section class="tab" id="tab-changelog" hidden><iframe title="Changelog" data-src="/pages/changelog"></iframe></section>
@@ -631,6 +673,95 @@ video { width: 100%; border-radius: 8px; background: #000; }
     },
   };
 
+  // ------------------------------------------------------------ decisions (the strategist: what the model saw and chose)
+  const DecTab = {
+    view: null, mapName: "", meta: {}, group: null, sel: null, rows: [],
+    async open() {
+      if (!this.wired) {
+        this.wired = true;
+        for (const id of ["dec-kind", "dec-days"]) $(id).addEventListener("change", () => this.load());
+      }
+      await this.load();
+    },
+    async load() {
+      let d;
+      try { d = await (await fetch(`/api/decisions?kind=${$("dec-kind").value}&days=${$("dec-days").value}`)).json(); } catch (e) { $("dec-list").innerHTML = '<p class="muted" style="padding:10px">The lab app didn\'t answer.</p>'; return; }
+      const st = (d.stats || []).filter(s => s.asked);
+      $("dec-stats").innerHTML = st.length ? `<table class="dec-stats mono" style="border-collapse:collapse;font-size:13px"><tr><th>Day</th><th>Model asked</th><th>Unusable answers (rules decided)</th></tr>${st.map(s => `<tr><td>${esc(s.day)}</td><td>${s.asked}</td><td>${s.failed} (${s.failed_pct}%)</td></tr>`).join("")}</table>` : "";
+      this.rows = d.list || [];
+      if (!this.rows.length) { $("dec-list").innerHTML = '<p class="muted" style="padding:10px">No decisions in this period.</p>'; return; }
+      $("dec-list").innerHTML = this.rows.map(r => {
+        const badge = r.failed ? '<span class="badge failed">model failed → rules</span>' : r.asked ? '<span class="badge model">model</span>' : '<span class="badge rules">rules</span>';
+        const side = `<span class="mono" style="color:var(--${r.faction === "US" ? "us" : "ussr"});font-weight:700">${esc(r.faction)}</span>`;
+        return `<div class="dec-row${r.id === this.sel ? " on" : ""}" data-id="${esc(r.id)}"><span class="mono">${esc((r.at || "").slice(5, 16).replace("T", " "))} · ${Math.round((r.t || 0) / 60)} min</span><span>${side} ${badge}</span><b style="justify-self:end">${esc(r.main_effort)}</b><span class="intent">${esc(r.intent)}</span></div>`;
+      }).join("");
+      for (const el of $("dec-list").querySelectorAll(".dec-row")) el.onclick = () => this.pick(el.dataset.id);
+      if (!this.sel) this.pick(this.rows[0].id);
+    },
+    async pick(id) {
+      this.sel = id;
+      for (const el of $("dec-list").querySelectorAll(".dec-row")) el.classList.toggle("on", el.dataset.id === id);
+      let d;
+      try { d = await (await fetch(`/api/decision?id=${encodeURIComponent(id)}`)).json(); } catch (e) { return; }
+      if (d.error) { $("dec-text").innerHTML = `<p class="muted">${esc(d.error)}</p>`; return; }
+      await this.draw(d);
+      const plan = d.plan || {}, names = {};
+      for (const b of (d.report || {}).bases || []) names[b.id] = b.name;
+      const list = (ids) => (ids || []).map(i => names[i] || i).join(", ") || "-";
+      let raw = d.raw || "";
+      try { raw = JSON.stringify(JSON.parse(raw), null, 1); } catch (_) {}
+      $("dec-text").innerHTML = `<h3 style="margin:10px 0 4px">${esc(d.faction)} at ${Math.round((d.t || 0) / 60)} min - ${d.failed ? "the model's answer was unusable, our rules decided" : d.asked ? `the model decided (${d.seconds} s)` : "our rules decided"}</h3>
+        <p style="margin:4px 0"><b>Intent:</b> ${esc(plan.intent || "")}</p>
+        <p style="margin:4px 0"><b>Main effort:</b> ${esc(list([plan.main_effort]))} · <b>supporting:</b> ${esc(list(plan.supporting))} · <b>hold:</b> ${esc(list(plan.hold))} · <b>avoid:</b> ${esc(list(plan.avoid))}</p>
+        <p style="margin:4px 0"><b>Concentration:</b> ${esc(plan.concentration || "-")} · <b>teams committed:</b> ${esc(plan.commit ?? "-")} · <b>drones on:</b> ${esc(list(plan.drones))}${plan.motorize ? " · motorized" : ""}</p>
+        ${d.asked ? `<p style="margin:8px 0 2px"><b>${d.failed ? "Why it failed" : "The model's answer"}:</b></p><pre>${esc(raw)}</pre>` : ""}
+        ${(d.problems || []).length ? `<p style="margin:4px 0"><b>Checks on the answer:</b> ${esc(d.problems.join("; "))}</p>` : ""}`;
+    },
+    async draw(d) {
+      const name = d.map || "arland";
+      let meta = this.meta[name];
+      try { if (!meta) { meta = (await (await fetch(`https://enfumap.com/api/v1/maps/${name}`)).json()).data; this.meta[name] = meta; } } catch (e) { return; }
+      if (!this.view || this.mapName !== name) {
+        if (this.view) this.view.remove();
+        const ts = meta.tiles.tileSize, s = ts / meta.worldSize;
+        const crs = L.extend({}, L.CRS.Simple, { transformation: new L.Transformation(s, 0, -s, ts) });
+        this.view = L.map("decmap", { crs, minZoom: 0, maxZoom: meta.tiles.maxNativeZoom + 2, zoomSnap: 0.5 });
+        L.tileLayer("https://enfumap.com" + (meta.tiles.layers.topo || meta.tiles.url), { tileSize: ts, maxNativeZoom: meta.tiles.maxNativeZoom, noWrap: true,
+          attribution: 'Map &copy; <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>' }).addTo(this.view);
+        this.view.fitBounds([[0, 0], [meta.worldSize, meta.worldSize]]);
+        this.group = L.layerGroup().addTo(this.view);
+        this.mapName = name;
+      }
+      setTimeout(() => this.view.invalidateSize(), 50);
+      this.group.clearLayers();
+      const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || "#888";
+      const side = { US: css("--us"), USSR: css("--ussr"), FIA: css("--fia") };
+      const rep = d.report || {}, plan = d.plan || {}, bases = {};
+      for (const b of rep.bases || []) bases[b.id] = b;
+      for (const b of rep.bases || []) for (const l of b.links || []) if (bases[l] && l > b.id)
+        L.polyline([[b.z, b.x], [bases[l].z, bases[l].x]], { color: "#333", weight: 1, opacity: .35, dashArray: "3 6", interactive: false }).addTo(this.group);
+      for (const q of rep.squads || []) {
+        const b = bases[q.target], c = side[rep.faction] || "#555";
+        if (b) L.polyline([[q.z, q.x], [b.z, b.x]], { color: c, weight: 1, opacity: .4, interactive: false }).addTo(this.group);
+        L.circleMarker([q.z, q.x], { radius: 3 + Math.min(4, q.alive || 0), color: "#fff", weight: 1, fillColor: c, fillOpacity: .9 })
+          .bindTooltip(`${esc(rep.faction)} squad ${q.slot} - ${esc((q.role || "").toLowerCase())}, ${q.alive}/${q.size} men${b ? " → " + esc(b.name) : ""}`).addTo(this.group);
+      }
+      const ring = (b, o, label) => L.circleMarker([b.z, b.x], Object.assign({ fill: false, interactive: false }, o)).addTo(this.group) && label &&
+        L.marker([b.z, b.x], { opacity: 0, interactive: false }).bindTooltip(label, { permanent: true, direction: "bottom", offset: [0, 14], className: "maplbl" }).addTo(this.group);
+      for (const b of rep.bases || []) {
+        const c = side[b.owner] || css("--muted");
+        L.circleMarker([b.z, b.x], { radius: b.hq ? 10 : 7, color: c, weight: 3, fillColor: c, fillOpacity: .25 })
+          .bindTooltip(`${esc(b.name)} (${esc(b.owner)})${b.supplies != null ? ", supplies " + b.supplies : ""}${b.attackable ? ", attackable" : ""}${b.enemies ? ", enemies " + b.enemies : ""}`, { permanent: true, direction: "top", offset: [0, -8], className: "maplbl" })
+          .addTo(this.group);
+      }
+      const at = (id) => bases[id];
+      for (const id of plan.supporting || []) if (at(id)) ring(at(id), { radius: 17, color: "#7a3fd1", weight: 2, dashArray: "5 5" });
+      for (const id of plan.avoid || []) if (at(id)) ring(at(id), { radius: 20, color: css("--bad"), weight: 2, dashArray: "3 4" });
+      for (const id of plan.hold || []) if (at(id)) L.rectangle([[at(id).z - 70, at(id).x - 70], [at(id).z + 70, at(id).x + 70]], { color: css("--good"), weight: 2, fill: false, interactive: false }).addTo(this.group);
+      if (at(plan.main_effort)) ring(at(plan.main_effort), { radius: 24, color: "#7a3fd1", weight: 4 }, "MAIN EFFORT");
+    },
+  };
+
   // ------------------------------------------------------------ tabs
   for (const b of document.querySelectorAll("nav button")) {
     b.addEventListener("click", () => show(b.dataset.tab));
@@ -647,6 +778,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     if (name === "live") pollLive();
     if (name === "crashes") pollCrashes();
     if (name === "map") MapTab.open();
+    if (name === "decisions") DecTab.open();
   }
   const fromHash = location.hash.slice(1);
   if (fromHash && $("tab-" + fromHash)) show(fromHash);
