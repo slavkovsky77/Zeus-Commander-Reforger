@@ -27,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+import cpu  # noqa: E402
 
 NIGHT = (datetime.now() - timedelta(hours=8)).strftime("%Y-%m-%d")   # a night after midnight still belongs to its evening
 OUT = ROOT / ".runtime" / "night" / NIGHT
@@ -172,7 +173,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--gaming", action="store_true", help="Martin plays on this PC: one server at a time, pinned to the upper half of the cores")
     a = ap.parse_args()
+    global PORTS
+    if a.gaming:
+        # 25 Oct: AoE stuttered while two headless servers ran at idle priority - idle priority doesn't help, their threads
+        # fill the sibling hyper-threads of the game's cores (note 279). One server, on the upper half of the cores.
+        PORTS = PORTS[:1]
     todo = [j for j in jobs() if j["id"] not in done_ids()]
     if a.plan:
         for j in todo:
@@ -200,6 +207,8 @@ def main() -> int:
             job = todo.pop(0)
             running[port] = (job, start(job, port))
             log(f"start {job['id']} on {port}")
+        if a.gaming or cpu.watched_running():
+            cpu.pin_headless(True)   # every 20 s: servers started since are pinned too
         for port, (job, proc) in list(running.items()):
             if proc.poll() is None:
                 continue
