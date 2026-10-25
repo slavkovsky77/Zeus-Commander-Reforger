@@ -10,6 +10,7 @@ class ZCR_Census
 	protected static bool s_bStarted;
 	protected static ref map<string, int> s_mCount;
 	protected static ref array<vector> s_aSample = {};
+	protected static ref map<int, int> s_mLod = new map<int, int>();
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
 
 	static void Start()
@@ -32,7 +33,16 @@ class ZCR_Census
 			if (controller && controller.IsDead())
 				s_iDead++;
 			else
+			{
 				s_iAlive++;
+				// The soldier's AI level of detail (0 = full; the engine thins out far ones - unless told not to).
+				AIControlComponent ai = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+				if (ai && ai.GetAIAgent())
+				{
+					int lod = ai.GetAIAgent().GetLOD();
+					s_mLod.Set(lod, s_mLod.Get(lod) + 1);
+				}
+			}
 			return true;
 		}
 		if (Vehicle.Cast(e))
@@ -87,6 +97,7 @@ class ZCR_Census
 		int started = System.GetTickCount();
 		s_mCount = new map<string, int>();
 		s_aSample.Clear();
+		s_mLod.Clear();
 		s_iAlive = 0;
 		s_iDead = 0;
 		s_iVeh = 0;
@@ -115,6 +126,10 @@ class ZCR_Census
 		}
 		Print(string.Format("[ZCR][CENSUS] t=%1 total=%2 alive=%3 dead=%4 veh=%5 wrecks=%6 waypoints=%7 groups=%8 ms=%9", ZCR_LossLog.Seconds(), s_iTotal,
 			s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, System.GetTickCount() - started) + " top=" + top, LogLevel.NORMAL);
+		string lods;
+		for (int l; l <= AIAgent.GetMaxLOD(); l++)
+			lods += string.Format("%1:%2,", l, s_mLod.Get(l));
+		Print(string.Format("[ZCR][CENSUS] t=%1 lod=%2 max_lod=%3", ZCR_LossLog.Seconds(), lods, AIAgent.GetMaxLOD()), LogLevel.NORMAL);
 		string at;
 		foreach (vector v : s_aSample)
 			at += string.Format("%1,%2,%3;", Math.Round(v[0]), Math.Round(v[1]), Math.Round(v[2]));

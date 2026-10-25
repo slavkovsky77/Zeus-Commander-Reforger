@@ -156,6 +156,15 @@ class ZCR_Watch
 		Print(string.Format("[ZCR][CAMUI] free look %1", on), LogLevel.NORMAL);
 	}
 
+	// Where the director camera is (ZCR_AILod: AI detail by distance from it); false without one (a headless server).
+	static bool CameraPos(out vector at)
+	{
+		if (!s_Instance || !s_Instance.m_Camera)
+			return false;
+		at = s_Instance.m_Camera.GetOrigin();
+		return true;
+	}
+
 	static bool IsFree()
 	{
 		return s_Instance && s_Instance.m_bFree;
