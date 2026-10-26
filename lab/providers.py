@@ -223,8 +223,21 @@ class PhasedLLM:
         return self.p.decide(report, doctrine_text)
 
 
+class ModernRules:
+    """Our rules pick the objective; the modern assault doctrine runs it (lab/modern.py): drones first, a fast
+    mounted strike that storms at once, pull back and strike again."""
+    name = "modern"
+
+    def __init__(self, cfg: dict):
+        import modern
+        self.p = modern.Modern(None, self.name)
+
+    def decide(self, report: dict, doctrine_text: str) -> tuple:
+        return self.p.decide(report, doctrine_text)
+
+
 PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude, "openrouter": OpenRouter,
-             "phased": PhasedRules, "llm-phased": PhasedLLM}
+             "phased": PhasedRules, "llm-phased": PhasedLLM, "modern": ModernRules}
 
 
 def make(cfg: dict):

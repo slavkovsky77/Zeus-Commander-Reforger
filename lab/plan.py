@@ -7,6 +7,8 @@ commit: how many of AI Conflict's DEFEND squads join the attack while nothing th
 storm: a base (the main effort) the squads sent there go into without stopping to fight at range.
 motorize: our attack squads ride trucks to their objectives (AI Conflict gives infantry none).
 drones: bases our FPV teams go for (drone warfare doctrine: prep fire, pressure) - not ours.
+surge: [tempo s, max up] - the side's drone tempo while it lasts (lab/modern.py: drones first), else the
+game's -zcrDroneTempo / -zcrDroneMax.
 validate() drops anything the report doesn't support; to_lines() turns it into the plain lines the
 game reads (ZCR_Strategist.OnAnswer): a score bonus and a force demand per base, on top of AI
 Conflict's own commander. One full squad counts 10 in AI Conflict's units.
@@ -78,6 +80,13 @@ def validate(decision: dict, report: dict) -> tuple:
         problems.append(f"commit: not a number: {decision.get('commit')!r}")
     clean["motorize"] = bool(decision.get("motorize"))
     clean["drones"] = [i for i in ids(decision.get("drones", []), "drones") if known[i].get("owner") != faction][:2]
+    clean["surge"] = None
+    if decision.get("surge"):
+        try:
+            tempo, up = (int(v) for v in decision["surge"])
+            clean["surge"] = [max(20, min(300, tempo)), max(1, min(8, up))]
+        except (TypeError, ValueError):
+            problems.append(f"surge: not [tempo, max]: {decision.get('surge')!r}")
     clean["storm"] = None
     if decision.get("storm") is not None:
         storm = ids(decision.get("storm"), "storm")
@@ -128,4 +137,6 @@ def to_lines(decision: dict, source: str) -> str:
     if decision.get("motorize"):
         out.append("motorize 1")
     out += [f"drone {int(i)}" for i in decision.get("drones", [])]
+    if decision.get("surge"):
+        out.append(f"surge {int(decision['surge'][0])} {int(decision['surge'][1])}")
     return "\n".join(out) + "\n"

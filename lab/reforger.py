@@ -44,7 +44,7 @@ CORE = "9178E5822AFE48EA,B52C5F6AEDBF423E"
 ARMOUR_ADDONS = "5E389BB9F58B79A6,629B2BA37EFFD577,63120AE07E6C0966,5E524E4FEECCA92B,5D1880C4AD410C14,5E0AB16BEB16D6A4"
 ARMOUR_DIR = str(config.path("paths.armour_dir")) if config.get("paths.armour_dir") else ""   # the Workshop mods folder
 # The strategist bridges (lab/bridge.py), shared by every match on this PC.
-BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768}
+BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768, "modern": 8769}
 MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
     "arland": ("AIConflictArland", "", "{BC2437E4861B4FD2}Missions/AICF_Conflict_Arland.conf", "Missions/AICF_Conflict_Arland.conf"),
@@ -178,7 +178,7 @@ def main() -> int:
     ap.add_argument("--mods", default="", help="extra Workshop mods by id, comma-separated (found or fetched by lab/workshop.py), e.g. 6A8490E1621E7B3C")
     ap.add_argument("--armour-addons", default="", help="other armour mods instead of the WCS family (addon ids), e.g. the CIE set of lab/stress.py")
     ap.add_argument("--watch", action="store_true", help="server: watchers see the whole map; client: director camera")
-    ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased")
+    ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased, modern")
     ap.add_argument("--ussr", default="", help="USSR strategist")
     ap.add_argument("--extra", default="", help="more server parameters, e.g. '-zcrStormPriority 100'")
     ap.add_argument("--dry-run", action="store_true")
