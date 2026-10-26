@@ -36,6 +36,9 @@ VARIANTS = {
     "nodrones": ("", "", False, "no FPV drones"),
     "noarmed": ("-aicfArmedRideEvery 0 -aicfApcEvery 0", "", True, "no armed rides or APC rides (fewer turret vehicles)"),
     "physfix": ("-zcrPhysFix", "", True, "items falling under the ground deleted before the world's floor"),
+    # 18:30: crashes come 0.05-0.8 s after the engine's "Stuck trying to get into vehicle. Reseting.." 4-5x more often than by
+    # chance (5 of 58 within 1 s, ~1 expected) - and the night's free pads multiplied boardings.
+    "norides": ("-aicfInfantryRideMeters 5000", "", True, "no infantry rides on Arland (5 km: the fork's maximum)"),
 }
 
 
@@ -80,6 +83,14 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         near = [p for p in phys if int(p[0]) >= end - 15]
         before = "; ".join(f"{w} {n} ({k}) t={tt}" for tt, w, n, k in near[-4:])
     pushes = re.findall(r"op=push what=(\S+)", t)
+    stuck = re.findall(r"^(\d\d:\d\d:\d\d\.\d+)\s+AI\s+\(W\): Stuck trying to get into vehicle", t, re.M)
+    stuck_gap = None
+    crash_at = re.search(r"^(\d\d:\d\d:\d\d\.\d+)\s+ENGINE\s+\(F\): Crashed", t, re.M)
+    if crash_at and stuck:
+        tc = datetime.strptime(crash_at.group(1), "%H:%M:%S.%f")
+        gaps = [(tc - datetime.strptime(s, "%H:%M:%S.%f")).total_seconds() for s in stuck]
+        gaps = [g for g in gaps if g >= 0]
+        stuck_gap = round(min(gaps), 2) if gaps else None
     return {
         "scenario": scenario, "variant": variant, "run": run_dir.name, "minutes": minutes,
         "crashed": int(crashed), "crash_per_hour": round(60 * crashed / minutes, 2) if minutes else None,
@@ -88,6 +99,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "phys_wild": sum(1 for p in phys if p[1] == "wild"), "phys_spin": sum(1 for p in phys if p[1] == "spin"),
         "phys_nan": sum(1 for p in phys if p[1] == "nan"), "phys_falling": sum(1 for p in phys if p[1] == "falling"),
         "pushes": len(pushes), "turret_pushes": sum(1 for w in pushes if any(x in w for x in TURRETS)),
+        "stuck_getin": len(stuck), "stuck_before_crash_s": stuck_gap,
         "script_errors": sum(1 for b in re.findall(r"Virtual Machine Exception(.{0,400})", t, re.S)
                              if "Failed move" not in b and ".bt" not in b),
     }
@@ -112,8 +124,20 @@ def main() -> int:
     ap.add_argument("--runs", type=int, default=24, help="runs in all, spread over the variants in turn")
     ap.add_argument("--minutes", type=float, default=20)
     ap.add_argument("--variants", default=",".join(VARIANTS))
+    ap.add_argument("--recount", action="store_true", help="summarize every recorded run again from its log")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
+    if a.recount:
+        import sublab
+        path = sublab.results_path("crash")
+        rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        out = []
+        for r in rows:
+            run_dir = ROOT / ".runtime" / "runs" / r.get("run", "")
+            out.append({**r, **summarize(run_dir, r["scenario"], r["variant"])} if r.get("run") and run_dir.exists() else r)
+        path.write_text("".join(json.dumps(r) + "\n" for r in out), encoding="utf-8")
+        print(f"recounted {len(out)} runs")
+        return 0
     import bridges
     import sublab
     bridges.ensure(("phased", "modern"))
