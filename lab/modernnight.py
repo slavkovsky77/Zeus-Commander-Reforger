@@ -76,6 +76,12 @@ def stats(run_dir: Path) -> dict:
             **{side: side_stats(t, side) for side in SIDES}}
 
 
+def port_busy(port: int) -> bool:
+    """Another server (another chat's, or the night before's last match) holds the port."""
+    out = subprocess.run(["netstat", "-ano", "-p", "UDP"], capture_output=True, text=True).stdout
+    return f"127.0.0.1:{port} " in out
+
+
 def done() -> list:
     p = OUT / "results.jsonl"
     return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
@@ -128,7 +134,7 @@ def main() -> int:
     running = {}
     while todo or running:
         for port in PORTS:
-            if port in running or not todo:
+            if port in running or not todo or port_busy(port):
                 continue
             i, (setup, us, ussr) = todo.pop(0)
             label = f"modernnight-{setup}-{i}-p{port}"
