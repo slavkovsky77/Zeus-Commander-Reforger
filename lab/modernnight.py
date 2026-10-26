@@ -151,8 +151,13 @@ def main() -> int:
                 continue
             i, (setup, us, ussr) = todo.pop(0)
             label = f"modernnight-{setup}-{i}-p{port}"
+            run_extra = extra
+            if setup.startswith("final-"):
+                # 06:25: 4 crashes within 2 s of pushing a turret vehicle (LAV-25, UAZ-469 PKM, M1025 M2), none after
+                # ~2150 pushes of others - the final matches without turret pushes (the watched file is Martin's call).
+                run_extra = " ".join(x for x in extra.split() if x != "-zcrMoveTurrets")
             argv = [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland", "--minutes", str(MINUTES), "--label", label,
-                    "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", mods, "--extra", extra]
+                    "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", mods, "--extra", run_extra]
             out = open(OUT / f"{label}.out", "w", encoding="utf-8")
             running[port] = (setup, us, ussr, label, subprocess.Popen(argv, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT,
                                                                        creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0)))
