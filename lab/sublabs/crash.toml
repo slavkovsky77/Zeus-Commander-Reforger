@@ -1,0 +1,33 @@
+# Sub-lab "crash" - created 2026-10-26 18:03 by lab/sublab.py new
+name = "crash"
+question = "What makes the engine crash on a bad entity matrix in our battles, and does switching that off stop it?"
+issue = "5 of 14 headless 45-min matches crashed on 26 Oct night (enf_entity.cpp asserts: bad orientation, position, bounding box, then an access violation); 4 of all recorded crashes came within 2 s of pushing an armed vehicle out of a jam; items fell out of the world (rifles, a drone controller) in 5 matches"
+pass_rule = "a variant with 0 crashes in at least 3 game hours where default crashes; then 10 watched matches without a crash"
+runner = "lab/crashlab.py"
+minutes = 20.0
+units = 0
+scenarios = ["arland"]
+variants = ["default", "noturretpush", "nomoves", "nodrones", "noarmed", "physfix"]
+baseline = "default"
+candidate = "physfix"
+score = "-crash_per_hour"
+higher_is_better = true
+keys = ["crashed", "minutes", "crash_per_hour", "badmatrix_asserts", "oob_asserts", "phys_wild", "phys_spin", "phys_nan", "phys_falling", "turret_pushes"]
+title = "Crash hunt"
+main = "crash_per_hour"
+
+# Plain words for the page.
+score_words = "crashes per game hour (lower is better)"
+baseline_words = "the watched setup as it is"
+candidate_words = "items falling under the ground deleted before the world's floor"
+
+[scenario_labels]
+arland = "The Arland battle (modern v phased)"
+
+[variant_labels]
+default = "watched setup as it is"
+noturretpush = "no pushes of armed vehicles"
+nomoves = "no vehicle moved by our code"
+nodrones = "no FPV drones"
+noarmed = "no armed or APC rides"
+physfix = "falling items deleted"

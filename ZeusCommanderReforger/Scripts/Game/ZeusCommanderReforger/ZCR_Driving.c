@@ -104,6 +104,7 @@ class ZCR_Driving
 		ZCR_MapDump.Start();       // lab: -zcrMapDump - every road, object and tree cell of the map to $profile:zcr/ (plan page M1)
 		ZCR_LiveMap.Start();       // the Lab app's live map: teams, supply trucks, test vans every 5 s ([ZCR][LIVE])
 		ZCR_Census.Start();        // what piles up in a match: dynamic entities by kind every 2 min ([ZCR][CENSUS])
+		ZCR_PhysWatch.Start();     // the crash hunt: entities going wild, spinning, NaN or falling under the ground ([ZCR][PHYS])
 		ZCR_AILod.Start();         // AI level of detail by distance from the director camera (-zcrAILod)
 		ZCR_GateNudge.Start();     // lab: a car waiting at a closed gate gets it opened (-zcrGateNudge)
 	}
