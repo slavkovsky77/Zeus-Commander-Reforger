@@ -99,7 +99,9 @@ def command(a, profile: Path) -> list:
             mod_dirs = mod_dirs + [str(d.parent)]
         if mod_id == DCO_ID and (ROOT / "ZCR_DCO" / "addon.gproj").exists():
             addons += "," + DCO_BRIDGE   # our bridge (ZCR_DCO): our commander's orders as DCO's per-group switches
-    roots = [str(AICF), str(ROOT)] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
+    # The crash bisect (26 Oct): our addon from another checkout (a worktree at an older commit) - ZCR_ADDON_ROOT.
+    zcr_root = os.environ.get("ZCR_ADDON_ROOT") or str(ROOT)
+    roots = [str(AICF), zcr_root] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
     cmd = [str(exe), "-gproj", str(AICF / project / "addon.gproj")]
     systems = "Configs/Systems/GameMasterSystems.conf" if "_GM_" in scenario else "Configs/Systems/ConflictSystems.conf"
     cmd += ["-server", scenario, "-MissionHeader", header, "-worldSystemsConfig", systems,

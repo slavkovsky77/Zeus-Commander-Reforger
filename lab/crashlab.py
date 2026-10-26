@@ -42,7 +42,13 @@ VARIANTS = {
     # 19:05: no event explains most crashes (62 in 1097 runs: a dozen vehicle/boarding events each ~2x), the 21 Oct code
     # crashed too when re-run on 22 Oct - and every crash of the kind starts with the diagnostic build's asserts.
     "release": ("", "", True, "the release server build instead of the diagnostic one"),
+    # 19:10 bisect of last night: the bad-matrix crash on the headless server 9 times since 04:32 last night, once before
+    # ever; the fork's night changes were tested this morning (4 and 4 clean).
+    "phased": ("", "", True, "phased against phased - no modern strategist"),
+    "prenight": ("", "", True, "modern v phased on our game code from before last night (d83decf)"),
 }
+STRATS = {"phased": ("phased", "phased")}
+ENVS = {"release": {"ZCR_RELEASE_EXE": "1"}, "prenight": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night"}}
 
 
 def log(msg):
@@ -59,7 +65,8 @@ def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str)
     extra = (ROOT / ".runtime" / "watch_extra.txt").read_text(encoding="utf-8").strip()
     words = [w for w in extra.split() if w not in drop.split()] + add.split()
     argv = [sys.executable, "-u", str(HERE / "reforger.py"), "--map", SCENARIOS[scenario][0], "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "modern", "--ussr", "phased", "--mods", mods, "--extra", " ".join(words)]
+            "--port", str(port), "--us", STRATS.get(variant, ("modern", "phased"))[0], "--ussr", STRATS.get(variant, ("modern", "phased"))[1],
+            "--mods", mods, "--extra", " ".join(words)]
     if drones:
         argv.append("--drones")
     return argv
@@ -159,8 +166,7 @@ def main() -> int:
             label = f"crashlab-{variant}-{n}-p{port}"
             out = open(OUT / f"{label}.out", "w", encoding="utf-8")
             env = dict(os.environ)
-            if variant == "release":
-                env["ZCR_RELEASE_EXE"] = "1"
+            env.update(ENVS.get(variant, {}))
             proc = subprocess.Popen(argv_for("arland", variant, a.minutes, port, label), cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, env=env,
                                     creationflags=getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0))
             running[port] = (variant, label, proc)
