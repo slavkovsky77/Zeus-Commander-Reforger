@@ -197,6 +197,15 @@ class ZCR_DroneSites
 			return true;
 		if (!s.m_Operators || AICF_GroupRuntime.CountAliveAgents(s.m_Operators) == 0)
 			return ZCR_LossLog.Seconds() > s.m_iReadyAt;      // the team spawns a moment after the group
+		// The pilot dead, his guard alive: no drones from there either (26 Oct night: the Soviet main site's pilot died
+		// at minute ~9, the site was never lost so never rebuilt, and after the forward site fell at minute 20 the side
+		// flew nothing for 25 minutes).
+		if (ZCR_LossLog.Seconds() > s.m_iReadyAt + 5)
+		{
+			ChimeraCharacter pilot = ZCR_DroneOperator.Pilot(s.m_Operators);
+			if (!pilot || !pilot.GetCharacterController() || pilot.GetCharacterController().GetLifeState() == ECharacterLifeState.DEAD)
+				return true;
+		}
 		return false;
 	}
 
