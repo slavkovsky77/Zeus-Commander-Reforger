@@ -69,8 +69,12 @@ def stats(run_dir: Path) -> dict:
             "lost_search": len(re.findall(r"FPVAI: drone\d+ lost \(SEARCH\)", t)),
             "footprint_cleared": t.count("CONSTRUCTION_FOOTPRINT_CLEARED"),
             "completion_waits": t.count("CONSTRUCTION_COMPLETION_WAIT"),
-            # VM exceptions but the behaviour trees' "Failed move" (the engine's, harmless)
-            "script_errors": sum(1 for r in re.findall(r"Virtual Machine Exception\s*Reason: ([^\n]*)", t) if not r.startswith("Failed move")),
+            # VM exceptions but the engine's own behaviour trees' failed moves (harmless)
+            "script_errors": sum(1 for block in re.findall(r"Virtual Machine Exception(.{0,400})", t, re.S)
+                                 if "Failed move" not in block and ".bt" not in block),
+            "rides_done": t.count("][DISEMBARK_COMPLETE]"),
+            "boarded": t.count("][BOARDING_COMPLETE]"),
+            "rides_spawned": t.count("][VEHICLE_SPAWNED]"),
             "nan_guards": t.count("NaN guard"),
             "crashed": bool(list(c[-1].parent.glob("*.mdmp"))),
             **{side: side_stats(t, side) for side in SIDES}}
@@ -108,10 +112,10 @@ def report() -> Path:
         if g:
             avg = lambda k: round(sum(s.get(k) or 0 for s in g) / len(g), 1)
             lines.append(f"| {doc} | {len(g)} | " + " | ".join(str(avg(k)) for k in KEYS) + " |")
-    lines += ["", "## Drones and health (per match)", "", "| match | detonations | drowned | lost searching | footprint cleared | completion waits | script errors | NaN guards | crashed |",
-              "|---|---|---|---|---|---|---|---|---|"]
+    lines += ["", "## Drones, rides and health (per match)", "", "| match | detonations | drowned | lost searching | rides spawned | boarded | dropped off | footprint cleared | completion waits | script errors | NaN guards | crashed |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
-        lines.append(f"| {r['setup']} | {r.get('detonations')} | {r.get('drowned')} | {r.get('lost_search')} | {r.get('footprint_cleared')} | "
+        lines.append(f"| {r['setup']} | {r.get('detonations')} | {r.get('drowned')} | {r.get('lost_search')} | {r.get('rides_spawned')} | {r.get('boarded')} | {r.get('rides_done')} | {r.get('footprint_cleared')} | "
                      f"{r.get('completion_waits')} | {r.get('script_errors')} | {r.get('nan_guards')} | {r.get('crashed')} |")
     p = OUT / "REPORT.md"
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -121,8 +125,15 @@ def report() -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--recount", action="store_true", help="with --report: count every match again from its log")
     a = ap.parse_args()
     if a.report:
+        if a.recount:
+            rows = []
+            for r in done():
+                run = ROOT / ".runtime" / "runs" / r.get("run", "")
+                rows.append({**r, **stats(run)} if r.get("run") and run.exists() else r)
+            (OUT / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
         print(report().read_text(encoding="utf-8"))
         return 0
     OUT.mkdir(parents=True, exist_ok=True)
