@@ -490,6 +490,33 @@ class ZCR_Director
 
 	protected void NextShot(int now)
 	{
+		// The crash sub-lab's mass-boarding test seen from a client joined to the dedicated server it crashes on (27 Oct,
+		// Martin: "can you show it to me"): the test runs on the server, so the camera looks at its pads from the spec.
+		string boardSpec;
+		if (!Replication.IsServer() && System.GetCLIParam("zcrBoardTest", boardSpec) && !boardSpec.IsEmpty())
+		{
+			array<string> boardXz = {};
+			boardSpec.Split(";", boardXz, true);
+			array<string> xz = {};
+			boardXz[0].Split(",", xz, true);
+			vector pads = Vector(xz[0].ToFloat() + 24, 0, xz[1].ToFloat() + 9);
+			pads[1] = GetGame().GetWorld().GetSurfaceY(pads[0], pads[2]);
+			Show(pads, 45, 22, null, "MASS BOARDING TEST - 8 LAV-25s, everyone boarding at once (on the dedicated server)", false);
+			m_iShotEnd = now + 600;
+			return;
+		}
+		// The crash sub-lab's mass-boarding test (-zcrBoardTest): each vehicle in turn while its team boards.
+		if (ZCR_BoardTest.Active())
+		{
+			string boardLabel;
+			IEntity boardCar = ZCR_BoardTest.CameraUnit(boardLabel);
+			if (boardCar)
+			{
+				Show(boardCar.GetOrigin(), 18, 7, boardCar, boardLabel, false);
+				m_iShotEnd = now + 15;
+				return;
+			}
+		}
 		// The base-building test (-zcrBuildTest): follow the builders - one at work first, then one walking to his site.
 		if (ZCR_BuildTest.Active())
 		{

@@ -5,11 +5,13 @@
 // happens: count vehicles spawn in the same tick on pads 16 m apart, a team beside each, and every soldier is put into a
 // seat at the same moment the way AI Conflict does it (AICF_VehicleBoardingFlow: the seat reserved, the game's
 // SCR_AIGetInVehicle action), then they get out the way AI Conflict drops a team (AICF_VehicleWatchdog.
-// ResetGroupVehicleActions + a get-out order), and again. Lab only, on a test map: -zcrBoardTest "x,z;count;mode[;kinds]"
+// ResetGroupVehicleActions + a get-out order), and again. Lab only, on a test map: -zcrBoardTest "x,z;count;mode[;kinds[;delay]]"
 //   mode spawnboard  every cycle the vehicles are deleted and spawned anew, boarded at once - the first ride wave
 //        board       the same vehicles, boarded and emptied at once, again and again
 //        calm        as board, but the get-out without the release/interrupt
-//   kinds all (default) | cars (M998, UAZ-452, M1025, UAZ-469) | apc (LAV-25, BTR-70)
+//        spawnboard_kill  as spawnboard, and a soldier killed while he climbs in, up to 3 a cycle
+//        spawnboard_oneby as spawnboard, but per vehicle one soldier at a time (the next when the one before is in)
+//   kinds all (default) | cars | apc - US only (see Kinds) | apc_fight (LAV-25 + US squads beside BTR-70 + Soviet ones)
 //   [ZCR][BOARDTEST] t= cycle= event=SPAWN|BOARD|ABOARD|DROP|OUT vehicles= soldiers= n= mode=
 //   [ZCR][BOARDTEST_SUM] t= cycles= issued= seated= timeouts= mode=   (every 60 s)
 class ZCR_BoardTest
@@ -23,10 +25,18 @@ class ZCR_BoardTest
 	protected vector m_vAt;
 	protected int m_iCount;
 	protected string m_sMode;
+	protected int m_iBoardDelay = 3;   // s from the spawn to the board order (fifth field)
 	protected int m_iPhase;        // 0 waiting to board, 1 boarding, 2 aboard -> drop, 3 getting out, 4 rest
 	protected int m_iPhaseAt;
 	protected int m_iCycle;
 	protected int m_iIssued, m_iSeated, m_iTimeouts, m_iNextSum;
+	protected int m_iKills, m_iKilledThisCycle, m_iNextKillAt;
+	// "oneby" (Martin, 27 Oct: "they get stuck and run bumping into each other - they should go slowly one by one"): per
+	// vehicle the next soldier's order only when the one before is in, or after 6 s.
+	protected ref map<int, IEntity> m_mLast = new map<int, IEntity>();
+	protected ref map<int, int> m_mLastAt = new map<int, int>();
+	protected ref array<IEntity> m_aOrdered = {};
+	protected ref array<BaseCompartmentSlot> m_aTaken = {};
 
 	static void Start()
 	{
@@ -47,27 +57,36 @@ class ZCR_BoardTest
 		if (f.Count() > 3)
 			kinds = f[3];
 		s_Instance.Kinds(kinds);
+		// Fifth field: seconds from the spawn to the board order (27 Oct: 60 of 60 runs crashed 4-6 s after the order given
+		// 3 s after the spawn - is it climbing into a vehicle that just appeared?).
+		if (f.Count() > 4)
+			s_Instance.m_iBoardDelay = f[4].ToInt();
 		s_Instance.m_iPhase = -1;
 		GetGame().GetCallqueue().CallLater(s_Instance.Begin, 3000, false);
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);
 		Print(string.Format("[ZCR][BOARDTEST] start vehicles=%1 mode=%2 kinds=%3", s_Instance.m_iCount, s_Instance.m_sMode, kinds), LogLevel.NORMAL);
 	}
 
-	// The first ride wave's mix: light cars, armed cars and APCs of both sides, each with a team of its own side.
+	// One side only (27 Oct, Martin watching the first window run: "they now fight each other" - the US and Soviet teams
+	// side by side shot each other, so soldiers died mid-boarding). US vehicles and US teams, as one base's first ride wave:
+	//   all  M998, M1025 M2, LAV-25   cars  M998, M1025 M2   apc  LAV-25 only
 	protected void Kinds(string kinds)
 	{
 		if (kinds != "apc")
 		{
 			Add("{9B1BF9644E0378D6}Prefabs/Vehicles/Wheeled/M998/M998_covered_long.et", "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et");
-			Add("{1FBB492E86002BF5}Prefabs/Vehicles/Wheeled/UAZ452/UAZ452_transport.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
 			Add("{428B2BC55F1628E0}Prefabs/Vehicles/Wheeled/Conflict_Variants/M1025_armed_M2HB_Conflict.et", "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et");
-			Add("{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et", "{CB58D90EA14430AD}Prefabs/Groups/OPFOR/Group_USSR_SentryTeam.et");
 		}
-		if (kinds != "cars")
+		// "apc_fight": the one setup the first runs crashed in (27 Oct 23:58) - LAV-25s with US squads beside BTR-70s with
+		// Soviet ones, so the squads shot each other while they boarded (Martin: "try to make it the way it crashed").
+		if (kinds == "apc_fight")
 		{
 			Add("{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
 			Add("{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
+			return;
 		}
+		if (kinds != "cars")
+			Add("{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
 	}
 
 	protected void Add(string car, string team)
@@ -135,12 +154,24 @@ class ZCR_BoardTest
 		Count(soldiers, aboard);
 		if (m_iPhase == 0)
 		{
-			if (since >= 3 && soldiers > 0)
+			if (since >= m_iBoardDelay && soldiers > 0)
 				Board(now, soldiers);
 		}
 		else if (m_iPhase == 1)
 		{
-			if (aboard >= soldiers || since >= 45)
+			// "..._kill": a soldier killed while he climbs in, up to 3 a cycle (the crashed run's squads shot each other mid-boarding).
+			if (m_sMode.Contains("kill") && m_iKilledThisCycle < 3 && now >= m_iNextKillAt && since >= 1)
+				KillOneGettingIn(now);
+			if (m_sMode.Contains("oneby"))
+			{
+				for (int k; k < m_aVehicles.Count(); k++)
+				{
+					IEntity last = m_mLast.Get(k);
+					if (!last || CompartmentAccessComponent.GetVehicleIn(last) || !AICF_GroupRuntime.IsAliveCharacter(last) || now - m_mLastAt.Get(k) >= 6)
+						m_iIssued += IssueNext(k, now);
+				}
+			}
+			if (aboard >= soldiers || since >= BoardTimeout())
 			{
 				if (aboard < soldiers)
 					m_iTimeouts++;
@@ -171,7 +202,9 @@ class ZCR_BoardTest
 			if (since >= 4)
 			{
 				m_iCycle++;
-				if (m_sMode == "spawnboard" && aboard == 0)
+				m_iKilledThisCycle = 0;
+				Refill();
+				if (m_sMode.StartsWith("spawnboard") && aboard == 0)
 				{
 					foreach (Vehicle v : m_aVehicles)
 					{
@@ -219,6 +252,21 @@ class ZCR_BoardTest
 	// and the game's get-in action - AICF_VehicleBoardingFlow's two calls.
 	protected void Board(int now, int soldiers)
 	{
+		if (m_sMode.Contains("oneby"))
+		{
+			m_mLast.Clear();
+			m_mLastAt.Clear();
+			m_aOrdered.Clear();
+			m_aTaken.Clear();
+			int first;
+			for (int k; k < m_aVehicles.Count(); k++)
+				first += IssueNext(k, now);
+			m_iIssued += first;
+			m_iPhase = 1;
+			m_iPhaseAt = now;
+			Log(now, "BOARD", soldiers, first);
+			return;
+		}
 		int issued;
 		for (int i; i < m_aTeams.Count() && i < m_aVehicles.Count(); i++)
 		{
@@ -327,6 +375,167 @@ class ZCR_BoardTest
 		m_iPhase = 3;
 		m_iPhaseAt = now;
 		Log(now, "DROP", soldiers, aboard);
+	}
+
+	protected void KillOneGettingIn(int now)
+	{
+		foreach (SCR_AIGroup team : m_aTeams)
+		{
+			if (!team)
+				continue;
+			array<AIAgent> agents = {};
+			team.GetAgents(agents);
+			foreach (AIAgent agent : agents)
+			{
+				ChimeraCharacter man = ChimeraCharacter.Cast(agent.GetControlledEntity());
+				if (!man || !AICF_GroupRuntime.IsAliveCharacter(man))
+					continue;
+				CompartmentAccessComponent access = man.GetCompartmentAccessComponent();
+				if (!access || !access.IsGettingIn())
+					continue;
+				SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(man.FindComponent(SCR_DamageManagerComponent));
+				if (!damage)
+					continue;
+				damage.SetHealthScaled(0);
+				m_iKills++;
+				m_iKilledThisCycle++;
+				m_iNextKillAt = now + 2;
+				Print(string.Format("[ZCR][BOARDTEST] t=%1 cycle=%2 event=KILL_GETTING_IN kills=%3 x=%4 z=%5", now, m_iCycle, m_iKills,
+					Math.Round(man.GetOrigin()[0]), Math.Round(man.GetOrigin()[2])), LogLevel.NORMAL);
+				return;
+			}
+		}
+	}
+
+	// A squad down to 2 is replaced by a fresh one beside its pad (the kill mode and the fight wear them down).
+	protected void Refill()
+	{
+		for (int i; i < m_aTeams.Count(); i++)
+		{
+			SCR_AIGroup team = m_aTeams[i];
+			int alive;
+			if (team)
+				alive = AICF_GroupRuntime.CountAliveAgents(team);
+			if (alive > 2)
+				continue;
+			vector at = Pad(i) + Vector(-7, 0, 0);
+			at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
+			EntitySpawnParams params = new EntitySpawnParams();
+			params.TransformMode = ETransformMode.WORLD;
+			params.Transform[3] = at;
+			m_aTeams[i] = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_aTeamPrefabs[i % m_aTeamPrefabs.Count()]), GetGame().GetWorld(), params));
+		}
+	}
+
+	// One soldier of vehicle i's team into its next free seat (driver, gunner, then the back) - AI Conflict's two calls.
+	protected int IssueNext(int i, int now)
+	{
+		if (i >= m_aTeams.Count() || i >= m_aVehicles.Count())
+			return 0;
+		SCR_AIGroup team = m_aTeams[i];
+		Vehicle v = m_aVehicles[i];
+		if (!team || !v)
+			return 0;
+		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(v.FindComponent(SCR_AIVehicleUsageComponent));
+		if (usage && team.GetGroupUtilityComponent())
+			team.GetGroupUtilityComponent().AddUsableVehicle(usage);
+		BaseCompartmentManagerComponent seatsOf = BaseCompartmentManagerComponent.Cast(v.FindComponent(BaseCompartmentManagerComponent));
+		if (!seatsOf)
+			return 0;
+		array<BaseCompartmentSlot> seats = {};
+		seatsOf.GetCompartments(seats);
+		BaseCompartmentSlot seat;
+		array<ECompartmentType> types = {ECompartmentType.PILOT, ECompartmentType.TURRET, ECompartmentType.CARGO};
+		foreach (ECompartmentType type : types)
+		{
+			foreach (BaseCompartmentSlot s : seats)
+			{
+				if (!seat && s && s.GetType() == type && !s.GetOccupant() && !m_aTaken.Contains(s))
+					seat = s;
+			}
+		}
+		if (!seat)
+			return 0;
+		array<AIAgent> agents = {};
+		team.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			IEntity man = agent.GetControlledEntity();
+			if (!AICF_GroupRuntime.IsAliveCharacter(man) || CompartmentAccessComponent.GetVehicleIn(man) || m_aOrdered.Contains(man))
+				continue;
+			SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(agent.FindComponent(SCR_AIUtilityComponent));
+			if (!utility)
+				continue;
+			seat.SetReserved(man);
+			EAICompartmentType role = EAICompartmentType.Cargo;
+			if (seat.GetType() == ECompartmentType.PILOT)
+				role = EAICompartmentType.Pilot;
+			else if (seat.GetType() == ECompartmentType.TURRET)
+				role = EAICompartmentType.Turret;
+			SCR_AIGetInVehicle action = new SCR_AIGetInVehicle(utility, null, v, seat, role, SCR_AIActionBase.PRIORITY_BEHAVIOR_GET_IN_VEHICLE,
+				SCR_AIActionBase.PRIORITY_LEVEL_NORMAL);
+			utility.AddAction(action);
+			m_aOrdered.Insert(man);
+			m_aTaken.Insert(seat);
+			m_mLast.Set(i, man);
+			m_mLastAt.Set(i, now);
+			return 1;
+		}
+		return 0;
+	}
+
+	// One by one takes longer: 75 s to board instead of 45.
+	protected int BoardTimeout()
+	{
+		if (m_sMode.Contains("oneby"))
+			return 75;
+		return 45;
+	}
+
+	static bool Active()
+	{
+		return s_Instance != null;
+	}
+
+	// For the director's camera (Martin, 27 Oct: "can you show it to me in the window at least once?"): the vehicles in turn,
+	// each while its team boards or gets out, with what is happening.
+	protected int m_iCamTurn;
+
+	static IEntity CameraUnit(out string label)
+	{
+		if (!s_Instance || s_Instance.m_aVehicles.IsEmpty())
+			return null;
+		int n = s_Instance.m_aVehicles.Count();
+		for (int k = 1; k <= n; k++)
+		{
+			int i = (s_Instance.m_iCamTurn + k) % n;
+			Vehicle v = s_Instance.m_aVehicles[i];
+			if (!v)
+				continue;
+			s_Instance.m_iCamTurn = i;
+			int aboard, team;
+			if (i < s_Instance.m_aTeams.Count() && s_Instance.m_aTeams[i])
+			{
+				array<AIAgent> agents = {};
+				s_Instance.m_aTeams[i].GetAgents(agents);
+				foreach (AIAgent agent : agents)
+				{
+					IEntity man = agent.GetControlledEntity();
+					if (!AICF_GroupRuntime.IsAliveCharacter(man))
+						continue;
+					team++;
+					if (CompartmentAccessComponent.GetVehicleIn(man) == v)
+						aboard++;
+				}
+			}
+			array<string> phase = {"waiting", "ALL BOARDING AT ONCE", "aboard", "getting out", "out"};
+			string what = "";
+			if (s_Instance.m_iPhase >= 0 && s_Instance.m_iPhase < phase.Count())
+				what = phase[s_Instance.m_iPhase];
+			label = string.Format("MASS BOARDING TEST cycle %1 - %2: %3 of %4 aboard (%5)", s_Instance.m_iCycle, ZCR_LossLog.ShortName(v), aboard, team, what);
+			return v;
+		}
+		return null;
 	}
 
 	protected void Log(int now, string what, int soldiers, int n)

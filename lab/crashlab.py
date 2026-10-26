@@ -78,6 +78,22 @@ BOARD = {
     "mb_calm": ("1700,1000;8;calm;all", "as board, the drop without release/interrupt"),
     "mb_apc": ("1700,1000;8;spawnboard;apc", "first-wave boarding, APCs only (LAV-25, BTR-70)"),
     "mb_cars": ("1700,1000;8;spawnboard;cars", "first-wave boarding, cars only (M998, UAZ-452, M1025, UAZ-469)"),
+    "mb_apc_fight": ("1700,1000;8;spawnboard;apc_fight", "the setup the first crash came in: LAV-25 + US squads beside BTR-70 + Soviet squads, shooting each other while boarding"),
+    # 00:35 one change at a time in the reviewed test (US, 8 LAV-25s, all board at once - 60 of 60 crashed 4-6 s after the order).
+    "mb_apc_delay30": ("1700,1000;8;spawnboard;apc;30", "the reviewed test, the board order 30 s after the spawn instead of 3 s"),
+    "mb_apc_oneby": ("1700,1000;8;spawnboard_oneby;apc", "the reviewed test, soldiers into each APC one by one (Martin's idea)"),
+    # 00:47 Martin: "maybe it only happens on specific places?" - the reviewed test at the Arland airport apron.
+    "mb_apc_airport": ("1000,2780;8;spawnboard;apc", "the reviewed test (US, 8 LAV-25s, all at once) at the airport apron instead of Moss Hill road"),
+    # 01:00 the crash needs LAV-25s at Moss Hill road (72/72; airport 0/3, cars there 0/3): which of the 8 pad spots?
+    "mb_pad0": ("1700,1000;1;spawnboard;apc", "one LAV-25 + one squad on pad 0 of the crashing Moss Hill layout"),
+    "mb_pad1": ("1716,1000;1;spawnboard;apc", "one LAV-25 + one squad on pad 1 of the crashing Moss Hill layout"),
+    "mb_pad2": ("1732,1000;1;spawnboard;apc", "one LAV-25 + one squad on pad 2 of the crashing Moss Hill layout"),
+    "mb_pad3": ("1748,1000;1;spawnboard;apc", "one LAV-25 + one squad on pad 3 of the crashing Moss Hill layout"),
+    "mb_pad4": ("1700,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 4 of the crashing Moss Hill layout"),
+    "mb_pad5": ("1716,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 5 of the crashing Moss Hill layout"),
+    "mb_pad6": ("1732,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 6 of the crashing Moss Hill layout"),
+    "mb_pad7": ("1748,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 7 of the crashing Moss Hill layout"),
+    "mb_apc_kill": ("1700,1000;8;spawnboard_kill;apc", "US LAV-25s, everyone boarding at once, a soldier killed mid get-in up to 3 a cycle"),
 }
 
 
