@@ -43,7 +43,14 @@ modded class AICF_AICommander
 			if (!plan.IsEmpty() && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodePos.Contains(plan.GetMainEffort()))
 				front = ZCR_Strategist.s_mNodePos.Get(plan.GetMainEffort());
 			ZCR_Trace.Step("drone_sites");
-			ZCR_DroneSites.Tick(m_sFactionKey, front);
+			// The drone sites follow where the drones fly - the plan's drone target - not the main effort: while the force
+			// gathers (phased) or shapes and pulls back (modern) the main effort is the staging base, and a side got its
+			// forward crew only once the objective changed (26 Oct night, modern match 2: the US at minute 27).
+			vector droneFront = front;
+			array<int> droneTargets = plan.GetDroneTargets();
+			if (!plan.IsEmpty() && droneTargets && !droneTargets.IsEmpty() && ZCR_Strategist.s_mNodePos.Contains(droneTargets[0]))
+				droneFront = ZCR_Strategist.s_mNodePos.Get(droneTargets[0]);
+			ZCR_DroneSites.Tick(m_sFactionKey, droneFront);
 			ZCR_Trace.Step("armour");
 			ZCR_Armour.Tick(m_sFactionKey, m_Faction, front);   // crewed tanks/IFVs to the front (-zcrNoArmour)
 			ZCR_Trace.Step("commit");
