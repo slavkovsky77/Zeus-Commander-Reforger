@@ -8,6 +8,7 @@ Arland, modern v phased, 15 game minutes, two at a time, alternating the watched
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -18,9 +19,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
-OUT = ROOT / ".runtime" / "crashprobe"
+OUT = ROOT / ".runtime" / "crashprobe2"
 MINUTES = 15
-RUNS = ["turrets", "noturrets"] * 4
+# 07:45: the first-minute crashes come before any plan - only the fork's night changes (seats/APCs, pads, footprint,
+# ride cooldown) are active then. "pre": the fork before them (worktree D:/work/aicf-pre-night at 788479a); "now": as is.
+RUNS = ["now", "pre"] * 4
+PRE_AICF = "D:/work/aicf-pre-night"
 PORTS = [2148, 2150]
 
 
@@ -60,7 +64,7 @@ def report() -> Path:
              "| variant | minutes | crashed | reason | pushes | turret pushes |", "|---|---|---|---|---|---|"]
     for r in rows:
         lines.append(f"| {r['variant']} | {r.get('minutes')} | {r.get('crashed')} | {r.get('reason')} | {r.get('pushes')} | {r.get('turret_pushes')} |")
-    for v in ("turrets", "noturrets"):
+    for v in ("turrets", "noturrets", "now", "pre"):
         g = [r for r in rows if r["variant"] == v]
         if g:
             lines.append(f"| **{v}** | {round(sum(r.get('minutes') or 0 for r in g), 1)} min in all | {sum(1 for r in g if r.get('crashed'))} of {len(g)} | | | |")
@@ -94,11 +98,14 @@ def main() -> int:
                 continue
             i, variant = todo.pop(0)
             label = f"crashprobe-{variant}-{i}-p{port}"
-            run_extra = extra if variant == "turrets" else " ".join(x for x in extra.split() if x != "-zcrMoveTurrets")
+            run_extra = extra if variant in ("turrets", "now", "pre") else " ".join(x for x in extra.split() if x != "-zcrMoveTurrets")
+            env = dict(os.environ)
+            if variant == "pre":
+                env["ZCR_AICF_ROOT"] = PRE_AICF
             argv = [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland", "--minutes", str(MINUTES), "--label", label,
                     "--port", str(port), "--us", "modern", "--ussr", "phased", "--drones", "--mods", mods, "--extra", run_extra]
             out = open(OUT / f"{label}.out", "w", encoding="utf-8")
-            running[port] = (variant, label, subprocess.Popen(argv, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT,
+            running[port] = (variant, label, subprocess.Popen(argv, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, env=env,
                                                               creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS", 0)))
             log(f"start {label}")
         for port, (variant, label, proc) in list(running.items()):

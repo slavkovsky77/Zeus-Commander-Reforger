@@ -31,6 +31,9 @@ STEAM = config.path("paths.steam")
 SERVER_ROOT = STEAM / "Arma Reforger Server"
 GAME_ROOT = STEAM / "Arma Reforger"
 AICF = config.path("paths.ai_conflict")
+# A/B against another checkout of the fork (a worktree at an older commit): ZCR_AICF_ROOT=D:/work/aicf-pre-night
+if os.environ.get("ZCR_AICF_ROOT"):
+    AICF = Path(os.environ["ZCR_AICF_ROOT"])
 OUR_ADDON = "CA2CA4E14BB55417"
 DCO_ID = "5EDAAE0D3CC60D6B"        # DCO_AI Reforger (Workshop)
 DCO_BRIDGE = "5978896A4BD28E5C"    # ZCR_DCO, loaded together with DCO
