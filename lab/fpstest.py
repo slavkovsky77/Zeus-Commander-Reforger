@@ -45,6 +45,8 @@ VARIANTS = {
     "cap40_3x": (3, None, "-aicfMaxAgentsPerFaction 40", True, "40 soldiers a side instead of 50 at 3x"),
     "squads14_3x": (3, None, "-aicfSquadsPerSide 14", True, "14 teams a side instead of 20 (AI Conflict fork: -aicfSquadsPerSide) at 3x"),
     "squads10_3x": (3, None, "-aicfSquadsPerSide 10", True, "10 teams a side instead of 20 at 3x"),
+    "role3x": (3, None, "-aicfSquadsPerSide 10 -aicfAttackTeamSize 6 -aicfDefendTeamSize 3", True, "10 teams sized by role (6 assault teams of up to 6, 4 defend teams of up to 3) at 3x"),
+    "role2x": (2, None, "-aicfSquadsPerSide 10 -aicfAttackTeamSize 6 -aicfDefendTeamSize 3", True, "the same at 2x"),
     "squads14cap35_3x": (3, None, "-aicfSquadsPerSide 14 -aicfMaxAgentsPerFaction 35", True, "14 teams and at most 35 soldiers a side (50 by default) at 3x"),
     "squads14cap35_2x": (2, None, "-aicfSquadsPerSide 14 -aicfMaxAgentsPerFaction 35", True, "14 teams and at most 35 soldiers a side at 2x"),
     "squads14_2x": (2, None, "-aicfSquadsPerSide 14", True, "14 teams a side at 2x"),
