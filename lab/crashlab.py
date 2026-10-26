@@ -113,6 +113,7 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=20)
     ap.add_argument("--variants", default=",".join(VARIANTS))
     a = ap.parse_args()
+    OUT.mkdir(parents=True, exist_ok=True)
     import bridges
     import sublab
     bridges.ensure(("phased", "modern"))
