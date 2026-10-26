@@ -66,7 +66,9 @@ class ZCR_DroneSites
 	static const int SETUP = 120;
 	static const int REBUILD = 300;
 	static const int MAX_SITES = 3;
-	static const float FORWARD_GAP = 1500;
+	// 1500 m until 26 Oct night: on Arland the front (~1 km from the main base) never got one, and a side flew from one
+	// crew - 4 drones, then ~3 min out of the fight to reload (0.65 drones a minute with the surge's 40 s tempo).
+	static const float FORWARD_GAP = 700;
 	static const float FORWARD_NEAR = 1200;
 	static const int MOVE_AFTER = 3;           // launches from one spot
 	static const int MOVE_EVERY_S = 480;       // or this long at one spot
