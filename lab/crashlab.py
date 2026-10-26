@@ -39,6 +39,9 @@ VARIANTS = {
     # 18:30: crashes come 0.05-0.8 s after the engine's "Stuck trying to get into vehicle. Reseting.." 4-5x more often than by
     # chance (5 of 58 within 1 s, ~1 expected) - and the night's free pads multiplied boardings.
     "norides": ("-aicfInfantryRideMeters 5000", "", True, "no infantry rides on Arland (5 km: the fork's maximum)"),
+    # 19:05: no event explains most crashes (62 in 1097 runs: a dozen vehicle/boarding events each ~2x), the 21 Oct code
+    # crashed too when re-run on 22 Oct - and every crash of the kind starts with the diagnostic build's asserts.
+    "release": ("", "", True, "the release server build instead of the diagnostic one"),
 }
 
 
@@ -155,7 +158,10 @@ def main() -> int:
             n += 1
             label = f"crashlab-{variant}-{n}-p{port}"
             out = open(OUT / f"{label}.out", "w", encoding="utf-8")
-            proc = subprocess.Popen(argv_for("arland", variant, a.minutes, port, label), cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT,
+            env = dict(os.environ)
+            if variant == "release":
+                env["ZCR_RELEASE_EXE"] = "1"
+            proc = subprocess.Popen(argv_for("arland", variant, a.minutes, port, label), cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, env=env,
                                     creationflags=getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0))
             running[port] = (variant, label, proc)
             log(f"start {label}")

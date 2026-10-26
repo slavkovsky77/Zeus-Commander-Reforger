@@ -79,6 +79,10 @@ def command(a, profile: Path) -> list:
     solo = getattr(a, "solo", False)
     game = a.client or solo
     exe = (SERVER_ROOT / "ArmaReforgerServerDiag.exe") if not game else (GAME_ROOT / "ArmaReforgerSteamDiag.exe")
+    # The crash sub-lab (26 Oct): the release build instead of the diagnostic one (its asserts on a bad entity matrix come
+    # before every crash of the kind) - ZCR_RELEASE_EXE=1. No Diag Menu there, so no speed-up in the game window.
+    if os.environ.get("ZCR_RELEASE_EXE") == "1":
+        exe = (SERVER_ROOT / "ArmaReforgerServer.exe") if not game else (GAME_ROOT / "ArmaReforgerSteam.exe")
     mod_dirs = DRONE_DIRS if a.drones or a.map == "yunakivka" else ([ARMOUR_DIR] if armour else [])
     # --mods / watch_mods.txt: extra Workshop mods by id (driving mods, 22 Oct), found by lab/workshop.py.
     # workshop.py is reloaded each time: a long watched loop must see a new local addon (22 Oct: the loop stopped).
