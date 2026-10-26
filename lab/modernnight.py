@@ -24,6 +24,8 @@ MINUTES = 45
 MATCHES = [("modern-us", "modern", "phased"), ("modern-ussr", "phased", "modern")] * 3 + [("modern-both", "modern", "modern")] * 2
 # 06:00: four more against phased on the night's final build (pilot fix, ride cooldown, drone sites on the drone target).
 MATCHES += [("final-modern-us", "modern", "phased"), ("final-modern-ussr", "phased", "modern")] * 2
+# 08:35: two more on the final build with the watched setup as it is (armed pushes on), while the PC is free.
+MATCHES += [("final2-modern-us", "modern", "phased"), ("final2-modern-ussr", "phased", "modern")]
 PORTS = [2148, 2150]
 SIDES = ("US", "USSR")
 
