@@ -2,7 +2,7 @@
 // cover, then clearing the position"; Arma 3: they dismount 100-300 m out). AI Conflict drives a
 // squad's vehicle along the road toward its objective and lets it out 150 m short, in the open. For
 // the side with our strategist, everyone gets out earlier: at the first place on that same drive,
-// 180-450 m from the objective, that the objective can't see (a crest, a treeline or buildings in
+// 180-300 m from the objective, that the objective can't see (a crest, a treeline or buildings in
 // between) - and goes on from there on foot. No such place on the way: AI Conflict's own 150 m.
 // (First version routed the vehicle to a hidden road point beside the objective: the road network's
 // way there went the long way round and the trucks drove away from the objective.)
@@ -11,7 +11,9 @@ class ZCR_Dismount
 {
 	protected static ref TraceParam s_Trace;
 	static const float NEAR = 180;
-	static const float FAR = 450;
+	// 450 until 26 Oct night: the first hidden spot inside 450 m was always at its edge - 440-450 m out in 5 headless
+	// matches, the team then walked half a kilometre (Martin, note 420: "quick dismounts near positions").
+	static const float FAR = 300;
 
 	static bool ActiveFor(string faction)
 	{
