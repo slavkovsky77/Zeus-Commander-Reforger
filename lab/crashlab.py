@@ -69,7 +69,23 @@ def log(msg):
         f.write(line + "\n")
 
 
+# 00:00 the mass-boarding sub-lab (Martin: "not the full Arland battle, sub-lab scenario style - short tests doing the same
+# thing over and over"): ZCR_BoardTest on the empty Arland test map - 8 vehicles spawned in one tick, every soldier
+# boarding at once the way AI Conflict does it, dropped the way it drops a team, again. name: (-zcrBoardTest spec, words)
+BOARD = {
+    "mb_spawnboard": ("1700,1000;8;spawnboard;all", "fresh vehicles every cycle, boarded at once - the first ride wave"),
+    "mb_board": ("1700,1000;8;board;all", "the same vehicles boarded and emptied at once, again and again"),
+    "mb_calm": ("1700,1000;8;calm;all", "as board, the drop without release/interrupt"),
+    "mb_apc": ("1700,1000;8;spawnboard;apc", "first-wave boarding, APCs only (LAV-25, BTR-70)"),
+    "mb_cars": ("1700,1000;8;spawnboard;cars", "first-wave boarding, cars only (M998, UAZ-452, M1025, UAZ-469)"),
+}
+
+
 def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str) -> list:
+    if variant in BOARD:
+        mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
+        return [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
+                "--port", str(port), "--mods", mods, "--extra", f"-zcrBoardTest {BOARD[variant][0]}"]
     add, drop, drones, _ = VARIANTS[variant]
     mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
     extra = (ROOT / ".runtime" / "watch_extra.txt").read_text(encoding="utf-8").strip()
@@ -89,7 +105,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     if not c:
         return {"scenario": scenario, "variant": variant, "error": "no log", "run": run_dir.name}
     t = c[-1].read_text(encoding="utf-8", errors="replace")
-    lives = [int(x) for x in re.findall(r"\[ZCR\]\[LIVE\] t=(\d+)", t)]
+    lives = [int(x) for x in re.findall(r"\[ZCR\]\[LIVE\] t=(\d+)", t)] or [int(x) for x in re.findall(r"\[ZCR\]\[BOARDTEST[_A-Z]*\] t=(\d+)", t)]
     minutes = round(max(lives) / 60, 1) if lives else 0
     crash_log = c[-1].parent / "crash.log"
     ct = crash_log.read_text(encoding="utf-8", errors="replace") if crash_log.exists() else ""
@@ -99,6 +115,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         m = re.search(r"Reason: (.*)", ct)
         reason = m.group(1)[:70] if m else ""
     phys = re.findall(r"\[ZCR\]\[PHYS\] t=(\d+) what=(\w+) name=(\S+) kind=(\w+)", t)
+    board_sum = re.findall(r"\[ZCR\]\[BOARDTEST_SUM\] t=(\d+) cycles=(\d+) issued=(\d+) seated=(\d+)", t)
     before = ""
     if crashed and phys and lives:
         end = max(lives)
@@ -121,6 +138,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "phys_wild": sum(1 for p in phys if p[1] == "wild"), "phys_spin": sum(1 for p in phys if p[1] == "spin"),
         "phys_nan": sum(1 for p in phys if p[1] == "nan"), "phys_falling": sum(1 for p in phys if p[1] == "falling"),
         "pushes": len(pushes), "turret_pushes": sum(1 for w in pushes if any(x in w for x in TURRETS)),
+        "board_cycles": int(board_sum[-1][1]) if board_sum else None, "board_seated": int(board_sum[-1][3]) if board_sum else None,
         "stuck_getin": len(stuck), "stuck_before_crash_s": stuck_gap,
         "script_errors": sum(1 for b in re.findall(r"Virtual Machine Exception(.{0,400})", t, re.S)
                              if "Failed move" not in b and ".bt" not in b),
