@@ -22,6 +22,8 @@ sys.path.insert(0, str(HERE))
 OUT = ROOT / ".runtime" / "modernnight"
 MINUTES = 45
 MATCHES = [("modern-us", "modern", "phased"), ("modern-ussr", "phased", "modern")] * 3 + [("modern-both", "modern", "modern")] * 2
+# 06:00: four more against phased on the night's final build (pilot fix, ride cooldown, drone sites on the drone target).
+MATCHES += [("final-modern-us", "modern", "phased"), ("final-modern-ussr", "phased", "modern")] * 2
 PORTS = [2148, 2150]
 SIDES = ("US", "USSR")
 
