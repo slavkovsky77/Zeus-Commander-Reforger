@@ -4,6 +4,13 @@ Martin's wishes and remarks, grouped by theme, with the review note numbers (ac-
 and where each stands. Kept up to date with every change; `python lab/plan_page.py` builds the page.
 Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **Fixed** (a bug).
 
+## Night 26 Oct (Martin asleep from ~02:50)
+- [In progress] Modern assault doctrine - hit and run, quick dismounts near positions, storms with heavy drone support (419, 420) | lab/modern.py (bridge 'modern', port 8769), beside phased: drones first (plan line `surge <tempo> <max>`, 40 s / 5 up while shaping and striking, 60 s / 4 while pulling back), a fast strike (90 s of drone strikes, then whoever is at the staging base; the need a share of the side's attack soldiers, not phased's fixed 25) that rides in and storms at once, no capture in 6 min (10 with soldiers on it) or bled out: pull back to the staging base while the drones keep hitting, strike again, 3 waves, then another objective; momentum after a capture. Night test lab/modernnight.py: 45-minute headless Arland matches, modern v phased with the sides swapped, then modern v modern - results in the morning.
+- [Fixed] Rides: teams of 5-6 refused a seat, rides waiting on one pad (415) | APCs follow the light armed vehicles; a reserved pad's neighbours used; building-site clearance 30 m; [ZCR][PAD] (fork c040e5b). New top end of a ride: the boarding deadline - to measure.
+- [Fixed] The vehicle depot not finished (416) | Soldiers standing in a finished building's footprint step out to its edge (fork c040e5b).
+- [Fixed] Drones stopping on the way; Soviet drones lost at launch over the sea (417) | Searches and sweeps flown as one route; take-off spots skip water; a launch tried whenever the tempo allows, not only with a new plan (ZCR 283b554).
+- [Measure] An engine crash in the physics step 8 ms after a push moved a drone site's truck (rolenight base-4) | Pushes are rare (6 in 5 min) and the same crash happened before pushes existed - count over the night's matches before calling it.
+
 ## Driving night 23 Oct (report https://claude.ai/artifact/5Gbg9CnAJcf1RpBWkJdENK)
 - [Done] 79 test runs, 9 tracks: our head-on slow-down takes car-on-car hits 5 -> 0 a run on the lane, trucks 6.5 -> 1.5 (0 with "best"); Moss Hill test losses were mines (317), the Everon exit's closed gates (316, decision for Martin); v2 forecast shelved (315); winner "best" ~ v1. Watched block with "best" (16 matches): Arland jams 8 -> 4.8, long stops 4.8 -> 1.4 a match, but 4.1 car-on-car hits a match (318); 1 engine crash.
 
