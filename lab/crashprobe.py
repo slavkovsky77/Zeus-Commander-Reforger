@@ -81,6 +81,7 @@ def main() -> int:
     if a.report:
         print(report().read_text(encoding="utf-8"))
         return 0
+    OUT.mkdir(parents=True, exist_ok=True)
     import bridges
     bridges.ensure(("phased", "modern"))
     mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
