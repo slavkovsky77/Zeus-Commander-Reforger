@@ -24,7 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / ".runtime" / "runs"
-CACHE = ROOT / ".runtime" / "crashes_cache"
+CACHE = ROOT / ".runtime" / "crashes_cache_v2"   # v2 (26 Oct): the ride and boarding events
 STRESS = ROOT / ".runtime" / "stress.jsonl"
 STAMP = re.compile(r"^\s*(\d\d):(\d\d):(\d\d)\.(\d+)")
 GAME_T = re.compile(r"\[ZCR\]\[[A-Z]+\] t=(\d+)")
@@ -44,6 +44,22 @@ EVENTS = {
     "vehicle deleted (AICF)": lambda l: "VEHICLE_DELETE_REQU" in l,
     "building placed (AICF)": lambda l: "[CONSTRUCTION_PLACED]" in l,
     "vehicle destroyed": lambda l: "[ZCR][LOSS]" in l and "kind=vehicle" in l,
+    # 26 Oct (the crash sub-lab, note 421): rides, boarding and dismounts.
+    "dismount start (AICF)": lambda l: "][DISEMBARK_STARTED]" in l,
+    "covered dismount (ours)": lambda l: "[ZCR][DISMOUNT]" in l,
+    "stuck get-in reset (engine)": lambda l: "Stuck trying to get into vehicle" in l,
+    "boarding timeout (AICF)": lambda l: "][BOARDING_TIMEOUT]" in l,
+    "boarding start (AICF)": lambda l: "][BOARDING_STARTED]" in l,
+    "boarding complete (AICF)": lambda l: "][BOARDING_COMPLETE]" in l,
+    "ride spawned (AICF)": lambda l: "][VEHICLE_SPAWNED]" in l,
+    "ride abandoned (AICF)": lambda l: "][VEHICLE_ABANDONED]" in l,
+    "vehicle unstuck (AICF)": lambda l: "][VEHICLE_UNSTUCK_ATTEMPT]" in l,
+    "hidden recovery (AICF)": lambda l: "RECOVERY_APPLIED" in l,
+    "gunner assigned (AICF)": lambda l: "][GUNNER_ASSIGNED]" in l,
+    "exit guidance (AICF)": lambda l: "][DISEMBARK_GUIDANCE_MEMBER_ISSUED]" in l or "DISEMBARK_ANIMATED_EXACT_RETRY" in l,
+    "our push": lambda l: "[ZCR][ENT]" in l and " op=push " in l,
+    "footprint step-out": lambda l: "CONSTRUCTION_FOOTPRINT_CLEARED" in l,
+    "drone launched": lambda l: "[ZCR][DRONES]" in l and " kind=" in l and " team=" in l,
 }
 SHOW = ("[ZCR][ENT]", "[ZCR][SLOW]", "[ZCR][STEP]", "[ZCR][WRECK]", "VEHICLE_DELETE_REQU", "station removed",
         " detonated ", "event=RELOCATED", "event=RECREW", "event=REMOUNT", "event=LOST", "[CONSTRUCTION_PLACED]")
@@ -222,13 +238,15 @@ def main() -> int:
     ap.add_argument("--days", type=float, default=2, help="runs started in the last N days")
     ap.add_argument("--all", action="store_true", help="headless runs too, not only the watched matches (w*)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--window", type=float, default=10, help="seconds before a crash an event counts (and the base windows)")
+    ap.add_argument("--match", default="", help="only runs whose name contains this")
     a = ap.parse_args()
     since = time.time() - a.days * 86400
     runs = [r for r in sorted(RUNS.iterdir(), key=lambda p: p.stat().st_mtime)
-            if r.is_dir() and r.stat().st_mtime >= since and (a.all or re.match(r"w\d+-", r.name))]
+            if r.is_dir() and r.stat().st_mtime >= since and (a.all or re.match(r"w\d+-", r.name)) and a.match in r.name]
     rows = [x for x in (read_run(r) for r in runs) if x]
     crashed = [r for r in rows if r["crashed"]]
-    table = lift(rows)
+    table = lift(rows, a.window)
     if a.json:
         for r in rows:
             r.pop("events", None)
@@ -244,7 +262,7 @@ def main() -> int:
     print("kinds:")
     for k in sorted({r["kind"] for r in crashed}):
         print(f"  {sum(1 for r in crashed if r['kind'] == k)}  {k}")
-    print("\nevent in the 10 s before a crash  (crashes with one | share of clean 10-s windows with one | lift)")
+    print(f"\nevent in the {a.window:g} s before a crash  (crashes with one | share of clean {a.window:g}-s windows with one | lift)")
     for k, hit, n, base, lf in sorted(table, key=lambda x: -x[4] if x[4] != float("inf") else -1e9):
         print(f"  {k:24s} {hit:2d}/{n:<2d} | {base:5.0%} | {'-' if not hit else ('new' if lf == float('inf') else f'{lf:.1f}x')}")
     return 0
