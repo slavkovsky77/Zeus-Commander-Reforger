@@ -50,9 +50,14 @@ VARIANTS = {
     "prefork": ("", "", True, "today's game code on AI Conflict from before last night (788479a)"),
     "oldall": ("", "", True, "both from before last night (d83decf + 788479a)"),
 }
-STRATS = {"phased": ("phased", "phased")}
+    # 20:45 the mass-boarding test (Martin: "so mass boarding test?"): every plan round both sides' main efforts flip
+    # between their two farthest reachable bases (lab/flip.py), defenders committed - every team asks for a ride at once.
+VARIANTS["massboard"] = ("", "", True, "mass boarding: main efforts flip every 45 s, today's fork")
+VARIANTS["massboard_prefork"] = ("", "", True, "mass boarding on the AI Conflict fork from before last night")
+STRATS = {"phased": ("phased", "phased"), "massboard": ("flip", "flip"), "massboard_prefork": ("flip", "flip")}
+PLAN_SECONDS = {"massboard": 45, "massboard_prefork": 45}
 ENVS = {"release": {"ZCR_RELEASE_EXE": "1"}, "prenight": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night"},
-        "prefork": {"ZCR_AICF_ROOT": "D:/work/aicf-pre-night"},
+        "prefork": {"ZCR_AICF_ROOT": "D:/work/aicf-pre-night"}, "massboard_prefork": {"ZCR_AICF_ROOT": "D:/work/aicf-pre-night"},
         "oldall": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night", "ZCR_AICF_ROOT": "D:/work/aicf-pre-night"}}
 
 
@@ -72,6 +77,8 @@ def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str)
     argv = [sys.executable, "-u", str(HERE / "reforger.py"), "--map", SCENARIOS[scenario][0], "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", STRATS.get(variant, ("modern", "phased"))[0], "--ussr", STRATS.get(variant, ("modern", "phased"))[1],
             "--mods", mods, "--extra", " ".join(words)]
+    if variant in PLAN_SECONDS:
+        argv += ["--plan-seconds", str(PLAN_SECONDS[variant])]
     if drones:
         argv.append("--drones")
     return argv
@@ -141,6 +148,7 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=20)
     ap.add_argument("--variants", default=",".join(VARIANTS))
     ap.add_argument("--recount", action="store_true", help="summarize every recorded run again from its log")
+    ap.add_argument("--gaming", action="store_true", help="Martin plays on this PC: one server, idle priority, pinned to the upper cores")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     if a.recount:
@@ -156,8 +164,9 @@ def main() -> int:
         return 0
     import bridges
     import sublab
-    bridges.ensure(("phased", "modern"))
+    bridges.ensure(("phased", "modern", "flip"))
     variants = a.variants.split(",")
+    import cpu
     todo = [variants[i % len(variants)] for i in range(a.runs)]
     ports = [int(x) for x in a.ports.split(",")] if a.ports else PORTS[:a.parallel]
     running = {}
@@ -173,7 +182,7 @@ def main() -> int:
             env = dict(os.environ)
             env.update(ENVS.get(variant, {}))
             proc = subprocess.Popen(argv_for("arland", variant, a.minutes, port, label), cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, env=env,
-                                    creationflags=getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0))
+                                    creationflags=getattr(subprocess, "IDLE_PRIORITY_CLASS" if a.gaming else "BELOW_NORMAL_PRIORITY_CLASS", 0))
             running[port] = (variant, label, proc)
             log(f"start {label}")
             time.sleep(20)     # not all at the same second
@@ -187,6 +196,8 @@ def main() -> int:
                 f"wild={row.get('phys_wild')} spin={row.get('phys_spin')} nan={row.get('phys_nan')} falling={row.get('phys_falling')} "
                 f"turret_pushes={row.get('turret_pushes')}")
             del running[port]
+        if a.gaming:
+            cpu.pin_headless(True)   # every pass: a server started since is pinned too
         time.sleep(10)
     log("crash lab done")
     return 0

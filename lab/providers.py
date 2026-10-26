@@ -240,6 +240,14 @@ PROVIDERS = {"doctrine": Rules, "gemini": Gemini, "claude": Claude, "openrouter"
              "phased": PhasedRules, "llm-phased": PhasedLLM, "modern": ModernRules}
 
 
+def _flip(cfg: dict):
+    import flip
+    return flip.Flip(cfg)
+
+
+PROVIDERS["flip"] = _flip
+
+
 def make(cfg: dict):
     return PROVIDERS[cfg.get("provider", "doctrine")](cfg)
 
