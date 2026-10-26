@@ -121,6 +121,7 @@ def port_busy(port: int) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--parallel", type=int, default=4)
+    ap.add_argument("--ports", default="", help="its own ports, e.g. 2160,2162 (another crashlab running: no race for a port)")
     ap.add_argument("--runs", type=int, default=24, help="runs in all, spread over the variants in turn")
     ap.add_argument("--minutes", type=float, default=20)
     ap.add_argument("--variants", default=",".join(VARIANTS))
@@ -143,7 +144,7 @@ def main() -> int:
     bridges.ensure(("phased", "modern"))
     variants = a.variants.split(",")
     todo = [variants[i % len(variants)] for i in range(a.runs)]
-    ports = PORTS[:a.parallel]
+    ports = [int(x) for x in a.ports.split(",")] if a.ports else PORTS[:a.parallel]
     running = {}
     n = 0
     while todo or running:
