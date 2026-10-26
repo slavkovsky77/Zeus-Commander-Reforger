@@ -46,9 +46,14 @@ VARIANTS = {
     # ever; the fork's night changes were tested this morning (4 and 4 clean).
     "phased": ("", "", True, "phased against phased - no modern strategist"),
     "prenight": ("", "", True, "modern v phased on our game code from before last night (d83decf)"),
+    # 19:15: the 2x2 - our game code x AI Conflict fork, each from before last night or today.
+    "prefork": ("", "", True, "today's game code on AI Conflict from before last night (788479a)"),
+    "oldall": ("", "", True, "both from before last night (d83decf + 788479a)"),
 }
 STRATS = {"phased": ("phased", "phased")}
-ENVS = {"release": {"ZCR_RELEASE_EXE": "1"}, "prenight": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night"}}
+ENVS = {"release": {"ZCR_RELEASE_EXE": "1"}, "prenight": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night"},
+        "prefork": {"ZCR_AICF_ROOT": "D:/work/aicf-pre-night"},
+        "oldall": {"ZCR_ADDON_ROOT": "D:/work/zcr-pre-night", "ZCR_AICF_ROOT": "D:/work/aicf-pre-night"}}
 
 
 def log(msg):
