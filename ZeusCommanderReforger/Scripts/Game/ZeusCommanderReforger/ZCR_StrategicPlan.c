@@ -11,6 +11,8 @@
 //   motorize  the attack squads ride trucks to their objectives (ZCR_Motorize).
 //   drone     bases the FPV teams go for (drone warfare doctrine: prep fire before the storm,
 //             pressure during it) - ZCR_Drones.
+//   surge     the side's drone tempo and most drones up while the plan asks for it (lab/modern.py: drones
+//             first), else -zcrDroneTempo / -zcrDroneMax.
 // Server only. Every change is logged as [ZCR][PLAN] for the lab.
 class ZCR_StrategicPlan
 {
@@ -28,6 +30,8 @@ class ZCR_StrategicPlan
 	protected int m_iStorm = -1;
 	protected bool m_bMotorize;
 	protected ref array<int> m_aDroneTargets = {};
+	protected int m_iSurgeTempo;
+	protected int m_iSurgeMax;
 
 	static ZCR_StrategicPlan Get(FactionKey faction)
 	{
@@ -84,6 +88,26 @@ class ZCR_StrategicPlan
 		m_aDroneTargets.Clear();
 		if (targets)
 			m_aDroneTargets.Copy(targets);
+	}
+
+	// The drone surge (0, 0: none) - logged as [ZCR][SURGE] when it changes.
+	void SetSurge(int tempo, int maxUp)
+	{
+		if (tempo == m_iSurgeTempo && maxUp == m_iSurgeMax)
+			return;
+		m_iSurgeTempo = tempo;
+		m_iSurgeMax = maxUp;
+		Print(string.Format("[ZCR][SURGE] t=%1 faction=%2 tempo=%3 max=%4", ZCR_LossLog.Seconds(), m_sFaction, tempo, maxUp), LogLevel.NORMAL);
+	}
+
+	int GetSurgeTempo()
+	{
+		return m_iSurgeTempo;
+	}
+
+	int GetSurgeMax()
+	{
+		return m_iSurgeMax;
 	}
 
 	bool GetMotorize()
@@ -186,6 +210,7 @@ class ZCR_StrategicPlan
 		m_iStorm = -1;
 		m_bMotorize = false;
 		m_aDroneTargets.Clear();
+		SetSurge(0, 0);
 		Apply(null, null, "", source);
 	}
 }

@@ -184,6 +184,8 @@ class ZCR_DroneOperator
 
 	// The take-off spot: the nearest point within 30 m with nothing overhead - the team sits in cover, the drone goes up from
 	// the open beside it (18:26: launched 12 m off under the trees, flights ended after 1-14 s).
+	// Never over the sea (26 Oct night: by the Soviet main base the pilot's post was on the shore or a pier and the open
+	// ground nearest him was the water - stations at -0.6 to -3.7 m, every drone of a run lost at once, 6 of 6).
 	protected static vector LaunchSpot(ChimeraCharacter pilot)
 	{
 		vector at = pilot.GetOrigin();
@@ -196,11 +198,14 @@ class ZCR_DroneOperator
 				float a = k * 45 * Math.DEG2RAD;
 				vector p = at + Vector(Math.Cos(a), 0, Math.Sin(a)) * r;
 				p[1] = world.GetSurfaceY(p[0], p[2]);
+				if (ZCR_Drones.Wet(p))
+					continue;
 				if (ZCR_DroneThreat.OpenSky(p, pilot))
 					return p;
 			}
 		}
-		return at + Vector(12, 0, 0);
+		// None with open sky on land: from where the pilot himself stands (on land or a pier), a metre up.
+		return at + Vector(0, 1, 0);
 	}
 
 	static void Launched(SCR_AIGroup group)

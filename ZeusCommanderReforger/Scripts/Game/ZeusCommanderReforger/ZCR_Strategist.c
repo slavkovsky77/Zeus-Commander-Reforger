@@ -307,6 +307,8 @@ class ZCR_Strategist
 		int commit;
 		int storm = -1;
 		bool motorize;
+		int surgeTempo;
+		int surgeMax;
 		array<int> drones = {};
 		for (int i = 1; i < lines.Count(); i++)
 		{
@@ -328,6 +330,12 @@ class ZCR_Strategist
 				drones.Insert(parts[1].ToInt());
 			if (parts.Count() != 3)
 				continue;
+			if (parts[0] == "surge")
+			{
+				surgeTempo = Math.ClampInt(parts[1].ToInt(), 20, 300);
+				surgeMax = Math.ClampInt(parts[2].ToInt(), 1, 8);
+				continue;
+			}
 			if (parts[0] == "priority")
 				priority.Set(parts[1].ToInt(), parts[2].ToFloat());
 			else if (parts[0] == "demand")
@@ -339,6 +347,7 @@ class ZCR_Strategist
 		plan.SetStorm(storm);
 		plan.SetMotorize(motorize);
 		plan.SetDroneTargets(drones);
+		plan.SetSurge(surgeTempo, surgeMax);
 		plan.Apply(priority, demand, intent, source);
 		ZCR_Drones.OnPlan(m_sFaction, plan, source != "doctrine-fallback");
 	}

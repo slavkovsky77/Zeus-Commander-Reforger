@@ -70,7 +70,24 @@ class ZCR_Drones
 			if (target < 0 || ZCR_Strategist.s_mNodeOwner.Get(target) == side)
 				return;
 		}
-		Launch(side, target, CliInt("zcrDroneTempo", 90), CliInt("zcrDroneMax", 3), "doctrine");
+		// The plan's surge (lab/modern.py: drones first) beats the side's usual tempo; the next launch no later than
+		// a surge interval from now.
+		int tempo = CliInt("zcrDroneTempo", 90);
+		int maxUp = CliInt("zcrDroneMax", 3);
+		string why = "doctrine";
+		if (plan.GetSurgeTempo() > 0)
+		{
+			tempo = plan.GetSurgeTempo();
+			maxUp = plan.GetSurgeMax();
+			why = "surge";
+			int next;
+			int now = ZCR_LossLog.Seconds();
+			if (s_mNextAt.Find(side, next) && next > now + tempo)
+				s_mNextAt.Set(side, now + tempo);
+		}
+		if (Active(side) >= maxUp)
+			return;
+		Launch(side, target, tempo, maxUp, why);
 	}
 
 	// AI Conflict's side (no strategist): a baseline - every 2 min, up to 3 (was 4 min, 2: Martin, 19 Oct,
@@ -135,6 +152,15 @@ class ZCR_Drones
 	static void Tend(FactionKey side)
 	{
 		int now = ZCR_LossLog.Seconds();
+		// A launch between plan rounds (26 Oct night: a launch was tried only when a new plan came, every 40-90 s, and an
+		// operator not ready at that moment waited for the next round - 14-16 drones a side in 30 minutes).
+		int due;
+		if (!s_mNextAt.Find(side, due) || now >= due)
+		{
+			ZCR_StrategicPlan current = ZCR_StrategicPlan.Get(side);
+			if (!current.IsEmpty() && current.GetSource() != "doctrine-fallback" && current.GetSource() != "no_answer")
+				OnPlan(side, current, true);
+		}
 		for (int i = s_aTeams.Count() - 1; i >= 0; i--)
 		{
 			SCR_AIGroup team = s_aTeams[i];
@@ -168,14 +194,17 @@ class ZCR_Drones
 			}
 			else if (s_mTeamRoute.Contains(team) && !s_mTeamRoute.Get(team).IsEmpty())
 			{
-				// A search: nothing here - on to the next point of its route.
+				// A search: nothing here - on along the rest of its route, flown as one (through the points at corner
+				// speed, a stop only at the end - 26 Oct, Martin: "too many stops on the way, you always try to fly").
 				array<vector> route = s_mTeamRoute.Get(team);
-				vector next = route[0];
-				route.RemoveOrdered(0);
-				SetGoal(team, next, now);
+				array<vector> legs = {};
+				legs.Copy(route);
+				route.Clear();
+				vector next = legs[legs.Count() - 1];
+				SetGoalRoute(team, legs, now);
 				string nextName = ZCR_Strategist.s_mNodeName.Get(Nearest(next));
-				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 search on hovering=%4 after=%5 to=%6 left=%7", now, side, s_mTeamNo.Get(team),
-					hovering.Count(), since, nextName, route.Count()), LogLevel.NORMAL);
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 search on hovering=%4 after=%5 to=%6 points=%7", now, side, s_mTeamNo.Get(team),
+					hovering.Count(), since, nextName, legs.Count()), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1 found nobody - searching on over %2", s_mTeamNo.Get(team), nextName));
 			}
 			else if (!s_mTeamSwept.Contains(team))
@@ -195,10 +224,8 @@ class ZCR_Drones
 				if (sweep.IsEmpty())
 					sweep.Insert(goal);
 				s_mTeamSwept.Set(team, true);
-				vector first = sweep[0];
-				sweep.RemoveOrdered(0);
-				s_mTeamRoute.Set(team, sweep);
-				SetGoal(team, first, now);
+				s_mTeamRoute.Set(team, new array<vector>());
+				SetGoalRoute(team, sweep, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 sweep hovering=%4 after=%5", now, side, s_mTeamNo.Get(team), hovering.Count(), since), LogLevel.NORMAL);
 			}
 			else if (since >= 60)
@@ -388,6 +415,31 @@ class ZCR_Drones
 			if (wp)
 				team.AddWaypoint(wp);
 		}
+	}
+
+	// A team's route: its waypoints replaced by Move waypoints through the points in order (each leg round the sea), the
+	// last one its goal - the drone mod flies through the points at corner speed and stops only at the end.
+	protected static void SetGoalRoute(SCR_AIGroup team, notnull array<vector> points, int now)
+	{
+		if (points.IsEmpty())
+			return;
+		vector from = s_mTeamGoal.Get(team);
+		vector here;
+		if (TeamAt(team, here))
+			from = here;
+		array<AIWaypoint> old = {};
+		team.GetWaypoints(old);
+		foreach (AIWaypoint w : old)
+			team.RemoveWaypoint(w);
+		vector last = from;
+		foreach (vector p : points)
+		{
+			vector dry = DryGoal(p, last);
+			AddRoute(team, last, dry);
+			last = dry;
+		}
+		s_mTeamGoal.Set(team, last);
+		s_mTeamGoalAt.Set(team, now);
 	}
 
 	// A team's goal: its waypoints replaced by Move waypoints there - never over the sea, and round it.
