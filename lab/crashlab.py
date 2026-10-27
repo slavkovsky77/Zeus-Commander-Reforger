@@ -106,6 +106,10 @@ BOARD = {
     "mb_apc_tpin": ("1700,1000;8;spawnboard_tpin;apc", "in without the animation (teleport), out as usual"),
     "mb_apc_tpout": ("1700,1000;8;spawnboard_tpout;apc", "in as usual, out without the animation (teleport)"),
     "mb_apc_tp": ("1700,1000;8;spawnboard_tpin_tpout;apc", "in and out without the animation"),
+    # 03:50 the fewest mods (CLAUDE.md): the watched set is DCO + Competent AI driving + our road price - is one of them needed?
+    "mb_apc_nomods": ("1700,1000;8;spawnboard;apc", "the reviewed test with no Workshop mods (AI Conflict fork + ours only)", ""),
+    "mb_apc_dconly": ("1700,1000;8;spawnboard;apc", "the reviewed test with DCO only", "5EDAAE0D3CC60D6B"),
+    "mb_apc_nodco": ("1700,1000;8;spawnboard;apc", "the reviewed test with the driving mods only (no DCO)", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
     "mb_apc_kill": ("1700,1000;8;spawnboard_kill;apc", "US LAV-25s, everyone boarding at once, a soldier killed mid get-in up to 3 a cycle"),
 }
 
@@ -122,6 +126,8 @@ if _TILT.exists():
 def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str) -> list:
     if variant in BOARD:
         mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
+        if len(BOARD[variant]) > 2:
+            mods = BOARD[variant][2]          # the mod set of its own (the fewest-mods checks)
         return [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
                 "--port", str(port), "--mods", mods, "--extra", f"-zcrBoardTest {BOARD[variant][0]}"]
     add, drop, drones, _ = VARIANTS[variant]
