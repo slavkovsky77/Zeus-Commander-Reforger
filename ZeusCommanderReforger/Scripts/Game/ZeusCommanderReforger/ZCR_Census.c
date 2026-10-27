@@ -15,6 +15,10 @@ class ZCR_Census
 	protected static ref array<vector> s_aOrphanAt = {};
 	protected static int s_iOrphans;
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
+	protected static int s_iProj, s_iProjGround, s_iProjStill;
+	protected static ref map<string, int> s_mProjKind = new map<string, int>();
+	protected static ref map<string, int> s_mProjCell = new map<string, int>();
+	protected static ref array<string> s_aProjAt = {};
 
 	static void Start()
 	{
@@ -80,11 +84,60 @@ class ZCR_Census
 		string name = e.ClassName();
 		if (name == "GenericEntity")
 			name = Prefab(e);
+		// Projectiles (27 Oct: 50 -> 733 alive at once between game minutes 20 and 33 of a 40-minute match, in every
+		// longer run): by prefab, how many lie on the ground or stand still, the 100 m squares they pile up in, a few samples.
+		if (name.Contains("Projectile"))
+			CountProjectile(e);
 		// Where the biggest growing kind sits (25 Oct: Inventory_Virtual_Entity 784 -> 839 in 2 minutes): a few positions.
 		if (name == "Inventory_Virtual_Entity" && s_aSample.Count() < 6)
 			s_aSample.Insert(e.GetOrigin());
 		s_mCount.Set(name, s_mCount.Get(name) + 1);
 		return true;
+	}
+
+	protected static void CountProjectile(IEntity e)
+	{
+		s_iProj++;
+		string kind = Prefab(e);
+		s_mProjKind.Set(kind, s_mProjKind.Get(kind) + 1);
+		vector p = e.GetOrigin();
+		float h = p[1] - GetGame().GetWorld().GetSurfaceY(p[0], p[2]);
+		if (h < 2)
+			s_iProjGround++;
+		float speed = -1;
+		Physics phys = e.GetPhysics();
+		if (phys)
+		{
+			speed = phys.GetVelocity().Length();
+			if (speed < 1)
+				s_iProjStill++;
+		}
+		string cell = string.Format("%1,%2", Math.Floor(p[0] / 100) * 100 + 50, Math.Floor(p[2] / 100) * 100 + 50);
+		s_mProjCell.Set(cell, s_mProjCell.Get(cell) + 1);
+		if (s_aProjAt.Count() < 6)
+			s_aProjAt.Insert(string.Format("%1:%2,%3,h%4,v%5", kind, Math.Round(p[0]), Math.Round(p[2]), Math.Round(h), Math.Round(speed)));
+	}
+
+	// The n largest entries of a count map, "key:n,..." (removes them from the map).
+	protected static string Largest(map<string, int> counts, int n, string sep)
+	{
+		string res;
+		for (int k; k < n && !counts.IsEmpty(); k++)
+		{
+			string best;
+			int most = -1;
+			foreach (string key, int c : counts)
+			{
+				if (c > most)
+				{
+					most = c;
+					best = key;
+				}
+			}
+			res += string.Format("%1:%2%3", best, most, sep);
+			counts.Remove(best);
+		}
+		return res;
 	}
 
 	// "AIWaypoint_Move" from "{...}Prefabs/AI/Waypoints/AIWaypoint_Move.et"; "no_prefab" without one.
@@ -110,6 +163,12 @@ class ZCR_Census
 		s_mLod.Clear();
 		s_aOrphanAt.Clear();
 		s_iOrphans = 0;
+		s_iProj = 0;
+		s_iProjGround = 0;
+		s_iProjStill = 0;
+		s_mProjKind.Clear();
+		s_mProjCell.Clear();
+		s_aProjAt.Clear();
 		// Every waypoint some group still has.
 		s_mHeld.Clear();
 		array<AIAgent> agents = {};
@@ -166,5 +225,13 @@ class ZCR_Census
 			at += string.Format("%1,%2,%3;", Math.Round(v[0]), Math.Round(v[1]), Math.Round(v[2]));
 		if (!at.IsEmpty())
 			Print(string.Format("[ZCR][CENSUS] t=%1 sample=Inventory_Virtual_Entity at=%2", ZCR_LossLog.Seconds(), at), LogLevel.NORMAL);
+		if (s_iProj > 0)
+		{
+			string samples;
+			foreach (string s : s_aProjAt)
+				samples += s + ";";
+			Print(string.Format("[ZCR][CENSUS] t=%1 projectiles=%2 ground=%3 still=%4 kinds=%5 cells=%6 at=%7", ZCR_LossLog.Seconds(), s_iProj,
+				s_iProjGround, s_iProjStill, Largest(s_mProjKind, 6, ","), Largest(s_mProjCell, 5, ";"), samples), LogLevel.NORMAL);
+		}
 	}
 }
