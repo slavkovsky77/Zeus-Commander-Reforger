@@ -42,6 +42,9 @@ VARIANTS = {
     # 19:05: no event explains most crashes (62 in 1097 runs: a dozen vehicle/boarding events each ~2x), the 21 Oct code
     # crashed too when re-run on 22 Oct - and every crash of the kind starts with the diagnostic build's asserts.
     "release": ("", "", True, "the release server build instead of the diagnostic one"),
+    # 04:15 the crash fix (ZCR_SafeBoarding + fork SafeExitType): no climbing animation on a vehicle tilted over N deg
+    "safefix8": ("-zcrSafeBoardDeg 8", "", True, "the battle with the crash fix, limit 8 deg"),
+    "safefix5": ("-zcrSafeBoardDeg 5", "", True, "the battle with the crash fix, limit 5 deg"),
     # 02:20 the fix (fork 72ce716: no ride spawn with over 1.0 m under the vehicle) against the old limit, same build.
     "slopefix": ("", "", True, "the battle with the slope limit 1.0 m (the fix)"),
     "slope4": ("-aicfMaxSpawnDeltaM 4", "", True, "the battle with the old slope limit 4 m (control)"),
@@ -100,6 +103,8 @@ BOARD = {
     "mb_lav_plain": ("1700,1000;8;spawnboard;lav_plain", "the plain LAV-25 prefab instead of the Conflict variant"),
     "mb_btr": ("1700,1000;8;spawnboard;btr", "BTR-70 (Conflict) with Soviet squads"),
     "mb_btr_plain": ("1700,1000;8;spawnboard;btr_plain", "plain BTR-70 with Soviet squads"),
+    "mb_lav_ussr": ("1700,1000;8;spawnboard;lav_ussr", "Conflict LAV-25 with Soviet squads (the vehicle or the soldiers?)"),
+    "mb_btr_us": ("1700,1000;8;spawnboard;btr_us", "BTR-70 (Conflict) with US squads (the vehicle or the soldiers?)"),
     "mb_apc_crew": ("1700,1000;8;spawnboard_crew;apc", "Conflict LAV-25, soldiers only into the driver and turret seats"),
     "mb_apc_cargo": ("1700,1000;8;spawnboard_cargo;apc", "Conflict LAV-25, soldiers only into the back"),
     # 03:45 the animation or the seat? the same reviewed test, the soldiers moved into / out of the seats without it:
@@ -110,6 +115,8 @@ BOARD = {
     "mb_apc_nomods": ("1700,1000;8;spawnboard;apc", "the reviewed test with no Workshop mods (AI Conflict fork + ours only)", ""),
     "mb_apc_dconly": ("1700,1000;8;spawnboard;apc", "the reviewed test with DCO only", "5EDAAE0D3CC60D6B"),
     "mb_apc_nodco": ("1700,1000;8;spawnboard;apc", "the reviewed test with the driving mods only (no DCO)", "3B9F2C4D5E6A7B81,68FCF11534562F2E"),
+    # 04:10 the fix (ZCR_SafeBoarding): on a vehicle tilted over N deg soldiers go in/out without the climbing animation
+    "mb_apc_fix10": ("1700,1000;8;spawnboard;apc", "the reviewed test with the fix, limit 10 deg", None, "-zcrSafeBoardDeg 10"),
     "mb_apc_kill": ("1700,1000;8;spawnboard_kill;apc", "US LAV-25s, everyone boarding at once, a soldier killed mid get-in up to 3 a cycle"),
 }
 
@@ -126,10 +133,11 @@ if _TILT.exists():
 def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str) -> list:
     if variant in BOARD:
         mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
-        if len(BOARD[variant]) > 2:
+        if len(BOARD[variant]) > 2 and BOARD[variant][2] is not None:
             mods = BOARD[variant][2]          # the mod set of its own (the fewest-mods checks)
+        more = f" {BOARD[variant][3]}" if len(BOARD[variant]) > 3 else ""
         return [sys.executable, "-u", str(HERE / "reforger.py"), "--map", "arland-test", "--minutes", str(minutes), "--label", label,
-                "--port", str(port), "--mods", mods, "--extra", f"-zcrBoardTest {BOARD[variant][0]}"]
+                "--port", str(port), "--mods", mods, "--extra", f"-zcrBoardTest {BOARD[variant][0]}{more}"]
     add, drop, drones, _ = VARIANTS[variant]
     mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
     extra = (ROOT / ".runtime" / "watch_extra.txt").read_text(encoding="utf-8").strip()

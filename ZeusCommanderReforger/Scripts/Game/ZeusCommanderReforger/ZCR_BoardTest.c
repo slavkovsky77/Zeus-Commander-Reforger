@@ -97,7 +97,8 @@ class ZCR_BoardTest
 	//   all  M998, M1025 M2, LAV-25   cars  M998, M1025 M2   apc  LAV-25 only
 	protected void Kinds(string kinds)
 	{
-		if (kinds != "apc")
+		// Cars only for "all" and "cars" (04:05: "!= apc" put US cars and teams beside the BTR-70s' Soviet squads - they fought).
+		if (kinds == "all" || kinds == "cars")
 		{
 			Add("{9B1BF9644E0378D6}Prefabs/Vehicles/Wheeled/M998/M998_covered_long.et", "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et");
 			Add("{428B2BC55F1628E0}Prefabs/Vehicles/Wheeled/Conflict_Variants/M1025_armed_M2HB_Conflict.et", "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et");
@@ -114,6 +115,17 @@ class ZCR_BoardTest
 		if (kinds == "btr")
 		{
 			Add("{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
+			return;
+		}
+		// The vehicle or the soldiers? Each APC with the other side's squad (one side per test, so no fighting).
+		if (kinds == "lav_ussr")
+		{
+			Add("{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
+			return;
+		}
+		if (kinds == "btr_us")
+		{
+			Add("{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et", "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
 			return;
 		}
 		if (kinds == "btr_plain")
