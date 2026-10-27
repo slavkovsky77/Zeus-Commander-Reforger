@@ -280,8 +280,11 @@ class ZCR_Census
 		}
 		Print(string.Format("[ZCR][CENSUS] t=%1 total=%2 alive=%3 dead=%4 veh=%5 wrecks=%6 waypoints=%7 groups=%8 ms=%9", ZCR_LossLog.Seconds(), s_iTotal,
 			s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, System.GetTickCount() - started) + " top=" + top, LogLevel.NORMAL);
-		Print(string.Format("[ZCR][CENSUS] t=%1 vehicles=%2 crewed=%3 awake=%4 empty_awake=%5 empty_kinds=", ZCR_LossLog.Seconds(), s_iVeh,
-			s_iVehCrewed, s_iVehAwake, s_iVehEmptyAwake) + Largest(s_mVehEmpty, 8, ","), LogLevel.NORMAL);
+		// (Largest() into a local first: concatenated straight into the Format result, the Format part was lost.)
+		string emptyKinds = Largest(s_mVehEmpty, 8, ",");
+		string vehLine = string.Format("[ZCR][CENSUS] t=%1 vehicles=%2 crewed=%3 awake=%4 empty_awake=%5 empty_kinds=", ZCR_LossLog.Seconds(), s_iVeh,
+			s_iVehCrewed, s_iVehAwake, s_iVehEmptyAwake);
+		Print(vehLine + emptyKinds, LogLevel.NORMAL);
 		string lods;
 		for (int l; l <= AIAgent.GetMaxLOD(); l++)
 			lods += string.Format("%1:%2,", l, s_mLod.Get(l));
@@ -300,9 +303,12 @@ class ZCR_Census
 			string samples;
 			foreach (string s : s_aProjAt)
 				samples += s + ";";
-			Print(string.Format("[ZCR][CENSUS] t=%1 projectiles=%2 ground=%3 still=%4 kinds=%5 cells=%6 at=%7", ZCR_LossLog.Seconds(), s_iProj,
-				s_iProjGround, s_iProjStill, Largest(s_mProjKind, 6, ","), Largest(s_mProjCell, 5, ";"), samples) + " away=" + Largest(s_mFlying, 6, ","),
-				LogLevel.NORMAL);
+			string kinds = Largest(s_mProjKind, 6, ",");
+			string cells = Largest(s_mProjCell, 5, ";");
+			string away = Largest(s_mFlying, 6, ",");
+			string projLine = string.Format("[ZCR][CENSUS] t=%1 projectiles=%2 ground=%3 still=%4 kinds=%5 cells=%6 at=%7", ZCR_LossLog.Seconds(), s_iProj,
+				s_iProjGround, s_iProjStill, kinds, cells, samples);
+			Print(projLine + " away=" + away, LogLevel.NORMAL);
 		}
 	}
 }
