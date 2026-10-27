@@ -42,6 +42,9 @@ VARIANTS = {
     # 19:05: no event explains most crashes (62 in 1097 runs: a dozen vehicle/boarding events each ~2x), the 21 Oct code
     # crashed too when re-run on 22 Oct - and every crash of the kind starts with the diagnostic build's asserts.
     "release": ("", "", True, "the release server build instead of the diagnostic one"),
+    # 02:20 the fix (fork 72ce716: no ride spawn with over 1.0 m under the vehicle) against the old limit, same build.
+    "slopefix": ("", "", True, "the battle with the slope limit 1.0 m (the fix)"),
+    "slope4": ("-aicfMaxSpawnDeltaM 4", "", True, "the battle with the old slope limit 4 m (control)"),
     # 19:10 bisect of last night: the bad-matrix crash on the headless server 9 times since 04:32 last night, once before
     # ever; the fork's night changes were tested this morning (4 and 4 clean).
     "phased": ("", "", True, "phased against phased - no modern strategist"),
