@@ -6,6 +6,9 @@
 // every soldier's shots are now recorded as they leave the muzzle (the game's OnProjectileShot; vehicle turrets don't
 // raise it): shot=yes - a round he fired, by=who, age_s=how long before it turned up at the origin; shot=no - never
 // fired by a soldier. inst= the round's instigator kind, parent= whether it came from another projectile (spall).
+// Match 10 (4b4100e): all 113 had a parent projectile, and no shot was recorded (immediate handlers never ran). So
+// now the parent: pkind= its prefab, pat= origin (within BOX_M of it) / away / gone, pby= who fired it; the shot hook
+// delayed as the fork's (hooked= soldiers). The census counts the same for rounds in flight elsewhere (the control).
 // -zcrNoProjWatch off.
 class ZCR_ProjWatch
 {
@@ -54,7 +57,7 @@ class ZCR_ProjWatch
 
 	protected void Hook(EventHandlerManagerComponent events)
 	{
-		events.RegisterScriptHandler("OnProjectileShot", this, OnShot, false);
+		events.RegisterScriptHandler("OnProjectileShot", this, OnShot, true);
 	}
 
 	protected void OnShot(int playerID, BaseWeaponComponent weapon, IEntity projectile)
@@ -138,8 +141,8 @@ class ZCR_ProjWatch
 			return;
 		int t = ZCR_LossLog.Seconds();
 		foreach (string key, int n : groups)
-			Print(string.Format("[ZCR][PROJWATCH] t=%1 new=%2 total=%3 shots=%4 at_origin=%5 n=%6 %7", t, fresh, s_aFound.Count(), shots, shotsAtOrigin,
-				n, key) + string.Format(" age_s=%1..%2 speed=%3 y=%4..%5", ageMin.Get(key).ToString(-1, 1), ageMax.Get(key).ToString(-1, 1),
+			Print(string.Format("[ZCR][PROJWATCH] t=%1 new=%2 total=%3 shots=%4 at_origin=%5 hooked=%6 n=%7 %8", t, fresh, s_aFound.Count(), shots,
+				shotsAtOrigin, s_mHooked.Count(), n, key) + string.Format(" age_s=%1..%2 speed=%3 y=%4..%5", ageMin.Get(key).ToString(-1, 1), ageMax.Get(key).ToString(-1, 1),
 				Math.Round(speedMax.Get(key)), yMin.Get(key).ToString(-1, 2), yMax.Get(key).ToString(-1, 2)), LogLevel.NORMAL);
 	}
 
@@ -183,14 +186,34 @@ class ZCR_ProjWatch
 		}
 		string inst = "none";
 		string parent = "no";
+		string pkind = "-";
+		string pat = "-";
+		string pby = "-";
 		BaseProjectileComponent pc = BaseProjectileComponent.Cast(p.FindComponent(BaseProjectileComponent));
 		if (pc)
 		{
 			if (pc.GetInstigator())
 				inst = typename.EnumToString(InstigatorType, pc.GetInstigator().GetInstigatorType());
-			if (pc.GetParentProjectile())
+			IEntity pp = pc.GetParentProjectile();
+			if (pp)
+			{
 				parent = "yes";
+				if (pp == p)
+					parent = "self";
+				pkind = ZCR_Census.PrefabName(pp);
+				vector at = pp.GetOrigin();
+				pat = "away";
+				if (pp.IsDeleted())
+					pat = "gone";
+				else if (Math.AbsFloat(at[0]) < BOX_M && Math.AbsFloat(at[2]) < BOX_M)
+					pat = "origin";
+				BaseProjectileComponent ppc = BaseProjectileComponent.Cast(pp.FindComponent(BaseProjectileComponent));
+				if (ppc && ppc.GetInstigator() && ppc.GetInstigator().GetInstigatorEntity())
+					pby = ZCR_LossLog.ShortName(ppc.GetInstigator().GetInstigatorEntity());
+				else if (ppc && ppc.GetInstigator())
+					pby = typename.EnumToString(InstigatorType, ppc.GetInstigator().GetInstigatorType());
+			}
 		}
-		return string.Format("kind=%1 shot=%2 by=%3 inst=%4 parent=%5", kind, shot, by, inst, parent);
+		return string.Format("kind=%1 shot=%2 by=%3 inst=%4 parent=%5 pkind=%6 pat=%7 pby=%8", kind, shot, by, inst, parent, pkind, pat, pby);
 	}
 }

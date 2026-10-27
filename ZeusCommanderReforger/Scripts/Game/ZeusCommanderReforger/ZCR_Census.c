@@ -16,6 +16,7 @@ class ZCR_Census
 	protected static int s_iOrphans;
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
 	protected static int s_iProj, s_iProjGround, s_iProjStill;
+	protected static ref map<string, int> s_mFlying = new map<string, int>();   // rounds away from the origin: parent/instigator
 	protected static ref map<string, int> s_mProjKind = new map<string, int>();
 	protected static ref map<string, int> s_mProjCell = new map<string, int>();
 	protected static ref array<string> s_aProjAt = {};
@@ -112,6 +113,24 @@ class ZCR_Census
 			if (speed < 1)
 				s_iProjStill++;
 		}
+		// The control for PROJWATCH (27 Oct: every round at the origin came from a parent projectile): the rounds anywhere
+		// else, by whether they have a parent projectile and an instigator.
+		if (Math.AbsFloat(p[0]) > 30 || Math.AbsFloat(p[2]) > 30)
+		{
+			BaseProjectileComponent pc = BaseProjectileComponent.Cast(e.FindComponent(BaseProjectileComponent));
+			string fk = "no_component";
+			if (pc)
+			{
+				fk = "parent=no";
+				if (pc.GetParentProjectile())
+					fk = "parent=yes";
+				if (pc.GetInstigator())
+					fk += "/inst=" + typename.EnumToString(InstigatorType, pc.GetInstigator().GetInstigatorType());
+				else
+					fk += "/inst=null";
+			}
+			s_mFlying.Set(fk, s_mFlying.Get(fk) + 1);
+		}
 		string cell = string.Format("%1,%2", Math.Floor(p[0] / 100) * 100 + 50, Math.Floor(p[2] / 100) * 100 + 50);
 		s_mProjCell.Set(cell, s_mProjCell.Get(cell) + 1);
 		if (s_aProjAt.Count() < 6)
@@ -138,6 +157,11 @@ class ZCR_Census
 			counts.Remove(best);
 		}
 		return res;
+	}
+
+	static string PrefabName(IEntity e)
+	{
+		return Prefab(e);
 	}
 
 	// "AIWaypoint_Move" from "{...}Prefabs/AI/Waypoints/AIWaypoint_Move.et"; "no_prefab" without one.
@@ -169,6 +193,7 @@ class ZCR_Census
 		s_mProjKind.Clear();
 		s_mProjCell.Clear();
 		s_aProjAt.Clear();
+		s_mFlying.Clear();
 		// Every waypoint some group still has.
 		s_mHeld.Clear();
 		array<AIAgent> agents = {};
@@ -231,7 +256,8 @@ class ZCR_Census
 			foreach (string s : s_aProjAt)
 				samples += s + ";";
 			Print(string.Format("[ZCR][CENSUS] t=%1 projectiles=%2 ground=%3 still=%4 kinds=%5 cells=%6 at=%7", ZCR_LossLog.Seconds(), s_iProj,
-				s_iProjGround, s_iProjStill, Largest(s_mProjKind, 6, ","), Largest(s_mProjCell, 5, ";"), samples), LogLevel.NORMAL);
+				s_iProjGround, s_iProjStill, Largest(s_mProjKind, 6, ","), Largest(s_mProjCell, 5, ";"), samples) + " away=" + Largest(s_mFlying, 6, ","),
+				LogLevel.NORMAL);
 		}
 	}
 }
