@@ -5,7 +5,9 @@
 // 2.5-9 s into the get-in, the rest in the get-out; the same test on the flat airport apron never did.
 // So on a vehicle tilted over the limit a soldier goes straight into his seat when he has walked up to the vehicle
 // (no climbing animation), and straight out beside it when he is ordered out; on level ground nothing changes - the
-// climb Martin wants to see stays. -zcrSafeBoardDeg N: the limit in degrees (0 = off, the default until it is proven).
+// climb Martin wants to see stays. -zcrSafeBoardDeg N: the limit in degrees (default 8; 0 = off).
+// ON BY DEFAULT since 27 Oct 07:50 - the battle A/B (both with the old 4 m spawn limit, where battles crash most): with the
+// fix 0 of 59 battles crashed, without it 6 of 60 (one-sided p 0.014; review note 421).
 // 04:50 the tilt sweep (8 LAV-25s on even, clear spots of one slope): the LAV-25 crashes on level ground too, only less
 // often (0-3 deg: 1 of 3 runs, after minutes; 17-24 deg: every run within seconds) - and the BTR-70 on the hillside 0 of
 // 8. So into the vehicles of -zcrSafeBoardAlways (default "LAV25"; "none" = the tilt limit only) a soldier always goes
@@ -31,7 +33,7 @@ class ZCR_SafeBoarding
 	{
 		if (s_fLimit >= 0)
 			return s_fLimit;
-		s_fLimit = 0;
+		s_fLimit = 8;
 		string value;
 		if (System.GetCLIParam("zcrSafeBoardDeg", value) && !value.IsEmpty())
 			s_fLimit = Math.Clamp(value.ToFloat(), 0, 90);
