@@ -17,6 +17,10 @@ class ZCR_Census
 	protected static int s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, s_iTotal;
 	protected static int s_iProj, s_iProjGround, s_iProjStill;
 	protected static ref map<string, int> s_mFlying = new map<string, int>();   // rounds away from the origin: parent/instigator
+	// Intact vehicles (27 Oct: 14 at the start of a 40-minute match, 52 at its end; the census count that follows the
+	// frame rate most closely): crewed or empty, physics awake or asleep, the empty ones by prefab.
+	protected static int s_iVehCrewed, s_iVehAwake, s_iVehEmptyAwake;
+	protected static ref map<string, int> s_mVehEmpty = new map<string, int>();
 	protected static ref map<string, int> s_mProjKind = new map<string, int>();
 	protected static ref map<string, int> s_mProjCell = new map<string, int>();
 	protected static ref array<string> s_aProjAt = {};
@@ -59,7 +63,10 @@ class ZCR_Census
 			if (damage && damage.GetState() == EDamageState.DESTROYED)
 				s_iWrecks++;
 			else
+			{
 				s_iVeh++;
+				CountVehicle(e);
+			}
 			return true;
 		}
 		if (AIWaypoint.Cast(e))
@@ -94,6 +101,38 @@ class ZCR_Census
 			s_aSample.Insert(e.GetOrigin());
 		s_mCount.Set(name, s_mCount.Get(name) + 1);
 		return true;
+	}
+
+	protected static void CountVehicle(IEntity e)
+	{
+		bool crewed;
+		BaseCompartmentManagerComponent seatsOf = BaseCompartmentManagerComponent.Cast(e.FindComponent(BaseCompartmentManagerComponent));
+		if (seatsOf)
+		{
+			array<BaseCompartmentSlot> seats = {};
+			seatsOf.GetCompartments(seats);
+			foreach (BaseCompartmentSlot seat : seats)
+			{
+				if (seat && seat.GetOccupant())
+				{
+					crewed = true;
+					break;
+				}
+			}
+		}
+		Physics phys = e.GetPhysics();
+		bool awake = phys && phys.IsActive();
+		if (crewed)
+			s_iVehCrewed++;
+		if (awake)
+			s_iVehAwake++;
+		if (!crewed)
+		{
+			string kind = Prefab(e);
+			s_mVehEmpty.Set(kind, s_mVehEmpty.Get(kind) + 1);
+			if (awake)
+				s_iVehEmptyAwake++;
+		}
 	}
 
 	protected static void CountProjectile(IEntity e)
@@ -194,6 +233,10 @@ class ZCR_Census
 		s_mProjCell.Clear();
 		s_aProjAt.Clear();
 		s_mFlying.Clear();
+		s_iVehCrewed = 0;
+		s_iVehAwake = 0;
+		s_iVehEmptyAwake = 0;
+		s_mVehEmpty.Clear();
 		// Every waypoint some group still has.
 		s_mHeld.Clear();
 		array<AIAgent> agents = {};
@@ -237,6 +280,8 @@ class ZCR_Census
 		}
 		Print(string.Format("[ZCR][CENSUS] t=%1 total=%2 alive=%3 dead=%4 veh=%5 wrecks=%6 waypoints=%7 groups=%8 ms=%9", ZCR_LossLog.Seconds(), s_iTotal,
 			s_iAlive, s_iDead, s_iVeh, s_iWrecks, s_iWaypoints, s_iGroups, System.GetTickCount() - started) + " top=" + top, LogLevel.NORMAL);
+		Print(string.Format("[ZCR][CENSUS] t=%1 vehicles=%2 crewed=%3 awake=%4 empty_awake=%5 empty_kinds=", ZCR_LossLog.Seconds(), s_iVeh,
+			s_iVehCrewed, s_iVehAwake, s_iVehEmptyAwake) + Largest(s_mVehEmpty, 8, ","), LogLevel.NORMAL);
 		string lods;
 		for (int l; l <= AIAgent.GetMaxLOD(); l++)
 			lods += string.Format("%1:%2,", l, s_mLod.Get(l));
