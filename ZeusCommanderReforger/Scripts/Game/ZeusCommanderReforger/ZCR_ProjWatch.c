@@ -9,6 +9,11 @@
 // Match 10 (4b4100e): all 113 had a parent projectile, and no shot was recorded (immediate handlers never ran). So
 // now the parent: pkind= its prefab, pat= origin (within BOX_M of it) / away / gone, pby= who fired it; the shot hook
 // delayed as the fork's (hooked= soldiers). The census counts the same for rounds in flight elsewhere (the control).
+// Match 11 (e875423): the "parent" is the round itself; every one sits at exactly 0,0,0, speed 0, no instigator - made
+// and never launched (the game's own ballistics, not a script of ours or the mods'). Do they cost frames, and can they
+// go? -zcrProjSweepAt <game s>: all of them deleted once at that time (FPS before/after in the same match);
+// -zcrProjSweep: every tick, the ones still there from the previous tick. One line per sweep:
+//   [ZCR][PROJSWEEP] t= mode= deleted= mask= flags=
 // -zcrNoProjWatch off.
 class ZCR_ProjWatch
 {
@@ -22,6 +27,8 @@ class ZCR_ProjWatch
 	protected static ref map<EntityID, int> s_mShotAt = new map<EntityID, int>();
 	protected static ref map<EntityID, string> s_mShotBy = new map<EntityID, string>();
 	protected static int s_iShots, s_iShotsAtOrigin;
+	protected static int s_iSweepAt = -1;
+	protected static bool s_bSweepEvery, s_bSwept;
 
 	static void Start()
 	{
@@ -29,6 +36,10 @@ class ZCR_ProjWatch
 			return;
 		s_bStarted = true;
 		s_Self = new ZCR_ProjWatch();
+		string value;
+		if (System.GetCLIParam("zcrProjSweepAt", value) && !value.IsEmpty())
+			s_iSweepAt = value.ToInt();
+		s_bSweepEvery = System.IsCLIParam("zcrProjSweep");
 		GetGame().GetCallqueue().CallLater(Tick, 2000, true);
 	}
 
@@ -131,6 +142,7 @@ class ZCR_ProjWatch
 			yMin.Set(key, Math.Min(yMin.Get(key), y));
 			yMax.Set(key, Math.Max(yMax.Get(key), y));
 		}
+		Sweep(current);
 		s_mSeen = current;
 		int shots = s_iShots;
 		int shotsAtOrigin = s_iShotsAtOrigin;
@@ -144,6 +156,46 @@ class ZCR_ProjWatch
 			Print(string.Format("[ZCR][PROJWATCH] t=%1 new=%2 total=%3 shots=%4 at_origin=%5 hooked=%6 n=%7 %8", t, fresh, s_aFound.Count(), shots,
 				shotsAtOrigin, s_mHooked.Count(), n, key) + string.Format(" age_s=%1..%2 speed=%3 y=%4..%5", ageMin.Get(key).ToString(-1, 1), ageMax.Get(key).ToString(-1, 1),
 				Math.Round(speedMax.Get(key)), yMin.Get(key).ToString(-1, 2), yMax.Get(key).ToString(-1, 2)), LogLevel.NORMAL);
+	}
+
+	// The rounds at the origin deleted: all once at -zcrProjSweepAt, or with -zcrProjSweep the ones there since the last
+	// tick (a round in flight passes through the box in a fraction of a second; these never move).
+	protected static void Sweep(set<IEntity> current)
+	{
+		string mode;
+		int t = ZCR_LossLog.Seconds();
+		if (s_iSweepAt >= 0 && !s_bSwept && t >= s_iSweepAt)
+		{
+			mode = "once";
+			s_bSwept = true;
+		}
+		else if (s_bSweepEvery)
+			mode = "every";
+		else
+			return;
+		array<IEntity> doomed = {};
+		foreach (IEntity p : s_aFound)
+		{
+			if (!p || p.IsDeleted() || (mode == "every" && !s_mSeen.Contains(p)))
+				continue;
+			vector at = p.GetOrigin();
+			if (at.Length() > 0.01)
+				continue;   // only the ones at exactly 0,0,0
+			ProjectileMoveComponent move = ProjectileMoveComponent.Cast(p.FindComponent(ProjectileMoveComponent));
+			if (move && move.GetVelocity().Length() > 0.01)
+				continue;
+			doomed.Insert(p);
+		}
+		if (doomed.IsEmpty())
+			return;
+		string mask = string.Format("%1", doomed[0].GetEventMask());
+		string flags = string.Format("%1", doomed[0].GetFlags());
+		foreach (IEntity p : doomed)
+		{
+			current.RemoveItem(p);
+			SCR_EntityHelper.DeleteEntityAndChildren(p);
+		}
+		Print(string.Format("[ZCR][PROJSWEEP] t=%1 mode=%2 deleted=%3 mask=%4 flags=%5", t, mode, doomed.Count(), mask, flags), LogLevel.NORMAL);
 	}
 
 	// Shots older than KEEP_MS dropped.
