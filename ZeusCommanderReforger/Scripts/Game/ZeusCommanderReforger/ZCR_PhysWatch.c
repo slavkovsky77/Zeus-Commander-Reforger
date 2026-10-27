@@ -8,6 +8,10 @@
 // (rifles and a drone controller fell to -34 km last night - "entity out of world bounds"); high: HIGH_M above it.
 // Each entity once per kind and 5 s. -zcrPhysFix: an item (not a soldier or vehicle) falling under the ground is deleted
 // before it reaches the world's floor. -zcrNoPhysWatch off.
+// 27 Oct 03:40: the crash sub-lab crashes in a soldier's get-in or get-out of an APC on a slope (both directions, never on
+// the flat apron), so each get-in and get-out a soldier starts is logged too, with the vehicle and its tilt - the lines
+// before a battle crash then say which vehicle, how tilted, in or out:
+//   [ZCR][GETINOUT] t= what=in|out man= vehicle= seat= pitch= roll= x= z=
 class ZCR_PhysWatch
 {
 	static const int WATCH_MS = 500;
@@ -18,6 +22,7 @@ class ZCR_PhysWatch
 	protected static bool s_bStarted;
 	protected static ref ZCR_PhysWatch s_Instance;
 	protected ref map<IEntity, int> m_mLastLog = new map<IEntity, int>();
+	protected ref map<IEntity, int> m_mLastMove = new map<IEntity, int>();
 	protected int m_iChecked;
 	protected int m_iDeleted;
 	protected int m_iNextSummary;
@@ -58,7 +63,12 @@ class ZCR_PhysWatch
 
 	protected bool Check(IEntity e)
 	{
-		if (!e || e.GetParent())
+		if (!e)
+			return true;
+		ChimeraCharacter soldier = ChimeraCharacter.Cast(e);
+		if (soldier)
+			GetInOut(soldier);
+		if (e.GetParent())
 			return true;       // gear and parts move with their root
 		string kind;
 		if (Vehicle.Cast(e))
@@ -101,6 +111,50 @@ class ZCR_PhysWatch
 		else if (p[1] > ground + HIGH_M)
 			Report(e, kind, "high", v, av, ground);
 		return true;
+	}
+
+	protected void GetInOut(ChimeraCharacter man)
+	{
+		CompartmentAccessComponent access = man.GetCompartmentAccessComponent();
+		if (!access)
+			return;
+		string what;
+		if (access.IsGettingIn())
+			what = "in";
+		else if (access.IsGettingOut())
+			what = "out";
+		else
+			return;
+		int now = ZCR_LossLog.Seconds();
+		int last;
+		if (m_mLastMove.Find(man, last) && now - last < 8)
+			return;
+		m_mLastMove.Set(man, now);
+		BaseCompartmentSlot seat = access.GetCompartment();
+		IEntity vehicle;
+		if (seat)
+			vehicle = seat.GetVehicle();
+		if (!vehicle)
+			vehicle = CompartmentAccessComponent.GetVehicleIn(man);
+		string vname = "none";
+		string seatType = "none";
+		if (seat)
+			seatType = typename.EnumToString(ECompartmentType, seat.GetType());
+		float pitch, roll;
+		vector pos = man.GetOrigin();
+		if (vehicle)
+		{
+			vname = ZCR_LossLog.ShortName(vehicle);
+			vector mat[4];
+			vehicle.GetWorldTransform(mat);
+			vector right = mat[0];
+			vector fwd = mat[2];
+			pos = mat[3];
+			pitch = Math.Asin(Math.Clamp(fwd[1], -1, 1)) * Math.RAD2DEG;
+			roll = Math.Asin(Math.Clamp(right[1], -1, 1)) * Math.RAD2DEG;
+		}
+		Print(string.Format("[ZCR][GETINOUT] t=%1 what=%2 man=%3 vehicle=%4 seat=%5 pitch=%6 roll=%7 x=%8 z=%9", now, what,
+			ZCR_LossLog.ShortName(man), vname, seatType, Math.Round(pitch), Math.Round(roll), Math.Round(pos[0]), Math.Round(pos[2])), LogLevel.NORMAL);
 	}
 
 	protected void Report(IEntity e, string kind, string what, float v, float av, float ground)

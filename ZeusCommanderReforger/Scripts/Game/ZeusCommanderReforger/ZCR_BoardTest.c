@@ -11,9 +11,12 @@
 //        calm        as board, but the get-out without the release/interrupt
 //        spawnboard_kill  as spawnboard, and a soldier killed while he climbs in, up to 3 a cycle
 //        spawnboard_oneby as spawnboard, but per vehicle one soldier at a time (the next when the one before is in)
+//        ..._crew / ..._cargo  only the driver and turret seats / only the back seats
+//        ..._tpin / ..._tpout  in / out without the animation (the engine's teleport into and out of the seat)
 //   kinds all (default) | cars | apc - US only (see Kinds) | apc_fight (LAV-25 + US squads beside BTR-70 + Soviet ones)
 //   [ZCR][BOARDTEST] t= cycle= event=SPAWN|BOARD|ABOARD|DROP|OUT vehicles= soldiers= n= mode=
 //   [ZCR][BOARDTEST_SUM] t= cycles= issued= seated= timeouts= mode=   (every 60 s)
+//   [ZCR][BOARDTILT] t= cycle= i= x= z= pitch= roll=   (each vehicle when the board order goes out)
 class ZCR_BoardTest
 {
 	static const string GET_OUT = "{C40316EE26846CAB}Prefabs/AI/Waypoints/AIWaypoint_GetOut.et";
@@ -31,6 +34,7 @@ class ZCR_BoardTest
 	protected int m_iCycle;
 	protected int m_iIssued, m_iSeated, m_iTimeouts, m_iNextSum;
 	protected int m_iKills, m_iKilledThisCycle, m_iNextKillAt;
+	protected int m_iOffered = 1000;
 	// "oneby" (Martin, 27 Oct: "they get stuck and run bumping into each other - they should go slowly one by one"): per
 	// vehicle the next soldier's order only when the one before is in, or after 6 s.
 	protected ref map<int, IEntity> m_mLast = new map<int, IEntity>();
@@ -79,6 +83,23 @@ class ZCR_BoardTest
 		}
 		// "apc_fight": the one setup the first runs crashed in (27 Oct 23:58) - LAV-25s with US squads beside BTR-70s with
 		// Soviet ones, so the squads shot each other while they boarded (Martin: "try to make it the way it crashed").
+		// 03:30 which part of the APC (the battle fix run crashed after a LAV-25 on flat ground): the Conflict LAV-25 v the
+		// plain one, and the BTR-70 (Conflict and plain) - one side each, so no fighting.
+		if (kinds == "lav_plain")
+		{
+			Add("{0FBF8F010F81A4E5}Prefabs/Vehicles/Wheeled/LAV25/LAV25.et", "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
+			return;
+		}
+		if (kinds == "btr")
+		{
+			Add("{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
+			return;
+		}
+		if (kinds == "btr_plain")
+		{
+			Add("{C012BB3488BEA0C2}Prefabs/Vehicles/Wheeled/BTR70/BTR70.et", "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
+			return;
+		}
 		if (kinds == "apc_fight")
 		{
 			Add("{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
@@ -171,7 +192,7 @@ class ZCR_BoardTest
 						m_iIssued += IssueNext(k, now);
 				}
 			}
-			if (aboard >= soldiers || since >= BoardTimeout())
+			if (aboard >= Math.Min(soldiers, m_iOffered) || since >= BoardTimeout())
 			{
 				if (aboard < soldiers)
 					m_iTimeouts++;
@@ -252,6 +273,7 @@ class ZCR_BoardTest
 	// and the game's get-in action - AICF_VehicleBoardingFlow's two calls.
 	protected void Board(int now, int soldiers)
 	{
+		LogTilt(now);
 		if (m_sMode.Contains("oneby"))
 		{
 			m_mLast.Clear();
@@ -283,19 +305,20 @@ class ZCR_BoardTest
 			array<BaseCompartmentSlot> seats = {};
 			seatsOf.GetCompartments(seats);
 			array<BaseCompartmentSlot> order = {};
+			// "_crew" modes: only the driver's and turret seats; "_cargo": only the back.
 			foreach (BaseCompartmentSlot s : seats)
 			{
-				if (s && s.GetType() == ECompartmentType.PILOT)
+				if (s && s.GetType() == ECompartmentType.PILOT && !m_sMode.Contains("_cargo"))
 					order.Insert(s);
 			}
 			foreach (BaseCompartmentSlot s : seats)
 			{
-				if (s && s.GetType() == ECompartmentType.TURRET)
+				if (s && s.GetType() == ECompartmentType.TURRET && !m_sMode.Contains("_cargo"))
 					order.Insert(s);
 			}
 			foreach (BaseCompartmentSlot s : seats)
 			{
-				if (s && s.GetType() == ECompartmentType.CARGO)
+				if (s && s.GetType() == ECompartmentType.CARGO && !m_sMode.Contains("_crew"))
 					order.Insert(s);
 			}
 			array<AIAgent> agents = {};
@@ -312,6 +335,15 @@ class ZCR_BoardTest
 					break;
 				BaseCompartmentSlot seat = order[next];
 				next++;
+				// "_tpin": straight into the seat, no walk to the door and no climbing animation (27 Oct 03:40: the crash
+				// comes 2.5-9 s into the get-in, or in the get-out - is it the animation on a tilted APC?).
+				if (m_sMode.Contains("_tpin"))
+				{
+					ChimeraCharacter who = ChimeraCharacter.Cast(man);
+					if (who && who.GetCompartmentAccessComponent() && who.GetCompartmentAccessComponent().GetInVehicle(v, seat, true, -1, ECloseDoorAfterActions.INVALID, false))
+						issued++;
+					continue;
+				}
 				SCR_AIUtilityComponent utility = SCR_AIUtilityComponent.Cast(agent.FindComponent(SCR_AIUtilityComponent));
 				if (!utility)
 					continue;
@@ -328,6 +360,7 @@ class ZCR_BoardTest
 			}
 		}
 		m_iIssued += issued;
+		m_iOffered = issued + Math.Max(0, AlreadyAboard());
 		m_iPhase = 1;
 		m_iPhaseAt = now;
 		Log(now, "BOARD", soldiers, issued);
@@ -359,6 +392,9 @@ class ZCR_BoardTest
 					CompartmentAccessComponent access = man.GetCompartmentAccessComponent();
 					if (access)
 						access.InterruptVehicleActionQueue(true, true, true);
+					// "_tpout": out of the seat without the animation, beside the vehicle.
+					if (access && m_sMode.Contains("_tpout") && CompartmentAccessComponent.GetVehicleIn(man))
+						access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false);
 				}
 			}
 			EntitySpawnParams params = new EntitySpawnParams();
@@ -375,6 +411,27 @@ class ZCR_BoardTest
 		m_iPhase = 3;
 		m_iPhaseAt = now;
 		Log(now, "DROP", soldiers, aboard);
+	}
+
+	// The vehicles' tilt when the board order goes out (27 Oct: the crash comes in the get-in or the get-out of an APC on
+	// Moss Hill's 17-21 deg hillside, never on the flat airport apron). Pitch: nose up +; roll: right side up +.
+	protected void LogTilt(int now)
+	{
+		for (int i; i < m_aVehicles.Count(); i++)
+		{
+			Vehicle v = m_aVehicles[i];
+			if (!v)
+				continue;
+			vector mat[4];
+			v.GetWorldTransform(mat);
+			vector right = mat[0];
+			vector fwd = mat[2];
+			vector pos = mat[3];
+			float pitch = Math.Asin(Math.Clamp(fwd[1], -1, 1)) * Math.RAD2DEG;
+			float roll = Math.Asin(Math.Clamp(right[1], -1, 1)) * Math.RAD2DEG;
+			Print(string.Format("[ZCR][BOARDTILT] t=%1 cycle=%2 i=%3 x=%4 z=%5 pitch=%6 roll=%7", now, m_iCycle, i, Math.Round(pos[0]),
+				Math.Round(pos[2]), Math.Round(pitch), Math.Round(roll)), LogLevel.NORMAL);
+		}
 	}
 
 	protected void KillOneGettingIn(int now)
@@ -490,6 +547,13 @@ class ZCR_BoardTest
 		if (m_sMode.Contains("oneby"))
 			return 75;
 		return 45;
+	}
+
+	protected int AlreadyAboard()
+	{
+		int soldiers, aboard;
+		Count(soldiers, aboard);
+		return aboard;
 	}
 
 	static bool Active()

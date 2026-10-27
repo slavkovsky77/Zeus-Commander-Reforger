@@ -96,6 +96,16 @@ BOARD = {
     "mb_pad5": ("1716,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 5 of the crashing Moss Hill layout"),
     "mb_pad6": ("1732,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 6 of the crashing Moss Hill layout"),
     "mb_pad7": ("1748,1018;1;spawnboard;apc", "one LAV-25 + one squad on pad 7 of the crashing Moss Hill layout"),
+    # 03:30 which part of the APC, on the hillside where the reviewed test crashes 72/72 (one side, single squads):
+    "mb_lav_plain": ("1700,1000;8;spawnboard;lav_plain", "the plain LAV-25 prefab instead of the Conflict variant"),
+    "mb_btr": ("1700,1000;8;spawnboard;btr", "BTR-70 (Conflict) with Soviet squads"),
+    "mb_btr_plain": ("1700,1000;8;spawnboard;btr_plain", "plain BTR-70 with Soviet squads"),
+    "mb_apc_crew": ("1700,1000;8;spawnboard_crew;apc", "Conflict LAV-25, soldiers only into the driver and turret seats"),
+    "mb_apc_cargo": ("1700,1000;8;spawnboard_cargo;apc", "Conflict LAV-25, soldiers only into the back"),
+    # 03:45 the animation or the seat? the same reviewed test, the soldiers moved into / out of the seats without it:
+    "mb_apc_tpin": ("1700,1000;8;spawnboard_tpin;apc", "in without the animation (teleport), out as usual"),
+    "mb_apc_tpout": ("1700,1000;8;spawnboard_tpout;apc", "in as usual, out without the animation (teleport)"),
+    "mb_apc_tp": ("1700,1000;8;spawnboard_tpin_tpout;apc", "in and out without the animation"),
     "mb_apc_kill": ("1700,1000;8;spawnboard_kill;apc", "US LAV-25s, everyone boarding at once, a soldier killed mid get-in up to 3 a cycle"),
 }
 
@@ -149,8 +159,28 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         gaps = [(tc - datetime.strptime(s, "%H:%M:%S.%f")).total_seconds() for s in stuck]
         gaps = [g for g in gaps if g >= 0]
         stuck_gap = round(min(gaps), 2) if gaps else None
+    # 03:30 the boarding test's phase at the crash: the last event before it (BOARD = get-in ordered, ABOARD = all in,
+    # DROP = get-out ordered, OUT = all out) and the seconds since - the crew-seat run crashed 9 s after DROP.
+    phase, phase_s = "", None
+    if crashed and crash_at:
+        tc = datetime.strptime(crash_at.group(1), "%H:%M:%S.%f")
+        ev = re.findall(r"^(\d\d:\d\d:\d\d\.\d+)\s+SCRIPT\s+: \[ZCR\]\[BOARDTEST\] t=\d+ cycle=\d+ event=(\w+)", t, re.M)
+        ev = [(e, (tc - datetime.strptime(s, "%H:%M:%S.%f")).total_seconds()) for s, e in ev]
+        ev = [x for x in ev if x[1] >= 0]
+        if ev:
+            phase, phase_s = ev[-1][0], round(ev[-1][1], 1)
+    # the get-ins/get-outs started in the 20 s before the crash (ZCR_PhysWatch [ZCR][GETINOUT]): vehicle, tilt, seconds before
+    moves = ""
+    if crashed and crash_at:
+        tc = datetime.strptime(crash_at.group(1), "%H:%M:%S.%f")
+        mv = re.findall(r"^(\d\d:\d\d:\d\d\.\d+)\s+SCRIPT\s+: \[ZCR\]\[GETINOUT\] t=\d+ what=(\w+) man=\S+ vehicle=(\S+) "
+                        r"seat=(\w+) pitch=(-?[\d.]+) roll=(-?[\d.]+)", t, re.M)
+        mv = [(round((tc - datetime.strptime(s, "%H:%M:%S.%f")).total_seconds(), 1), w, v, st, pi, ro) for s, w, v, st, pi, ro in mv]
+        mv = [m for m in mv if 0 <= m[0] <= 20]
+        moves = "; ".join(f"{w} {v} {st} p{float(pi):.0f} r{float(ro):.0f} -{s}s" for s, w, v, st, pi, ro in mv[-4:])
     return {
         "scenario": scenario, "variant": variant, "run": run_dir.name, "minutes": minutes,
+        "crash_phase": phase, "crash_phase_s": phase_s, "getinout_before": moves,
         "crashed": int(crashed), "crash_per_hour": round(60 * crashed / minutes, 2) if minutes else None,
         "reason": reason, "before_crash": before,
         "badmatrix_asserts": ct.count("BadMatrix33"), "oob_asserts": ct.count("out of world bounds"),
@@ -229,7 +259,7 @@ def main() -> int:
             runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"), key=lambda r: r.stat().st_mtime)
             row = summarize(runs[-1], "arland", variant) if runs else {"scenario": "arland", "variant": variant, "error": "no run"}
             sublab.record("crash", row)
-            log(f"done {label}: {row.get('minutes')} min crashed={row.get('crashed')} {row.get('reason', '')} before=[{row.get('before_crash', '')}] "
+            log(f"done {label}: {row.get('minutes')} min crashed={row.get('crashed')} phase={row.get('crash_phase', '')}+{row.get('crash_phase_s')}s moves=[{row.get('getinout_before', '')}] {row.get('reason', '')} before=[{row.get('before_crash', '')}] "
                 f"wild={row.get('phys_wild')} spin={row.get('phys_spin')} nan={row.get('phys_nan')} falling={row.get('phys_falling')} "
                 f"turret_pushes={row.get('turret_pushes')}")
             del running[port]
