@@ -1671,6 +1671,9 @@ modded class SCR_AIGetOutVehicle
 	{
 		if (utility && vehicleEntity && ZCR_GetOutProbe.On())
 			ZCR_GetOutProbe.Log("soldier", vehicleEntity, priority, groupActivity != null);
+		// Martin's wish: APC passengers out one by one, cars at once (ZCR_GetOutOrder, -zcrGetOutOrder).
+		if (m_fDelay && ZCR_GetOutOrder.On())
+			m_fDelay.m_Value = ZCR_GetOutOrder.Delay(utility, vehicleEntity, delay_s);
 	}
 
 	// A priority of 0 alone didn't hold them (23 Oct: with nothing else to do the get-out still ran) - the order is
@@ -1682,6 +1685,8 @@ modded class SCR_AIGetOutVehicle
 			Fail();
 			return;
 		}
+		// The crash fix (ZCR_SafeBoarding): out of a tilted vehicle without the climbing animation.
+		ZCR_SafeBoarding.TryOut(m_Utility);
 		super.OnActionSelected();
 	}
 
