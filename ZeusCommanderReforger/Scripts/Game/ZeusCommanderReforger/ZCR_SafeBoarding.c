@@ -6,6 +6,11 @@
 // So on a vehicle tilted over the limit a soldier goes straight into his seat when he has walked up to the vehicle
 // (no climbing animation), and straight out beside it when he is ordered out; on level ground nothing changes - the
 // climb Martin wants to see stays. -zcrSafeBoardDeg N: the limit in degrees (0 = off, the default until it is proven).
+// 04:50 the tilt sweep (8 LAV-25s on even, clear spots of one slope): the LAV-25 crashes on level ground too, only less
+// often (0-3 deg: 1 of 3 runs, after minutes; 17-24 deg: every run within seconds) - and the BTR-70 on the hillside 0 of
+// 8. So into the vehicles of -zcrSafeBoardAlways (default "LAV25"; "none" = the tilt limit only) a soldier always goes
+// straight in, whatever the tilt. Getting out stays animated below the limit (climbing out never crashed once they were
+// moved in: 0 of 16 runs).
 // A soldier who can't be moved in (seat taken, vehicle not accessible) for FAIL_MS has his get-in cancelled rather than
 // left to climb in on the tilted vehicle (what=in_cancel); the game's own logic gives him another order.
 //   [ZCR][SAFEBOARD] t= what=in|out|in_cancel ok= man= vehicle= tilt= x= z=
@@ -16,6 +21,7 @@ class ZCR_SafeBoarding
 	static const int WATCH_MAX_MS = 180000;
 	static const int FAIL_MS = 1000;
 	protected static float s_fLimit = -1;
+	protected static ref array<string> s_aAlways;
 	protected static ref ZCR_SafeBoarding s_Instance;
 	protected ref array<SCR_AIGetInVehicle> m_aWatch = {};
 	protected ref array<int> m_aSince = {};
@@ -30,6 +36,29 @@ class ZCR_SafeBoarding
 		if (System.GetCLIParam("zcrSafeBoardDeg", value) && !value.IsEmpty())
 			s_fLimit = Math.Clamp(value.ToFloat(), 0, 90);
 		return s_fLimit;
+	}
+
+	static bool Always(IEntity vehicle)
+	{
+		if (!s_aAlways)
+		{
+			s_aAlways = {};
+			string value = "LAV25";
+			string given;
+			if (System.GetCLIParam("zcrSafeBoardAlways", given) && !given.IsEmpty())
+				value = given;
+			if (value != "none")
+				value.Split(",", s_aAlways, true);
+		}
+		if (!vehicle || !vehicle.GetPrefabData())
+			return false;
+		string name = vehicle.GetPrefabData().GetPrefabName();
+		foreach (string part : s_aAlways)
+		{
+			if (name.Contains(part))
+				return true;
+		}
+		return false;
 	}
 
 	// The angle between the vehicle's up and the world's up.
@@ -93,7 +122,7 @@ class ZCR_SafeBoarding
 		if (vector.Distance(man.GetOrigin(), vehicle.GetOrigin()) > REACH_M)
 			return false;                     // still walking up to it
 		float tilt = Tilt(vehicle);
-		if (tilt <= Limit())
+		if (tilt <= Limit() && !Always(vehicle))
 			return true;                      // level: the normal climb
 		if (!seat || (seat.GetOccupant() && seat.GetOccupant() != man))
 			seat = access.FindCompartmentReservedBy(vehicle, man);
