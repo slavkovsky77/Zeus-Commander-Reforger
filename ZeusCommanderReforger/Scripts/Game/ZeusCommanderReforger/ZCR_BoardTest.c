@@ -17,6 +17,9 @@
 //   [ZCR][BOARDTEST] t= cycle= event=SPAWN|BOARD|ABOARD|DROP|OUT vehicles= soldiers= n= mode=
 //   [ZCR][BOARDTEST_SUM] t= cycles= issued= seated= timeouts= mode=   (every 60 s)
 //   [ZCR][BOARDTILT] t= cycle= i= x= z= pitch= roll=   (each vehicle when the board order goes out)
+// The tilt sweep (27 Oct 03:50 - at what tilt does it start?): the first field may be a list of spots "x,z/x,z/..." (the
+// vehicles go there instead of the pads), and mode "scan" lists even, clear spots by slope instead of a test:
+//   [ZCR][SLOPESCAN] bin= x= z= slope= pitch= roll=   (bin = 3-deg steps; pitch/roll for a vehicle heading north)
 class ZCR_BoardTest
 {
 	static const string GET_OUT = "{C40316EE26846CAB}Prefabs/AI/Waypoints/AIWaypoint_GetOut.et";
@@ -41,6 +44,8 @@ class ZCR_BoardTest
 	protected ref map<int, int> m_mLastAt = new map<int, int>();
 	protected ref array<IEntity> m_aOrdered = {};
 	protected ref array<BaseCompartmentSlot> m_aTaken = {};
+	protected ref array<vector> m_aSpots = {};
+	protected int m_iNear;
 
 	static void Start()
 	{
@@ -52,11 +57,27 @@ class ZCR_BoardTest
 		if (f.Count() < 3)
 			return;
 		s_Instance = new ZCR_BoardTest();
-		array<string> xz = {};
-		f[0].Split(",", xz, true);
-		s_Instance.m_vAt = Vector(xz[0].ToFloat(), 0, xz[1].ToFloat());
+		array<string> spots = {};
+		f[0].Split("/", spots, true);
+		foreach (string spot : spots)
+		{
+			array<string> xz = {};
+			spot.Split(",", xz, true);
+			if (xz.Count() == 2)
+				s_Instance.m_aSpots.Insert(Vector(xz[0].ToFloat(), 0, xz[1].ToFloat()));
+		}
+		if (s_Instance.m_aSpots.IsEmpty())
+			return;
+		s_Instance.m_vAt = s_Instance.m_aSpots[0];
+		if (s_Instance.m_aSpots.Count() == 1)
+			s_Instance.m_aSpots.Clear();        // one point: the pads beside it, as before
 		s_Instance.m_iCount = f[1].ToInt();
 		s_Instance.m_sMode = f[2];
+		if (s_Instance.m_sMode == "scan")
+		{
+			GetGame().GetCallqueue().CallLater(s_Instance.Scan, 3000, false);
+			return;
+		}
 		string kinds = "all";
 		if (f.Count() > 3)
 			kinds = f[3];
@@ -119,6 +140,12 @@ class ZCR_BoardTest
 	// The pads: rows of four, 16 m apart (AI Conflict's free pads kept 20 m from a reserved one; its spawns came 16-28 m apart).
 	protected vector Pad(int i)
 	{
+		if (!m_aSpots.IsEmpty())
+		{
+			vector q = m_aSpots[i % m_aSpots.Count()];
+			q[1] = GetGame().GetWorld().GetSurfaceY(q[0], q[2]);
+			return q;
+		}
 		int col = i % 4;
 		int row = i / 4;
 		float x = 16 * col;
@@ -432,6 +459,83 @@ class ZCR_BoardTest
 			Print(string.Format("[ZCR][BOARDTILT] t=%1 cycle=%2 i=%3 x=%4 z=%5 pitch=%6 roll=%7", now, m_iCycle, i, Math.Round(pos[0]),
 				Math.Round(pos[2]), Math.Round(pitch), Math.Round(roll)), LogLevel.NORMAL);
 		}
+	}
+
+	// "scan": the island on a 12 m grid. A spot counts when the ground under a vehicle (7 x 3.5 m, heading north) is one
+	// even plane (no corner over 0.35 m off it), dry, and nothing with a mesh stands within 7 m (trees, rocks, buildings;
+	// terrain, roads and forest areas are skipped by size). Up to 16 spots per 3-deg bin, 40 m apart.
+	protected void Scan()
+	{
+		BaseWorld world = GetGame().GetWorld();
+		map<int, ref array<vector>> bins = new map<int, ref array<vector>>();
+		int found;
+		for (float x = 100; x < 4000; x += 12)
+		{
+			for (float z = 100; z < 4000; z += 12)
+			{
+				float h = world.GetSurfaceY(x, z);
+				if (h < 2)
+					continue;
+				float gz = (world.GetSurfaceY(x, z + 3.5) - world.GetSurfaceY(x, z - 3.5)) / 7;
+				float gx = (world.GetSurfaceY(x + 1.75, z) - world.GetSurfaceY(x - 1.75, z)) / 3.5;
+				float worst = 0;
+				for (int cx = -1; cx <= 1; cx += 2)
+				{
+					for (int cz = -1; cz <= 1; cz += 2)
+					{
+						float plane = h + gx * 1.75 * cx + gz * 3.5 * cz;
+						worst = Math.Max(worst, Math.AbsFloat(world.GetSurfaceY(x + 1.75 * cx, z + 3.5 * cz) - plane));
+					}
+				}
+				if (worst > 0.35)
+					continue;
+				float slope = Math.Atan2(Math.Sqrt(gx * gx + gz * gz), 1) * Math.RAD2DEG;
+				int bin = Math.Floor(slope / 3);
+				if (bin > 9)
+					bin = 9;
+				array<vector> list;
+				if (!bins.Find(bin, list))
+				{
+					list = {};
+					bins.Insert(bin, list);
+				}
+				if (list.Count() >= 16)
+					continue;
+				vector here = Vector(x, h, z);
+				bool close;
+				foreach (vector o : list)
+				{
+					if (vector.DistanceXZ(o, here) < 40)
+					{
+						close = true;
+						break;
+					}
+				}
+				if (close)
+					continue;
+				m_iNear = 0;
+				world.QueryEntitiesBySphere(here, 7, CountNear, null, EQueryEntitiesFlags.ALL);
+				if (m_iNear > 0)
+					continue;
+				list.Insert(here);
+				found++;
+				Print(string.Format("[ZCR][SLOPESCAN] bin=%1 x=%2 z=%3 slope=%4 pitch=%5 roll=%6", bin, Math.Round(x), Math.Round(z),
+					Math.Round(slope * 10) / 10, Math.Round(Math.Atan2(gz, 1) * Math.RAD2DEG), Math.Round(Math.Atan2(gx, 1) * Math.RAD2DEG)), LogLevel.NORMAL);
+			}
+		}
+		Print(string.Format("[ZCR][SLOPESCAN] done spots=%1", found), LogLevel.NORMAL);
+	}
+
+	protected bool CountNear(IEntity e)
+	{
+		if (!e || !e.GetVObject())
+			return true;
+		vector mins, maxs;
+		e.GetWorldBounds(mins, maxs);
+		if (vector.Distance(mins, maxs) > 60)
+			return true;          // the terrain, a road, a forest area - not an obstacle
+		m_iNear++;
+		return true;
 	}
 
 	protected void KillOneGettingIn(int now)

@@ -110,6 +110,15 @@ BOARD = {
 }
 
 
+# 03:55 the tilt sweep: 8 LAV-25s + US squads on 8 spots of one slope bin (ZCR_BoardTest "scan" -> .runtime/tiltspots.json)
+_TILT = ROOT / ".runtime" / "tiltspots.json"
+if _TILT.exists():
+    for _bin, _spots in json.loads(_TILT.read_text(encoding="utf-8")).items():
+        if len(_spots) >= 8:
+            BOARD[f"mb_tilt{_bin}"] = ("/".join(f"{x},{z}" for x, z in _spots[:8]) + ";8;spawnboard;apc",
+                                      f"8 LAV-25s on {3 * int(_bin)}-{3 * int(_bin) + 3} deg ground, as the reviewed test")
+
+
 def argv_for(scenario: str, variant: str, minutes: float, port: int, label: str) -> list:
     if variant in BOARD:
         mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
