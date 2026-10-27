@@ -45,6 +45,8 @@ VARIANTS = {
     # 04:15 the crash fix (ZCR_SafeBoarding + fork SafeExitType): no climbing animation on a vehicle tilted over N deg
     "safefix8": ("-zcrSafeBoardDeg 8", "", True, "the battle with the crash fix, limit 8 deg"),
     "safefix5": ("-zcrSafeBoardDeg 5", "", True, "the battle with the crash fix, limit 5 deg"),
+    # 05:00 the fix where battles crash most: on top of the old 4 m spawn limit (slope4 crashed 3 of 21)
+    "safefix8_s4": ("-zcrSafeBoardDeg 8 -aicfMaxSpawnDeltaM 4", "", True, "the battle with the crash fix and the old 4 m spawn limit"),
     # 02:20 the fix (fork 72ce716: no ride spawn with over 1.0 m under the vehicle) against the old limit, same build.
     "slopefix": ("", "", True, "the battle with the slope limit 1.0 m (the fix)"),
     "slope4": ("-aicfMaxSpawnDeltaM 4", "", True, "the battle with the old slope limit 4 m (control)"),
