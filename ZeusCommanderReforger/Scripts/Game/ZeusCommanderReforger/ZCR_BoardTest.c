@@ -672,6 +672,23 @@ class ZCR_BoardTest
 		return aboard;
 	}
 
+	protected int AboardOf(int i)
+	{
+		Vehicle v = m_aVehicles[i];
+		if (!v || i >= m_aTeams.Count() || !m_aTeams[i])
+			return 0;
+		int inside;
+		array<AIAgent> agents = {};
+		m_aTeams[i].GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			IEntity man = agent.GetControlledEntity();
+			if (AICF_GroupRuntime.IsAliveCharacter(man) && CompartmentAccessComponent.GetVehicleIn(man) == v)
+				inside++;
+		}
+		return inside;
+	}
+
 	static bool Active()
 	{
 		return s_Instance != null;
@@ -686,6 +703,25 @@ class ZCR_BoardTest
 		if (!s_Instance || s_Instance.m_aVehicles.IsEmpty())
 			return null;
 		int n = s_Instance.m_aVehicles.Count();
+		// Getting out (the demo of Martin's wish - APCs one by one, cars at once): the vehicle with the most still aboard.
+		if (s_Instance.m_iPhase == 3)
+		{
+			int most = -1;
+			int best = -1;
+			for (int j; j < n; j++)
+			{
+				if (!s_Instance.m_aVehicles[j])
+					continue;
+				int inside = s_Instance.AboardOf(j);
+				if (inside > most)
+				{
+					most = inside;
+					best = j;
+				}
+			}
+			if (best >= 0)
+				s_Instance.m_iCamTurn = (best - 1 + n) % n;
+		}
 		for (int k = 1; k <= n; k++)
 		{
 			int i = (s_Instance.m_iCamTurn + k) % n;
@@ -708,11 +744,21 @@ class ZCR_BoardTest
 						aboard++;
 				}
 			}
-			array<string> phase = {"waiting", "ALL BOARDING AT ONCE", "aboard", "getting out", "out"};
+			bool oneby = s_Instance.m_sMode.Contains("oneby");
+			string boarding = "ALL BOARDING AT ONCE";
+			if (oneby)
+				boarding = "getting in one by one";
+			string leaving = "getting out";
+			if (ZCR_GetOutOrder.On())
+				leaving = "getting out - APC one by one, cars at once";
+			array<string> phase = {"waiting", boarding, "aboard", leaving, "out"};
 			string what = "";
 			if (s_Instance.m_iPhase >= 0 && s_Instance.m_iPhase < phase.Count())
 				what = phase[s_Instance.m_iPhase];
-			label = string.Format("MASS BOARDING TEST cycle %1 - %2: %3 of %4 aboard (%5)", s_Instance.m_iCycle, ZCR_LossLog.ShortName(v), aboard, team, what);
+			string title = "MASS BOARDING TEST";
+			if (oneby)
+				title = "BOARDING TEST";
+			label = string.Format("%1 cycle %2 - %3: %4 of %5 aboard (%6)", title, s_Instance.m_iCycle, ZCR_LossLog.ShortName(v), aboard, team, what);
 			return v;
 		}
 		return null;
