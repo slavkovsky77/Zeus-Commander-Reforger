@@ -6,6 +6,7 @@
 // seat at the same moment the way AI Conflict does it (AICF_VehicleBoardingFlow: the seat reserved, the game's
 // SCR_AIGetInVehicle action), then they get out the way AI Conflict drops a team (AICF_VehicleWatchdog.
 // ResetGroupVehicleActions + a get-out order), and again. Lab only, on a test map: -zcrBoardTest "x,z;count;mode[;kinds[;delay]]"
+// Sixth field: how far west of its vehicle each team starts (default 7 m).
 //   mode spawnboard  every cycle the vehicles are deleted and spawned anew, boarded at once - the first ride wave
 //        board       the same vehicles, boarded and emptied at once, again and again
 //        calm        as board, but the get-out without the release/interrupt
@@ -32,6 +33,7 @@ class ZCR_BoardTest
 	protected int m_iCount;
 	protected string m_sMode;
 	protected int m_iBoardDelay = 3;   // s from the spawn to the board order (fifth field)
+	protected float m_fTeamOffset = 7;   // m west of its vehicle a team starts (sixth field; the fix's window demo: 25)
 	protected int m_iPhase;        // 0 waiting to board, 1 boarding, 2 aboard -> drop, 3 getting out, 4 rest
 	protected int m_iPhaseAt;
 	protected int m_iCycle;
@@ -86,6 +88,8 @@ class ZCR_BoardTest
 		// 3 s after the spawn - is it climbing into a vehicle that just appeared?).
 		if (f.Count() > 4)
 			s_Instance.m_iBoardDelay = f[4].ToInt();
+		if (f.Count() > 5)
+			s_Instance.m_fTeamOffset = f[5].ToFloat();
 		s_Instance.m_iPhase = -1;
 		GetGame().GetCallqueue().CallLater(s_Instance.Begin, 3000, false);
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);
@@ -171,7 +175,7 @@ class ZCR_BoardTest
 	{
 		for (int i; i < m_iCount; i++)
 		{
-			vector at = Pad(i) + Vector(-7, 0, 0);
+			vector at = Pad(i) + Vector(-m_fTeamOffset, 0, 0);
 			at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
 			EntitySpawnParams params = new EntitySpawnParams();
 			params.TransformMode = ETransformMode.WORLD;
@@ -591,7 +595,7 @@ class ZCR_BoardTest
 				alive = AICF_GroupRuntime.CountAliveAgents(team);
 			if (alive > 2)
 				continue;
-			vector at = Pad(i) + Vector(-7, 0, 0);
+			vector at = Pad(i) + Vector(-m_fTeamOffset, 0, 0);
 			at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
 			EntitySpawnParams params = new EntitySpawnParams();
 			params.TransformMode = ETransformMode.WORLD;

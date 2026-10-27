@@ -27,11 +27,12 @@ SHOWS = {
               "Flat airport apron: an M998, an M1025 and a LAV-25 with US teams. Getting in one by one (the next soldier when the "
               "one before is in); getting out in the new order - the cars' teams at once, the LAV-25's back seats one every "
               "1.6 s (ZCR_GetOutOrder). Armed vehicles keep their driver and gunner aboard."),
-    "fix": ("1700,1000;4;board;apc -zcrSafeBoardDeg 10",
-            "Moss Hill hillside (17-24 deg - where the climb into a LAV-25 crashes the dedicated server every time): four "
-            "LAV-25s, US squads, with the crash fix on (-zcrSafeBoardDeg 10) - a soldier who has walked up to a tilted vehicle "
-            "goes straight into his seat, and out the same way. Here the game window hosts the test (it never crashed "
-            "there); this is to see how the fix looks."),
+    "fix": ("1000,2780;2;board;apc;3;25 -zcrSafeBoardDeg 8 -zcrGetOutOrder",
+            "The crash fix as it looks in a match: two LAV-25s on the open airport apron, a US squad starting 25 m from each. "
+            "The soldiers walk up and, about 6 m from the vehicle, go straight into their seats instead of the climbing "
+            "animation (the climb into a LAV-25 crashes the dedicated server - on a slope almost every time, on level ground "
+            "sometimes). Getting out stays the normal animation (the back seats one by one, -zcrGetOutOrder). The first try "
+            "on the hillside had the camera inside a tree."),
 }
 
 
