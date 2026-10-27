@@ -88,8 +88,16 @@ def read_log(profile: Path) -> str:
 
 
 def game_seconds(profile: Path) -> int:
-    """The commander's clock (t= of its latest log line), in game seconds; -1 if none yet."""
-    found = re.findall(r"\[ZCR\]\[[A-Z_]+\][^\n]*? t=(\d+)", read_log(profile)[-200000:])
+    """The commander's clock (t= of its latest log line), in game seconds; -1 if none yet. Reads only the log's tail
+    (a 40-minute match writes 30 MB)."""
+    log_file = reforger.console_log(profile)
+    if not log_file:
+        return -1
+    with open(log_file, "rb") as f:
+        f.seek(0, 2)
+        f.seek(max(0, f.tell() - 200000))
+        tail = f.read().decode("utf-8", errors="replace")
+    found = re.findall(r"\[ZCR\]\[[A-Z_]+\][^\n]*? t=(\d+)", tail)
     return int(found[-1]) if found else -1
 
 
@@ -336,7 +344,11 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         rec_start = int(time.strftime("%H")) * 3600 + int(time.strftime("%M")) * 60 + int(time.strftime("%S"))
         log(f"recording {mkv.name}")
         t0 = time.time()
-        while time.time() - t0 < minutes * 60 / (speed if solo else 1):
+        # The match ends on the game's clock, not the wall clock: when the frame rate falls the game can't keep 3x
+        # (27 Oct w1: 13.4 min on the clock at 3x reached 33 of 40 game minutes). At most twice the nominal time.
+        nominal = minutes * 60 / (speed if solo else 1)
+        clog, pos, game_s = None, 0, -1
+        while time.time() - t0 < nominal * 2:
             time.sleep(10)
             if server.poll() is not None:
                 meta["ended"] = f"server exited ({server.returncode})"
@@ -348,10 +360,23 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
             if dialogs:
                 meta["ended"] = f"crash or error dialog: {dialogs[0][1]} '{dialogs[0][2]}'"
                 break
-            if "event: disconnected" in read_log(cprof):
+            # Only what the game wrote since the last look (a 40-minute match writes 30 MB).
+            clog = clog or reforger.console_log(cprof)
+            new = ""
+            if clog:
+                with open(clog, "rb") as f:
+                    f.seek(max(0, pos - 100))
+                    data = f.read()
+                new = data.decode("utf-8", errors="replace")
+                pos = max(0, pos - 100) + len(data)
+            if "event: disconnected" in new:
                 meta["ended"] = "the game was disconnected"
                 break
-        meta["minutes"] = round((time.time() - t0) / 60 * (speed if solo else 1), 1)
+            found = re.findall(r"\[ZCR\]\[[A-Z_]+\][^\n]*? t=(\d+)", new) if solo else []
+            game_s = int(found[-1]) if found else (game_s if solo else game_seconds(sprof))
+            if game_s >= minutes * 60 or (game_s < 0 and time.time() - t0 >= nominal):
+                break
+        meta["minutes"] = round(game_s / 60, 1) if game_s >= 0 else round((time.time() - t0) / 60 * (speed if solo else 1), 1)
     finally:
         if ff:
             ffmpeg_stop(ff)
