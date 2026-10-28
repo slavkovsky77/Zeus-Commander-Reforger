@@ -183,7 +183,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
     # Failed rides: orders AI Conflict re-issued because a ride didn't work out (any of the attacker's teams).
     out["ride_fails"] = sum(1 for l in lines if ("ORDER_ASSIGNED" in l or "TARGET_REASSIGNED" in l) and f"faction={attacker} " in l
                             and re.search(r"reason=(" + "|".join(RIDE_FAIL) + r") ", l))
-    cap = [l for l in lines if "[ZCR][CAPTURE]" in l and obj_name and f"base={obj_name} " in l and f"to={attacker}" in l]
+    cap = [l for l in lines if "[ZCR][CAPTURE]" in l and obj_name and f"base={obj_name} " in l and re.search(r"to=" + attacker + r"(\s|$)", l)]
     out["captured"] = int(bool(cap))
     m = re.search(r" t=(\d+)", cap[0]) if cap else None
     out["capture_s"] = int(m.group(1)) if m else -1
