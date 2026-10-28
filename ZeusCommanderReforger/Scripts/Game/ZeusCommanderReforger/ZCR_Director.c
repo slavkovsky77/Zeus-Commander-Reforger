@@ -944,6 +944,11 @@ class ZCR_Director
 			}
 			float width = Math.Min(2200, Math.Max(800, Math.Max(hi[0] - lo[0], hi[2] - lo[2]) + 500));
 			target = (lo + hi) * 0.5;
+			// The one-point sub-lab: the zone is the point - halfway between the armies was an empty base (Martin,
+			// 29 Oct: "why is that point there lol").
+			SCR_CampaignMilitaryBaseComponent point = ZCR_OnePoint.Base();
+			if (point)
+				target = point.GetOwner().GetOrigin();
 			back = width * 0.5;
 			height = width * 0.55;
 			label = string.Format("HOT ZONE %1 - %2", Near(target), Score());

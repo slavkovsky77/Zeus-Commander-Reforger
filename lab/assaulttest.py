@@ -33,20 +33,21 @@ SCENARIOS = {
     "ussr": "USSR",   # the Soviets attack (28 Oct: nobody reached Military Training Area in two 5-minute assaults)
     "us": "US",       # the US attacks
     "point": "BOTH",  # one neutral point (Signal Hill), both sides go for it; nothing else on any list (-zcrOnePoint)
-    "city": "BOTH",   # one town, Beauregard (29 Oct, Martin: "the case where they fight over one city ... beauregard maybe")
+    "city": "BOTH",   # one base, Farm (29 Oct, Martin: "make it in a way there can be fight somewhere, so maybe farm")
 }
 
-# The one-point scenarios' point: Signal Hill 1628 m from one HQ, 1688 m from the other; Beauregard 2180 m from the
-# north-western (harbour) HQ and 2576 m from the southern one - a long march for both, so the storm rides in.
-# (Arleville was 1351 / 2242 m and only linked to two bases - tried once, 29 Oct 00:37.)
-POINTS = {"point": "Signal_Hill", "city": "Beauregard"}
+# The one-point scenarios' point: Signal Hill 1628 m from one HQ, 1688 m from the other; Farm 1115 m from the
+# north-western (harbour) HQ and 2090 m from the southern one - the harbour side holds it first, the other storms it.
+# Both sides may attack the point whatever their radio network reaches (fork 1a910e8, ZCR_OnePoint). Tried once each
+# on 29 Oct: Arleville (every base dealt, out of one side's radio reach) and Beauregard (every base left neutral).
+POINTS = {"point": "Signal_Hill", "city": "Farm"}
 POINT = POINTS["point"]
 
 SCENARIO_WORDS = {
     "ussr": "The Soviets attack the US base nearest their HQ with everything from the first minute; the US holds it",
     "us": "The US attacks the Soviet base nearest its HQ with everything from the first minute; the Soviets hold it",
     "point": "One neutral point in the middle (Signal Hill, 1.6-1.7 km from both HQs) and the two main bases - both sides go for the point with everything; no other base is on any list",
-    "city": "One town, Beauregard (2.18 km from the harbour HQ, 2.58 km from the southern one), and the two main bases - every other base neutral and empty; both sides storm the town",
+    "city": "One base, Farm (1.1 km from the harbour HQ, 2.1 km from the southern one) - the other bases dealt to the sides but off every list; both sides storm Farm",
 }
 
 
