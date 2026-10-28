@@ -294,7 +294,9 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
     # multiplier works only there).
     # The speed is set by the game itself from script (-zcrSpeed: the Diag Menu's engine values) - no
     # key presses any more (they fought Martin's typing and twice crashed the game, 19 Oct).
-    if solo and speed > 1:
+    # 1x too: the game keeps the Diag Menu's multiplier between runs, so a '1x' match after a 3x one ran at 2.4x and
+    # its 40 game minutes were up in 16 (28 Oct, Martin watching).
+    if solo:
         extra = (extra + f" -zcrSpeed {speed:g}").strip()
     server, sprof = start(opts(map_name, False, us, ussr, label, solo=solo, extra=extra), "solo" if solo else "server")
     client = ff = None
