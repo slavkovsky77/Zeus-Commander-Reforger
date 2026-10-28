@@ -149,6 +149,8 @@ class ZCR_Setup
 			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
 			if (!base || base.IsHQ() || !base.GetFaction() || base.GetFaction().GetFactionKey() != "FIA")
 				continue;
+			if (ZCR_OnePoint.Is(base))
+				continue;   // -zcrOnePoint: the point stays neutral
 			vector at = base.GetOwner().GetOrigin();
 			float l = vector.DistanceXZ(at, homeUS) - vector.DistanceXZ(at, homeUSSR);
 			int i;

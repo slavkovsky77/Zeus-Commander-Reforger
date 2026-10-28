@@ -262,6 +262,14 @@ PROVIDERS["assault"] = _assault    # the assault sub-lab (lab/assault.py, lab/as
 PROVIDERS["hold"] = _hold
 
 
+def _point(cfg: dict):
+    import assault
+    return assault.Point(cfg)
+
+
+PROVIDERS["point"] = _point    # the one-point sub-lab (both sides)
+
+
 def make(cfg: dict):
     return PROVIDERS[cfg.get("provider", "doctrine")](cfg)
 

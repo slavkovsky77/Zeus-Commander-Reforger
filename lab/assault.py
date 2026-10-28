@@ -73,3 +73,33 @@ class Assault(_Fixed):
 class Hold(_Fixed):
     name = "hold"
     attacking = False
+
+
+class Point:
+    """The one-point sub-lab's general (28 Oct evening, Martin: "only main base and one point they will fight for ... just
+    one point!"), both sides: the one neutral base at the start (-zcrOnePoint keeps it FIA's, empty) is the main effort -
+    storm it, the drones on it, two defender teams along; every other base not ours avoided; once ours, hold it. The intent
+    words are the assault test's, so lab/assaulttest.py's summary finds the point the same way."""
+    name = "point"
+
+    def __init__(self, cfg: dict | None = None):
+        self.picked = {}
+
+    def decide(self, report: dict, doctrine_text: str = "") -> tuple:
+        me = report.get("faction")
+        bases = report.get("bases", [])
+        by_id = {b["id"]: b for b in bases}
+        key = f"{report.get('match')}:{me}"
+        if key not in self.picked:
+            p = next((b for b in bases if not b.get("hq") and b.get("owner") not in ("US", "USSR")), None)
+            if p is None:
+                hq = next((b["id"] for b in bases if b.get("hq") and b.get("owner") == me), None)
+                return {"intent": "Point test: no neutral point found - hold", "main_effort": hq, "supporting": [], "hold": [],
+                        "avoid": [], "concentration": "normal"}, ""
+            self.picked[key] = p["id"]
+        target = by_id.get(self.picked[key], {"id": self.picked[key], "name": "?"})
+        mine = target.get("owner") == me
+        others = [b["id"] for b in bases if b["id"] != target["id"] and b.get("owner") != me]
+        return {"intent": f"Assault test: everything at {target.get('name')} (base {target['id']})", "main_effort": target["id"],
+                "supporting": [], "hold": [target["id"]] if mine else [], "avoid": others, "concentration": "heavy", "commit": 2,
+                "storm": None if mine else target["id"], "drones": [] if mine else [target["id"]]}, ""

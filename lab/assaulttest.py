@@ -32,11 +32,15 @@ SCENARIOS = {
     # nearest the attacker's HQ (on 28 Oct: Military Training Area when the USSR attacks, Farm when the US does).
     "ussr": "USSR",   # the Soviets attack (28 Oct: nobody reached Military Training Area in two 5-minute assaults)
     "us": "US",       # the US attacks
+    "point": "BOTH",  # one neutral point (Signal Hill), both sides go for it; nothing else on any list (-zcrOnePoint)
 }
+
+POINT = "Signal_Hill"   # the one-point scenario's point: 1628 m from the Soviet HQ, 1688 m from the US one
 
 SCENARIO_WORDS = {
     "ussr": "The Soviets attack the US base nearest their HQ with everything from the first minute; the US holds it",
     "us": "The US attacks the Soviet base nearest its HQ with everything from the first minute; the Soviets hold it",
+    "point": "One neutral point in the middle (Signal Hill, 1.6-1.7 km from both HQs) and the two main bases - both sides go for the point with everything; no other base is on any list",
 }
 
 
@@ -62,10 +66,13 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
     us, ussr = ("assault", "hold") if attacker == "US" else ("hold", "assault")
+    if attacker == "BOTH":
+        us = ussr = "point"
+        extra += f" -zcrOnePoint {POINT}"
     sys.path.insert(0, str(ROOT / "lab"))
     import bridges
     import sublab
-    bridges.ensure(("assault", "hold"))
+    bridges.ensure(("point",) if attacker == "BOTH" else ("assault", "hold"))
     title = sublab.title("assault", scenario, variant)
     label = f"assault-{scenario}-{variant}-p{port}" if not watch else f"assaulttest-{scenario}-{variant}-watch"   # lab/watch_test.py finds the game by it
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
@@ -85,9 +92,24 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     return summarize(runs[-1], scenario, variant)
 
 
-def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | None = None) -> dict:
-    """objective: (base id, name) for a run without the assault generals (e.g. a watched match, to compare)."""
-    attacker = SCENARIOS[scenario]
+def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | None = None, attacker: str = "") -> dict:
+    """objective: (base id, name) for a run without the assault generals (e.g. a watched match, to compare). The point
+    scenario: both sides' numbers (us_..., ussr_...), who took the point and when."""
+    attacker = attacker or SCENARIOS[scenario]
+    if attacker == "BOTH":
+        out = {"scenario": scenario, "variant": variant, "run": run_dir.name, "run_path": str(run_dir)}
+        sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
+        out["objective"] = sides["USSR"].get("objective", "?")
+        for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
+                  "captured", "capture_s"):
+            for s in ("US", "USSR"):
+                out[f"{s.lower()}_{k}"] = sides[s].get(k)
+        out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
+        out["ride_fails"] = (sides["US"].get("ride_fails") or 0) + (sides["USSR"].get("ride_fails") or 0)
+        out["us_lost"], out["ussr_lost"] = sides["USSR"].get("def_lost"), sides["USSR"].get("att_lost")
+        for k in ("minutes", "script_errors", "crashed"):
+            out[k] = sides["USSR"].get(k)
+        return out
     defender = "US" if attacker == "USSR" else "USSR"
     out = {"scenario": scenario, "variant": variant, "run": run_dir.name, "run_path": str(run_dir)}
     log = next(iter(sorted(run_dir.glob("logs/*/console.log"))), None)

@@ -9,6 +9,7 @@ modded class AICF_AdaptiveCommanderPolicy
 		super.BuildCandidates(slot, now, candidates);
 		if (!m_Faction || !candidates)
 			return;
+		ZCR_OnePoint.Filter(m_Faction, candidates);   // -zcrOnePoint: the point and the own main base only
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_Faction.GetFactionKey());
 		if (!plan || plan.IsEmpty())
 			return;
@@ -52,10 +53,12 @@ modded class AICF_AdaptiveCommanderPolicy
 		int main = plan.GetMainEffort();
 		if (main < 0)
 			return;
+		// The main effort taken: the attack teams hold it (28 Oct: with the objective captured the plan had nothing more, and
+		// every attack team was sent home to guard the main base - its riders drove back 1.5 km).
 		bool reachable;
 		foreach (AICF_AdaptiveCandidate c : candidates)
 		{
-			if (c && c.m_iNodeId == main && c.m_bAvailable && c.m_bAttack)
+			if (c && c.m_iNodeId == main && c.m_bAvailable)
 				reachable = true;
 		}
 		if (!reachable)

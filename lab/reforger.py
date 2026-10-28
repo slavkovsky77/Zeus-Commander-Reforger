@@ -48,7 +48,7 @@ ARMOUR_ADDONS = "5E389BB9F58B79A6,629B2BA37EFFD577,63120AE07E6C0966,5E524E4FEECC
 ARMOUR_DIR = str(config.path("paths.armour_dir")) if config.get("paths.armour_dir") else ""   # the Workshop mods folder
 # The strategist bridges (lab/bridge.py), shared by every match on this PC.
 BRIDGES = {"llm": 8765, "doctrine": 8766, "phased": 8767, "llm-phased": 8768, "modern": 8769, "flip": 8770,
-           "assault": 8771, "hold": 8772}
+           "assault": 8771, "hold": 8772, "point": 8773}
 MAPS = {
     # map: (AI Conflict project, extra addon ids, scenario, mission header)
     "arland": ("AIConflictArland", "", "{BC2437E4861B4FD2}Missions/AICF_Conflict_Arland.conf", "Missions/AICF_Conflict_Arland.conf"),
