@@ -60,6 +60,8 @@ VARIANTS = {
                  "12 teams of 4 a side instead of 20 of 2 (the same ~48 soldiers, half the vehicles), binds"),
     "squads12-seat": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort").replace(" -aicfNoHiddenSeat", ""),
                       "12 teams of 4, binds, and AI Conflict seats a passenger whose get-in never starts (its fallback, off since 22 Oct)"),
+    "squads12-foot": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfInfantryRideMeters 100000",
+                      "12 teams of 4, binds, no rides: every team walks (the reference for what the rides are worth)"),
     "stage50": (BASE + " -zcrBindMainEffort -aicfVehicleSpawnStagingRadiusMeters 50",
                 "binds, and a team counts as at its vehicle spot within 50 m, not 25 (spots at the harbour's waterline)"),
 }
@@ -106,7 +108,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         out = {"scenario": scenario, "variant": variant, "run": run_dir.name, "run_path": str(run_dir)}
         sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
         out["objective"] = sides["USSR"].get("objective", "?")
-        for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
+        for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "at_obj_12", "at_obj_15", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
                   "captured", "capture_s"):
             for s in ("US", "USSR"):
                 out[f"{s.lower()}_{k}"] = sides[s].get(k)
@@ -171,7 +173,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         attack = sum(men for role, men, _, _ in rounds[t] if role == "ATTACK")
         return near, attack
 
-    for mnt in (3, 5, 8):
+    for mnt in (3, 5, 8, 12, 15):
         near, attack = at(mnt)
         out[f"at_obj_{mnt}"] = near
         out[f"at_obj_{mnt}_pct"] = round(100 * near / attack) if attack else 0
