@@ -788,8 +788,12 @@ class ZCR_Armour
 		// Bought at the side's base nearest its front, 400 m+ short of it, when it has the supplies (keeping
 		// FORWARD_RESERVE) and a road spot; else at the HQ (keeping RESERVE). From the HQ the armour drove
 		// 1-1.5 km to its front and FPV drones took its crews on the way (watched match 05:38).
+		// The one-point sub-lab (-zcrOnePoint): from the HQ, like everything else there - the other bases are dealt to the
+		// sides only for their vehicles and supplies (28 Oct: US armour from Arleville, 400 m from Signal Hill).
 		vector pose[4];
-		SCR_CampaignMilitaryBaseComponent from = Forward(unit.m_sSide, hq, front, costs[pick]);
+		SCR_CampaignMilitaryBaseComponent from;
+		if (ZCR_OnePoint.Name().IsEmpty())
+			from = Forward(unit.m_sSide, hq, front, costs[pick]);
 		if (!from || !FindSpot(from.GetOwner().GetOrigin(), front, pose))
 		{
 			from = hq;

@@ -64,6 +64,8 @@ VARIANTS = {
                       "12 teams of 4, binds, no rides: every team walks (the reference for what the rides are worth)"),
     "stage50": (BASE + " -zcrBindMainEffort -aicfVehicleSpawnStagingRadiusMeters 50",
                 "binds, and a team counts as at its vehicle spot within 50 m, not 25 (spots at the harbour's waterline)"),
+    "squads12-queue": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 2").replace(" -aicfNoHiddenSeat", ""),
+                       "12 teams of 4, binds, seat fallback on, and at most 2 rides leaving a base at a time - the next team walks"),
 }
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
