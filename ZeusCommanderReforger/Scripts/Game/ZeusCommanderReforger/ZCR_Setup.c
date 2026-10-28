@@ -211,3 +211,15 @@ modded class SCR_AmbientPatrolSpawnPointComponent
 		super.SpawnPatrol();
 	}
 }
+
+// -zcrNoFIA: the bases are dealt before AI Conflict's first orders. At the commander's first tick (15 s) every
+// attack team had already been sent at 9 s to a base still FIA's and asked for a ride there (28 Oct, the assault
+// test: 12 of 12 Soviet teams to Moss Hill, re-sent to Signal Hill at 15 s, rides cancelled or timed out).
+modded class AICF_MatchController
+{
+	override protected bool SpawnInitialRoster(AICF_FactionState factionState, SCR_CampaignFaction faction)
+	{
+		ZCR_Setup.NoFIA();
+		return super.SpawnInitialRoster(factionState, faction);
+	}
+}
