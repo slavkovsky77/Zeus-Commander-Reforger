@@ -17,6 +17,7 @@ import argparse
 import ctypes
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -440,6 +441,13 @@ def main() -> int:
                     log(f"speed now {a.speed:g}x")
             except ValueError:
                 pass
+        # Room for the match (28 Oct 01:20: D: filled up in the night - the recording's conversion failed, the next
+        # match's log lost its ready line and the loop waited 10 minutes on it): a 40-minute match takes ~0.7 GB
+        # recorded and ~0.1 GB of logs; with under 3 GB free the loop stops rather than lose matches.
+        free_gb = shutil.disk_usage(VIDEOS).free / 1e9
+        if free_gb < 3:
+            log(f"only {free_gb:.1f} GB free on the recordings' drive - stopping (free some space, then restart)")
+            return 1
         # Server settings for the next match (e.g. -zcrNoFIA): .runtime/watch_extra.txt.
         extra_file = ROOT / ".runtime" / "watch_extra.txt"
         extra = extra_file.read_text(encoding="utf-8").strip() if extra_file.exists() else ""
