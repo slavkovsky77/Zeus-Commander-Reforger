@@ -340,7 +340,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <div class="card">
       <div class="map-controls">
         <label for="map-name">Map <select id="map-name"><option value="arland">Arland</option><option value="everon">Everon</option></select></label>
-        <label for="map-since">Period <select id="map-since"><option value="24">last 24 hours</option><option value="72">last 3 days</option><option value="0">all since 20 Oct</option></select></label>
+        <label for="map-since">Period <select id="map-since"><option value="current">this match only</option><option value="24">last 24 hours</option><option value="72">last 3 days</option><option value="0">all since 20 Oct</option></select></label>
         <label for="map-kinds">Runs from <select id="map-kinds"><option value="match">matches</option><option value="test">tests</option><option value="both">matches and tests</option><option value="all">everything (also probes)</option></select></label>
         <label for="map-style">Tiles <select id="map-style"><option value="topo">Topo</option><option value="satellite">Satellite</option><option value="drawn">Drawn</option></select></label>
         <label for="map-l-bases"><input type="checkbox" id="map-l-bases" checked> Bases</label>
@@ -430,6 +430,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
+      // "This match only": its stuck places, depots and buildings grow during the match - reread every 30 s.
+      setInterval(() => { if (tab === "map" && !document.hidden && $("map-since").value === "current") this.layers(); }, 30000);
       for (const k of ["bases", "spots", "built", "buildings", "traps", "routes"]) $("map-l-" + k).addEventListener("change", () => this.toggle());
       await this.load();
     },
@@ -682,7 +684,11 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const top = d.traps.slice(0, 3).map(t => `${t.x}, ${t.z} (${t.count})`).join("; ");
       const span = { 24: "in the last 24 hours", 72: "in the last 3 days", 0: "since 20 Oct" }[$("map-since").value] || "";
       const from = { match: "matches", test: "tests", both: "matches and tests", all: "runs of any kind" }[$("map-kinds").value] || "runs";
-      $("map-sum").textContent = `${d.runs} ${from} on this map ${span}: ${d.bases.length} bases, ${d.depot_spots.length} depot spots tested, ${d.depots_built.length} places where depots were built, ${d.traps.length} places where vehicles got stuck` + (top ? ` - most often ${top}.` : ".");
+      const cur = d.current;
+      const head = $("map-since").value !== "current" ? `${d.runs} ${from} on this map ${span}`
+        : cur ? `This match only (${cur.run}${cur.live ? ", being played now" : " - the latest; none is being played on this map"})`
+        : "No match on this map yet";
+      $("map-sum").textContent = `${head}: ${d.bases.length} bases, ${d.depot_spots.length} depot spots tested, ${d.depots_built.length} places where depots were built, ${d.traps.length} places where vehicles got stuck` + (top ? ` - most often ${top}.` : ".");
     },
   };
 

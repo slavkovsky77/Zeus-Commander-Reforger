@@ -57,21 +57,22 @@ class MapLayers:
     lock = threading.Lock()
 
     @classmethod
-    def get(cls, name: str, since_h: float = 0, kinds: str = "match") -> dict:
-        key = f"{name}:{since_h:g}:{kinds}"
+    def get(cls, name: str, since_h: float = 0, kinds: str = "match", current: bool = False) -> dict:
+        key = f"{name}:{'current' if current else f'{since_h:g}'}:{kinds}"
         with cls.lock:
             d = cls.data.get(key)
-            stale = not d or time.time() - d.get("_at", 0) > 300
+            # The match being played changes by the minute: its layers are rebuilt after 30 s, the longer periods after 5 min.
+            stale = not d or time.time() - d.get("_at", 0) > (30 if current else 300)
             if stale and key not in cls.building:
                 cls.building.add(key)
-                threading.Thread(target=cls.build, args=(name, since_h, key, kinds), daemon=True).start()
+                threading.Thread(target=cls.build, args=(name, since_h, key, kinds, current), daemon=True).start()
         return d or {"map": name, "building": True}
 
     @classmethod
-    def build(cls, name: str, since_h: float = 0, key: str = "", kinds: str = "match"):
-        key = key or f"{name}:{since_h:g}:{kinds}"
+    def build(cls, name: str, since_h: float = 0, key: str = "", kinds: str = "match", current: bool = False):
+        key = key or f"{name}:{'current' if current else f'{since_h:g}'}:{kinds}"
         try:
-            d = maplayers.layers(name, since_h, kinds)
+            d = maplayers.layers(name, since_h, kinds, current)
             d["_at"] = time.time()
             with cls.lock:
                 cls.data[key] = d
@@ -452,12 +453,13 @@ class Handler(BaseHTTPRequestHandler):
                 name = q.get("map", "arland")
                 if name not in ("arland", "everon"):
                     return self.json({"error": "unknown map"}, 404)
+                current = q.get("since") == "current"
                 try:
-                    since_h = float(q.get("since", "24"))
+                    since_h = 0 if current else float(q.get("since", "24"))
                 except ValueError:
                     since_h = 24
                 kinds = q.get("kinds", "match")
-                return self.json(MapLayers.get(name, since_h, kinds))
+                return self.json(MapLayers.get(name, since_h, kinds, current))
             if path == "/api/map/live":
                 q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
                 return self.json(maplayers.live(q.get("map", "arland")))

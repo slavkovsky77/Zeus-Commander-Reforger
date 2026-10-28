@@ -121,16 +121,49 @@ def run_time(run: Path) -> float:
     return time.mktime(time.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")) if m else 0
 
 
-def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
+def allowed_kinds(kinds: str) -> tuple:
+    return {"match": ("match",), "test": ("test",), "both": ("match", "test")}.get(kinds, ("match", "test", "other"))
+
+
+def current_run(map_slug: str, kinds: str = "match"):
+    """The run being played on this map now (its log written in the last 90 s), else the newest one of these kinds
+    (28 Oct, Martin: "the map should also have an option to watch the current match only")."""
+    allowed = allowed_kinds(kinds)
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and kind(r) in allowed), key=run_time, reverse=True)[:40]
+    newest = None
+    for run in runs:
+        logs = sorted(run.glob("logs/*/console.log"))
+        if not logs:
+            continue
+        if not _live_world.get(run.name):
+            with open(logs[-1], "rb") as f:
+                w = WORLD.search(f.read(2_000_000))
+            if w:
+                _live_world[run.name] = slug(w.group(1).decode())
+        if _live_world.get(run.name) != map_slug:
+            continue
+        if time.time() - logs[-1].stat().st_mtime < 90:
+            return run, True
+        newest = newest or run
+    return newest, False
+
+
+def layers(map_slug: str, since_h: float = 0, kinds: str = "match", current: bool = False) -> dict:
     """since_h: only runs started in the last since_h hours (0: every run since FROM_DAY) - 25 Oct, Martin: "let's reset
     the runs to today only"; kinds: "match" (watched and headless matches), "test" (sub-lab drive tests), "all" (also
-    probes and the other sub-labs) - "since the 20th there were a lot of blind tests"."""
-    allowed = {"match": ("match",), "test": ("test",), "both": ("match", "test")}.get(kinds, ("match", "test", "other"))
+    probes and the other sub-labs) - "since the 20th there were a lot of blind tests"; current: only the match being
+    played now (or the latest one), see current_run."""
+    allowed = allowed_kinds(kinds)
     started = time.time()
     floor = time.mktime(time.strptime(FROM_DAY, "%Y%m%d"))
     if since_h:
         floor = max(floor, time.time() - since_h * 3600)
-    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and run_time(r) >= floor), key=run_time)
+    live_now = False
+    if current:
+        run, live_now = current_run(map_slug, kinds)
+        runs = [run] if run else []
+    else:
+        runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and run_time(r) >= floor), key=run_time)
     bases, spots, built, traps, buildings = [], {}, [], [], []
     scanned = 0
     for run in runs:
@@ -211,7 +244,8 @@ def layers(map_slug: str, since_h: float = 0, kinds: str = "match") -> dict:
                                    "stuck_places": len(r["stuck_places"])})
         except (OSError, ValueError):
             pass
-    return {"map": map_slug, "runs": scanned, "since_h": since_h, "kinds": kinds, "bases": out_bases,
+    return {"map": map_slug, "runs": scanned, "since_h": since_h, "kinds": kinds,
+            "current": {"run": runs[0].name, "live": live_now} if current and runs else None, "bases": out_bases,
             "depot_spots": [{k: v for k, v in s.items() if k != "runs"} | {"runs": len(s["runs"])} for s in spots.values()],
             "depots_built": out_built, "buildings": out_buildings, "traps": out_traps, "routes": routes, "built_s": round(time.time() - started, 1),
             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
