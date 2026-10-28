@@ -91,7 +91,9 @@ class Point:
         by_id = {b["id"]: b for b in bases}
         key = f"{report.get('match')}:{me}"
         if key not in self.picked:
-            p = next((b for b in bases if not b.get("hq") and b.get("owner") not in ("US", "USSR")), None)
+            # The point ZCR names (every other base is neutral too since 29 Oct), else the one neutral base.
+            p = next((b for b in bases if report.get("one_point") and b.get("name") == report["one_point"]), None) or \
+                next((b for b in bases if not b.get("hq") and b.get("owner") not in ("US", "USSR")), None)
             if p is None:
                 hq = next((b["id"] for b in bases if b.get("hq") and b.get("owner") == me), None)
                 return {"intent": "Point test: no neutral point found - hold", "main_effort": hq, "supporting": [], "hold": [],

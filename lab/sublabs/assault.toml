@@ -23,7 +23,7 @@ candidate_words = "4-man teams that go only for the main effort"
 ussr = "Soviets attack"
 us = "US attack"
 point = "One point - Signal Hill"
-city = "One town - Arleville"
+city = "One town - Beauregard"
 
 [scenario_words]
 ussr = "A full Arland match: the Soviets attack the US base nearest their HQ with everything from the first minute (on 28 Oct Military Training Area, where nobody arrived), the US holds it"

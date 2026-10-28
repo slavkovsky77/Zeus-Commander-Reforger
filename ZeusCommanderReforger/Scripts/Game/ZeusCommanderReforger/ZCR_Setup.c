@@ -149,8 +149,10 @@ class ZCR_Setup
 			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
 			if (!base || base.IsHQ() || !base.GetFaction() || base.GetFaction().GetFactionKey() != "FIA")
 				continue;
-			if (ZCR_OnePoint.Is(base))
-				continue;   // -zcrOnePoint: the point stays neutral
+			// -zcrOnePoint: the point and every other base stay neutral and empty - only the two HQs and the point are in
+			// play (29 Oct, Martin, watching the town test with every base dealt: "its full map").
+			if (!ZCR_OnePoint.Name().IsEmpty())
+				continue;
 			vector at = base.GetOwner().GetOrigin();
 			float l = vector.DistanceXZ(at, homeUS) - vector.DistanceXZ(at, homeUSSR);
 			int i;
@@ -159,7 +161,7 @@ class ZCR_Setup
 			lean.InsertAt(l, i);
 			fia.InsertAt(base, i);
 		}
-		if (fia.IsEmpty())
+		if (fia.IsEmpty() && ZCR_OnePoint.Name().IsEmpty())
 			return;
 		s_bDone = true;
 		int half = (fia.Count() + 1) / 2;

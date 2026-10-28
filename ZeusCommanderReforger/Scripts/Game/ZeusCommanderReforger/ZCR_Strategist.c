@@ -268,6 +268,9 @@ class ZCR_Strategist
 		// 39 bases the report is longer - it was cut and the bridge couldn't read it (19 Oct 17:13).
 		string head = string.Format("{\"match\":\"%6\",\"faction\":\"%1\",\"t\":%2,\"round\":%3,\"plan_revision\":%4,\"intent\":\"%5\"",
 			m_sFaction, ZCR_LossLog.Seconds(), m_iRound, plan.GetRevision(), Clean(plan.GetIntent()), s_sMatchId);
+		// The one-point sub-lab: which base is the point (every other base is neutral too there).
+		if (!ZCR_OnePoint.Name().IsEmpty())
+			head += ",\"one_point\":\"" + Clean(ZCR_OnePoint.Name()) + "\"";
 		return head + ",\"bases\":[" + bases + "],\"squads\":[" + squads + "]}";
 	}
 
