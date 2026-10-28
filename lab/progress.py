@@ -94,6 +94,7 @@ BUILDS = [
     (46, "modern assault doctrine; the crash bisect", "2026-10-26 02:41", "the modern doctrine: drones first, quick covered dismounts 180-300 m out, storms with drone support; drone sites follow the drone target; crash probes, the crash bisect and the boarding sub-lab"),
     (47, "the crash fix", "2026-10-27 07:48", "a soldier who has walked up to a LAV-25 goes straight into his seat - the engine's climbing animation crashed the server; other vehicles the same when tilted over 8 degrees; battles 0 of 60 crashed with it, 6 of 60 without"),
     (48, "long matches; rounds never fired swept; what the frames go to", "2026-10-27 20:30", "40-game-minute watched matches end on the game clock; rounds the game makes and never fires (1000-1900 a match at the world origin) deleted every 2 s; the census splits vehicles crewed/empty and awake/asleep"),
+    (49, "watched afternoon: pilots at their post, every base to a side, bunkers", "2026-10-28 16:29", "drone pilots fly only from their covered post; every FIA base (the supply depots too) goes to a side at the start; the loop always sets the game speed and the SPEED button counts one tap once; engineers build mostly bunkers and roofed towers; the live line and map show what a team really does and where it really goes"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

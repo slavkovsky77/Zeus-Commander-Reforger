@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "27-28 Oct night, Martin asleep: 40-game-minute watched matches on Arland, the modern doctrine against phased with the sides swapped each match. 26 of 28 ran 30+ game minutes, 23 the full 40. FPS 43 in the first 5 minutes, about 28 by minute 10-15, then about 26 to the end - it settles, it does not keep sliding. 3 early ends (two engine access violations, one freeze), none of them the LAV-25 crash fixed the morning before.",
+    "Running now": "28 Oct afternoon: Martin watched two Arland matches at normal speed and wrote 15 remarks in the lab app. Fixed during the matches: drone pilots froze in the open far from their post; FIA kept the two supply-depot bases; the SPEED button jumped two steps; mostly sandbags were built. Found: the Soviet assaults never arrived - of 12 attack teams 2 were really sent to the objective (both stuck leaving the HQ), 3 lone survivors went home, 5 went to other bases.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's call on fewer vehicles a side for frames (vehicles in use grow 6 -> 30 in a match and follow the FPS); more long matches for the doctrine comparison - on Arland the side matters more than modern v phased so far.",
+    "Being built next": "The assault sub-lab (built, waiting for the game to be free): one side attacks one base with everything, the other holds it - soldiers at the objective at minute 3/5/8 with 2/3/4-man teams, the main effort binding the attack teams, on foot. Martin sees it in the game window first; then the full table on four headless servers.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r49", "Drone pilots fly from their post",
+     "Martin: 'this is clearly a bug: drone operator being out in the open'. A pilot put his goggles on and froze wherever he was whenever a drone of his side was up - 36% of 491 flights started over 30 m from his covered post, 7% over 200 m; one sat by the Airport Base runway 1 km from it. Now a flight starts only within 15 m of the post."),
+    ("good", "r49", "Every base to a side; mostly bunkers",
+     "Martin: 'why is FIA owning bases ... make it one side or the other' - the two supply-depot bases are split too now. 'For defense mostly bunkers and covered stuff, not sandbags so much' - 9 matches had built 96 sandbag positions and only 35 bunkers; now of every 8 fortifications 4 are bunkers and 2 roofed towers."),
+    ("bad", "r49", "Assaults that never arrive",
+     "Martin: 'I see just soldiers chilling at bases'. Of 12 Soviet attack teams in the assault on Military Training Area only 2 were really sent there and both stuck leaving the HQ by vehicle; 3 lone survivors (2-man teams) went home, 2 guarded the HQ, 5 went to other bases - AI Conflict's own scoring overrides the main effort. In 40 minutes no Soviet soldier came within 300 m. The assault sub-lab is built to fix it."),
+
     ("good", "r48", "Long matches: 40 game minutes",
      "Martin: 'do a longer match than 25 min so we see what actually happens, let's give it 40m'. The watched loop now ends a match on the game clock (under 3x the wall clock stopped it at 33-35 game minutes). Overnight 26 of 28 matches ran 30+ game minutes, 23 the full 40. FPS: 43 in the first 5 minutes, about 28 by minute 10-15, then about 26 to minute 40. Modern won 10, phased 8, 8 drawn; the USSR won 11, the US 7 - on Arland the side matters more than the doctrine so far."),
     ("good", "r48", "Rounds that were never fired",
@@ -195,6 +202,10 @@ CAMERA = [
 ]
 
 PROBLEMS = [
+    ("bug", "Attack teams don't reach the objective", "The general's main effort is only a score bonus to AI Conflict; teams of 2 turn into lone survivors after one loss and go home; rides out of the HQ fail (boarding deadlines, vehicles stuck). Our live line showed each team's assigned target, not where it really went - fixed in r49."),
+    ("bug", "Drone sites in the open", "The drone truck parks on clear ground by design (it took a runway) and operators walk 500-700 m to launch spots by road."),
+    ("bug", "Armour waits for crew in the open", "A BTR-70 that lost 2 of 3 crew waited 3+ minutes for new crew, unmoving, until a drone hit it."),
+
     ("bug", "Crashes in long matches", "3 early ends in 26 long matches: two engine access violations during the entity update (one kind seen 6 times this week) and one freeze the game's watchdog closed after 300 s. None is the LAV-25 crash, and nothing of ours lines up before them. All 3 came with the US on phased and the USSR on modern (3 of 12 such matches, 0 of 15 the other way round; p 0.08 - to watch).", "review note 422"),
     ("design", "Fewer vehicles for frames?", "Vehicles in use grow 6 -> 30 in a match and the FPS follows (about 26 late). AI Conflict allows 16 a side (-aicfMaxVehiclesPerFaction); 4 a side gave no gain in 12 minutes on 25 Oct, before the war had grown. It changes the game - Martin's call.", "review note 422"),
     ("good", "Crashes: the mods' tanks", "Over 4 days 13-15 crashes in 33-40 game hours with armour, 1 in 51 without; no event of our scripts lines up with them. The stress test (6 armour a side, headless) crashes in 6-8 game minutes with the mods' vehicles; IFVs only and the game's LAV-25 / BTR-70 ran 40 minutes clean; tanks only froze or crashed in 8-10 min with or without our APC typing; the Abrams alone in 5.5. The tanks are off from 21:50 (-zcrArmourTanks).", "review notes 246, 269, 271"),
@@ -215,10 +226,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin's call: fewer vehicles a side for frames, or keep 16.",
-    "More long matches for the doctrine comparison: the side bias on Arland (USSR 11 wins, US 7) is bigger than modern v phased (10 v 8).",
-    "The crashes left in long matches: whether they stay with the USSR on the modern doctrine.",
-    "Martin's review of the boarding videos (one by one in, the crash fix) and whether to turn on the get-out order.",
+    "The assault sub-lab: Martin's look in the game window, then the full table (2 scenarios x 6 variants x 2 runs).",
+    "The best variant into the watched matches, judged by assaults that arrive.",
+    "Drone sites: the truck beside trees or buildings, operators walking through cover; two pilots per site (Martin to choose).",
+    "Armour that loses crew pulls back instead of waiting in the open.",
+    "The model as the general (Martin: 'I will want that LLM general') once the attacks arrive.",
 ]
 
 FACTS = [
@@ -238,6 +250,15 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (49, "watched afternoon: pilots at their post, every base to a side, bunkers", "28 Oct 16:07-17:15",
+     ["Drone pilots start a flight only within 15 m of their covered post (5d856ef).",
+      "-zcrNoFIA splits the supply-depot bases between the sides too; the watch loop always passes the speed, 1x included (7b306c4); the SPEED button's double-tap guard on real time (6ca50d7).",
+      "AI Conflict fork: fortifications 4 bunkers, 2 guard towers, 1 MG nest, 1 sandbag position of every 8.",
+      "[ZCR][LIVE] team lines carry AI Conflict's posture and the current waypoint; [ZCR][EFFORTS] counts lone survivors apart; the Map's live layer: attack arrows, defence rings, the plan in words, 'this match only' (6c34b04, b629166).",
+      "The assault sub-lab (lab/assault.py generals, lab/assaulttest.py, -zcrBindMainEffort), lab/sublab_batch.py; videos capped at the newest 5 (431c5d8)."],
+     "Martin, watching: 'drone operator being out in the open', 'why is FIA owning bases', 'mostly bunkers', 'I see just soldiers chilling at bases', 'Commander Lab could show the main efforts' (review notes 424-438).",
+     "The Soviet assaults never arrived: 2 of 12 attack teams really sent to the objective, 3 lone survivors going home, 5 sent elsewhere - the assault sub-lab measures the fixes."),
+
     (48, "long matches; rounds never fired swept; what the frames go to", "27 Oct 20:13 - 28 Oct 04:10",
      ["Watched loop: a match ends on the game's clock (23000b1); the loop stops before a match when the recordings' drive has under 3 GB free (7c6c40c).",
       "Census: projectiles by kind, place, height and speed; intact vehicles crewed or empty, physics awake or asleep, the empty ones by kind (2b913ed, 672748c, a3e7c8e).",
