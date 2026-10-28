@@ -102,6 +102,42 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     return summarize(runs[-1], scenario, variant)
 
 
+def rides(lines: list, side: str, rounds: dict) -> dict:
+    """AI Conflict's rides for one side, from its trip state changes (29 Oct, note 444): asked (a vehicle spot planned),
+    delivered (the team dismounted), failed (fell back to walking), failed at the HQ (the team's last place within 150 m
+    of where the side's teams stood in the first round), and the most rides boarding or driving at the same moment."""
+    first = rounds[min(rounds)] if rounds else []
+    hq = (sorted(x for _, _, x, _ in first)[len(first) // 2], sorted(z for _, _, _, z in first)[len(first) // 2]) if first else None
+    where = {}      # numeric slot -> [(t, x, z)]
+    for l in lines:
+        if "[ZCR][LIVE]" in l and f"kind=team side={side} " in l:
+            m = re.search(r" t=(\d+) kind=team side=\w+ id=(\d+) .* x=(-?\d+) z=(-?\d+)", l)
+            if m:
+                where.setdefault(int(m.group(2)), []).append((int(m.group(1)), float(m.group(3)), float(m.group(4))))
+    state, out, peak = {}, {"rides_asked": 0, "rides_delivered": 0, "rides_failed": 0, "rides_failed_at_hq": 0}, 0
+    for l in lines:
+        if "[VEHICLE_STATE_CHANGED]" not in l or f"faction={side} " not in l:
+            continue
+        st, pv = re.search(r" state=(\w+)", l), re.search(r"previous_state=(\w+)", l)
+        slot, t = re.search(r"numeric_slot=(\d+)", l), re.search(r"t_ms=(\d+)", l)
+        if not st or not slot or not t:
+            continue
+        st, slot, t = st.group(1), int(slot.group(1)), int(t.group(1)) // 1000
+        if st == "SITE_PLANNED" and pv and pv.group(1) == "WAITING_FOR_SITE":
+            out["rides_asked"] += 1
+        elif st == "DISMOUNT":
+            out["rides_delivered"] += 1
+        elif st == "FALLBACK":
+            out["rides_failed"] += 1
+            seen = [p for p in where.get(slot, []) if p[0] <= t]
+            if hq and seen and math.hypot(seen[-1][1] - hq[0], seen[-1][2] - hq[1]) <= 150:
+                out["rides_failed_at_hq"] += 1
+        state[slot] = st
+        peak = max(peak, sum(1 for v in state.values() if v in ("SPAWN_COMMIT", "BOARDING", "TRANSIT")))
+    out["rides_peak"] = peak
+    return out
+
+
 def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | None = None, attacker: str = "") -> dict:
     """objective: (base id, name) for a run without the assault generals (e.g. a watched match, to compare). The point
     scenario: both sides' numbers (us_..., ussr_...), who took the point and when."""
@@ -111,7 +147,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
         out["objective"] = sides["USSR"].get("objective", "?")
         for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "at_obj_12", "at_obj_15", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
-                  "captured", "capture_s"):
+                  "captured", "capture_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_peak"):
             for s in ("US", "USSR"):
                 out[f"{s.lower()}_{k}"] = sides[s].get(k)
         out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
@@ -195,6 +231,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
     out["captured"] = int(bool(cap))
     m = re.search(r" t=(\d+)", cap[0]) if cap else None
     out["capture_s"] = int(m.group(1)) if m else -1
+    out.update(rides(lines, attacker, rounds))
     losses = {s: sum(1 for l in lines if "[ZCR][LOSS]" in l and f" side={s} " in l and "kind=man" in l) for s in (attacker, defender)}
     out["att_lost"], out["def_lost"] = losses[attacker], losses[defender]
     last_t = max(rounds) if rounds else 0
