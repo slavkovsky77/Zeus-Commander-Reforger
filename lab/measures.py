@@ -212,7 +212,10 @@ def measure(run: Path) -> dict:
     stamp = f"{log.stat().st_size}-{int(log.stat().st_mtime)}-{_CODE_STAMP}" if log else ""
     disk = scorecard.RUNS.parent / "measures" / f"{run.name}.json"
     if log and disk.exists():
-        saved = json.loads(disk.read_text(encoding="utf-8"))
+        try:
+            saved = json.loads(disk.read_text(encoding="utf-8"))
+        except ValueError:  # written empty when the disk was full (28 Oct) - measure it again
+            saved = {}
         if saved.get("_stamp") == stamp:
             _cache[key] = saved["values"]
             return saved["values"]
