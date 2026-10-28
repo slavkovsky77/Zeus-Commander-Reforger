@@ -56,6 +56,8 @@ VARIANTS = {
     "bind": (BASE + " -zcrBindMainEffort", "attack teams go only for the main effort, avoided bases are avoided (-zcrBindMainEffort)"),
     "foot": (BASE + " -aicfInfantryRideMeters 100000", "no rides: every team walks"),
     "team4-bind": (_sized(4) + " -zcrBindMainEffort", "4-man teams that go only for the main effort"),
+    "squads12": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort",
+                 "12 teams of 4 a side instead of 20 of 2 (the same ~48 soldiers, half the vehicles), binds"),
     "stage50": (BASE + " -zcrBindMainEffort -aicfVehicleSpawnStagingRadiusMeters 50",
                 "binds, and a team counts as at its vehicle spot within 50 m, not 25 (spots at the harbour's waterline)"),
 }
