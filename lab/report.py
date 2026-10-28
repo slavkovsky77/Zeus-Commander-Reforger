@@ -37,9 +37,9 @@ def started(run: Path) -> datetime:
     return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
 
 
-# Watched runs: the main battle's matches (w12-...-solo-...) and the sub-lab tests in the window (inftest-...-watch-...,
+# Watched runs: the main battle's matches (w12-...-solo-...) and the sub-lab tests in the window (inftest-...-watch-..., assaulttest-,
 # guntest-, drivetest-; 24 Oct: a good report from a drone storm was filed against the last main battle).
-WATCHED = re.compile(r"^(w\d+-.*-solo|(inftest|guntest|drivetest)-.*-watch)-\d{8}-\d{6}$")
+WATCHED = re.compile(r"^(w\d+-.*-solo|[a-z]+test-.*-watch)-\d{8}-\d{6}$")
 
 
 def watched_at(moment: datetime) -> Path:

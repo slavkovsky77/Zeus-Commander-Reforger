@@ -66,8 +66,8 @@ class ZCR_LiveMap
 					typename.EnumToString(AICF_EGroupRole, slot.GetRole()), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), ride, Math.Round(at[0]),
 					Math.Round(at[2]), to);
 				string tail = string.Format(" posture=%1 wp=%2", posture, wp);
-				string line = head + tail;
-				Print(line, LogLevel.NORMAL);
+				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
+				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}
 		}
 		array<AICF_LogisticsWorker> workers = {};
