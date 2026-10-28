@@ -81,7 +81,7 @@ class ZCR_WatchControls
 	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
 	protected bool m_bAutoOff;
 	protected float m_fClock;
-	protected float m_fLastClick = -10;
+	protected int m_iLastClickMs = -10000;   // real time: the watch clock runs at the game's speed
 	protected bool m_bListening;
 
 	static void Create()
@@ -134,9 +134,13 @@ class ZCR_WatchControls
 
 	static void OnClick()
 	{
-		if (!s_Instance || s_Instance.m_fClock - s_Instance.m_fLastClick < 0.3)
+		// One tap arrives twice (the catcher and the mouse-up listener): the second within 0.5 s of real time is the same
+		// tap. It was 0.3 s on the watch clock, which runs at the game's speed - at 2x the window was 0.15 s (28 Oct:
+		// SPEED went 1x -> 2x -> 3x within 0.32 s, Martin watching).
+		int nowMs = System.GetTickCount();
+		if (!s_Instance || nowMs - s_Instance.m_iLastClickMs < 500)
 			return;
-		s_Instance.m_fLastClick = s_Instance.m_fClock;
+		s_Instance.m_iLastClickMs = nowMs;
 		GetGame().GetCallqueue().CallLater(s_Instance.Resolve, 120, false);
 	}
 
