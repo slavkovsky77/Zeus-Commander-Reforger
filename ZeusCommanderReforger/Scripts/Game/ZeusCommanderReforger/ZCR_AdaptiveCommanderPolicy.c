@@ -25,10 +25,29 @@ modded class AICF_AdaptiveCommanderPolicy
 	// -zcrBindMainEffort (the assault sub-lab, 28 Oct; review note 433): the plan's main effort binds the attack teams. The
 	// bonus alone (+80) lost to AI Conflict's own scores - of 12 Soviet attack teams in an assault on Military Training
 	// Area, 5 were sent to Farm and Signal Hill instead. With the switch, while the main effort is an enemy base an attack
-	// team may go for, every other enemy base is off its list (its own bases stay: a threatened base still calls).
+	// team may go for, every other base is off its list. Its own bases too (the assault test, 28 Oct: the holding US side
+	// raided Military Training Area anyway, and every Soviet attack team left the assault on Signal Hill to guard it, came
+	// back, and left again to retake it) - the DEFEND teams guard. And a base the plan avoids (priority below 0) is off
+	// every team's list while the team has something else to do.
 	protected void Bind(AICF_GroupSlot slot, ZCR_StrategicPlan plan, array<ref AICF_AdaptiveCandidate> candidates)
 	{
-		if (!System.IsCLIParam("zcrBindMainEffort") || !slot || slot.GetRole() != AICF_EGroupRole.ATTACK)
+		if (!System.IsCLIParam("zcrBindMainEffort") || !slot)
+			return;
+		int left;
+		foreach (AICF_AdaptiveCandidate c : candidates)
+		{
+			if (c && c.m_bAvailable && plan.GetPriority(c.m_iNodeId) >= 0)
+				left++;
+		}
+		if (left > 0)
+		{
+			foreach (AICF_AdaptiveCandidate c : candidates)
+			{
+				if (c && c.m_bAttack && plan.GetPriority(c.m_iNodeId) < 0)
+					c.m_bAvailable = false;
+			}
+		}
+		if (slot.GetRole() != AICF_EGroupRole.ATTACK)
 			return;
 		int main = plan.GetMainEffort();
 		if (main < 0)
@@ -43,7 +62,7 @@ modded class AICF_AdaptiveCommanderPolicy
 			return;
 		foreach (AICF_AdaptiveCandidate c : candidates)
 		{
-			if (c && c.m_bAttack && c.m_iNodeId != main)
+			if (c && c.m_iNodeId != main)
 				c.m_bAvailable = false;
 		}
 	}

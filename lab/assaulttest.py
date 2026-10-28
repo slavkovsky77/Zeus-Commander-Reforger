@@ -49,7 +49,7 @@ VARIANTS = {
     "now": (BASE, "as the watched matches: 2-man teams, rides, AI Conflict picks each team's target"),
     "team3": (_sized(3), "teams set out with 3 men (AI Conflict's default), not 2"),
     "team4": (_sized(4), "teams set out with 4 men"),
-    "bind": (BASE + " -zcrBindMainEffort", "attack teams may go only for the main effort (-zcrBindMainEffort)"),
+    "bind": (BASE + " -zcrBindMainEffort", "attack teams go only for the main effort, avoided bases are avoided (-zcrBindMainEffort)"),
     "foot": (BASE + " -aicfInfantryRideMeters 100000", "no rides: every team walks"),
     "team4-bind": (_sized(4) + " -zcrBindMainEffort", "4-man teams that go only for the main effort"),
 }
