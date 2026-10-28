@@ -66,6 +66,7 @@ class ZCR_DroneOperator
 	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
+	static const float FLY_AT_M = 15;       // a flight starts only this near his post (28 Oct: he froze in the open 1 km off it)
 	static const int MAX_FROZEN_S = 360;    // the pilot's AI back on after this long in one flight (120 s: Everon's flights to
 	                                        // targets up to 6.8 km away outlasted it - the pilot still in only 30-35% of flights)
 	static const float RANGE_M = 2500;     // a pilot flies his side's drones within this of him
@@ -639,6 +640,13 @@ class ZCR_DroneOperator
 			}
 			pilots.Set(m.m_sSide, pilots.Get(m.m_sSide) + 1);
 			bool up = Flying(m.m_sSide, c.GetOrigin());
+			// Only at his post (Martin, 28 Oct: "this is clearly a bug: drone operator being out in the open"): a pilot away
+			// from it - walking back after a site move or a fight - froze with his goggles wherever he was whenever a drone of
+			// his side was up (36% of 491 flights started over 30 m off the post, 7% over 200 m; one sat by the Airport Base
+			// runway 1 km from it), and with drones up nearly all the time he never got back. Now he walks on to the post and
+			// flies from there; the launches never waited for him.
+			if (up && !m.m_bFlying && vector.DistanceXZ(c.GetOrigin(), m.m_vPost) > FLY_AT_M)
+				up = false;
 			// A flight longer than MAX_FROZEN_S: his AI back on anyway (a drone that never comes down).
 			if (up && m.m_bFlying && m.m_iFrozenAt > 0 && now - m.m_iFrozenAt > MAX_FROZEN_S)
 			{
