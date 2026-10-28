@@ -41,6 +41,7 @@ class ZCR_Director
 	// The last scan: soldiers of the two main sides.
 	protected ref array<IEntity> m_aMen = {};
 	protected ref array<IEntity> m_aScan = {};
+	protected int m_iScanAt = -1000;
 	// Where each soldier was at the last scan: who is on the move.
 	protected ref map<IEntity, vector> m_mLastPos = new map<IEntity, vector>();
 	protected ref array<IEntity> m_aMoving = {};
@@ -113,7 +114,9 @@ class ZCR_Director
 		return ChimeraCharacter.Cast(entity) != null;
 	}
 
-	protected void Scan()
+	// shot = false: only the soldier list (the panels' counts, every 5 s); who is on the move is judged
+	// between shots, so its 25 m means the same as before.
+	protected void Scan(bool shot = true)
 	{
 		// The soldiers of both AI Conflict armies, squad by squad (a whole-map sphere query
 		// returned nothing).
@@ -137,6 +140,16 @@ class ZCR_Director
 			}
 		}
 		m_aMen.Clear();
+		if (!shot)
+		{
+			foreach (IEntity man : m_aScan)
+			{
+				string manSide = ZCR_LossLog.SideOf(man);
+				if (manSide == "US" || manSide == "USSR")
+					m_aMen.Insert(man);
+			}
+			return;
+		}
 		m_aMoving.Clear();
 		map<IEntity, vector> seen = new map<IEntity, vector>();
 		foreach (IEntity e : m_aScan)
@@ -161,6 +174,13 @@ class ZCR_Director
 			return;
 		int now = ZCR_LossLog.Seconds();
 		WatchCaptures(now);
+		// The soldier list on its own clock: it was refreshed only at a new shot, so with the camera locked
+		// from the first seconds (no one deployed yet) the panels said "0 soldiers" all match (Martin, 28 Oct).
+		if (now - m_iScanAt >= 5)
+		{
+			m_iScanAt = now;
+			Scan(false);
+		}
 		// FPV teams hit 8-20 s after launch - too quick for the shot rhythm: cut to them at once.
 		// (Not while the camera stays on a drone's impact - a new team cut it away at once.)
 		bool onImpact = m_sLastKey == "drone" && m_iDroneGoneAt >= 0 && now - m_iDroneGoneAt < 8;
