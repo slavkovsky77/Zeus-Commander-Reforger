@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "28 Oct afternoon: Martin watched two Arland matches at normal speed and wrote 15 remarks in the lab app. Fixed during the matches: drone pilots froze in the open far from their post; FIA kept the two supply-depot bases; the SPEED button jumped two steps; mostly sandbags were built. Found: the Soviet assaults never arrived - of 12 attack teams 2 were really sent to the objective (both stuck leaving the HQ), 3 lone survivors went home, 5 went to other bases.",
+    "Running now": "28 Oct evening: Martin watched the assault test in the window and stopped it ('they walk around', 'got out of the car and continued by walking', 'returned to main base'). Fixed the same evening in AI Conflict and ZCR: rides that turned back, recruit trips for nothing, the first orders before the bases were dealt, vehicles from bases 1 km away, boarding windows too short at 1x, attack teams leaving the main effort. Then his one-point sub-lab: two HQs and Signal Hill.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "The assault sub-lab (built, waiting for the game to be free): one side attacks one base with everything, the other holds it - soldiers at the objective at minute 3/5/8 with 2/3/4-man teams, the main effort binding the attack teams, on foot. Martin sees it in the game window first; then the full table on four headless servers.",
+    "Being built next": "Martin's decisions from the one-point runs: rides only for long marches (on foot 16 and 24 soldiers reached the point by minute 8, with rides 8 and 4) and 12 teams of 4 instead of 20 of 2; then the transport faults on their own - the harbour HQ's few vehicle pads, rides given up stuck in transit (now logged with a place).",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("bad", "r50", "Rides make the assault later and smaller than walking",
+     "One point (Signal Hill, 1.6 km from both HQs), 12 teams of 4 a side: on foot 16 US and 24 Soviet soldiers were within 300 m by game minute 8 and 27/17 by minute 12, both sides arriving together; with AI Conflict's rides 8/4 and 4/3 by minute 8 - a few vehicles arrive alone, the rest stall at the HQ (few dry pads at the harbour, a passenger whose get-in never starts) or are given up stuck on the way."),
+    ("good", "r50", "Teams no longer come back for nothing",
+     "Martin, watching team A10: 'they are walking 1500 meter', then back to the HQ for a car. Of 12 Soviet attack teams 9 had been pulled back to recruit (the side already at its cap) and 5 turned back for a ride; after the fixes 0 and 0, and every team's first order goes to a real target."),
+    ("good", "r50", "The main effort binds; a taken objective is held",
+     "The holding side raided an avoided base and every attack team flip-flopped between guarding it and the assault (39 target changes); after the capture every attack team went home. With -zcrBindMainEffort the attack teams stay on the main effort and hold it."),
+
     ("good", "r49", "Drone pilots fly from their post",
      "Martin: 'this is clearly a bug: drone operator being out in the open'. A pilot put his goggles on and froze wherever he was whenever a drone of his side was up - 36% of 491 flights started over 30 m from his covered post, 7% over 200 m; one sat by the Airport Base runway 1 km from it. Now a flight starts only within 15 m of the post."),
     ("good", "r49", "Every base to a side; mostly bunkers",
@@ -202,7 +209,10 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("bug", "Attack teams don't reach the objective", "The general's main effort is only a score bonus to AI Conflict; teams of 2 turn into lone survivors after one loss and go home; rides out of the HQ fail (boarding deadlines, vehicles stuck). Our live line showed each team's assigned target, not where it really went - fixed in r49.", "review note 433"),
+    ("bug", "Rides arrive late and in pieces", "The harbour HQ has few dry vehicle pads; a passenger whose get-in never starts strands his team (AI Conflict's seat fallback is off in the matches since 22 Oct); rides given up stuck in transit (2-5 a side in 10 minutes).", "review notes 441, 442"),
+    ("issue", "AI Conflict's own checks", "The original passes 66/66, our fork 51/66 - mostly deliberate changes the checks don't know, plus the supply-truck road routes adding waypoints outside the vehicle handoff (25 Oct).", "review note 442"),
+
+    ("bug", "Attack teams don't reach the objective", "Partly fixed in r50: the main effort binds (-zcrBindMainEffort), no recruit trips or turn-backs. Left: 2-man teams turn into lone survivors after one loss; the rides (above).", "review notes 433, 439"),
     ("bug", "Drone sites in the open", "The drone truck parks on clear ground by design (it took a runway) and operators walk 500-700 m to launch spots by road.", "review notes 434, 436"),
     ("bug", "Armour waits for crew in the open", "A BTR-70 that lost 2 of 3 crew waited 3+ minutes for new crew, unmoving, until a drone hit it.", "review note 435"),
 
@@ -226,11 +236,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "The assault sub-lab: Martin's look in the game window, then the full table (2 scenarios x 6 variants x 2 runs).",
-    "The best variant into the watched matches, judged by assaults that arrive.",
-    "Drone sites: the truck beside trees or buildings, operators walking through cover; two pilots per site (Martin to choose).",
-    "Armour that loses crew pulls back instead of waiting in the open.",
-    "The model as the general (Martin: 'I will want that LLM general') once the attacks arrive.",
+    "Martin's call: rides only for long marches (-aicfInfantryRideMeters 2500) and 12 teams of 4 a side - then a watched one-point match with it.",
+    "The transport faults on their own: the harbour HQ's vehicle pads, rides stuck in transit (now logged with a place), the seat fallback.",
+    "The assault and one-point sub-labs repeated (2 runs a cell) so single-run noise doesn't decide.",
+    "Drone sites: the truck beside cover, operators walking through cover; two pilots per site (Martin to choose).",
+    "The model as the general once the attacks arrive.",
 ]
 
 FACTS = [
@@ -250,6 +260,15 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (50, "rides that don't turn back, the one-point sub-lab", "28 Oct 19:56-22:10",
+     ["The bases dealt before AI Conflict's first orders (ZCR fb35f03).",
+      "AI Conflict fork: no recruit trip when the side is at its cap or an attack team is over 150 m from the barracks; a ride only within 250 m of a base that can give one, the vehicle from within 300 m; boarding windows in game time, 75 s driver, 90 s passengers (8f89871, 6895736, 29462ff).",
+      "-zcrBindMainEffort: attack teams stay on the main effort, avoided bases are off every list, a taken objective is held (402ea6e, 2c382a3).",
+      "The one-point sub-lab: -zcrOnePoint (no FIA garrison, fork be6f991), the 'point' general for both sides, scenario 'point' with per-side numbers; variants squads12, squads12-seat, squads12-foot, stage50.",
+      "Where a ride is given up as stuck is logged (fork d443a48); the live line prints as plain text; reports find sub-lab tests in the window (caedad8)."],
+     "Martin, watching the assault test: 'they are walking 1500 meter the team a10', 'they got into car after 10 minutes', 'then immediately crashed into tree', 'they just walk around', 'returned to main base', 'lets do sublab where there will be only main base and one point', 'there was integration test for that, does that still pass?' (review notes 439-442).",
+     "Teams no longer come back for nothing; on one point at 1.6 km walking beats AI Conflict's rides: 16/24 soldiers at the point by minute 8 against 8/4."),
+
     (49, "watched afternoon: pilots at their post, every base to a side, bunkers", "28 Oct 16:07-17:15",
      ["Drone pilots start a flight only within 15 m of their covered post (5d856ef).",
       "-zcrNoFIA splits the supply-depot bases between the sides too; the watch loop always passes the speed, 1x included (7b306c4); the SPEED button's double-tap guard on real time (6ca50d7).",
