@@ -1,0 +1,44 @@
+# Sub-lab "assault" - created 2026-10-28 17:10 by lab/sublab.py new
+name = "assault"
+question = "Do the attack teams get to the base they are ordered to take - and what stops them?"
+issue = "28 Oct watched match: the Soviets declared the assault on Military Training Area twice and nobody arrived - of 12 attack teams 2 were really sent there (both stuck leaving the HQ), 3 lone survivors went home (2-man teams), 2 guarded the HQ, 5 went to other bases (AI Conflict's own scoring); in 40 minutes no Soviet soldier came within 300 m (review note 433)"
+pass_rule = "half the attack teams' soldiers within 300 m of the objective by game minute 5, on both scenarios; then a watched match where the assaults arrive"
+runner = "lab/assaulttest.py"
+minutes = 10.0
+units = 0
+scenarios = ["ussr", "us"]
+variants = ["now", "team3", "team4", "bind", "foot", "team4-bind"]
+baseline = "now"
+candidate = "team4-bind"
+score = "at_obj_5_pct + to_obj_pct/2 - 5*lone_survivors - ride_fails + 30*captured"
+higher_is_better = true
+keys = ["at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails", "captured", "att_lost", "def_lost"]
+title = "Assault"
+main = "at_obj_5_pct"
+score_words = "the share of the attack teams' soldiers at the objective at minute 5, plus half the share of attack orders that really send teams there, minus 5 per lone survivor sent home and 1 per failed ride, plus 30 for taking the base"
+baseline_words = "the watched matches' setup: 2-man teams, rides, AI Conflict picks each team's target"
+candidate_words = "4-man teams that go only for the main effort"
+
+[scenario_labels]
+ussr = "Soviets attack"
+us = "US attack"
+
+[scenario_words]
+ussr = "A full Arland match: the Soviets attack the US base nearest their HQ with everything from the first minute (on 28 Oct Military Training Area, where nobody arrived), the US holds it"
+us = "A full Arland match: the US attacks the Soviet base nearest its HQ with everything from the first minute (on 28 Oct Farm), the Soviets hold it"
+
+[variant_labels]
+now = "As the matches"
+team3 = "3-man teams"
+team4 = "4-man teams"
+bind = "Main effort binds"
+foot = "On foot"
+team4-bind = "4-man teams, main effort binds"
+
+[variant_words]
+now = "as the watched matches: teams set out with 2 men, rides, AI Conflict picks each team's target"
+team3 = "teams set out with 3 men (AI Conflict's default) - one loss no longer leaves a lone survivor"
+team4 = "teams set out with 4 men"
+bind = "attack teams may go only for the main effort (-zcrBindMainEffort)"
+foot = "no rides: every team walks"
+team4-bind = "4-man teams that go only for the main effort"

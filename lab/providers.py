@@ -248,6 +248,20 @@ def _flip(cfg: dict):
 PROVIDERS["flip"] = _flip
 
 
+def _assault(cfg: dict):
+    import assault
+    return assault.Assault(cfg)
+
+
+def _hold(cfg: dict):
+    import assault
+    return assault.Hold(cfg)
+
+
+PROVIDERS["assault"] = _assault    # the assault sub-lab (lab/assault.py, lab/assaulttest.py)
+PROVIDERS["hold"] = _hold
+
+
 def make(cfg: dict):
     return PROVIDERS[cfg.get("provider", "doctrine")](cfg)
 
