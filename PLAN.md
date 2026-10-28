@@ -4,6 +4,14 @@ Martin's wishes and remarks, grouped by theme, with the review note numbers (ac-
 and where each stands. Kept up to date with every change; `python lab/plan_page.py` builds the page.
 Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **Fixed** (a bug).
 
+## Watched afternoon 28 Oct - Martin's remarks (notes 424-438)
+- [Next] Attacks that never arrive (433, 432's 'storm with 0 soldiers', 'no storm or defence in 9 min') | Of 12 Soviet attack teams in the assault on Military Training Area only 2 were really sent there and both stuck leaving the HQ; 3 lone survivors went home (2-man teams), 2 guarded the HQ, 5 went to other bases (AI Conflict's own scoring overrides the main effort). Sub-lab 'assault': one side ordered to take one base on Arland, both sides as in the matches; measure soldiers within 300 m of the objective at 3/5/8 min, first arrival, lone-survivor retreats, ride failures, teams sent elsewhere; variants: as now / 4-man teams / main effort binds the attack teams / on foot (no rides) / ride fixes. Pass: half the attack force at the objective by minute 5. Reviewed by Martin in the window before its numbers count.
+- [Next] The map and live line show where a team's order sends it (433) | not the slot's assigned target; the efforts arrows (429, written, app not restarted yet) on the same.
+- [Todo] Drone sites (426, 434, 436; 427 fixed) | the truck parked beside trees or buildings, not on open ground (it took the runway); operators walk to their launch spots in legs through cover, shorter walks; two pilots per site who limit the drones (Martin to choose a or b).
+- [Todo] Armour waiting for crew in the open (435) | with a driver aboard, pull back toward the crew or into cover; give up the recrew sooner.
+- [Verify] Bunkers for defence (438) | half the fortifications bunkers in the next matches (was 15%).
+- [Later] The model as the general (Martin: 'I will want that LLM general') | llm-phased is built (Gemini 3.8 Flash); after the attacks arrive, model v rules on the same matches.
+
 ## Long matches, night 27-28 Oct (Martin asleep; review note 422)
 - [Done] Longer matches - 40 game minutes (422) | Martin: 'continue testing the main game ... a longer match than 25 min so we see what actually happens, let's give it 40m'. Arland, modern v phased, sides swapped, 20:13-04:10: 26 of 28 matches ran 30+ game minutes, 23 the full 40. The loop ends a match on the game clock now (23000b1; at under 3x the wall clock stopped it at 33-35 game minutes).
 - [Measure] Crashes in long matches (422) | 3 early ends in 26: two engine access violations during the entity update (match 8 - a kind seen 6 times this week; match 12) and one freeze closed by the game's watchdog after 300 s (match 24). None is the LAV-25 crash; nothing of ours lines up before them. All 3 with the US on phased and the USSR on modern (3 of 12 v 0 of 15, p 0.08) - to watch.
