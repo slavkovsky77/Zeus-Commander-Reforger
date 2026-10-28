@@ -77,6 +77,7 @@ class ZCR_Efforts
 		map<string, int> defendMen = new map<string, int>();
 		map<string, int> attackThere = new map<string, int>();
 		map<string, int> defendThere = new map<string, int>();
+		int home;   // lone survivors walking back to a base
 		AICF_FactionState state = ZCR_Strategist.s_mStates.Get(side);
 		if (state)
 		{
@@ -88,6 +89,13 @@ class ZCR_Efforts
 				int men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
 				if (men <= 0)
 					continue;
+				// A team's last man sent home isn't attacking or defending its target any more (28 Oct, note 433: 3 of the 12
+				// Soviet 'attack' teams in the assault on Military Training Area were lone survivors walking back to the HQ).
+				if (slot.IsLoneSurvivorRetreat())
+				{
+					home++;
+					continue;
+				}
 				string base = ZCR_Strategist.BaseName(slot.GetTargetBase());
 				int there = 0;
 				if (slot.GetTargetBase().GetOwner())
@@ -217,7 +225,7 @@ class ZCR_Efforts
 		if (plan && plan.GetMainEffort() >= 0 && ZCR_Strategist.s_mNodeName.Contains(plan.GetMainEffort()))
 			main = ZCR_Strategist.s_mNodeName.Get(plan.GetMainEffort());
 		string json = string.Format("{\"main\":%1,\"attack\":[%2],\"defend\":[%3],\"hold\":[%4],\"short\":[%5],", J(main), Strip(attack), Strip(defend), Strip(hold), Strip(low));
-		json += string.Format("\"trucks\":[%1],\"build\":[%2],\"sites\":[%3],\"armour\":[%4]}", Strip(trucks), Strip(build), Strip(sites), Strip(armour));
+		json += string.Format("\"trucks\":[%1],\"build\":[%2],\"sites\":[%3],\"armour\":[%4],\"home\":%5}", Strip(trucks), Strip(build), Strip(sites), Strip(armour), home);
 		Print(string.Format("[ZCR][EFFORTS] t=%1 side=%2 json=%3", now, side, json), LogLevel.NORMAL);
 	}
 

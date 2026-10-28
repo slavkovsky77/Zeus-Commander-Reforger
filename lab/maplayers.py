@@ -269,6 +269,7 @@ if __name__ == "__main__":
 
 
 LIVE = re.compile(r"\[ZCR\]\[LIVE\] t=(\d+) kind=(\w+) (.*)")
+EFFORTS = re.compile(r"\[ZCR\]\[EFFORTS\] t=(\d+) side=(\w+) json=(.*)")
 ROUTE_OF = re.compile(r"\[ZCR\]\[ROUTE\] t=\d+ car=(\d+) route=(\d+)")
 PATH_OF = re.compile(r"car=(\d+) event=PATH n=\d+ pts=(\S+)")
 _live_world = {}
@@ -369,6 +370,31 @@ def live(map_slug: str) -> dict:
                     routes[v["id"]] = r["points"][::2] + [r["points"][-1]] if r else wps
                 elif ri < len(ok):
                     routes[v["id"]] = ok[ri]["points"][::2] + [ok[ri]["points"][-1]]
+        # What each side attacks and defends now (28 Oct, Martin: "Commander Lab could show the main efforts, attacks, because
+        # currently I don't know what is actually being attacked or defended"): its latest [ZCR][EFFORTS], every 30 s.
+        efforts = {}
+        for m in EFFORTS.finditer(tail):
+            try:
+                e = json.loads(m.group(3).strip())
+            except ValueError:
+                continue
+            efforts[m.group(2)] = {"t": int(m.group(1)), "main": e.get("main") or "", "attack": e.get("attack") or [],
+                                   "defend": e.get("defend") or [], "hold": e.get("hold") or [], "home": e.get("home") or 0}
+        # Who holds each base now and each side's plan in words: the strategist's latest snapshots (about every 50 s).
+        bases_now, intents = [], {}
+        snap = run / "profile" / "zcr" / "snapshots.jsonl"
+        if snap.exists():
+            with open(snap, "rb") as f:
+                f.seek(max(0, snap.stat().st_size - 300_000))
+                snaps = f.read().decode("utf-8", "replace").splitlines()
+            for line in snaps[-6:]:
+                try:
+                    s = json.loads(line)
+                except ValueError:
+                    continue
+                intents[s.get("faction", "")] = s.get("intent") or ""
+                bases_now = [{"name": b.get("name"), "owner": b.get("owner"), "x": b.get("x"), "z": b.get("z"), "hq": bool(b.get("hq"))}
+                             for b in s.get("bases") or []]
         return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
-                "paths": paths, "routes": routes, "trails": trails}
+                "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents}
     return {"live": False}

@@ -47,9 +47,27 @@ class ZCR_LiveMap
 				string to = "-";
 				if (slot.GetTargetBase())
 					to = Name(ZCR_Strategist.BaseName(slot.GetTargetBase()));
-				Print(string.Format("[ZCR][LIVE] t=%1 kind=team side=%2 id=%3 role=%4 men=%5 ride=%6 x=%7 z=%8 to=%9", now, faction, slot.GetSlotId(),
+				// to= is the team's ASSIGNED target; what it really does and where it really goes (28 Oct, note 433: all 12
+				// Soviet attack teams read 'to Military Training Area' while 3 walked home as lone survivors and 5 had orders
+				// for other bases): AI Conflict's posture and the team's current waypoint.
+				string posture = slot.GetOperationalPosture();
+				if (slot.IsLoneSurvivorRetreat())
+					posture = "LONE_SURVIVOR_RETREAT";
+				if (posture.IsEmpty())
+					posture = "-";
+				string wp = "-";
+				AIWaypoint current = slot.GetGroup().GetCurrentWaypoint();
+				if (current)
+				{
+					vector w = current.GetOrigin();
+					wp = string.Format("%1,%2", Math.Round(w[0]), Math.Round(w[2]));
+				}
+				string head = string.Format("[ZCR][LIVE] t=%1 kind=team side=%2 id=%3 role=%4 men=%5 ride=%6 x=%7 z=%8 to=%9", now, faction, slot.GetSlotId(),
 					typename.EnumToString(AICF_EGroupRole, slot.GetRole()), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), ride, Math.Round(at[0]),
-					Math.Round(at[2]), to), LogLevel.NORMAL);
+					Math.Round(at[2]), to);
+				string tail = string.Format(" posture=%1 wp=%2", posture, wp);
+				string line = head + tail;
+				Print(line, LogLevel.NORMAL);
 			}
 		}
 		array<AICF_LogisticsWorker> workers = {};

@@ -183,6 +183,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
 .livechart .ec { width: 100%; height: 200px; }
 .efforts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 16px; }
 .efforts > * { min-width: 0; }
+.map-efforts { display: grid; gap: 6px; margin: 6px 0 8px; font-size: 14px; line-height: 1.4; }
+.map-efforts > * { min-width: 0; }
 .eside { border-top: 3px solid var(--us); padding-top: 8px; display: grid; gap: 10px; align-content: start; }
 .eside.ussr { border-top-color: var(--ussr); }
 .eblock { display: grid; gap: 3px; }
@@ -350,7 +352,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <label for="map-l-traps"><input type="checkbox" id="map-l-traps" checked> Where vehicles get stuck</label>
         <label for="map-l-routes"><input type="checkbox" id="map-l-routes" checked> Planned supply routes</label>
         <label for="map-l-live"><input type="checkbox" id="map-l-live" checked> Live: teams, supply trucks, vans</label>
+        <label for="map-l-efforts"><input type="checkbox" id="map-l-efforts" checked> Live: attacks and defence</label>
       </div>
+      <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
       <div id="mapview" role="region" aria-label="Map"></div>
       <div class="legend">
@@ -364,7 +368,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div><span class="dot" style="background:#8a5a1e;border-radius:2px"></span>Small square: anything the builders placed (brown depot, blue barracks, olive fortification; outline = left unfinished)</div>
         <div><span class="dot" style="background:#e07b00"></span>Orange: vehicles stuck or given up there (bigger = more often)</div>
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:4px;vertical-align:3px"></span>Purple line: a planned supply route (lab/roadgraph.py)</div>
-        <div><span class="dot" style="background:var(--us)"></span>Live: a team (blue US, red USSR), a line to the base it heads for</div>
+        <div><span class="dot" style="background:var(--us)"></span>Live: a team (blue US, red USSR), a dotted line to the waypoint it is walking to; faded = its last man going home</div>
+        <div><span class="dot" style="background:var(--ussr);border-radius:1px;height:5px;vertical-align:2px"></span>Live: an arrow from a side's attacking teams to the base they attack - thick = its main effort; the label says how many have got there</div>
+        <div><span class="dot" style="border-color:var(--us);border-style:dashed;background:transparent"></span>Live: dashed ring - a base the side is defending (teams sent, how many are there)</div>
         <div><span class="dot" style="background:#a05a00;border-radius:2px"></span>Live: a supply truck (square) or test van (dot) - click one for its route</div>
         <div><span class="dot" style="background:var(--us);border-radius:1px;transform:rotate(45deg)"></span>Live: a base builder (diamond), dashed to the building he works on (white square)</div>
         <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:6px;vertical-align:2px"></span>Selected: its planned route; solid: where it drove; white dashes: the game's path now; ring: its goal</div>
@@ -429,6 +435,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
+      $("map-l-efforts").addEventListener("change", () => this.draw());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
       // "This match only": its stuck places, depots and buildings grow during the match - reread every 30 s.
       setInterval(() => { if (tab === "map" && !document.hidden && $("map-since").value === "current") this.layers(); }, 30000);
@@ -504,6 +511,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       this.selBounds = null;
       if (!d.live) {
         $("map-missions").innerHTML = '<p class="muted">No game running on this map right now - the live layer shows teams, supply trucks and test vans while one runs.</p>';
+        $("map-efforts").innerHTML = "";
         $("map-sel").innerHTML = "";
         return;
       }
@@ -532,14 +540,22 @@ video { width: 100%; border-radius: 8px; background: #000; }
         return tr;
       };
       const markers = [];
+      // What a team really does (AI Conflict's posture) and where it really walks (its current waypoint) - 28 Oct, note 433:
+      // the assigned target alone showed lone survivors walking home as 'attacking Military Training Area'.
+      const doing = { ATTACK_PRIMARY: "attacking", ATTACK_SUPPORT: "attacking", AREA_SECURITY: "guarding", FORWARD_DEFEND: "defending",
+        QRF: "rushing to defend", LONE_SURVIVOR_RETREAT: "last man - going home", INFANTRY_MUSTER: "gathering" };
       for (const t of d.teams) {
         const key = `team:${t.side}:${t.id}`, c = side[t.side] || this.css("--muted"), b = baseAt[t.to];
+        const wp = t.wp && t.wp !== "-" ? String(t.wp).split(",").map(Number) : null;
+        const goal = wp && wp.length === 2 && !wp.some(isNaN) ? wp : (b ? [b.x, b.z] : null);
+        const what = doing[t.posture] || (t.posture && t.posture !== "-" ? String(t.posture).toLowerCase().replace(/_/g, " ") : (t.role || "").toLowerCase());
+        const home = t.posture === "LONE_SURVIVOR_RETREAT";
         if (key === sel) {
-          const tr = drawSel(key, t.x, t.z, c, null, null, b ? [b.x, b.z] : null);
-          info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc((t.role || "").toLowerCase())}${t.ride ? ", riding" : ", on foot"}${b ? ` → ${esc(t.to)}, ${this.km(Math.hypot(b.x - t.x, b.z - t.z))} to go (straight)` : ""} · moved ${this.km(this.len(tr))} on this map so far`;
-        } else if (b && !sel) extra.push(L.polyline([[t.z, t.x], [b.z, b.x]], { color: c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
-        markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: "#fff", weight: 1.5, fillColor: c, fillOpacity: .95 * dim(key), opacity: dim(key) }))
-          .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc((t.role || "").toLowerCase())}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " → " + esc(t.to) : ""}`)
+          const tr = drawSel(key, t.x, t.z, c, null, null, goal);
+          info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its waypoint (straight)` : ""} · moved ${this.km(this.len(tr))} on this map so far`;
+        } else if (goal && !sel) extra.push(L.polyline([[t.z, t.x], [goal[1], goal[0]]], { color: home ? this.css("--muted") : c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
+        markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: home ? this.css("--muted") : "#fff", weight: 1.5, fillColor: c, fillOpacity: (home ? .45 : .95) * dim(key), opacity: dim(key) }))
+          .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " · assigned " + esc(t.to) : ""}`)
           .on("click", () => this.pick(key)));
       }
       const rows = [], seen = new Set();
@@ -598,6 +614,60 @@ video { width: 100%; border-radius: 8px; background: #000; }
         const tr = trails[sel], end = tr[tr.length - 1];
         drawSel(sel, end[0], end[1], "#a05a00", null, null, null);
         info = `<b>Van ${esc(sel.slice(4))}</b> - finished: delivered and taken off the map · drove ${this.km(this.len(tr))} (solid)`;
+      }
+      // Attacks and defence (28 Oct, Martin: "Commander Lab could show the main efforts, attacks, because currently I don't
+      // know what is actually being attacked or defended"): from each side's latest [ZCR][EFFORTS] and the strategist's
+      // snapshot (who holds what, the plan in words) - an arrow from its attacking teams to each base it attacks, thick
+      // for its main effort; a dashed ring on each base it defends; "N/M there" = soldiers within 300 m of the base.
+      $("map-efforts").innerHTML = "";
+      if ($("map-l-efforts").checked && d.efforts && Object.keys(d.efforts).length) {
+        const now = d.bases_now && d.bases_now.length ? d.bases_now : (this.lastBases || []);
+        // Both main bases are called "Main Operating Base": an attack means the enemy's, a defence one's own.
+        const find = (name, s, own) => { const c = now.filter(b => b.name === name); return c.find(b => own ? b.owner === s : b.owner !== s) || c[0]; };
+        const txt = [];
+        for (const [s, e] of Object.entries(d.efforts)) {
+          const c = side[s] || this.css("--muted"), parts = [];
+          for (const a of e.attack || []) {
+            const b = find(a.base, s, false);
+            if (!b) continue;
+            const there = `${a.there}/${a.men} there`;
+            if (b.owner === s) {   // teams sent to a base it holds: reinforcing it
+              extra.push(L.circle([b.z, b.x], { radius: 140, color: c, weight: 2, dashArray: "2 7", fill: false })
+                .bindTooltip(`${esc(s)} reinforces ${esc(a.base)}: ${a.teams} teams, ${there}`));
+              parts.push(`reinforces ${esc(a.base)} (${a.teams} teams, ${there})`);
+              continue;
+            }
+            const main = a.base === e.main;
+            const from = d.teams.filter(t => t.side === s && t.role === "ATTACK" && t.to === a.base && t.posture !== "LONE_SURVIVOR_RETREAT");
+            let fx, fz;
+            if (from.length) { fx = from.reduce((v, t) => v + t.x, 0) / from.length; fz = from.reduce((v, t) => v + t.z, 0) / from.length; }
+            else {
+              const own = now.filter(o => o.owner === s).sort((p, q) => Math.hypot(p.x - b.x, p.z - b.z) - Math.hypot(q.x - b.x, q.z - b.z))[0];
+              if (!own) continue;
+              fx = own.x; fz = own.z;
+            }
+            const dx = b.x - fx, dz = b.z - fz, len = Math.hypot(dx, dz) || 1, ux = dx / len, uz = dz / len;
+            const ex = b.x - ux * 70, ez = b.z - uz * 70, hl = main ? 110 : 70, hw = main ? 55 : 35;
+            const tip = `${esc(s)} ${main ? "MAIN EFFORT" : "attacks"} → ${esc(a.base)}: ${a.teams} teams, ${there}`;
+            if (len > 160) extra.push(L.polyline([[fz, fx], [ez - uz * hl * .6, ex - ux * hl * .6]], { color: c, weight: main ? 7 : 2 + Math.min(4, a.men / 3), opacity: main ? .9 : .7 }).bindTooltip(tip));
+            const head = L.polygon([[ez, ex], [ez - uz * hl - ux * hw, ex - ux * hl + uz * hw], [ez - uz * hl + ux * hw, ex - ux * hl - uz * hw]],
+              { color: "#fff", weight: 1.5, fillColor: c, fillOpacity: main ? .95 : .8 }).bindTooltip(tip, main ? { permanent: true, direction: "right", className: "maplbl" } : {});
+            extra.push(head);
+            parts.push(`${main ? "<b>main effort</b>: " : ""}attacks ${esc(a.base)} (${a.teams} teams, ${there})`);
+          }
+          for (const a of e.defend || []) {
+            const b = find(a.base, s, true);
+            if (!b) continue;
+            const there = `${a.there}/${a.men} there`;
+            extra.push(L.circle([b.z, b.x], { radius: 190, color: c, weight: 3, dashArray: "9 7", fill: false })
+              .bindTooltip(`${esc(s)} defends ${esc(a.base)}: ${a.teams} teams, ${there}`));
+            parts.push(`defends ${esc(a.base)} (${a.teams} teams, ${there})`);
+          }
+          if (e.home) parts.push(`${e.home} lone survivor${e.home === 1 ? "" : "s"} going home`);
+          const plan = d.intents && d.intents[s] ? esc(d.intents[s]) : "";
+          txt.push(`<div><b style="color:${c}">${esc(s)}</b> ${plan}<br><span class="muted">${parts.join(" · ") || "no attack or defence orders"}</span></div>`);
+        }
+        $("map-efforts").innerHTML = txt.join("");
       }
       for (const l of extra) l.addTo(g);
       for (const m of markers) m.addTo(g);
