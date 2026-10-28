@@ -33,14 +33,19 @@ SCENARIOS = {
     "ussr": "USSR",   # the Soviets attack (28 Oct: nobody reached Military Training Area in two 5-minute assaults)
     "us": "US",       # the US attacks
     "point": "BOTH",  # one neutral point (Signal Hill), both sides go for it; nothing else on any list (-zcrOnePoint)
+    "city": "BOTH",   # the same with Arleville, Arland's town (29 Oct, Martin: "the case where they fight over one city")
 }
 
-POINT = "Signal_Hill"   # the one-point scenario's point: 1628 m from the Soviet HQ, 1688 m from the US one
+# The one-point scenarios' point: Signal Hill 1628 m from one HQ, 1688 m from the other; Arleville 1351 m from the
+# southern HQ and 2242 m from the north-western (harbour) one - the side in the south gets there first.
+POINTS = {"point": "Signal_Hill", "city": "Arleville"}
+POINT = POINTS["point"]
 
 SCENARIO_WORDS = {
     "ussr": "The Soviets attack the US base nearest their HQ with everything from the first minute; the US holds it",
     "us": "The US attacks the Soviet base nearest its HQ with everything from the first minute; the Soviets hold it",
     "point": "One neutral point in the middle (Signal Hill, 1.6-1.7 km from both HQs) and the two main bases - both sides go for the point with everything; no other base is on any list",
+    "city": "One town, Arleville (1.35 km from the southern HQ, 2.24 km from the harbour one), and the two main bases - both sides storm the town; no other base is on any list",
 }
 
 
@@ -66,6 +71,9 @@ VARIANTS = {
                 "binds, and a team counts as at its vehicle spot within 50 m, not 25 (spots at the harbour's waterline)"),
     "squads12-queue": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 2").replace(" -aicfNoHiddenSeat", ""),
                        "12 teams of 4, binds, seat fallback on, and at most 2 rides leaving a base at a time - the next team walks"),
+    "storm-mounted": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", ""),
+                      "the storm rides in (Martin, 29 Oct: 'storms should be done by vehicles'): 12 teams of 4, binds, seat fallback "
+                      "on, rides for every march over 300 m, at most 3 leaving a base at a time (the jam inside the HQ, note 444)"),
 }
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
@@ -78,7 +86,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     us, ussr = ("assault", "hold") if attacker == "US" else ("hold", "assault")
     if attacker == "BOTH":
         us = ussr = "point"
-        extra += f" -zcrOnePoint {POINT}"
+        extra += f" -zcrOnePoint {POINTS[scenario]}"
     sys.path.insert(0, str(ROOT / "lab"))
     import bridges
     import sublab
