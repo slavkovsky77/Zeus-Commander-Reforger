@@ -34,6 +34,11 @@ SCENARIOS = {
     "us": "US",       # the US attacks
 }
 
+SCENARIO_WORDS = {
+    "ussr": "The Soviets attack the US base nearest their HQ with everything from the first minute; the US holds it",
+    "us": "The US attacks the Soviet base nearest its HQ with everything from the first minute; the Soviets hold it",
+}
+
 
 def _sized(n: int) -> str:
     return BASE.replace("-aicfInfantryDeploySize 2 -aicfMusterSize 2", f"-aicfInfantryDeploySize {n} -aicfMusterSize {n}")
@@ -53,7 +58,7 @@ RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLI
 NEAR_M = 300
 
 
-def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False) -> dict:
+def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1) -> dict:
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
     us, ussr = ("assault", "hold") if attacker == "US" else ("hold", "assault")
@@ -62,13 +67,17 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     import sublab
     bridges.ensure(("assault", "hold"))
     title = sublab.title("assault", scenario, variant)
-    label = f"assault-{scenario}-{variant}-p{port}"
+    label = f"assault-{scenario}-{variant}-p{port}" if not watch else f"assaulttest-{scenario}-{variant}-watch"   # lab/watch_test.py finds the game by it
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", MODS, "--plan-seconds", "60",
             "--extra", f"{extra} -zcrTestTitle {title}"]
     if watch:
+        # The game window, at 1x by default (Martin watches at 1x - 28 Oct: 'it jumps because of speed'); always passed, the
+        # game keeps its multiplier between runs. The test still lasts 'minutes' game minutes.
         argv += ["--solo", "--watch"]
-    subprocess.run(argv, cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
+        argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))
+    subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
                    creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
     if not runs:
@@ -170,12 +179,13 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=10)
     ap.add_argument("--port", type=int, default=2160)
     ap.add_argument("--watch", action="store_true", help="in the game window (solo) - only when nobody else uses the game")
+    ap.add_argument("--speed", type=float, default=1, help="with --watch: the game's time multiplier (default 1x)")
     ap.add_argument("--summarize", default="", help="summarize an existing run folder instead of running")
     a = ap.parse_args()
     if a.summarize:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
-        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch)
+        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed)
     print(json.dumps(r, indent=1))
     return 0
 
