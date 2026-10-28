@@ -18,6 +18,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+import videocap  # noqa: E402
 import watch_loop  # noqa: E402
 from watch_test import game_pid  # noqa: E402
 
@@ -76,6 +77,7 @@ def main() -> int:
         f"# Boarding test - {a.show}\nMap Arland test map - boarding test ({a.show})\n\n{words}\n\n"
         f"Spec: -zcrBoardTest {spec}\n\nRecording started: {rec_start:%Y-%m-%d %H:%M:%S}\n", encoding="utf-8")
     print(f"video: {mp4}", flush=True)
+    videocap.prune()
     return 0
 
 

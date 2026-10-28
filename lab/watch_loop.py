@@ -33,6 +33,7 @@ import cpu  # noqa: E402
 import keys  # noqa: E402
 import metrics  # noqa: E402
 import reforger  # noqa: E402
+import videocap  # noqa: E402
 
 VIDEOS = ROOT / "videos"
 PORT = 2110
@@ -399,6 +400,9 @@ def match(n: int, map_name: str, us: str, ussr: str, minutes: float, keep_front:
         key, shots = moments(server_log, read_log(cprof), rec_start)
         write_index(video.with_suffix(".md"), video, meta, m, key, shots)
         log(f"video {video.name} ({video.stat().st_size // 1_000_000} MB), {len(key)} moments, {len(shots)} shots")
+        gone = videocap.prune()
+        if gone:
+            log(f"deleted {len(gone)} older video(s) - only the newest {videocap.KEEP} are kept")
     meta.update(metrics=m, server_profile=str(sprof))
     with open(ROOT / ".runtime" / "watch_matches.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(meta) + "\n")

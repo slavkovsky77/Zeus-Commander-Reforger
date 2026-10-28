@@ -17,6 +17,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+import videocap  # noqa: E402
 import watch_loop  # noqa: E402
 
 VIDEOS = ROOT / "videos"
@@ -85,6 +86,7 @@ def main() -> int:
             describe(mp4, a, tag)
             with open(mp4.with_suffix(".md"), "a", encoding="utf-8") as f:
                 f.write(f"\nRecording started: {rec_start:%Y-%m-%d %H:%M:%S}\n")
+            videocap.prune()
     else:
         print("no game window found - nothing recorded", flush=True)
     return runner.returncode or 0
