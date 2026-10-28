@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "28 Oct evening: Martin watched the assault test in the window and stopped it ('they walk around', 'got out of the car and continued by walking', 'returned to main base'). Fixed the same evening in AI Conflict and ZCR: rides that turned back, recruit trips for nothing, the first orders before the bases were dealt, vehicles from bases 1 km away, boarding windows too short at 1x, attack teams leaving the main effort. Then his one-point sub-lab: two HQs and Signal Hill.",
+    "Running now": "29 Oct night, while Martin is away: no watched match. The '0 soldiers' panel fixed; the one-point runs' rides measured - 14 of 79 requests delivered a team, nearly every failure inside the HQ (up to 9 rides of a side leaving it at once, blocking each other on its one road out); a limit of 2 rides leaving a base at a time tried in one headless run.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's decisions from the one-point runs: rides only for long marches (on foot 16 and 24 soldiers reached the point by minute 8, with rides 8 and 4) and 12 teams of 4 instead of 20 of 2; then the transport faults on their own - the harbour HQ's few vehicle pads, rides given up stuck in transit (now logged with a place).",
+    "Being built next": "Martin's decisions: rides only for long marches (on foot 16-24 soldiers a side reached the point by minute 8; with rides 3-8, with the 2-at-a-time limit 4-14), 12 teams of 4 instead of 20 of 2, the seat fallback back on; then a watched one-point match with what he picks.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r51", "The panels count the soldiers again",
+     "Martin: 'it showed 0 soldiers for both sides'. The count came from the camera's soldier list, refreshed only when it cut to a new shot - locked by his buttons from game second 9, before anyone had deployed, it stayed empty all match. Now refreshed every 5 s."),
+    ("bad", "r51", "Rides jam inside the HQ",
+     "In the one-point runs up to 9 rides of one side were boarding or leaving one HQ at the same moment; 15 of the 16 rides AI Conflict gave up as 'stuck in transit' were still within 70 m of the HQ. With at most 2 leaving at a time: failures 4 instead of 12, 18 soldiers at the point by minute 8 instead of 7 (one headless run) - walking still brings 36-40."),
+
     ("bad", "r50", "Rides make the assault later and smaller than walking",
      "One point (Signal Hill, 1.6 km from both HQs), 12 teams of 4 a side: on foot 16 US and 24 Soviet soldiers were within 300 m by game minute 8 and 27/17 by minute 12, both sides arriving together; with AI Conflict's rides 8/4 and 4/3 by minute 8 - a few vehicles arrive alone, the rest stall at the HQ (few dry pads at the harbour, a passenger whose get-in never starts) or are given up stuck on the way."),
     ("good", "r50", "Teams no longer come back for nothing",
@@ -209,7 +214,7 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("bug", "Rides arrive late and in pieces", "The harbour HQ has few dry vehicle pads; a passenger whose get-in never starts strands his team (AI Conflict's seat fallback is off in the matches since 22 Oct); rides given up stuck in transit (2-5 a side in 10 minutes).", "review notes 441, 442"),
+    ("bug", "Rides jam inside the HQ", "AI Conflict caps vehicles per side, not departures per base: 5-9 rides of a side boarded or left one HQ at once and blocked each other on its one road out - 15 of 16 rides given up as stuck never got 70 m from the HQ; 14 of 79 requests delivered a team. At most 2 at a time (-aicfRidesPerBase 2): 3-8 rides asked, 4 failed, 18 soldiers at the point by minute 8 instead of 7. Also: the harbour HQ's few dry pads, a passenger whose get-in never starts.", "review notes 441, 444"),
     ("issue", "AI Conflict's own checks", "The original passes 66/66, our fork 51/66 - mostly deliberate changes the checks don't know, plus the supply-truck road routes adding waypoints outside the vehicle handoff (25 Oct).", "review note 442"),
 
     ("bug", "Attack teams don't reach the objective", "Partly fixed in r50: the main effort binds (-zcrBindMainEffort), no recruit trips or turn-backs. Left: 2-man teams turn into lone survivors after one loss; the rides (above).", "review notes 433, 439"),
@@ -236,9 +241,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin's call: rides only for long marches (-aicfInfantryRideMeters 2500) and 12 teams of 4 a side - then a watched one-point match with it.",
-    "The transport faults on their own: the harbour HQ's vehicle pads, rides stuck in transit (now logged with a place), the seat fallback.",
-    "The assault and one-point sub-labs repeated (2 runs a cell) so single-run noise doesn't decide.",
+    "Martin's call: rides only for long marches (-aicfInfantryRideMeters 2500), 12 teams of 4 a side, the seat fallback back on - then a watched one-point match with it (and the panel's soldier count checked on screen).",
+    "If rides stay for long marches: at most 2 leaving a base at a time (-aicfRidesPerBase 2) in the full matches, judged in a watched one.",
+    "The harbour HQ's vehicle pads; a passenger whose get-in never starts.",
     "Drone sites: the truck beside cover, operators walking through cover; two pilots per site (Martin to choose).",
     "The model as the general once the attacks arrive.",
 ]
@@ -260,6 +265,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (51, "rides out of the HQ two at a time, the 0-soldiers panel", "29 Oct 00:00-00:25",
+     ["The panels' soldier count refreshed every 5 s, not only at a new camera shot (ZCR f8fe76a).",
+      "AI Conflict fork: -aicfRidesPerBase N - at most N rides being planned, boarded or still driving out near a base; the next team walks (2322efa, off by default).",
+      "The one-point sub-lab buys armour at the HQ, not at the side's base nearest the point (58de3b5); variant squads12-queue.",
+      "The assault sub-lab counts rides per side: asked, delivered, failed, failed at the HQ, most at once (2bc2fa3)."],
+     "Martin: 'it showed 0 soldiers btw for both sides'; 'transportation of the troops is fucked up' (review notes 443, 444).",
+     "The panel bug found and fixed; nearly every ride failure is a jam inside the HQ - with 2 at a time 4 failures instead of 12 and 18 soldiers at the point by minute 8 instead of 7, still behind walking."),
+
     (50, "rides that don't turn back, the one-point sub-lab", "28 Oct 19:56-22:10",
      ["The bases dealt before AI Conflict's first orders (ZCR fb35f03).",
       "AI Conflict fork: no recruit trip when the side is at its cap or an attack team is over 150 m from the barracks; a ride only within 250 m of a base that can give one, the vehicle from within 300 m; boarding windows in game time, 75 s driver, 90 s passengers (8f89871, 6895736, 29462ff).",
