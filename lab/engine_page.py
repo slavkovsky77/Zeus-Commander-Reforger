@@ -202,9 +202,9 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("bug", "Attack teams don't reach the objective", "The general's main effort is only a score bonus to AI Conflict; teams of 2 turn into lone survivors after one loss and go home; rides out of the HQ fail (boarding deadlines, vehicles stuck). Our live line showed each team's assigned target, not where it really went - fixed in r49."),
-    ("bug", "Drone sites in the open", "The drone truck parks on clear ground by design (it took a runway) and operators walk 500-700 m to launch spots by road."),
-    ("bug", "Armour waits for crew in the open", "A BTR-70 that lost 2 of 3 crew waited 3+ minutes for new crew, unmoving, until a drone hit it."),
+    ("bug", "Attack teams don't reach the objective", "The general's main effort is only a score bonus to AI Conflict; teams of 2 turn into lone survivors after one loss and go home; rides out of the HQ fail (boarding deadlines, vehicles stuck). Our live line showed each team's assigned target, not where it really went - fixed in r49.", "review note 433"),
+    ("bug", "Drone sites in the open", "The drone truck parks on clear ground by design (it took a runway) and operators walk 500-700 m to launch spots by road.", "review notes 434, 436"),
+    ("bug", "Armour waits for crew in the open", "A BTR-70 that lost 2 of 3 crew waited 3+ minutes for new crew, unmoving, until a drone hit it.", "review note 435"),
 
     ("bug", "Crashes in long matches", "3 early ends in 26 long matches: two engine access violations during the entity update (one kind seen 6 times this week) and one freeze the game's watchdog closed after 300 s. None is the LAV-25 crash, and nothing of ours lines up before them. All 3 came with the US on phased and the USSR on modern (3 of 12 such matches, 0 of 15 the other way round; p 0.08 - to watch).", "review note 422"),
     ("design", "Fewer vehicles for frames?", "Vehicles in use grow 6 -> 30 in a match and the FPS follows (about 26 late). AI Conflict allows 16 a side (-aicfMaxVehiclesPerFaction); 4 a side gave no gain in 12 minutes on 25 Oct, before the war had grown. It changes the game - Martin's call.", "review note 422"),
