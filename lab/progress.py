@@ -40,6 +40,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 RUNS = ROOT / ".runtime" / "runs"
+ARCHIVES = [Path("E:/lab-archive/reforger-commander-runs")]   # runs moved off D: when it filled up (28 Oct)
 sys.path.insert(0, str(HERE))
 import metrics  # noqa: E402
 
@@ -89,6 +90,10 @@ BUILDS = [
     (42, "supply runs; crossing rule; test camera", "2026-10-23 18:13", "supply and manpower runs in the traffic simulation; two vehicles whose paths cross: the later one stops until the other is past; PREV/NEXT through a test's own units"),
     (43, "DCO as the tactical layer; 50-a-side cap; drone storms and the drone operator", "2026-10-24 15:52", "DCO_AI runs how soldiers fight, our commander where they go; each side capped at 50 AI soldiers; drone storms in the infantry sub-lab (one FPV at a time from a 2-man operator); the drone operator - goggles, controller, still while he flies; soldiers run into buildings from drones"),
     (44, "drone teams on sorties; the commander plans the drone truck", "2026-10-24 18:40", "the pilot carries 4 FPVs in a big bag, launches one at a time from a covered spot near the drone truck (goggles on and still while it flies), walks back to the truck to load; the commander sets the truck's support point and its driver takes it there"),
+    (45, "FPS tests and the entity census", "2026-10-25 19:46", "every dynamic entity counted by kind every 2 game minutes; solo FPS matches per variant (speed, DCO, drones, driving mods, soldiers, teams and vehicles a side); AI detail by distance from the camera; passed detour waypoints deleted"),
+    (46, "modern assault doctrine; the crash bisect", "2026-10-26 23:58", "the modern doctrine: drones first, quick covered dismounts 180-300 m out, storms with drone support; drone sites follow the drone target; crash probes, the crash bisect and the boarding sub-lab"),
+    (47, "the crash fix", "2026-10-27 07:50", "a soldier who has walked up to a LAV-25 goes straight into his seat - the engine's climbing animation crashed the server; other vehicles the same when tilted over 8 degrees; battles 0 of 60 crashed with it, 6 of 60 without"),
+    (48, "long matches; rounds never fired swept; what the frames go to", "2026-10-28 04:10", "40-game-minute watched matches end on the game clock; rounds the game makes and never fires (1000-1900 a match at the world origin) deleted every 2 s; the census splits vehicles crewed/empty and awake/asleep"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
@@ -276,7 +281,9 @@ def build_of(started: datetime) -> int:
 
 
 def server_runs():
-    for run in sorted(RUNS.iterdir()):
+    # Runs moved off D: (28 Oct: 19-22 Oct to E:) still count.
+    dirs = [RUNS] + [a for a in ARCHIVES if a.exists()]
+    for run in sorted((r for d in dirs for r in d.iterdir() if r.is_dir()), key=lambda r: r.name):
         name = run.name
         if "-client-" in name or not STAMP.search(name):
             continue

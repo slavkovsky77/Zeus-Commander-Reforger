@@ -23,14 +23,22 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "23 Oct evening, Martin out: the supply and manpower runs and the new crossing rule built and checked headless on Arland (no watched matches). Before that today: our vehicle rules measured overnight (head-on crashes on the narrow lane 5 -> 0 a run), the armour tests (crews stay aboard, spot far, the storm) and the first integration tests (12 small scenarios with pass checks).",
+    "Running now": "27-28 Oct night, Martin asleep: 40-game-minute watched matches on Arland, the modern doctrine against phased with the sides swapped each match. 26 of 28 ran 30+ game minutes, 23 the full 40. FPS 43 in the first 5 minutes, about 28 by minute 10-15, then about 26 to the end - it settles, it does not keep sliding. 3 early ends (two engine access violations, one freeze), none of them the LAV-25 crash fixed the morning before.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "The manpower run's turn-round at the pickup; the crossing rule measured against no crossing rule on the supply route; then both shown to Martin in the game window, and back to the watched matches (car-on-car hits ~4 a match).",
+    "Being built next": "Martin's call on fewer vehicles a side for frames (vehicles in use grow 6 -> 30 in a match and follow the FPS); more long matches for the doctrine comparison - on Arland the side matters more than modern v phased so far.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r48", "Long matches: 40 game minutes",
+     "Martin: 'do a longer match than 25 min so we see what actually happens, let's give it 40m'. The watched loop now ends a match on the game clock (under 3x the wall clock stopped it at 33-35 game minutes). Overnight 26 of 28 matches ran 30+ game minutes, 23 the full 40. FPS: 43 in the first 5 minutes, about 28 by minute 10-15, then about 26 to minute 40. Modern won 10, phased 8, 8 drawn; the USSR won 11, the US 7 - on Arland the side matters more than the doctrine so far."),
+    ("good", "r48", "Rounds that were never fired",
+     "Rifle and machine-gun rounds piled up at the world origin: 1000-1900 by game minute 40, 3000 in 8 minutes of a crash test where the sides fought. Probes found them at exactly 0,0,0, still, with no shooter, never fired by a soldier - made by the game itself (most likely its ballistics for the AI's aiming) and never removed. They cost little (no per-frame update), but they are now deleted every 2 s (-zcrProjSweep); 473 at once caused no crash."),
+    ("good", "r48", "What the frames go to",
+     "Over 310 census snapshots of 15 matches, vehicles follow the frame rate most closely. The empty ones (about 16) sleep and cost little; what grows is vehicles in use - crewed 6 -> 30 and physics awake 3 -> 22 by game minute 20. The FPS drop is the war growing, not clutter."),
+    ("good", "r47", "The crash fixed",
+     "Soldiers climbing into a LAV-25 crashed the server - the engine's climbing animation, on a tilted LAV-25 almost every time, on level ground sometimes. A soldier who has walked up to a LAV-25 now goes straight into his seat (ZCR_SafeBoarding; other vehicles the same when tilted over 8 degrees). Battles: 0 of 60 crashed with it, 6 of 60 without; the confirmation 0 of 40."),
     ("good", "r44", "Drone teams on sorties",
      "Martin's model: 'operators have big bags with some drones; the drone truck or a static arsenal is where they resupply; Zeus Commander plans where the truck goes, the operator just knows where he can resupply'. The pilot carries 4 FPVs, walks with his guard to a covered spot 60-200 m from the truck, launches one at a time from the open sky beside it - the goggles go on only while he flies, the controller in hand, holding still - then walks back and loads 45 s. The commander puts the truck 1 km back from where its drones go (the main base's site stays put); the truck has its own driver. Martin: 'fucking great'."),
     ("good", "r43", "The drone operator",
@@ -187,6 +195,8 @@ CAMERA = [
 ]
 
 PROBLEMS = [
+    ("bug", "Crashes in long matches", "3 early ends in 26 long matches: two engine access violations during the entity update (one kind seen 6 times this week) and one freeze the game's watchdog closed after 300 s. None is the LAV-25 crash, and nothing of ours lines up before them. All 3 came with the US on phased and the USSR on modern (3 of 12 such matches, 0 of 15 the other way round; p 0.08 - to watch).", "review note 422"),
+    ("design", "Fewer vehicles for frames?", "Vehicles in use grow 6 -> 30 in a match and the FPS follows (about 26 late). AI Conflict allows 16 a side (-aicfMaxVehiclesPerFaction); 4 a side gave no gain in 12 minutes on 25 Oct, before the war had grown. It changes the game - Martin's call.", "review note 422"),
     ("good", "Crashes: the mods' tanks", "Over 4 days 13-15 crashes in 33-40 game hours with armour, 1 in 51 without; no event of our scripts lines up with them. The stress test (6 armour a side, headless) crashes in 6-8 game minutes with the mods' vehicles; IFVs only and the game's LAV-25 / BTR-70 ran 40 minutes clean; tanks only froze or crashed in 8-10 min with or without our APC typing; the Abrams alone in 5.5. The tanks are off from 21:50 (-zcrArmourTanks).", "review notes 246, 269, 271"),
     ("bug", "Armour stuck on the HQs' exit roads", "A probe of the spots: the north HQ's checkpoint (5 Czech hedgehogs, two gates, concrete walls), dragon's teeth on a road east of the Airport, forest tracks out of the south HQ. Road blocks stay (Martin); armour is now bought on a road spot clear of them and of spawn points, nearest its front; a unit still for 2 minutes tries another way in. Soldiers' recruits timed out (5 a match) while the north HQ's armour stood on its spawn area.", "review note 243"),
     ("good", "Armour crews stay aboard", "The game's Search and Destroy searches on foot - the Abrams crew got out a minute after it; armour now moves on Move waypoints (the crew fights from the vehicle) and the mods' tanks are typed APC so gunners stay in their turret. A crew that got out of an intact vehicle is ordered back in (the Bradley's survivor in 15 s).", "review note 243"),
@@ -205,11 +215,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Verify r19 on the screen and the scorecard: soldiers prone under drones, fights at 60 m, supply trucks on the road.",
-    "Fortifications as a building type in our AI Conflict: bunkers and sandbags at points near the front, defenders posted in them.",
-    "A goals overview per side: main effort, bases to hold, supplies needed, what the engineers build.",
-    "/good and /bad reports with the log and a frame of the moment; scorecard checks for the drone panic (prone, covered, running).",
-    "Routes through cover between march steps; a wider formation.",
+    "Martin's call: fewer vehicles a side for frames, or keep 16.",
+    "More long matches for the doctrine comparison: the side bias on Arland (USSR 11 wins, US 7) is bigger than modern v phased (10 v 8).",
+    "The crashes left in long matches: whether they stay with the USSR on the modern doctrine.",
+    "Martin's review of the boarding videos (one by one in, the crash fix) and whether to turn on the get-out order.",
 ]
 
 FACTS = [
@@ -229,6 +238,29 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (48, "long matches; rounds never fired swept; what the frames go to", "27 Oct 20:13 - 28 Oct 04:10",
+     ["Watched loop: a match ends on the game's clock (23000b1); the loop stops before a match when the recordings' drive has under 3 GB free (7c6c40c).",
+      "Census: projectiles by kind, place, height and speed; intact vehicles crewed or empty, physics awake or asleep, the empty ones by kind (2b913ed, 672748c, a3e7c8e).",
+      "[ZCR][PROJWATCH]: the rounds turning up at the world origin - who fired them, their instigator and parent (68f8b6a, 4b4100e, e875423); -zcrProjSweep deletes the ones parked at 0,0,0 every 2 s, -zcrProjSweepAt once (d905530) - on in the watched setup from match 14."],
+     "Martin, 27 Oct: 'continue testing the main game, I guess you can do a longer match than 25 min so we see what actually happens, let's give it 40m or something' (review note 422).",
+     "26 of 28 matches ran 30+ game minutes, 23 the full 40; FPS 43 -> about 28 by minute 10-15 -> about 26 at minute 40; 3 early ends, none the LAV-25 crash; 1000-1900 rounds a match at the origin, never fired and cheap - now swept; vehicles in use (crewed 6 -> 30) follow the frames."),
+    (47, "the crash fix", "27 Oct, 00:58-07:50",
+     ["Crash sub-lab (the boarding test): get-in/out moved straight into the seat or climbed, seat and APC variants, a tilt sweep over a slope scan, fewest-mods variants, the release server build.",
+      "ZCR_SafeBoarding: a soldier who has walked up to a LAV-25 goes straight into his seat (no climb); other vehicles the same when tilted over 8 degrees (-zcrSafeBoardDeg, 0 = off); on by default (899bb52). APC passengers out one by one and car teams in one by one built, off until Martin has seen them."],
+     "The watched and headless matches crashed (review note 421).",
+     "Climbing in crashed in every variant, moved straight into the seat never (0 of 8). Battles: 0 of 60 crashed with the fix, 6 of 60 without; the confirmation 0 of 40."),
+    (46, "modern assault doctrine; the crash bisect", "26 Oct, 02:00-23:58",
+     ["Modern assault doctrine (lab/modern.py, bridge 'modern'): drones first, quick covered dismounts 180-300 m from the objective, storms with drone support; its night runner (lab/modernnight.py).",
+      "Drone sites follow the plan's drone target; a site whose pilot died is lost and the main one rebuilt; forward crews once the front is 700 m from every site.",
+      "The crash hunt: crash probes (turret pushes on and off), the crash bisect (our code x the fork, before and after the night), ZCR_PhysWatch, lab/crashlab.py, the boarding sub-lab (ZCR_BoardTest), lab/crashreport.py."],
+     "Martin: modern combat - hit and run, quick dismounts near positions, storms with heavy drone support (review notes 419, 420); the crashes (421).",
+     "The modern doctrine played overnight (PLAN: modern night); the crash narrowed to boarding a LAV-25 (r47)."),
+    (45, "FPS tests and the entity census", "25 Oct, 00:19-19:46",
+     ["Entity census every 2 game minutes ([ZCR][CENSUS]): every dynamic entity by kind, the AI's level of detail, waypoints no group holds; lab/fpstest.py - solo matches per variant (speed, DCO, drones, driving mods, soldiers, teams and vehicles a side, resolution, recording).",
+      "ZCR_AILod (-zcrAILod): AI detail by distance from the camera; our detour and road-first waypoints deleted once their group has passed them.",
+      "Lab: the Decisions tab (every model strategist decision), the live supply map, the base-building sub-lab (ZCR_BuildTest); the model strategist's answers get 2000 tokens."],
+     "Martin, 25 Oct: 'fps still drops for some reason as time goes by'.",
+     "The FPS follows the soldier count; fewer teams and a side cap measured in full matches (PLAN)."),
     (44, "drone teams on sorties; the commander plans the drone truck", "24 Oct, 16:05-18:40",
      ["Drone teams on sorties (ZCR_DroneOperator): the pilot carries 4 FPVs (a big bag - the assembled ALICE / Kolobok); the team walks to a launch position with overhead cover 60-200 m from its truck, launches one at a time from the nearest open sky, walks back when empty and loads 45 s, then out to a new position ([ZCR][SORTIE]). Goggles on only while he flies (helmet back at landing), the controller in hand, his AI off for the flight.",
       "The commander plans the drone truck (ZCR_DroneSites): a forward site's truck stands at a support point 1000 m back from where its side's drones go (clear dry ground; nearer after a point is given up), driven there by its own driver; the main base's site is static. The operators no longer ride the truck (boarding went in and out).",
