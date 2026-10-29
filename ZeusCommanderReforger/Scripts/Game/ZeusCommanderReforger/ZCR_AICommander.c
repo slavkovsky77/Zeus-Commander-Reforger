@@ -26,7 +26,6 @@ modded class AICF_AICommander
 			ZCR_Strategist.Get(m_sFactionKey).Tick(m_FactionState, m_Faction, m_ObjectiveGraph, m_TargetSelector);
 			ZCR_Trace.Step("loops");
 			ZCR_Sampler.Start();
-			ZCR_AttackHold.Start();      // the attack plan's hold line (-zcrAttackPlan)
 			ZCR_Tactical.Get().Tend(m_sFactionKey, m_FactionState);   // the tactical layer's squad detail (ZCR_DCO)
 			ZCR_DroneThreat.Start();     // soldiers react to enemy drones (both sides)
 			ZCR_Danger.Start();       // danger awareness: no standing in danger (-zcrNoDanger)

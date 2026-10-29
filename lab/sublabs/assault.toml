@@ -42,6 +42,8 @@ squads12-queue = "12 teams of 4, 2 rides out of a base at a time"
 storm-mounted = "Storms ride in - 12 teams of 4, 3 rides out of a base at a time"
 storm-plan = "Attack plan from the map - the model's pick"
 storm-plan-hold = "Attack plan from the map, with the hold line"
+storm-plan-light = "Attack plan, light rides only"
+storm-plan-light-hold = "Attack plan, light rides, hold line"
 storm-plan-algo = "Attack plan from the map - the algorithm's pick"
 
 [variant_words]

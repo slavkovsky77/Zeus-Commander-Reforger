@@ -83,10 +83,14 @@ VARIANTS = {
                    "hidden from the objective, the teams in along its cover-to-cover lanes"),
     "storm-plan-hold": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan").replace(" -aicfNoHiddenSeat", ""),
                         "as storm-plan, and the hold line: teams wait ~150 m out until 3 are there (or 90 s), then all go in together"),
+    "storm-plan-light": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold -aicfApcEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                         "as storm-plan, rides in light vehicles only (no APC rides: the BTR-70s jammed the harbour HQ, 29 Oct night)"),
+    "storm-plan-light-hold": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -aicfApcEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                              "the plan, light rides and the hold line together"),
     "storm-plan-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold").replace(" -aicfNoHiddenSeat", ""),
                         "as storm-plan, with the plan the algorithm itself scored best"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
