@@ -230,10 +230,19 @@ def support_position(g: Ground, angle, assembly):
     return best
 
 
+SIDE_MAX_DEG = 90      # an approach at most this far round from the side the attack comes from - no driving round the objective
+SIDE_FREE_DEG = 30     # ... and every degree beyond this costs SIDE_COST seconds
+SIDE_COST = 1.0
+
+
 def plan_for_hq(g: Ground, graph, hq, lanes):
     dist, nxt = lanes
     sa, _ = graph.nearest(hq["x"], hq["z"])
     ddist, dprev = drive_search(graph, g, sa)
+    # 29 Oct evening: the side the attack comes from. Every plan from the far (south) HQ to Farm did worse than no plan,
+    # the two driving round to its east side (3 km) among them; across Arland's bases the cover-weighted walk alone made
+    # the algorithm take the same side of an objective from every base, even across it.
+    from_deg = math.degrees(math.atan2(hq["x"] - g.ox, hq["z"] - g.oz))
     candidates = []
     for i in range(len(graph.x)):
         x, z = graph.x[i], graph.z[i]
@@ -243,10 +252,13 @@ def plan_for_hq(g: Ground, graph, hq, lanes):
         k = g.key(x, z)
         if k not in dist or not g.hidden_spot(x, z):
             continue
+        angle = math.degrees(math.atan2(x - g.ox, z - g.oz))
+        off = abs((angle - from_deg + 180) % 360 - 180)
+        if off > SIDE_MAX_DEG:
+            continue
         drive_m = ddist[i]
         walk = dist[k]
-        total = drive_m / DRIVE_MPS + walk / WALK_MPS
-        angle = math.degrees(math.atan2(x - g.ox, z - g.oz))
+        total = drive_m / DRIVE_MPS + walk / WALK_MPS + SIDE_COST * max(0.0, off - SIDE_FREE_DEG)
         candidates.append((total, i, k, angle, drive_m, walk))
     best = {}
     for c in candidates:
@@ -355,11 +367,7 @@ def export(name: str, which: str) -> Path:
             print(f"HQ {hq['x']:.0f},{hq['z']:.0f}: no plan - AI Conflict's own approach ({which})")
             continue
         pl = next((p for p in hq["plans"] if p["id"] == pick), hq["plans"][0])
-        a_ = pl["assembly"]
-        lines.append(f"plan {hq['x']:.1f} {hq['z']:.1f} {plans['objective']['x']:.1f} {plans['objective']['z']:.1f} {a_['x']} {a_['z']} {pl['id']}")
-        for ln in pl["lanes"]:
-            lines.append(f"lane {len(ln['waypoints'])} {ln['hold'][0]} {ln['hold'][1]}")
-            lines += [f"{x} {z}" for x, z in ln["waypoints"]]
+        lines += plan_lines(hq, plans["objective"], pl)
         print(f"HQ {hq['x']:.0f},{hq['z']:.0f}: plan {pl['id']} from the {pl['approach']} ({which})")
     seed = OUT / f"seed_{name}_{which}"
     (seed / "zcr").mkdir(parents=True, exist_ok=True)
@@ -368,10 +376,86 @@ def export(name: str, which: str) -> Path:
     return seed
 
 
+def plan_lines(origin: dict, objective: dict, pl: dict) -> list:
+    """One plan in the game's format (AICF_ZcrAttackPlan.c)."""
+    a_ = pl["assembly"]
+    lines = [f"plan {origin['x']:.1f} {origin['z']:.1f} {objective['x']:.1f} {objective['z']:.1f} {a_['x']} {a_['z']} {pl['id']}"]
+    for ln in pl["lanes"]:
+        lines.append(f"lane {len(ln['waypoints'])} {ln['hold'][0]} {ln['hold'][1]}")
+        lines += [f"{x} {z}" for x, z in ln["waypoints"]]
+    return lines
+
+
+FROM_MIN_M, FROM_MAX_M = 700, 4000   # --all: plans for attacks from bases this far from the objective
+
+
+def plan_all(slug: str, scan_dir: Path, which: str) -> Path:
+    """--all: the normal matches' plan file (29 Oct evening, Martin's go, review note 451). Every base of the map scanned
+    (-zcrAttackScan all writes $profile:zcr/attackscan/<x>_<z>.jsonl) is an objective, planned from every other base
+    FROM_MIN_M-FROM_MAX_M away - a side's attacks start from wherever its teams are, mostly its bases; the game takes the
+    plan from the origin nearest where a team started (AICF_ZcrAttackPlan.ForTeam). Per objective and origin: which =
+    'measured' - the best measured approach where the lab has runs from there (lab/attackscore.py), else the algorithm's;
+    'algorithm' - always the algorithm's. Writes .runtime/attack/<map>/plans.json and seed_<map>_all/zcr/attackplan.txt."""
+    import shutil
+    import time
+    import attackscore
+    scores = attackscore.load()
+    dest = OUT / slug
+    dest.mkdir(parents=True, exist_ok=True)
+    heads = []
+    for s in sorted(scan_dir.glob("*.jsonl")):
+        h = json.loads(s.read_text(encoding="utf-8").splitlines()[0])
+        shutil.copy(s, dest / f"scan_{s.name}")
+        heads.append((dest / f"scan_{s.name}", h))
+    roads = [json.loads(l) for l in (MAPS / slug / "map_roads.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    graph = roadgraph.Graph(roads, [])
+    bases = [{"x": h["objective"][0], "z": h["objective"][2], "name": h.get("name", "")} for _, h in heads]
+    out = {"map": slug, "objectives": []}
+    lines = [f"world {slug}"]   # the game keeps a map's section only on that map (AICF_ZcrAttackPlan.Load)
+    for scan, h in heads:
+        t0 = time.time()
+        g = Ground(scan, slug)
+        lanes = g.lanes_from_objective()
+        objective = {"x": g.ox, "z": g.oz, "y": g.oy, "name": h.get("name", "")}
+        entry = {"objective": objective, "cells": len(g.cells), "seen_cells": sum(1 for c in g.cells.values() if c[3] > 0), "hqs": []}
+        for b in bases:
+            d = math.hypot(b["x"] - g.ox, b["z"] - g.oz)
+            if not (FROM_MIN_M <= d <= FROM_MAX_M):
+                continue
+            plans = plan_for_hq(g, graph, b, lanes)
+            if not plans:
+                continue
+            hq = {"x": b["x"], "z": b["z"], "name": b["name"], "from_objective_m": round(d), "plans": plans, "algorithm_pick": plans[0]["id"]}
+            pick, why = hq["algorithm_pick"], "the algorithm's best score"
+            if which == "measured" and attackscore.rows_for(scores, (g.ox, g.oz), (b["x"], b["z"])):
+                pick, why = measured_pick((g.ox, g.oz), hq)
+                why = "measured: " + why
+            hq["pick"], hq["why"] = pick, why
+            entry["hqs"].append(hq)
+            if str(pick).lower() != "none":
+                pl = next((p for p in plans if p["id"] == pick), plans[0])
+                lines += plan_lines(b, objective, pl)
+            else:   # no plan from here - so the game doesn't take a neighbouring base's plan instead
+                lines.append(f"plan {b['x']:.1f} {b['z']:.1f} {objective['x']:.1f} {objective['z']:.1f} 0 0 none")
+            chosen = "no plan" if str(pick).lower() == "none" else f"plan {pick} from the {next(p for p in plans if p['id'] == pick)['approach']}"
+            print(f"  {objective['name']:24} from {b['name'] or '?':24} {round(d):5} m: {chosen} ({why})")
+        out["objectives"].append(entry)
+        print(f"{objective['name']}: {len(entry['hqs'])} origins, {time.time() - t0:.1f} s")
+    (dest / "plans.json").write_text(json.dumps(out), encoding="utf-8")
+    seed = OUT / f"seed_{slug}_all"
+    (seed / "zcr").mkdir(parents=True, exist_ok=True)
+    (seed / "zcr" / "attackplan.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"written {dest / 'plans.json'} and {seed / 'zcr' / 'attackplan.txt'} ({sum(1 for l in lines if l.startswith('plan '))} plans)")
+    return seed
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("name", help="the objective's short name: .runtime/attack/<name>_scan.jsonl")
+    ap.add_argument("name", help="the objective's short name: .runtime/attack/<name>_scan.jsonl (with --all: anything, e.g. all)")
     ap.add_argument("--map", default="arland")
+    ap.add_argument("--all", default="", help="a folder of -zcrAttackScan all scans (or 'latest': the newest run's): plans for every "
+                                              "base from every other base, the normal matches' plan file")
+    ap.add_argument("--pick", default="measured", choices=["measured", "algorithm"], help="with --all: which plan per pair")
     ap.add_argument("--snapshot", default="", help="a snapshots.jsonl for the HQ positions (default: the newest run's)")
     ap.add_argument("--export", default="", choices=["", "model", "algorithm", "measured", "explore"],
                     help="write the game's plan file from the saved plans")
@@ -382,6 +466,11 @@ def main() -> int:
         ASSEMBLY_MIN, ASSEMBLY_MAX = (float(v) for v in a.assembly.split(","))
     if a.export:
         export(a.name, a.export)
+        return 0
+    if a.all:
+        scan_dir = Path(a.all) if a.all != "latest" else max((ROOT / ".runtime" / "runs").glob("*/profile/zcr/attackscan"),
+                                                            key=lambda p: p.stat().st_mtime)
+        plan_all(a.map, scan_dir, a.pick)
         return 0
     g = Ground(OUT / f"{a.name}_scan.jsonl", a.map)
     roads = [json.loads(l) for l in (MAPS / a.map / "map_roads.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]

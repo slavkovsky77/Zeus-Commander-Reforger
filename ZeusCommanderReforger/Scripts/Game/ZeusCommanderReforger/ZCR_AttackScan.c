@@ -6,6 +6,8 @@
 // a canopy within 15 m up). Written to $profile:zcr/attackscan.jsonl (lab/attackplan.py reads it), 2000 cells a frame:
 //   {"x":..,"z":..,"y":..,"seen":0-9,"roof":0|1}
 //   [ZCR][ATTACKSCAN] done cells= seen_any= roofed= ms=
+// -zcrAttackScan all[,radius,step] (29 Oct evening, plans for the normal matches - Martin's go, review note 451): every base of
+// the map in turn, each to $profile:zcr/attackscan/<x>_<z>.jsonl (the header also names the base).
 class ZCR_AttackScan
 {
 	static const int PER_FRAME = 2000;
@@ -23,6 +25,10 @@ class ZCR_AttackScan
 	protected int m_iSeen;
 	protected int m_iRoofed;
 	protected int m_iStartedAt;
+	protected string m_sName;
+	protected string m_sPath = "$profile:zcr/attackscan.jsonl";
+	protected ref array<vector> m_aQueue = {};
+	protected ref array<string> m_aQueueNames = {};
 
 	static void Start()
 	{
@@ -31,17 +37,68 @@ class ZCR_AttackScan
 			return;
 		array<string> p = {};
 		spec.Split(",", p, true);
-		if (p.Count() < 2)
+		if (p.IsEmpty() || (p[0] != "all" && p.Count() < 2))
 			return;
 		s_Scan = new ZCR_AttackScan();
-		s_Scan.m_vObjective = Vector(p[0].ToFloat(), 0, p[1].ToFloat());
 		s_Scan.m_fRadius = 1000;
 		s_Scan.m_fStep = 10;
+		if (p[0] == "all")
+		{
+			if (p.Count() > 1)
+				s_Scan.m_fRadius = Math.Max(200, p[1].ToFloat());
+			if (p.Count() > 2)
+				s_Scan.m_fStep = Math.Max(5, p[2].ToFloat());
+			// The bases are registered a moment after the world is up.
+			GetGame().GetCallqueue().CallLater(s_Scan.QueueBases, 8000, false);
+			return;
+		}
+		s_Scan.m_vObjective = Vector(p[0].ToFloat(), 0, p[1].ToFloat());
 		if (p.Count() > 2)
 			s_Scan.m_fRadius = Math.Max(200, p[2].ToFloat());
 		if (p.Count() > 3)
 			s_Scan.m_fStep = Math.Max(5, p[3].ToFloat());
 		GetGame().GetCallqueue().CallLater(s_Scan.Begin, 5000, false);
+	}
+
+	protected void QueueBases()
+	{
+		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
+		if (!system)
+			return;
+		array<SCR_MilitaryBaseComponent> bases = {};
+		system.GetBases(bases);
+		foreach (SCR_MilitaryBaseComponent b : bases)
+		{
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(b);
+			if (!base || !base.GetOwner())
+				continue;
+			m_aQueue.Insert(base.GetOwner().GetOrigin());
+			m_aQueueNames.Insert(ZCR_Strategist.BaseName(base));
+		}
+		Print(string.Format("[ZCR][ATTACKSCAN] all bases=%1 radius=%2 step=%3", m_aQueue.Count(), m_fRadius, m_fStep), LogLevel.NORMAL);
+		FileIO.MakeDirectory("$profile:zcr");
+		FileIO.MakeDirectory("$profile:zcr/attackscan");
+		Next();
+	}
+
+	// The next base of an all-bases scan, else nothing.
+	protected void Next()
+	{
+		if (m_aQueue.IsEmpty())
+		{
+			Print("[ZCR][ATTACKSCAN] all done", LogLevel.NORMAL);
+			return;
+		}
+		m_vObjective = m_aQueue[0];
+		m_sName = m_aQueueNames[0];
+		m_aQueue.RemoveOrdered(0);
+		m_aQueueNames.RemoveOrdered(0);
+		m_sPath = string.Format("$profile:zcr/attackscan/%1_%2.jsonl", Math.Round(m_vObjective[0]), Math.Round(m_vObjective[2]));
+		m_aEyes.Clear();
+		m_iCells = 0;
+		m_iSeen = 0;
+		m_iRoofed = 0;
+		Begin();
 	}
 
 	protected void Begin()
@@ -62,13 +119,13 @@ class ZCR_AttackScan
 		m_Trace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
 		m_Trace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage;
 		FileIO.MakeDirectory("$profile:zcr");
-		m_File = FileIO.OpenFile("$profile:zcr/attackscan.jsonl", FileMode.WRITE);
+		m_File = FileIO.OpenFile(m_sPath, FileMode.WRITE);
 		if (!m_File)
 		{
-			Print("[ZCR][ATTACKSCAN] cannot write $profile:zcr/attackscan.jsonl", LogLevel.WARNING);
+			Print("[ZCR][ATTACKSCAN] cannot write " + m_sPath, LogLevel.WARNING);
 			return;
 		}
-		m_File.WriteLine(string.Format("{\"objective\":[%1,%2,%3],\"radius\":%4,\"step\":%5}", m_vObjective[0], m_vObjective[1], m_vObjective[2], m_fRadius, m_fStep));
+		m_File.WriteLine(string.Format("{\"objective\":[%1,%2,%3],\"radius\":%4,\"step\":%5,\"name\":\"%6\"}", m_vObjective[0], m_vObjective[1], m_vObjective[2], m_fRadius, m_fStep, m_sName));
 		m_fX = m_vObjective[0] - m_fRadius;
 		m_fZ = m_vObjective[2] - m_fRadius;
 		m_iStartedAt = System.GetTickCount();
@@ -122,6 +179,8 @@ class ZCR_AttackScan
 			return;
 		}
 		m_File.Close();
-		Print(string.Format("[ZCR][ATTACKSCAN] done cells=%1 seen_any=%2 roofed=%3 ms=%4", m_iCells, m_iSeen, m_iRoofed, System.GetTickCount() - m_iStartedAt), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][ATTACKSCAN] done cells=%1 seen_any=%2 roofed=%3 ms=%4 base=%5 file=%6", m_iCells, m_iSeen, m_iRoofed, System.GetTickCount() - m_iStartedAt, m_sName, m_sPath), LogLevel.NORMAL);
+		if (m_sPath != "$profile:zcr/attackscan.jsonl")
+			GetGame().GetCallqueue().CallLater(Next, 10, false);
 	}
 }

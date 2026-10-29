@@ -96,9 +96,10 @@ modded class AICF_VehicleTransitFlow
 				vector at = trip.GetLease().GetVehicle().GetOrigin();
 				vector target = state.GetTacticalTarget();
 				float d = vector.DistanceXZ(at, target);
-				// 29 Oct: the side's attack plan read from the map (AICF_ZcrAttackPlan, lab/attackplan.py): the ride goes to the
-				// plan's assembly point - hidden from the objective, where the lanes start - and everyone gets out there.
-				AICF_ZcrPlan plan = AICF_ZcrAttackPlan.For(trip.GetAssignment().GetFactionKey(), target);
+				// 29 Oct: the team's attack plan read from the map (AICF_ZcrAttackPlan, lab/attackplan.py): the ride goes to the
+				// plan's assembly point - hidden from the objective, where the lanes start - and everyone gets out there. The
+				// plan from the origin nearest the ride's first tick (latched per team, shared with its approach legs).
+				AICF_ZcrPlan plan = AICF_ZcrAttackPlan.ForTeam(trip.GetAssignment().GetFactionKey(), trip.GetAssignment().GetSlotId(), target, at);
 				if (plan && d > vector.DistanceXZ(plan.m_vAssembly, target) - 30)
 				{
 					float toAssembly = vector.DistanceXZ(at, plan.m_vAssembly);

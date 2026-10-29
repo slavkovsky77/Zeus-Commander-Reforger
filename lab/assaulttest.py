@@ -107,10 +107,14 @@ VARIANTS = {
     # crashes came after forced seats.
     "storm-safe": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -aicfArmedRideEvery 0",
                    "no plan, transport rides, the seat fallback off (the watched matches' setting) - the control"),
+    # The normal matches' setup (2-man teams, every base dealt) with the plans for every base (lab/attackplan.py --all):
+    "now-trans": (BASE + " -aicfArmedRideEvery 0", "as the watched matches since 29 Oct evening: transport rides only - the control"),
+    "now-plan": (BASE + " -aicfArmedRideEvery 0 -zcrAttackPlan -zcrNoAttackHold",
+                 "as now-trans, with attack plans from the map for every base from every base (the origin nearest where a team started)"),
     "storm-plan-measured": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
                             "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides, the seat fallback off"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
@@ -134,6 +138,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
             "--extra", f"{extra} -zcrTestTitle {title}"]
     if variant in SEEDS:
         seed = ROOT / ".runtime" / "attack" / f"seed_{POINTS.get(scenario, scenario).lower()}_{SEEDS[variant]}"
+        if SEEDS[variant].startswith("@"):   # a whole map's plans (lab/attackplan.py --all)
+            seed = ROOT / ".runtime" / "attack" / f"seed_{SEEDS[variant][1:]}"
         if not (seed / "zcr" / "attackplan.txt").exists():
             raise SystemExit(f"no plan file {seed / 'zcr' / 'attackplan.txt'} - run lab/attackplan.py --export first")
         argv += ["--seed-profile", str(seed)]
