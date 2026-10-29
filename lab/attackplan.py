@@ -344,7 +344,11 @@ def main() -> int:
     ap.add_argument("--map", default="arland")
     ap.add_argument("--snapshot", default="", help="a snapshots.jsonl for the HQ positions (default: the newest run's)")
     ap.add_argument("--export", default="", choices=["", "model", "algorithm"], help="write the game's plan file from the saved plans")
+    ap.add_argument("--assembly", default="", help="min,max metres of the assembly point from the objective (default 300,650)")
     a = ap.parse_args()
+    if a.assembly:
+        global ASSEMBLY_MIN, ASSEMBLY_MAX
+        ASSEMBLY_MIN, ASSEMBLY_MAX = (float(v) for v in a.assembly.split(","))
     if a.export:
         export(a.name, a.export)
         return 0
