@@ -151,7 +151,7 @@ class ZCR_Detour
 	}
 
 	// The group of the man in the driver's seat.
-	protected static SCR_AIGroup DriverGroup(IEntity vehicle)
+	static SCR_AIGroup DriverGroup(IEntity vehicle)
 	{
 		array<BaseCompartmentSlot> seats = {};
 		AICF_FIAPatrolCrew.Seats(vehicle, seats);

@@ -42,6 +42,33 @@ class ZCR_Dismount
 		return true;
 	}
 
+	// The plan's ride: its driver's group gets a waypoint at the assembly point ahead of its own, once per vehicle.
+	protected static ref map<IEntity, bool> s_mSteered = new map<IEntity, bool>();
+
+	static void Steer(IEntity vehicle, AICF_ZcrPlan plan)
+	{
+		if (!vehicle || s_mSteered.Contains(vehicle))
+			return;
+		SCR_AIGroup group = ZCR_Detour.DriverGroup(vehicle);
+		if (!group)
+			return;
+		s_mSteered.Set(vehicle, true);
+		vector p = plan.m_vAssembly;
+		p[1] = GetGame().GetWorld().GetSurfaceY(p[0], p[2]);
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = p;
+		AIWaypoint w = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: params));
+		if (!w)
+			return;
+		w.SetCompletionRadius(15);
+		group.AddWaypointAt(w, 0);
+		ZCR_Detour.Track(group, w);
+		vector at = vehicle.GetOrigin();
+		Print(string.Format("[ZCR][PLANRIDE] t=%1 side=%2 vehicle=%3 plan=%4 to_assembly_m=%5 x=%6 z=%7", ZCR_LossLog.Seconds(), ZCR_LossLog.SideOf(vehicle),
+			ZCR_LossLog.ShortName(vehicle), plan.m_sId, Math.Round(vector.DistanceXZ(at, p)), Math.Round(at[0]), Math.Round(at[2])), LogLevel.NORMAL);
+	}
+
 	protected static bool Blocked(BaseWorld world, vector a, vector b)
 	{
 		if (!s_Trace)
@@ -69,6 +96,23 @@ modded class AICF_VehicleTransitFlow
 				vector at = trip.GetLease().GetVehicle().GetOrigin();
 				vector target = state.GetTacticalTarget();
 				float d = vector.DistanceXZ(at, target);
+				// 29 Oct: the side's attack plan read from the map (AICF_ZcrAttackPlan, lab/attackplan.py): the ride goes to the
+				// plan's assembly point - hidden from the objective, where the lanes start - and everyone gets out there.
+				AICF_ZcrPlan plan = AICF_ZcrAttackPlan.For(trip.GetAssignment().GetFactionKey(), target);
+				if (plan && d > vector.DistanceXZ(plan.m_vAssembly, target) - 30)
+				{
+					float toAssembly = vector.DistanceXZ(at, plan.m_vAssembly);
+					if (toAssembly <= 60)
+					{
+						Print(string.Format("[ZCR][DISMOUNT] t=%1 faction=%2 out at=%3 %4 from_objective=%5 plan=%6 assembly", ZCR_LossLog.Seconds(),
+							trip.GetAssignment().GetFactionKey(), Math.Round(at[0]), Math.Round(at[2]), Math.Round(d), plan.m_sId), LogLevel.NORMAL);
+						ZCR_Feed.Note(trip.GetAssignment().GetFactionKey(), string.Format("squad out at plan %1's assembly point, %2 m out, hidden", plan.m_sId, Math.Round(d)));
+						AbortOwnedActions(trip);
+						return AICF_TripOutcome.StartDismount("ZCR_PLAN_ASSEMBLY", causationId);
+					}
+					ZCR_Dismount.Steer(trip.GetLease().GetVehicle(), plan);
+					return super.Tick(trip, causationId);
+				}
 				if (d >= ZCR_Dismount.NEAR && d <= ZCR_Dismount.FAR && ZCR_Dismount.Hidden(target, at))
 				{
 					Print(string.Format("[ZCR][DISMOUNT] t=%1 faction=%2 out at=%3 %4 from_objective=%5", ZCR_LossLog.Seconds(),

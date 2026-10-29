@@ -40,6 +40,9 @@ squads12 = "12 teams of 4"
 squads12-foot = "12 teams of 4, on foot"
 squads12-queue = "12 teams of 4, 2 rides out of a base at a time"
 storm-mounted = "Storms ride in - 12 teams of 4, 3 rides out of a base at a time"
+storm-plan = "Attack plan from the map - the model's pick"
+storm-plan-hold = "Attack plan from the map, with the hold line"
+storm-plan-algo = "Attack plan from the map - the algorithm's pick"
 
 [variant_words]
 now = "as the watched matches: teams set out with 2 men, rides, AI Conflict picks each team's target"

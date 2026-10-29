@@ -76,7 +76,17 @@ VARIANTS = {
     "storm-mounted": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", ""),
                       "the storm rides in (Martin, 29 Oct: 'storms should be done by vehicles'): 12 teams of 4, binds, seat fallback "
                       "on, rides for every march over 300 m, at most 3 leaving a base at a time (the jam inside the HQ, note 444)"),
+    # 29 Oct night (Martin, note 449: "attacks should be planned in some smarter way, we have to read the maps"): the attack
+    # plan read from the map (lab/attackplan.py -> .runtime/attack/seed_<point>_<pick>/zcr/attackplan.txt, see SEEDS).
+    "storm-plan": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold").replace(" -aicfNoHiddenSeat", ""),
+                   "as storm-mounted, and the attack plan read from the map that the model picked: the rides to its assembly point "
+                   "hidden from the objective, the teams in along its cover-to-cover lanes"),
+    "storm-plan-hold": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan").replace(" -aicfNoHiddenSeat", ""),
+                        "as storm-plan, and the hold line: teams wait ~150 m out until 3 are there (or 90 s), then all go in together"),
+    "storm-plan-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold").replace(" -aicfNoHiddenSeat", ""),
+                        "as storm-plan, with the plan the algorithm itself scored best"),
 }
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
@@ -98,6 +108,11 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", MODS, "--plan-seconds", "60",
             "--extra", f"{extra} -zcrTestTitle {title}"]
+    if variant in SEEDS:
+        seed = ROOT / ".runtime" / "attack" / f"seed_{POINTS.get(scenario, scenario).lower()}_{SEEDS[variant]}"
+        if not (seed / "zcr" / "attackplan.txt").exists():
+            raise SystemExit(f"no plan file {seed / 'zcr' / 'attackplan.txt'} - run lab/attackplan.py --export first")
+        argv += ["--seed-profile", str(seed)]
     if watch:
         # The game window, at 1x by default (Martin watches at 1x - 28 Oct: 'it jumps because of speed'); always passed, the
         # game keeps its multiplier between runs. The test still lasts 'minutes' game minutes.

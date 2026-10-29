@@ -313,12 +313,41 @@ def compass(angle):
     return names[int(((angle + 360) % 360 + 22.5) // 45) % 8]
 
 
+def export(name: str, which: str) -> Path:
+    """The chosen plan per HQ for the game (-zcrAttackPlan reads $profile:zcr/attackplan.txt, AICF_ZcrAttackPlan.c): which =
+    'algorithm' (its best score) or 'model' (lab/attackpick.py's picks; the algorithm's where the model gave none)."""
+    plans = json.loads((OUT / f"{name}_plans.json").read_text(encoding="utf-8"))
+    picks = {}
+    if which == "model":
+        for h in json.loads((OUT / f"{name}_picks.json").read_text(encoding="utf-8"))["hqs"]:
+            picks[tuple(h["hq"])] = (h["model"] or {}).get("pick")
+    lines = []
+    for hq in plans["hqs"]:
+        pick = picks.get((hq["x"], hq["z"])) or hq["algorithm_pick"]
+        pl = next((p for p in hq["plans"] if p["id"] == pick), hq["plans"][0])
+        a_ = pl["assembly"]
+        lines.append(f"plan {hq['x']:.1f} {hq['z']:.1f} {plans['objective']['x']:.1f} {plans['objective']['z']:.1f} {a_['x']} {a_['z']} {pl['id']}")
+        for ln in pl["lanes"]:
+            lines.append(f"lane {len(ln['waypoints'])} {ln['hold'][0]} {ln['hold'][1]}")
+            lines += [f"{x} {z}" for x, z in ln["waypoints"]]
+        print(f"HQ {hq['x']:.0f},{hq['z']:.0f}: plan {pl['id']} from the {pl['approach']} ({which})")
+    seed = OUT / f"seed_{name}_{which}"
+    (seed / "zcr").mkdir(parents=True, exist_ok=True)
+    (seed / "zcr" / "attackplan.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"written {seed / 'zcr' / 'attackplan.txt'}")
+    return seed
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("name", help="the objective's short name: .runtime/attack/<name>_scan.jsonl")
     ap.add_argument("--map", default="arland")
     ap.add_argument("--snapshot", default="", help="a snapshots.jsonl for the HQ positions (default: the newest run's)")
+    ap.add_argument("--export", default="", choices=["", "model", "algorithm"], help="write the game's plan file from the saved plans")
     a = ap.parse_args()
+    if a.export:
+        export(a.name, a.export)
+        return 0
     g = Ground(OUT / f"{a.name}_scan.jsonl", a.map)
     roads = [json.loads(l) for l in (MAPS / a.map / "map_roads.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     graph = roadgraph.Graph(roads, [])
