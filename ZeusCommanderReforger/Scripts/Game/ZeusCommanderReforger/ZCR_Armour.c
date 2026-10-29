@@ -802,10 +802,11 @@ class ZCR_Armour
 				Skip(unit, now, string.Format("NO_SUPPLIES have=%1 need=%2", Math.Round(hq.GetSupplies()), costs[pick] + RESERVE));
 				return;
 			}
-			// The one-point sub-lab: not on the HQ's way out - a spot round a point 400 m from it toward the front (29 Oct
-			// night: bought at the HQ the APCs stood on its one exit road at game second 120, while the rides left).
+			// Not on the HQ's way out - a spot round a point 400 m from it toward the front (29 Oct night, one-point
+			// sub-lab: bought at the HQ the APCs stood on its one exit road at game second 120, while the rides left;
+			// every match since 29 Oct evening, Martin: "continue fixing").
 			vector spotCentre = hq.GetOwner().GetOrigin();
-			if (!ZCR_OnePoint.Name().IsEmpty())
+			if (!System.IsCLIParam("zcrArmourAtHq"))
 			{
 				vector toFront = front - spotCentre;
 				toFront[1] = 0;
