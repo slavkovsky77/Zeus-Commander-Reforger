@@ -49,6 +49,7 @@ storm-plan-light-hold-algo = "Attack plan (the algorithm's pick), light rides, h
 storm-plan-trans-hold = "Attack plan, transport rides only, hold line"
 storm-trans = "Today's way, transport rides only (the control)"
 storm-plan-trans-hold-algo = "Attack plan (the algorithm's pick), transport rides only, hold line"
+storm-plan-trans = "Attack plan, transport rides only, no hold line"
 storm-plan-algo = "Attack plan from the map - the algorithm's pick"
 
 [variant_words]

@@ -97,10 +97,12 @@ VARIANTS = {
                     "the control for the plan runs: today's way with transport rides only and the armour off the HQ exit - no plan"),
     "storm-plan-trans-hold-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
                                    "as storm-plan-trans-hold, with the plan the algorithm scored best instead of the model's pick"),
+    "storm-plan-trans": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                         "the plan without the hold line, transport rides only - the lanes and the assembly point alone"),
     "storm-plan-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold").replace(" -aicfNoHiddenSeat", ""),
                         "as storm-plan, with the plan the algorithm itself scored best"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
