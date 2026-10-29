@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "29 Oct night (Martin asleep, 'make it smarter, iterate on this farm scenario'): attacks planned from the map - a ground scan of Farm, three plans per HQ (assembly hidden from Farm, drive, cover-to-cover lanes, hold line, support position, hiding spots), Gemini picks one from the map image, the AI teams play it; 34 headless Farm runs against the same setup without a plan. Morning page: https://claude.ai/artifact/X4fueu1TLwg9VtHu4b996M",
+    "Running now": "29 Oct evening (Martin: 'continue fixing open shit you mentioned'): the morning page's next steps - the watched matches ride trucks and vans only, armour bought at an HQ spawns 400 m toward the front in every match, and attack approaches are chosen from measured results (lab/attackscore.py). Nothing is running; the watched Farm match with the measured plan waits for Martin.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's calls: transport rides only in the watched matches (armed rides delivered 1 of 39); armour off the HQ exit road in the normal matches too; choose attack approaches from measured results (from the harbour HQ the south-west beats the north) and a watched Farm match with the best plan.",
+    "Being built next": "A watched Farm match with the measured plan (harbour HQ from the south-west, south HQ no plan) when Martin wants to watch; then attack plans in the normal matches - every base's ground read once, plans from the bases a side attacks from, no plan where the measured runs say none helps.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r53", "Approaches chosen from what happened",
+     "lab/attackscore.py scores every approach from the sub-lab runs: per HQ and approach, soldiers at the objective by minute 12 and whether it was taken. The planner's --export measured takes the best measured approach per HQ, or no plan where none beat AI Conflict's own; Gemini now sees the same results and answered the same: from the harbour HQ the south-west (22 soldiers by minute 12, taken 2 of 3 and 4 of 4), from the south HQ no plan (every plan did worse, 4-6 soldiers against 7)."),
+    ("good", "r53", "Trucks and vans only, armour off the exit road",
+     "The watched matches ride transport only (armed rides delivered 1 of 39). Armour bought at an HQ now spawns 400 m toward the front in every match - checked: a Soviet APC 353 m from its HQ, 0 script errors."),
+
     ("good", "r52", "Attacks planned from the map",
      "A ground scan (what a defender on Farm sees, roofs and trees) and three plans per HQ in seconds: an assembly point hidden from Farm, the drive, three cover-to-cover lanes, a hold line, a support position, hiding spots from drones. Gemini picks one from the map image with reasons; the teams play it - rides to the assembly point, legs on the lanes, a hold inside AI Conflict's approach logic. From the harbour HQ the south-west plans took Farm in 6 of 7 runs (19-22 soldiers by minute 12) against 4 of 8 without a plan (14)."),
     ("good", "r52", "Rides that deliver",
@@ -221,7 +226,6 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("bug", "Armed and armoured rides fail", "Over 34 Farm runs trucks and vans delivered 31 of 52 rides, armed and armoured ones (BRDM-2, BTR-70, LAV-25, M1025) 1 of 39 - our 20 Oct rule gives every third team one; transport rides only (-aicfArmedRideEvery 0) in the sub-lab. The rest of the failures are boarding bookkeeping (a driver's role lost, getting out too slow). The seat fallback: 2 crashes in 34 runs, both after forced seats.", "review notes 444, 450"),
     ("issue", "AI Conflict's own checks", "The original passes 66/66, our fork 51/66 - mostly deliberate changes the checks don't know, plus the supply-truck road routes adding waypoints outside the vehicle handoff (25 Oct).", "review note 442"),
 
     ("bug", "Attack teams don't reach the objective", "Partly fixed in r50: the main effort binds (-zcrBindMainEffort), no recruit trips or turn-backs. Left: 2-man teams turn into lone survivors after one loss; the rides (above).", "review notes 433, 439"),
@@ -248,10 +252,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin's call: transport rides only in the watched matches (-aicfArmedRideEvery 0) - armed rides delivered 1 of 39.",
-    "Armour bought at an HQ away from its exit road in the normal matches too (now only in the one-point test).",
-    "Attack approaches chosen from measured results as well as the map: the lab scores every approach in runs - feed that back to the planner and to Gemini.",
-    "A watched Farm match with the south-west plan for the harbour side.",
+    "A watched Farm match with the measured plan (the harbour side from the south-west, the south side no plan) - when Martin wants to watch.",
+    "Attack plans in the normal matches: every base's ground read once per map, plans from the bases a side attacks from, chosen from measured results where there are any.",
+    "Building spots from the map (note 396): the algorithm finds valid spots, the model picks from the best few on the map image.",
     "Drone sites: the truck beside cover, operators walking through cover; two pilots per site (Martin to choose).",
 ]
 
@@ -272,6 +275,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (53, "transport rides, armour off the exit road, approaches from results", "29 Oct 22:00-22:40",
+     ["Watched matches: trucks and vans only (-aicfArmedRideEvery 0 in .runtime/watch_extra.txt); the seat fallback was already off there (-aicfNoHiddenSeat).",
+      "ZCR: armour bought at an HQ spawns round a point 400 m toward the front in every match, not only the one-point test (44dacc5; -zcrArmourAtHq for the old spot).",
+      "lab/attackscore.py: every one-point run per side - its HQ, the approach it really had, rides, soldiers at the objective by minute 8/12, taken, three teams in; estimates shrunk toward the HQ's no-plan mean. attackplan.py --export measured / explore; attackpick.py shows Gemini the results and lets it answer none (ba7b8bc).",
+      "Assault sub-lab: storm-plan-measured and the control storm-safe, both with the seat fallback off (694bb27)."],
+     "Martin: 'bro continue fixing open shit you mentioned' (review note 451, on the morning page's next steps).",
+     "With the measured results Gemini picks what the runs say: the harbour HQ from the south-west, the south HQ no plan (before: north and south, both no better than no plan)."),
+
     (52, "attacks planned from the map, rides that deliver", "29 Oct 01:10-06:00",
      ["-zcrAttackScan (ZCR): a 10 m grid round the objective - what 9 defender eye points see, roofs and canopy; lab/attackplan.py: three plans per HQ (assembly hidden from the objective, drive over the road graph, cover-to-cover lanes, hold line, support position, hiding spots, pull-offs); lab/attackdraw.py: lines of attack on Enfumap's map; lab/attackpick.py: Gemini picks with reasons (575b6f1).",
       "AI Conflict fork: the plan per HQ and the approach legs along its lanes (-zcrAttackPlan, 702eaed); the hold line inside the approach route (fa0f7c4); the one-point point attackable whatever the radio network reaches, no FIA patrols (1a910e8, 4d67770).",
