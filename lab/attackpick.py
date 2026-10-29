@@ -18,6 +18,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import attackscore  # noqa: E402
 import providers  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,8 +28,11 @@ SYSTEM = ("You are the commander of one side in an Arma Reforger match (a milita
           "objective. An algorithm has computed 2-3 candidate plans from the map exactly; you choose one. Judge them as a "
           "soldier would: approach through ground the objective cannot see, cover and concealment on the way in, where the "
           "teams get out of the vehicles, whether the support position can fire onto the objective, how exposed the drive "
-          "is, enemy drones (teams must be able to hide under a roof or trees), and how long it takes. Answer with JSON only: "
-          '{"pick": "A", "reason": "...", "risks": "...", "change": "one change you would make to the picked plan, or none"}.')
+          "is, enemy drones (teams must be able to hide under a roof or trees), and how long it takes. Where results measured "
+          "in earlier runs are given, they are what really happened: weigh them above your reading of the map, and answer "
+          "\"none\" (no plan - the teams take the default approach straight in) when no plan did better than that. "
+          'Answer with JSON only: {"pick": "A", "reason": "...", "risks": "...", "change": "one change you would make to the '
+          'picked plan, or none"}.')
 
 
 def plan_text(hq: dict) -> str:
@@ -47,6 +51,23 @@ def plan_text(hq: dict) -> str:
                f"{'in cover' if sup['cover'] else 'in the open'}." if sup else "No support position found.")
             + f" Pull-off spots on the drive: {len(p['pulloffs'])}. Algorithm score {p['score']} (lower is better).")
     return "\n".join(rows)
+
+
+def measured_text(objective, hq: dict) -> str:
+    """The runs measured from this HQ (lab/attackscore.py): per plan and for no plan - what Martin sees, soldiers at the
+    objective by minute 12 and whether it was taken within 15 minutes."""
+    rows = attackscore.rows_for(attackscore.load(), objective, (hq["x"], hq["z"]))
+    if not rows:
+        return ""
+    out = []
+    for asm, pid in [(None, "No plan (default approach)")] + [((p["assembly"]["x"], p["assembly"]["z"]), f"Plan {p['id']}") for p in hq["plans"]]:
+        _, runs, row = attackscore.estimate(rows, asm, objective)
+        if row:
+            out.append(f"{pid}: {runs} runs, {row['at12']} soldiers on average at the objective by minute 12, taken in "
+                       f"{row['took']} of {runs} within 15 minutes, three teams in together in {row['third']} of {runs}.")
+        else:
+            out.append(f"{pid}: not run yet.")
+    return "\n\nMeasured in earlier runs (the same setup, the enemy going for the same objective):\n" + "\n".join(out)
 
 
 def ask(llm, image: Path, text: str) -> dict:
@@ -82,7 +103,8 @@ def main() -> int:
                 f"Your HQ is {hq['from_objective_m']} m away (the black square on the map). You have 7 assault teams of 4 and "
                 f"FPV drones; the enemy has drones too.\n\nThe map: red shading is ground the objective sees; each plan's dashed "
                 f"line is its drive, the circle its assembly point, arrows its three lanes, the black bars its hold line, the "
-                f"triangle its support position, green dots hiding spots.\n\n" + plan_text(hq))
+                f"triangle its support position, green dots hiding spots.\n\n" + plan_text(hq)
+                + measured_text((plans["objective"]["x"], plans["objective"]["z"]), hq))
         try:
             ans = ask(llm, OUT / f"{name}_hq{i + 1}.png", text)
         except Exception as e:   # the algorithm's pick stands

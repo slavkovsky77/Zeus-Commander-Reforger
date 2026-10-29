@@ -313,9 +313,32 @@ def compass(angle):
     return names[int(((angle + 360) % 360 + 22.5) // 45) % 8]
 
 
+EXPLORE = 6.0   # --export explore: an approach run n times gets EXPLORE / sqrt(n + 1) on top of its estimate
+
+
+def measured_pick(objective, hq: dict, explore: bool = False) -> tuple:
+    """(plan id or 'none', why) from lab/attackscore.py's scores: the approach with the best estimate from this HQ - the
+    measured mean shrunk toward AI Conflict's own approach (no plan); an approach never run counts as no plan. 'none' when
+    no plan does better than AI Conflict's own (29 Oct night: from the south HQ every plan did worse). explore: the
+    upper bound instead, so an untried approach gets its runs."""
+    import attackscore
+    rows = attackscore.rows_for(attackscore.load(), objective, (hq["x"], hq["z"]))
+    options = [(None, "none")] + [((p["assembly"]["x"], p["assembly"]["z"]), p["id"]) for p in hq["plans"]]
+    best, why = None, []
+    for asm, pid in options:
+        est, runs, _ = attackscore.estimate(rows, asm, objective)
+        value = est + (EXPLORE / math.sqrt(runs + 1) if explore else 0)
+        why.append(f"{pid} {est} ({runs} runs)")
+        if best is None or value > best[0] + 1e-9:
+            best = (value, pid)
+    return best[1], ", ".join(why)
+
+
 def export(name: str, which: str) -> Path:
     """The chosen plan per HQ for the game (-zcrAttackPlan reads $profile:zcr/attackplan.txt, AICF_ZcrAttackPlan.c): which =
-    'algorithm' (its best score) or 'model' (lab/attackpick.py's picks; the algorithm's where the model gave none)."""
+    'algorithm' (its best score), 'model' (lab/attackpick.py's picks; the algorithm's where the model gave none), 'measured'
+    (the best measured approach, lab/attackscore.py) or 'explore' (measured, untried approaches favoured). A pick of 'none'
+    writes no plan for that HQ: its teams take AI Conflict's own approach."""
     plans = json.loads((OUT / f"{name}_plans.json").read_text(encoding="utf-8"))
     picks = {}
     if which == "model":
@@ -323,7 +346,14 @@ def export(name: str, which: str) -> Path:
             picks[tuple(h["hq"])] = (h["model"] or {}).get("pick")
     lines = []
     for hq in plans["hqs"]:
-        pick = picks.get((hq["x"], hq["z"])) or hq["algorithm_pick"]
+        if which in ("measured", "explore"):
+            pick, why = measured_pick((plans["objective"]["x"], plans["objective"]["z"]), hq, which == "explore")
+            print(f"HQ {hq['x']:.0f},{hq['z']:.0f}: measured estimates {why}")
+        else:
+            pick = picks.get((hq["x"], hq["z"])) or hq["algorithm_pick"]
+        if str(pick).lower() == "none":
+            print(f"HQ {hq['x']:.0f},{hq['z']:.0f}: no plan - AI Conflict's own approach ({which})")
+            continue
         pl = next((p for p in hq["plans"] if p["id"] == pick), hq["plans"][0])
         a_ = pl["assembly"]
         lines.append(f"plan {hq['x']:.1f} {hq['z']:.1f} {plans['objective']['x']:.1f} {plans['objective']['z']:.1f} {a_['x']} {a_['z']} {pl['id']}")
@@ -343,7 +373,8 @@ def main() -> int:
     ap.add_argument("name", help="the objective's short name: .runtime/attack/<name>_scan.jsonl")
     ap.add_argument("--map", default="arland")
     ap.add_argument("--snapshot", default="", help="a snapshots.jsonl for the HQ positions (default: the newest run's)")
-    ap.add_argument("--export", default="", choices=["", "model", "algorithm"], help="write the game's plan file from the saved plans")
+    ap.add_argument("--export", default="", choices=["", "model", "algorithm", "measured", "explore"],
+                    help="write the game's plan file from the saved plans")
     ap.add_argument("--assembly", default="", help="min,max metres of the assembly point from the objective (default 300,650)")
     a = ap.parse_args()
     if a.assembly:
