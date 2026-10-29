@@ -157,7 +157,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
         out["objective"] = sides["USSR"].get("objective", "?")
         for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "at_obj_12", "at_obj_15", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
-                  "captured", "capture_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_peak"):
+                  "captured", "capture_s", "hq_m", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_peak"):
             for s in ("US", "USSR"):
                 out[f"{s.lower()}_{k}"] = sides[s].get(k)
         out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
@@ -221,6 +221,12 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         attack = sum(men for role, men, _, _ in rounds[t] if role == "ATTACK")
         return near, attack
 
+    # How far the side's HQ is from the objective (Arland's HQs swap between matches): where its teams stood in the first round.
+    if rounds and obj:
+        first_round = rounds[min(rounds)]
+        hx = sorted(x for _, _, x, _ in first_round)[len(first_round) // 2]
+        hz = sorted(z for _, _, _, z in first_round)[len(first_round) // 2]
+        out["hq_m"] = round(math.hypot(hx - obj["x"], hz - obj["z"]))
     for mnt in (3, 5, 8, 12, 15):
         near, attack = at(mnt)
         out[f"at_obj_{mnt}"] = near

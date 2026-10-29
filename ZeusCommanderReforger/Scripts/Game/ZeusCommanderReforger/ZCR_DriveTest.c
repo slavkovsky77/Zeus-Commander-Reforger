@@ -1348,7 +1348,7 @@ modded class SCR_BaseGameMode
 	protected override void OnGameStart()
 	{
 		super.OnGameStart();
-		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrBuildTest") || System.IsCLIParam("zcrLosScan") || System.IsCLIParam("zcrCoverScan") || System.IsCLIParam("zcrMapDump") || System.IsCLIParam("zcrBoardTest")))
+		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrBuildTest") || System.IsCLIParam("zcrLosScan") || System.IsCLIParam("zcrCoverScan") || System.IsCLIParam("zcrMapDump") || System.IsCLIParam("zcrAttackScan") || System.IsCLIParam("zcrBoardTest")))
 			ZCR_Driving.Start();
 	}
 }

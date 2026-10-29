@@ -103,6 +103,7 @@ class ZCR_Driving
 		ZCR_GateAhead.Start();     // gates and barriers open as our vehicles come (24 Oct, the Farm's barrier)
 		ZCR_RoadFirst.Start();     // off-road with a far goal: to the nearest proper road first (24 Oct, the Farm)
 		ZCR_MapDump.Start();       // lab: -zcrMapDump - every road, object and tree cell of the map to $profile:zcr/ (plan page M1)
+		ZCR_AttackScan.Start();    // lab: -zcrAttackScan x,z,radius,step - what the objective sees, roofs (lab/attackplan.py)
 		ZCR_LiveMap.Start();       // the Lab app's live map: teams, supply trucks, test vans every 5 s ([ZCR][LIVE])
 		ZCR_Census.Start();        // what piles up in a match: dynamic entities by kind every 2 min ([ZCR][CENSUS])
 		ZCR_ProjWatch.Start();     // bullets piling up at the world origin, by who fired them ([ZCR][PROJWATCH])
