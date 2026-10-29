@@ -44,6 +44,7 @@ storm-plan = "Attack plan from the map - the model's pick"
 storm-plan-hold = "Attack plan from the map, with the hold line"
 storm-plan-light = "Attack plan, light rides only"
 storm-plan-light-hold = "Attack plan, light rides, hold line"
+storm-plan-light-hold-noarm = "Attack plan, light rides, hold line, no armour"
 storm-plan-algo = "Attack plan from the map - the algorithm's pick"
 
 [variant_words]
