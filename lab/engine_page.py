@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "29 Oct night, while Martin is away: no watched match. The '0 soldiers' panel fixed; the one-point runs' rides measured - 14 of 79 requests delivered a team, nearly every failure inside the HQ (up to 9 rides of a side leaving it at once, blocking each other on its one road out); a limit of 2 rides leaving a base at a time tried in one headless run.",
+    "Running now": "29 Oct night (Martin asleep, 'make it smarter, iterate on this farm scenario'): attacks planned from the map - a ground scan of Farm, three plans per HQ (assembly hidden from Farm, drive, cover-to-cover lanes, hold line, support position, hiding spots), Gemini picks one from the map image, the AI teams play it; 34 headless Farm runs against the same setup without a plan. Morning page: https://claude.ai/artifact/X4fueu1TLwg9VtHu4b996M",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's decisions: rides only for long marches (on foot 16-24 soldiers a side reached the point by minute 8; with rides 3-8, with the 2-at-a-time limit 4-14), 12 teams of 4 instead of 20 of 2, the seat fallback back on; then a watched one-point match with what he picks.",
+    "Being built next": "Martin's calls: transport rides only in the watched matches (armed rides delivered 1 of 39); armour off the HQ exit road in the normal matches too; choose attack approaches from measured results (from the harbour HQ the south-west beats the north) and a watched Farm match with the best plan.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r52", "Attacks planned from the map",
+     "A ground scan (what a defender on Farm sees, roofs and trees) and three plans per HQ in seconds: an assembly point hidden from Farm, the drive, three cover-to-cover lanes, a hold line, a support position, hiding spots from drones. Gemini picks one from the map image with reasons; the teams play it - rides to the assembly point, legs on the lanes, a hold inside AI Conflict's approach logic. From the harbour HQ the south-west plans took Farm in 6 of 7 runs (19-22 soldiers by minute 12) against 4 of 8 without a plan (14)."),
+    ("good", "r52", "Rides that deliver",
+     "Transport rides only and the armour no longer parked on the HQ's exit road: the harbour side had 11 soldiers at Farm by minute 8 instead of 3, with no plan at all."),
+    ("bad", "r52", "Neither Gemini nor the algorithm reliably picks the good approach",
+     "From the south HQ every plan (from the east - a 3 km drive round - or from the south) did worse than no plan; Gemini's first pick for the harbour HQ (from the north) was no better than no plan. Next: choose approaches from measured results."),
+
     ("good", "r51", "The panels count the soldiers again",
      "Martin: 'it showed 0 soldiers for both sides'. The count came from the camera's soldier list, refreshed only when it cut to a new shot - locked by his buttons from game second 9, before anyone had deployed, it stayed empty all match. Now refreshed every 5 s."),
     ("bad", "r51", "Rides jam inside the HQ",
@@ -214,7 +221,7 @@ CAMERA = [
 ]
 
 PROBLEMS = [
-    ("bug", "Rides jam inside the HQ", "AI Conflict caps vehicles per side, not departures per base: 5-9 rides of a side boarded or left one HQ at once and blocked each other on its one road out - 15 of 16 rides given up as stuck never got 70 m from the HQ; 14 of 79 requests delivered a team. At most 2 at a time (-aicfRidesPerBase 2): 3-8 rides asked, 4 failed, 18 soldiers at the point by minute 8 instead of 7. Also: the harbour HQ's few dry pads, a passenger whose get-in never starts.", "review notes 441, 444"),
+    ("bug", "Armed and armoured rides fail", "Over 34 Farm runs trucks and vans delivered 31 of 52 rides, armed and armoured ones (BRDM-2, BTR-70, LAV-25, M1025) 1 of 39 - our 20 Oct rule gives every third team one; transport rides only (-aicfArmedRideEvery 0) in the sub-lab. The rest of the failures are boarding bookkeeping (a driver's role lost, getting out too slow). The seat fallback: 2 crashes in 34 runs, both after forced seats.", "review notes 444, 450"),
     ("issue", "AI Conflict's own checks", "The original passes 66/66, our fork 51/66 - mostly deliberate changes the checks don't know, plus the supply-truck road routes adding waypoints outside the vehicle handoff (25 Oct).", "review note 442"),
 
     ("bug", "Attack teams don't reach the objective", "Partly fixed in r50: the main effort binds (-zcrBindMainEffort), no recruit trips or turn-backs. Left: 2-man teams turn into lone survivors after one loss; the rides (above).", "review notes 433, 439"),
@@ -241,11 +248,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin's call: rides only for long marches (-aicfInfantryRideMeters 2500), 12 teams of 4 a side, the seat fallback back on - then a watched one-point match with it (and the panel's soldier count checked on screen).",
-    "If rides stay for long marches: at most 2 leaving a base at a time (-aicfRidesPerBase 2) in the full matches, judged in a watched one.",
-    "The harbour HQ's vehicle pads; a passenger whose get-in never starts.",
+    "Martin's call: transport rides only in the watched matches (-aicfArmedRideEvery 0) - armed rides delivered 1 of 39.",
+    "Armour bought at an HQ away from its exit road in the normal matches too (now only in the one-point test).",
+    "Attack approaches chosen from measured results as well as the map: the lab scores every approach in runs - feed that back to the planner and to Gemini.",
+    "A watched Farm match with the south-west plan for the harbour side.",
     "Drone sites: the truck beside cover, operators walking through cover; two pilots per site (Martin to choose).",
-    "The model as the general once the attacks arrive.",
 ]
 
 FACTS = [
@@ -265,6 +272,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (52, "attacks planned from the map, rides that deliver", "29 Oct 01:10-06:00",
+     ["-zcrAttackScan (ZCR): a 10 m grid round the objective - what 9 defender eye points see, roofs and canopy; lab/attackplan.py: three plans per HQ (assembly hidden from the objective, drive over the road graph, cover-to-cover lanes, hold line, support position, hiding spots, pull-offs); lab/attackdraw.py: lines of attack on Enfumap's map; lab/attackpick.py: Gemini picks with reasons (575b6f1).",
+      "AI Conflict fork: the plan per HQ and the approach legs along its lanes (-zcrAttackPlan, 702eaed); the hold line inside the approach route (fa0f7c4); the one-point point attackable whatever the radio network reaches, no FIA patrols (1a910e8, 4d67770).",
+      "ZCR: rides steered to the plan's assembly point and dropped there (3da376a); one-point armour 400 m toward the front, not on the HQ's exit road (e22d14f); the town test on Farm, the other bases dealt again (cecbc34).",
+      "Assault sub-lab: arrivals together, plan drops, holds, each side's HQ distance in the summary; variants for the plan, the hold line, light and transport rides, the algorithm's pick, the control (3e4187a ... 4eef407)."],
+     "Martin: 'attacks should be planned in some smarter way, we have to read the maps', 'where they have cover, where it could hide if something happens - drone?', 'I imagine having lines of attack', 'make it smarter ... continue iterating on this farm scenario' (review notes 447-450).",
+     "34 Farm runs: the ride fixes are the big lever (harbour side at Farm by minute 8 from 3 to 11); a good approach adds on top (harbour south-west plans 6 of 7 captures vs 4 of 8); the pickers don't reliably find it."),
+
     (51, "rides out of the HQ two at a time, the 0-soldiers panel", "29 Oct 00:00-00:25",
      ["The panels' soldier count refreshed every 5 s, not only at a new camera shot (ZCR f8fe76a).",
       "AI Conflict fork: -aicfRidesPerBase N - at most N rides being planned, boarded or still driving out near a base; the next team walks (2322efa, off by default).",
