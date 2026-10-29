@@ -93,10 +93,14 @@ VARIANTS = {
                                    "as storm-plan-light-hold, with the plan the algorithm scored best instead of the model's pick"),
     "storm-plan-trans-hold": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
                               "the plan and the hold line, transport rides only (29 Oct night: armed and armoured rides delivered 1 of 39, trucks and vans 31 of 52)"),
+    "storm-trans": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                    "the control for the plan runs: today's way with transport rides only and the armour off the HQ exit - no plan"),
+    "storm-plan-trans-hold-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                                   "as storm-plan-trans-hold, with the plan the algorithm scored best instead of the model's pick"),
     "storm-plan-algo": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold").replace(" -aicfNoHiddenSeat", ""),
                         "as storm-plan, with the plan the algorithm itself scored best"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
