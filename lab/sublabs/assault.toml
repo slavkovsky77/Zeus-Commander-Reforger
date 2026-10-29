@@ -52,6 +52,8 @@ storm-plan-trans-hold-algo = "Attack plan (the algorithm's pick), transport ride
 storm-plan-trans = "Attack plan, transport rides only, no hold line"
 storm-plan-close = "Attack plan, assembly 200-400 m out, no hold line"
 storm-plan-algo = "Attack plan from the map - the algorithm's pick"
+storm-safe = "No plan, transport rides, seat fallback off (control)"
+storm-plan-measured = "Attack plan - the best measured approach per HQ"
 
 [variant_words]
 now = "as the watched matches: teams set out with 2 men, rides, AI Conflict picks each team's target"
