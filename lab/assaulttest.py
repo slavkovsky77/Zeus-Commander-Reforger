@@ -111,6 +111,9 @@ VARIANTS = {
     "now-trans": (BASE + " -aicfArmedRideEvery 0", "as the watched matches since 29 Oct evening: transport rides only - the control"),
     "now-plan": (BASE + " -aicfArmedRideEvery 0 -zcrAttackPlan -zcrNoAttackHold",
                  "as now-trans, with attack plans from the map for every base from every base (the origin nearest where a team started)"),
+    # 30 Oct 03:15 the van fix (fork: the UAZ-452 counts its 2 front seats - its back is broken for the AI, the van sub-lab):
+    "storm-safe-van8": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -aicfArmedRideEvery 0 -aicfVanSeats 8",
+                        "storm-safe with the old van (8 seats: Soviet teams of 4 ride the UAZ-452 and its broken back) - the van fix's control"),
     "storm-plan-measured": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
                             "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides, the seat fallback off"),
 }

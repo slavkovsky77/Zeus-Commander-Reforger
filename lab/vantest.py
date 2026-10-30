@@ -42,6 +42,8 @@ VARIANTS = {
     "m923_us": ("m923_us", "M923 truck, US rifle squads"),
     "van2_ussr": ("van2_ussr", "UAZ-452 van, Soviet two-man teams (as in the watched matches)"),
     "m998_2_us": ("m998_2_us", "M998 Humvee, US two-man teams (as in the watched matches)"),
+    "ural_ussr": ("ural_ussr", "Ural-4320 truck, Soviet rifle squads - the Soviet side's ride if the van is the bug"),
+    "uaz469_ussr": ("uaz469_ussr", "UAZ-469 jeep (no gun), Soviet rifle squads"),
 }
 EVENT = re.compile(r"\[ZCR\]\[BOARDTEST\] t=(\d+) cycle=(\d+) event=(\w+) soldiers=(\d+) n=(\d+)")
 

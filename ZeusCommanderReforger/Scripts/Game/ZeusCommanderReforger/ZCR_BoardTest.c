@@ -25,7 +25,7 @@ class ZCR_BoardTest
 {
 	static const string GET_OUT = "{C40316EE26846CAB}Prefabs/AI/Waypoints/AIWaypoint_GetOut.et";
 	protected static ref ZCR_BoardTest s_Instance;
-	protected ref array<Vehicle> m_aVehicles = {};
+	protected ref array<IEntity> m_aVehicles = {};   // vehicles, or static weapons (a Turret: the M60 tripod)
 	protected ref array<SCR_AIGroup> m_aTeams = {};
 	protected ref array<string> m_aCars = {};
 	protected ref array<string> m_aTeamPrefabs = {};
@@ -46,6 +46,14 @@ class ZCR_BoardTest
 	protected ref map<int, int> m_mLastAt = new map<int, int>();
 	protected ref array<IEntity> m_aOrdered = {};
 	protected ref array<BaseCompartmentSlot> m_aTaken = {};
+	// The van sub-lab (30 Oct 02:20): which seats fail - each ordered soldier's seat (type + its index in the vehicle's
+	// compartment list), checked at the end of the boarding and after the get-out; a tally a minute:
+	//   [ZCR][BOARDSEAT] t= seat=CARGO_3 tries= in= stuck_out=
+	protected ref array<IEntity> m_aSeatMen = {};
+	protected ref array<string> m_aSeatKeys = {};
+	protected ref map<string, int> m_mSeatTries = new map<string, int>();
+	protected ref map<string, int> m_mSeatIn = new map<string, int>();
+	protected ref map<string, int> m_mSeatStuck = new map<string, int>();
 	protected ref array<vector> m_aSpots = {};
 	protected int m_iNear;
 
@@ -119,6 +127,11 @@ class ZCR_BoardTest
 		if (kinds == "m923_us") { Add(m923, usSquad); return; }
 		if (kinds == "van2_ussr") { Add(van, ussrTwo); return; }
 		if (kinds == "m998_2_us") { Add(m998, usTwo); return; }
+		// The Soviet side's other rides, if the van is the bug: the Ural truck (AI Conflict's fallback) and the UAZ-469 jeep.
+		if (kinds == "ural_ussr") { Add("{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et", ussrSquad); return; }
+		// The crash lead of note 453: M60 tripods (Turret), a US two-man team each - one goes onto the gun.
+		if (kinds == "tripod_us") { Add("{887DB60486A18575}Prefabs/Weapons/Tripods/Tripod_M122_MG_M60.et", usTwo); return; }
+		if (kinds == "uaz469_ussr") { Add("{03D9932135924AEF}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_Camo_uncovered.et", ussrSquad); return; }
 		// Cars only for "all" and "cars" (04:05: "!= apc" put US cars and teams beside the BTR-70s' Soviet squads - they fought).
 		if (kinds == "all" || kinds == "cars")
 		{
@@ -218,7 +231,26 @@ class ZCR_BoardTest
 			params.TransformMode = ETransformMode.WORLD;
 			for (int axis; axis < 4; axis++)
 				params.Transform[axis] = pose[axis];
-			Vehicle v = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_aCars[i % m_aCars.Count()]), GetGame().GetWorld(), params));
+			// A static weapon (30 Oct: the watched Farm match crashed 0.2 s after a soldier was moved onto an M60 tripod standing
+			// 9 deg tilted, note 453): no physics to settle it - stood on the ground, tilted with it.
+			string car = m_aCars[i % m_aCars.Count()];
+			if (car.Contains("Tripods/"))
+			{
+				BaseWorld world = GetGame().GetWorld();
+				vector at = Pad(i);
+				float hx = world.GetSurfaceY(at[0] - 1, at[2]) - world.GetSurfaceY(at[0] + 1, at[2]);
+				float hz = world.GetSurfaceY(at[0], at[2] - 1) - world.GetSurfaceY(at[0], at[2] + 1);
+				vector up = Vector(hx * 0.5, 1, hz * 0.5);
+				up.Normalize();
+				vector fwd = Vector(0, 0, 1) - up * vector.Dot(Vector(0, 0, 1), up);
+				fwd.Normalize();
+				Math3D.DirectionAndUpMatrix(fwd, up, pose);
+				at[1] = world.GetSurfaceY(at[0], at[2]);
+				pose[3] = at;
+				for (int ax; ax < 4; ax++)
+					params.Transform[ax] = pose[ax];
+			}
+			IEntity v = GetGame().SpawnEntityPrefab(Resource.Load(car), GetGame().GetWorld(), params);
 			m_aVehicles.Insert(v);
 		}
 		m_iPhase = 0;
@@ -258,6 +290,7 @@ class ZCR_BoardTest
 				if (aboard < soldiers)
 					m_iTimeouts++;
 				m_iSeated += aboard;
+				SeatTally(false);
 				Log(now, "ABOARD", soldiers, aboard);
 				m_iPhase = 2;
 				m_iPhaseAt = now;
@@ -274,6 +307,7 @@ class ZCR_BoardTest
 			{
 				if (aboard > 0)
 					m_iTimeouts++;
+				SeatTally(true);
 				Log(now, "OUT", soldiers, aboard);
 				m_iPhase = 4;
 				m_iPhaseAt = now;
@@ -288,7 +322,7 @@ class ZCR_BoardTest
 				Refill();
 				if (m_sMode.StartsWith("spawnboard") && aboard == 0)
 				{
-					foreach (Vehicle v : m_aVehicles)
+					foreach (IEntity v : m_aVehicles)
 					{
 						if (v)
 							RplComponent.DeleteRplEntity(v, false);
@@ -303,8 +337,30 @@ class ZCR_BoardTest
 		if (now >= m_iNextSum)
 		{
 			m_iNextSum = now + 60;
+			foreach (string key, int tries : m_mSeatTries)
+				Print(string.Format("[ZCR][BOARDSEAT] t=%1 seat=%2 tries=%3 in=%4 stuck_out=%5", now, key, tries, m_mSeatIn.Get(key), m_mSeatStuck.Get(key)), LogLevel.NORMAL);
 			Print(string.Format("[ZCR][BOARDTEST_SUM] t=%1 cycles=%2 issued=%3 seated=%4 timeouts=%5 mode=%6", now, m_iCycle, m_iIssued, m_iSeated,
 				m_iTimeouts, m_sMode), LogLevel.NORMAL);
+		}
+	}
+
+	// Each ordered soldier of this cycle: in his vehicle at the end of the boarding (afterOut = false), or still in it after the
+	// get-out (afterOut = true).
+	protected void SeatTally(bool afterOut)
+	{
+		for (int k; k < m_aSeatMen.Count(); k++)
+		{
+			IEntity man = m_aSeatMen[k];
+			string key = m_aSeatKeys[k];
+			bool inside = man && CompartmentAccessComponent.GetVehicleIn(man) != null;
+			if (!afterOut)
+			{
+				m_mSeatTries.Set(key, m_mSeatTries.Get(key) + 1);
+				if (inside)
+					m_mSeatIn.Set(key, m_mSeatIn.Get(key) + 1);
+			}
+			else if (inside)
+				m_mSeatStuck.Set(key, m_mSeatStuck.Get(key) + 1);
 		}
 	}
 
@@ -351,10 +407,12 @@ class ZCR_BoardTest
 			return;
 		}
 		int issued;
+		m_aSeatMen.Clear();
+		m_aSeatKeys.Clear();
 		for (int i; i < m_aTeams.Count() && i < m_aVehicles.Count(); i++)
 		{
 			SCR_AIGroup team = m_aTeams[i];
-			Vehicle v = m_aVehicles[i];
+			IEntity v = m_aVehicles[i];
 			if (!team || !v)
 				continue;
 			SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(v.FindComponent(SCR_AIVehicleUsageComponent));
@@ -418,6 +476,8 @@ class ZCR_BoardTest
 					SCR_AIActionBase.PRIORITY_LEVEL_NORMAL);
 				utility.AddAction(action);
 				issued++;
+				m_aSeatMen.Insert(man);
+				m_aSeatKeys.Insert(typename.EnumToString(ECompartmentType, seat.GetType()) + "_" + seats.Find(seat));
 			}
 		}
 		m_iIssued += issued;
@@ -433,7 +493,7 @@ class ZCR_BoardTest
 		for (int i; i < m_aTeams.Count() && i < m_aVehicles.Count(); i++)
 		{
 			SCR_AIGroup team = m_aTeams[i];
-			Vehicle v = m_aVehicles[i];
+			IEntity v = m_aVehicles[i];
 			if (!team || !v)
 				continue;
 			array<AIWaypoint> old = {};
@@ -480,7 +540,7 @@ class ZCR_BoardTest
 	{
 		for (int i; i < m_aVehicles.Count(); i++)
 		{
-			Vehicle v = m_aVehicles[i];
+			IEntity v = m_aVehicles[i];
 			if (!v)
 				continue;
 			vector mat[4];
@@ -628,7 +688,7 @@ class ZCR_BoardTest
 		if (i >= m_aTeams.Count() || i >= m_aVehicles.Count())
 			return 0;
 		SCR_AIGroup team = m_aTeams[i];
-		Vehicle v = m_aVehicles[i];
+		IEntity v = m_aVehicles[i];
 		if (!team || !v)
 			return 0;
 		SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(v.FindComponent(SCR_AIVehicleUsageComponent));
@@ -696,7 +756,7 @@ class ZCR_BoardTest
 
 	protected int AboardOf(int i)
 	{
-		Vehicle v = m_aVehicles[i];
+		IEntity v = m_aVehicles[i];
 		if (!v || i >= m_aTeams.Count() || !m_aTeams[i])
 			return 0;
 		int inside;
@@ -747,7 +807,7 @@ class ZCR_BoardTest
 		for (int k = 1; k <= n; k++)
 		{
 			int i = (s_Instance.m_iCamTurn + k) % n;
-			Vehicle v = s_Instance.m_aVehicles[i];
+			IEntity v = s_Instance.m_aVehicles[i];
 			if (!v)
 				continue;
 			s_Instance.m_iCamTurn = i;

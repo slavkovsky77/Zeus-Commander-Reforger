@@ -107,6 +107,14 @@ BOARD = {
     "mb_lav_plain": ("1700,1000;8;spawnboard;lav_plain", "the plain LAV-25 prefab instead of the Conflict variant"),
     "mb_btr": ("1700,1000;8;spawnboard;btr", "BTR-70 (Conflict) with Soviet squads"),
     "mb_btr_plain": ("1700,1000;8;spawnboard;btr_plain", "plain BTR-70 with Soviet squads"),
+    # 30 Oct 02:10 the watched Farm match's crash (note 453): an access violation 0.2 s after ZCR_SafeBoarding moved a US
+    # squad leader straight onto an M60 tripod standing 9 deg tilted (over its 8-deg limit). Tripods (Turret) tilted with the
+    # ground, a US two-man team each, boarded and emptied again and again. Spots: 9-12 deg ground (.runtime/tiltspots.json bin 3).
+    "mb_tripod_tilt": ("388,2380/400,2428/508,2344/568,2488/592,2704/604,2776/676,2620/700,2536;8;board;tripod_us",
+                       "8 M60 tripods on 9-12 deg ground, our safe boarding on (straight onto the gun - as in the crashed match)"),
+    "mb_tripod_tilt_anim": ("388,2380/400,2428/508,2344/568,2488/592,2704/604,2776/676,2620/700,2536;8;board;tripod_us",
+                            "the same tripods, the game's climbing animation (-zcrSafeBoardDeg 0)", None, "-zcrSafeBoardDeg 0"),
+    "mb_tripod_flat": ("1000,2780;8;board;tripod_us", "8 M60 tripods on the flat airport apron, our safe boarding on"),
     "mb_lav_ussr": ("1700,1000;8;spawnboard;lav_ussr", "Conflict LAV-25 with Soviet squads (the vehicle or the soldiers?)"),
     "mb_btr_us": ("1700,1000;8;spawnboard;btr_us", "BTR-70 (Conflict) with US squads (the vehicle or the soldiers?)"),
     "mb_apc_crew": ("1700,1000;8;spawnboard_crew;apc", "Conflict LAV-25, soldiers only into the driver and turret seats"),
