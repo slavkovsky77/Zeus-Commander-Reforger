@@ -26,7 +26,7 @@ VERDICT = {
     "Running now": "30 Oct evening, Martin watching: three Farm battles in the game window. The van check (the Soviets at the harbour HQ, as on 29 Oct): Farm taken at 11:36 instead of 19:29, 0 boarding timeouts instead of 68, Soviet losses 5 instead of 16. After a capture the attack teams now hold the base instead of walking back to their HQ.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Rides that reach the target but time out getting the team out (they count as failed though the soldiers arrived); the crash in the game window (Martin's call: a crash list or matches with parts switched off); the plans for every base in a watched match.",
+    "Being built next": "The spot at the airfield edge ~350 m west of Farm where Soviet rides from the harbour die (7 times in tonight's battles, 12 in last night's runs) - look at it in a watched battle, then drop the teams before it or keep the trucks off; the crash in the game window (Martin's call: a crash list or matches with parts switched off); the plans for every base in a watched match.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -264,7 +264,7 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Rides that reach the target but time out getting the team out (DISEMBARK_TIMEOUT): counted as failed though the soldiers arrived.",
+    "The airfield-edge spot ~350 m west of Farm where Soviet rides from the harbour die: look at it in a watched battle, then drop the teams before it or keep the trucks off.",
     "The crash in the game window: a crash list for the watched matches, or matches with parts switched off (Martin's call).",
     "Attack plans for every base in a watched match.",
     "Building spots from the map (note 396).",
