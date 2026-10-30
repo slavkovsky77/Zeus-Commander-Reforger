@@ -54,10 +54,17 @@ modded class AICF_AdaptiveCommanderPolicy
 		if (main < 0)
 			return;
 		// The main effort taken: the attack teams hold it (28 Oct: with the objective captured the plan had nothing more, and
-		// every attack team was sent home to guard the main base - its riders drove back 1.5 km).
+		// every attack team was sent home to guard the main base - its riders drove back 1.5 km). 30 Oct: AI Conflict leaves a
+		// held base off an attack team's list (m_bZcrHeld) - put back here, or the rule never fired (both watched Farm battles:
+		// 7 US attack teams sent back to the harbour HQ right after taking Farm).
 		bool reachable;
 		foreach (AICF_AdaptiveCandidate c : candidates)
 		{
+			if (c && c.m_iNodeId == main && c.m_bZcrHeld && !c.m_bAvailable)
+			{
+				c.m_bAvailable = true;
+				c.m_bZcrHeld = false;
+			}
 			if (c && c.m_iNodeId == main && c.m_bAvailable)
 				reachable = true;
 		}
