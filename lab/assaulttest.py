@@ -172,7 +172,7 @@ def rides(lines: list, side: str, rounds: dict) -> dict:
             m = re.search(r" t=(\d+) kind=team side=\w+ id=(\d+) .* x=(-?\d+) z=(-?\d+)", l)
             if m:
                 where.setdefault(int(m.group(2)), []).append((int(m.group(1)), float(m.group(3)), float(m.group(4))))
-    state, out, peak = {}, {"rides_asked": 0, "rides_delivered": 0, "rides_failed": 0, "rides_failed_at_hq": 0}, 0
+    state, out, peak = {}, {"rides_asked": 0, "rides_delivered": 0, "rides_failed": 0, "rides_failed_at_hq": 0, "rides_slow_out": 0}, 0
     for l in lines:
         if "[VEHICLE_STATE_CHANGED]" not in l or f"faction={side} " not in l:
             continue
@@ -185,6 +185,9 @@ def rides(lines: list, side: str, rounds: dict) -> dict:
             out["rides_asked"] += 1
         elif st == "DISMOUNT":
             out["rides_delivered"] += 1
+        elif st == "FALLBACK" and state.get(slot) == "DISMOUNT":
+            # Delivered, then a slow get-out (DISEMBARK_TIMEOUT ~20 s after the drop, 30 Oct 23:35): not a failed ride.
+            out["rides_slow_out"] += 1
         elif st == "FALLBACK":
             out["rides_failed"] += 1
             seen = [p for p in where.get(slot, []) if p[0] <= t]
@@ -205,7 +208,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
         out["objective"] = sides["USSR"].get("objective", "?")
         for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "at_obj_12", "at_obj_15", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
-                  "captured", "capture_s", "hq_m", "teams_in", "third_in_s", "first_to_third_s", "plan_dismounts", "holds", "hold_go_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_peak"):
+                  "captured", "capture_s", "hq_m", "teams_in", "third_in_s", "first_to_third_s", "plan_dismounts", "holds", "hold_go_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_slow_out", "rides_peak"):
             for s in ("US", "USSR"):
                 out[f"{s.lower()}_{k}"] = sides[s].get(k)
         out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
