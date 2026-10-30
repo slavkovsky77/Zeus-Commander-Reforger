@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "29 Oct evening (Martin: 'continue fixing open shit you mentioned'): the morning page's next steps - the watched matches ride trucks and vans only, armour bought at an HQ spawns 400 m toward the front in every match, and attack approaches are chosen from measured results (lab/attackscore.py). Nothing is running; the watched Farm match with the measured plan waits for Martin.",
+    "Running now": "30 Oct night (Martin asleep: 'continue testing and resolving this bug'): the van bug verified and fixed - the UAZ-452's back seats are broken for the AI, bigger Soviet teams now ride Urals; the M60 tripod crash lead tested (not the cause); attack plans for every base, first normal-setup runs (one each): the US took Military Training Area at 7:57 with plans v 11:37 without, the Soviets Signal Hill at 9:08 v 7:57 - leads, not proof. Morning page: https://claude.ai/artifact/8UV3eoFcbiucStf8UGtF2w",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "A watched Farm match with the measured plan (harbour HQ from the south-west, south HQ no plan) when Martin wants to watch; then attack plans in the normal matches - every base's ground read once, plans from the bases a side attacks from, no plan where the measured runs say none helps.",
+    "Being built next": "Martin's calls: the crash in the game window (four of one kind since 25 Oct, all in the engine's entity update - a crash list or matches with parts switched off); the hillside where two Urals overturned; the plans for every base in a watched match.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r54", "The van bug: verified and fixed",
+     "Martin's hunch ('it can be just van bug'): in the van sub-lab the UAZ-452's driver and front seats took 56 of 56 soldiers, its six back seats 2-14 of ~40 each, and most who got in couldn't get out; the M998 and the Ural with the same soldiers 100% and 99.9%. The van now counts its two front seats, so bigger Soviet teams ride Urals. Farm test, Soviets at the harbour HQ: Farm taken in 4 of 5 runs with the fix, 0 of 3 with the old van; 12 soldiers there by minute 8 instead of 1."),
+    ("good", "r54", "Drone trucks beside cover, operators through cover",
+     "The truck parks beside trees or buildings (Martin's report 434: on the runway); operators walk in 100 m legs that end under cover (report 436: on the road); a leg that goes nowhere falls back to the straight walk."),
+    ("bad", "r54", "The crash in the game window is not explained",
+     "Four crashes of one kind since 25 Oct, all inside the engine's entity update, nothing of ours in common before them. The lead (a soldier moved onto a tilted M60 tripod 0.2 s before) did not reproduce: hundreds of tripod boardings, tilted and flat, 0 crashes."),
+
     ("good", "r53", "Approaches chosen from what happened",
      "lab/attackscore.py scores every approach from the sub-lab runs: per HQ and approach, soldiers at the objective by minute 12 and whether it was taken. The planner's --export measured takes the best measured approach per HQ, or no plan where none beat AI Conflict's own; Gemini now sees the same results and answered the same: from the harbour HQ the south-west (22 soldiers by minute 12, taken 2 of 3 and 4 of 4), from the south HQ no plan (every plan did worse, 4-6 soldiers against 7)."),
     ("good", "r53", "Trucks and vans only, armour off the exit road",
@@ -252,10 +259,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "A watched Farm match with the measured plan (the harbour side from the south-west, the south side no plan) - when Martin wants to watch.",
-    "Attack plans in the normal matches: every base's ground read once per map, plans from the bases a side attacks from, chosen from measured results where there are any.",
-    "Building spots from the map (note 396): the algorithm finds valid spots, the model picks from the best few on the map image.",
-    "Drone sites: the truck beside cover, operators walking through cover; two pilots per site (Martin to choose).",
+    "The crash in the game window: a crash list for the watched matches, or matches with parts switched off (Martin's call).",
+    "The hillside where two Urals overturned on the way from the south HQ to Farm (~2580, 2361): a truck trap if it happens again.",
+    "Attack plans for every base in a watched match, once the headless comparison says they help.",
+    "Building spots from the map (note 396).",
 ]
 
 FACTS = [
@@ -275,6 +282,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (54, "the van bug fixed, drone sites, plans for every base", "29 Oct 23:20 - 30 Oct 05:30",
+     ["AI Conflict fork: the UAZ-452 counts its 2 front seats - its back is broken for the AI - so Soviet teams of 3+ ride the Ural (9dbd19f; -aicfVanSeats 8 = as before); plans per team from the origin nearest where it started, world sections, a 'none' plan, the hold line per plan (da5bb90).",
+      "Watched matches: the seat fallback back on (Martin: 'probably back on').",
+      "ZCR: drone trucks park beside roofs or tree crowns, operators walk in 100 m legs through cover (d4c7985); -zcrAttackScan all (07fa769); the boarding test takes static weapons and logs every seat (931dff4, cf1d484, 27e087a).",
+      "Lab: the van sub-lab (lab/vantest.py), tripod runs in the crash sub-lab, attack plans for every Arland base (lab/attackplan.py --all, the side rule), the lab map's lines of attack (669fee5)."],
+     "Martin: 'it can be just van bug that doesn't happen in other vehicles, can you verify?'; 'can you do integration sublab test for van bug?'; 'continue testing and resolving this bug' (review notes 452-459).",
+     "The van's back seats: 2-14 of ~40 in, most of those stuck inside after the get-out; the M998 and the Ural 100% / 99.9%. Farm, Soviets at the harbour HQ: taken 4 of 5 with the fix, 0 of 3 before. The tripod crash lead did not reproduce."),
+
     (53, "transport rides, armour off the exit road, approaches from results", "29 Oct 22:00-22:40",
      ["Watched matches: trucks and vans only (-aicfArmedRideEvery 0 in .runtime/watch_extra.txt); the seat fallback was already off there (-aicfNoHiddenSeat).",
       "ZCR: armour bought at an HQ spawns round a point 400 m toward the front in every match, not only the one-point test (44dacc5; -zcrArmourAtHq for the old spot).",
