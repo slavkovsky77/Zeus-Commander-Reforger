@@ -671,7 +671,13 @@ class ZCR_BoardTest
 			int alive;
 			if (team)
 				alive = AICF_GroupRuntime.CountAliveAgents(team);
-			if (alive > 2)
+			// A squad is refilled when 2 or fewer are left; a two-man sentry team only when nobody is (30 Oct 04:10: with
+			// "> 2" every two-man team was replaced each cycle and the board order found no soldiers - the tripod and
+			// two-man van runs boarded only in their first cycle).
+			int keep = 3;
+			if (m_aTeamPrefabs[i % m_aTeamPrefabs.Count()].Contains("SentryTeam"))
+				keep = 1;
+			if (alive >= keep)
 				continue;
 			vector at = Pad(i) + Vector(-m_fTeamOffset, 0, 0);
 			at[1] = GetGame().GetWorld().GetSurfaceY(at[0], at[2]);
