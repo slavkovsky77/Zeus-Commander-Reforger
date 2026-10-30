@@ -1,0 +1,15 @@
+# Sub-lab "vans" - created 2026-10-30 01:13 by lab/sublab.py new
+name = "vans"
+question = "Do soldiers fail to get into or out of the UAZ-452 van more than other vehicles - is it a van bug?"
+issue = "Two watched Farm runs (29 Oct, seat fallback off): 1 of 23 Soviet rides from the harbour HQ delivered; the 4th man stood at the van's door, his get-in running 77 s (notes 453-456). Martin: 'it can be just van bug that doesn't happen in other vehicles'."
+pass_rule = "a van bug if the van's aboard % is clearly below the M998's and the M923's with the same soldiers, or soldiers stay stuck inside it"
+runner = "lab/vantest.py"
+minutes = 6.0
+units = 6
+scenarios = ["apron"]
+variants = ["van_ussr", "van_us", "m998_us", "m998_ussr", "m923_us", "van2_ussr", "m998_2_us"]
+baseline = "m998_us"
+candidate = "van_ussr"
+score = "aboard_pct - 10*stuck_in"
+higher_is_better = true
+keys = ["cycles", "ordered", "aboard_pct", "in_fail", "stuck_in", "engine_stuck"]

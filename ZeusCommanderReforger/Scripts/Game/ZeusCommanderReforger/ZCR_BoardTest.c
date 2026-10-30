@@ -101,6 +101,24 @@ class ZCR_BoardTest
 	//   all  M998, M1025 M2, LAV-25   cars  M998, M1025 M2   apc  LAV-25 only
 	protected void Kinds(string kinds)
 	{
+		// The van sub-lab (29 Oct night, Martin: "it can be just van bug that doesn't happen in other vehicles, can you verify?";
+		// "i remember something like that from multiplayer with people that I couldn't get off and was stuck"): one vehicle
+		// type at a time, with either side's soldiers - is it the UAZ-452 or the soldiers? Rifle squads (more men than a
+		// jeep's seats - only the seats get an order), "2": two-man sentry teams as in the watched matches.
+		string van = "{1FBB492E86002BF5}Prefabs/Vehicles/Wheeled/UAZ452/UAZ452_transport.et";
+		string m998 = "{9B1BF9644E0378D6}Prefabs/Vehicles/Wheeled/M998/M998_covered_long.et";
+		string m923 = "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et";
+		string usSquad = "{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et";
+		string ussrSquad = "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et";
+		string usTwo = "{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et";
+		string ussrTwo = "{CB58D90EA14430AD}Prefabs/Groups/OPFOR/Group_USSR_SentryTeam.et";
+		if (kinds == "van_ussr") { Add(van, ussrSquad); return; }
+		if (kinds == "van_us") { Add(van, usSquad); return; }
+		if (kinds == "m998_us") { Add(m998, usSquad); return; }
+		if (kinds == "m998_ussr") { Add(m998, ussrSquad); return; }
+		if (kinds == "m923_us") { Add(m923, usSquad); return; }
+		if (kinds == "van2_ussr") { Add(van, ussrTwo); return; }
+		if (kinds == "m998_2_us") { Add(m998, usTwo); return; }
 		// Cars only for "all" and "cars" (04:05: "!= apc" put US cars and teams beside the BTR-70s' Soviet squads - they fought).
 		if (kinds == "all" || kinds == "cars")
 		{

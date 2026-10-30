@@ -34,6 +34,12 @@ SHOWS = {
             "animation (the climb into a LAV-25 crashes the dedicated server - on a slope almost every time, on level ground "
             "sometimes). Getting out stays the normal animation (the back seats one by one, -zcrGetOutOrder). The first try "
             "on the hillside had the camera inside a tree."),
+    # 30 Oct 01:15 (Martin: "can you do integration sublab test for van bug?"; "it can be just van bug that doesn't happen in other
+    # vehicles"): the van sub-lab's scenario (lab/vantest.py) in the window - no mods, as the headless runs.
+    "van": ("1000,2780;4;board;van_ussr",
+            "The van sub-lab: four UAZ-452 vans with Soviet rifle squads on the flat airport apron. Every soldier is ordered into a "
+            "seat the way AI Conflict does it (no forced seat), then out, again and again. Watch for a soldier who stands at a door "
+            "and never gets in - or can't get out.", ""),
 }
 
 
@@ -43,9 +49,11 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=7)
     ap.add_argument("--port", type=int, default=2178)
     a = ap.parse_args()
-    spec, words = SHOWS[a.show]
+    spec, words = SHOWS[a.show][:2]
     tag = f"boardwatch-{a.show}"
     mods = (ROOT / ".runtime" / "watch_mods.txt").read_text(encoding="utf-8").strip()
+    if len(SHOWS[a.show]) > 2:
+        mods = SHOWS[a.show][2]   # its own mod set ("" = none)
     VIDEOS.mkdir(exist_ok=True)
     mkv = VIDEOS / f"{datetime.now():%Y-%m-%d_%H%M}_{tag}.mkv"
     runner = subprocess.Popen([sys.executable, "-u", str(HERE / "reforger.py"), "--solo", "--watch", "--map", "arland-test",
