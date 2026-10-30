@@ -15,6 +15,7 @@ and mtime - the first build reads ~7 GB, later ones only new runs.
     python lab/maplayers.py arland          # build (or refresh) and print a summary
 """
 import json
+import math
 import re
 import sys
 import time
@@ -290,6 +291,79 @@ def run_routes(run: Path) -> list:
     return out
 
 
+PLAN_LINE = re.compile(r"\[ZCR\]\[ATTACKPLAN\] side=(\w+) slot=(\d+) objective=(-?\d+),(-?\d+) from=\S+ plans_for_objective=\d+ plan=(\w+) origin=(-?\d+),(-?\d+)")
+_plan_scan = {}   # run name -> (log offset read so far, {(side, ox, oz, objx, objz, id): set of slots})
+
+
+def plans_in_use(run: Path, log: Path, map_slug: str) -> list:
+    """The attack plans this match's teams play (29 Oct evening, Martin: "now it seems simple waypoints according to the
+    Commander Lab, I imagine having lines of attack"): each [ZCR][ATTACKPLAN] team line (AICF_ZcrAttackPlan.ForTeam, read
+    from the whole log, incrementally) -> that plan's lanes and hold points from the run's own profile/zcr/attackplan.txt,
+    its drive from .runtime/attack/<map>/plans.json."""
+    offset, used = _plan_scan.get(run.name, (0, {}))
+    size = log.stat().st_size
+    if size < offset:
+        offset, used = 0, {}
+    with open(log, "rb") as f:
+        f.seek(offset)
+        raw = f.read()
+    cut = raw.rfind(b"\n") + 1
+    for m in PLAN_LINE.finditer(raw[:cut].decode("utf-8", "replace")):
+        side, slot, objx, objz, pid, ox, oz = m.groups()
+        used.setdefault((side, int(ox), int(oz), int(objx), int(objz), pid), set()).add(int(slot))
+    _plan_scan[run.name] = (offset + cut, used)
+    if not used:
+        return []
+    # The run's own plan file: plan line -> its lanes.
+    lanes_of = {}
+    pf = run / "profile" / "zcr" / "attackplan.txt"
+    if pf.exists():
+        cur, lane = None, None
+        for line in pf.read_text(encoding="utf-8").splitlines():
+            v = line.split()
+            if not v or v[0] == "world":
+                cur = lane = None
+                continue
+            if v[0] == "plan" and len(v) >= 8:
+                cur = {"origin": [float(v[1]), float(v[2])], "objective": [float(v[3]), float(v[4])], "assembly": [float(v[5]), float(v[6])],
+                       "id": v[7], "lanes": [], "holds": []}
+                lanes_of[(round(float(v[1])), round(float(v[2])), round(float(v[3])), round(float(v[4])), v[7])] = cur
+                lane = None
+            elif v[0] == "lane" and cur is not None and len(v) >= 4:
+                lane = []
+                cur["lanes"].append(lane)
+                cur["holds"].append([float(v[2]), float(v[3])])
+            elif lane is not None and len(v) >= 2:
+                lane.append([float(v[0]), float(v[1])])
+    drives = {}
+    pj = ROOT / ".runtime" / "attack" / map_slug / "plans.json"
+    if pj.exists():
+        try:
+            for o in json.loads(pj.read_text(encoding="utf-8")).get("objectives", []):
+                for h in o.get("hqs", []):
+                    for p in h.get("plans", []):
+                        drives[(round(h["x"]), round(h["z"]), round(o["objective"]["x"]), round(o["objective"]["z"]),
+                                round(p["assembly"]["x"]), round(p["assembly"]["z"]))] = (
+                            p["drive"]["points"][::3] + p["drive"]["points"][-1:], p.get("approach", ""), h.get("name", ""),
+                            p["assembly"]["from_objective_m"])
+        except (ValueError, KeyError):
+            pass
+    out = []
+    for (side, ox, oz, objx, objz, pid), slots in used.items():
+        plan = next((p for k, p in lanes_of.items() if abs(k[0] - ox) <= 1 and abs(k[1] - oz) <= 1 and abs(k[2] - objx) <= 1
+                     and abs(k[3] - objz) <= 1 and k[4] == pid), None)
+        if not plan:
+            continue
+        # By the assembly point, not the letter: the plan files are written from different planner runs (one-point / --all).
+        ax, az = plan["assembly"]
+        drive = min(((math.hypot(k[4] - ax, k[5] - az), dv) for k, dv in drives.items() if abs(k[0] - ox) <= 300 and abs(k[1] - oz) <= 300
+                     and abs(k[2] - objx) <= 150 and abs(k[3] - objz) <= 150), default=(1e9, None), key=lambda t: t[0])
+        drive = drive[1] if drive[0] < 80 else None
+        out.append({**plan, "side": side, "teams": sorted(slots), "drive": drive[0] if drive else [],
+                    "approach": drive[1] if drive else "", "from_name": drive[2] if drive else "", "assembly_m": drive[3] if drive else None})
+    return out
+
+
 def live(map_slug: str) -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
     test vans - with each van's planned route and the game's current path (lab app /api/map/live)."""
@@ -395,6 +469,11 @@ def live(map_slug: str) -> dict:
                 intents[s.get("faction", "")] = s.get("intent") or ""
                 bases_now = [{"name": b.get("name"), "owner": b.get("owner"), "x": b.get("x"), "z": b.get("z"), "hq": bool(b.get("hq"))}
                              for b in s.get("bases") or []]
+        try:
+            attack_plans = plans_in_use(run, log, map_slug)
+        except OSError:
+            attack_plans = []
         return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
-                "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents}
+                "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents,
+                "attack_plans": attack_plans}
     return {"live": False}

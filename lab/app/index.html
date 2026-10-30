@@ -353,6 +353,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <label for="map-l-routes"><input type="checkbox" id="map-l-routes" checked> Planned supply routes</label>
         <label for="map-l-live"><input type="checkbox" id="map-l-live" checked> Live: teams, supply trucks, vans</label>
         <label for="map-l-efforts"><input type="checkbox" id="map-l-efforts" checked> Live: attacks and defence</label>
+        <label for="map-l-plans"><input type="checkbox" id="map-l-plans" checked> Live: lines of attack (plans)</label>
       </div>
       <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
@@ -436,6 +437,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
       $("map-l-efforts").addEventListener("change", () => this.draw());
+      $("map-l-plans").addEventListener("change", () => this.draw());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
       // "This match only": its stuck places, depots and buildings grow during the match - reread every 30 s.
       setInterval(() => { if (tab === "map" && !document.hidden && $("map-since").value === "current") this.layers(); }, 30000);
@@ -668,6 +670,37 @@ video { width: 100%; border-radius: 8px; background: #000; }
           txt.push(`<div><b style="color:${c}">${esc(s)}</b> ${plan}<br><span class="muted">${parts.join(" · ") || "no attack or defence orders"}</span></div>`);
         }
         $("map-efforts").innerHTML = txt.join("");
+      }
+      // Lines of attack (29 Oct evening, Martin: "now it seems simple waypoints according to the Commander Lab, I imagine
+      // having lines of attack"): each plan the side's teams play now (AICF_ZcrAttackPlan, lab/attackplan.py) - its drive
+      // (thin dashes), the assembly point hidden from the objective where the teams get out (ring), one lane per team
+      // through cover with an arrowhead at the objective, the hold line on each lane (bar).
+      if ($("map-l-plans").checked && d.attack_plans && d.attack_plans.length) {
+        for (const p of d.attack_plans) {
+          const c = side[p.side] || this.css("--muted");
+          const teams = p.teams.map(n => "A" + n).join(" ");
+          const tip = `${esc(p.side)} plan ${esc(p.id)}${p.approach ? " from the " + esc(p.approach) : ""}${p.from_name ? " (attacking from " + esc(p.from_name) + ")" : ""}`
+            + `: get out ${p.assembly_m != null ? p.assembly_m + " m out" : "at the ring"}, hidden from the objective; ${p.lanes.length} lanes through cover; teams ${esc(teams)}`;
+          if (p.drive && p.drive.length > 1)
+            extra.push(L.polyline(p.drive.map(q => [q[1], q[0]]), { color: c, weight: 2, opacity: .7, dashArray: "2 6", interactive: false }));
+          extra.push(L.circle([p.assembly[1], p.assembly[0]], { radius: 45, color: c, weight: 3, fillColor: c, fillOpacity: .15 }).bindTooltip(tip));
+          p.lanes.forEach((lane, i) => {
+            if (lane.length < 2) return;
+            extra.push(L.polyline(lane.map(q => [q[1], q[0]]), { color: "#fff", weight: 6, opacity: .7, interactive: false }));
+            extra.push(L.polyline(lane.map(q => [q[1], q[0]]), { color: c, weight: 3, opacity: .95 }).bindTooltip(tip));
+            const a = lane[lane.length - 2], b = lane[lane.length - 1];
+            const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz) || 1, ux = dx / len, uz = dz / len, hl = 28, hw = 14;
+            extra.push(L.polygon([[b[1], b[0]], [b[1] - uz * hl - ux * hw, b[0] - ux * hl + uz * hw], [b[1] - uz * hl + ux * hw, b[0] - ux * hl - uz * hw]],
+              { color: "#fff", weight: 1, fillColor: c, fillOpacity: .95, interactive: false }));
+            const h = p.holds[i];
+            if (h) {
+              const j = lane.reduce((best, q, k) => Math.hypot(q[0] - h[0], q[1] - h[1]) < Math.hypot(lane[best][0] - h[0], lane[best][1] - h[1]) ? k : best, 0);
+              const q0 = lane[Math.max(0, j - 1)], q1 = lane[Math.min(lane.length - 1, j + 1)];
+              const ddx = q1[0] - q0[0], ddz = q1[1] - q0[1], dl = Math.hypot(ddx, ddz) || 1, px = -ddz / dl * 22, pz = ddx / dl * 22;
+              extra.push(L.polyline([[h[1] - pz, h[0] - px], [h[1] + pz, h[0] + px]], { color: "#111", weight: 4, opacity: .85, interactive: false }));
+            }
+          });
+        }
       }
       for (const l of extra) l.addTo(g);
       for (const m of markers) m.addTo(g);
