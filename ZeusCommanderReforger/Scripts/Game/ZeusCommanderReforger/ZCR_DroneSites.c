@@ -217,7 +217,8 @@ class ZCR_DroneSites
 		if (front == vector.Zero)
 			away = base + Vector(0, 0, -100);
 		vector spot;
-		if (!ZCR_Drones.ClearSpot(base, away, spot))
+		int cover;
+		if (!ZCR_Drones.ParkingSpot(base, away, spot, cover))
 		{
 			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 no clear spot near %3", ZCR_LossLog.Seconds(), side, Name(base)), LogLevel.NORMAL);
 			return false;
@@ -263,7 +264,7 @@ class ZCR_DroneSites
 		}
 		s_aSites.Insert(s);
 		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 set_up at=%3 main=%4 ready_in=%5 x=%6 z=%7", ZCR_LossLog.Seconds(), side, s.m_sName, main,
-			readyAt - ZCR_LossLog.Seconds(), Math.Round(spot[0]), Math.Round(spot[2])), LogLevel.NORMAL);
+			readyAt - ZCR_LossLog.Seconds(), Math.Round(spot[0]), Math.Round(spot[2])) + string.Format(" truck_cover=%1/8", cover), LogLevel.NORMAL);
 		ZCR_Feed.Note(side, string.Format("drone site set up at %1 (drone truck and operators)", s.m_sName));
 		return true;
 	}
@@ -685,7 +686,8 @@ class ZCR_DroneSites
 			vector dir = Vector(away[0] * Math.Cos(r) - away[2] * Math.Sin(r), 0, away[0] * Math.Sin(r) + away[2] * Math.Cos(r));
 			vector cand = here + dir * Math.RandomFloat(200, 600);
 			vector spot;
-			if (!ZCR_Drones.ClearSpot(cand, cand + dir * 100, spot))
+			int around;
+			if (!ZCR_Drones.ParkingSpot(cand, cand + dir * 100, spot, around))
 				continue;
 			if (vector.DistanceXZ(spot, here) < 150)
 				continue;                      // 17:42: the clear ground found was 10 m from where they stood - no move at all
@@ -697,6 +699,7 @@ class ZCR_DroneSites
 				score = 0;
 			if (cover)
 				score += 100000;
+			score += around * 20000;    // the truck itself beside roofs or tree crowns (note 434)
 			if (score > best)
 			{
 				best = score;

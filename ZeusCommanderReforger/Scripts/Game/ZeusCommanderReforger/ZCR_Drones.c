@@ -736,6 +736,69 @@ class ZCR_Drones
 		return false;
 	}
 
+	// A drone truck's spot (29 Oct evening - Martin's bad report 434, 28 Oct: "us drone truck being parked absolutely to be
+	// open on the airport lol"; the truck took the runway at Military Training Area): clear ground it can drive onto (Clear),
+	// with roofs or tree crowns close by - of the clear spots on the same rings as ClearSpot, the one with something
+	// overhead in the most of 8 directions 14-20 m out (cover); none anywhere: the first clear spot, as before.
+	static bool ParkingSpot(vector base, vector goal, out vector spot, out int cover)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		vector toward = goal - base;
+		toward[1] = 0;
+		if (toward.Length() > 1)
+			toward.Normalize();
+		else
+			toward = Vector(1, 0, 0);
+		array<float> dists = {40, 60, 80, 100, 120, 160, 200, 250};
+		array<float> angles = {0, 45, -45, 90, -90, 135, -135, 180};
+		cover = -1;
+		foreach (float d : dists)
+		{
+			foreach (float a : angles)
+			{
+				float r = a * Math.DEG2RAD;
+				vector dir = Vector(toward[0] * Math.Cos(r) - toward[2] * Math.Sin(r), 0, toward[0] * Math.Sin(r) + toward[2] * Math.Cos(r));
+				vector p = base + dir * d;
+				p[1] = world.GetSurfaceY(p[0], p[2]);
+				if (!Clear(world, p))
+					continue;
+				int c = CoverAround(world, p);
+				if (c > cover)
+				{
+					cover = c;
+					spot = p;
+				}
+				if (cover >= 4)
+					return true;
+			}
+		}
+		return cover >= 0;
+	}
+
+	// In how many of 8 directions something is overhead (a roof, tree crowns) 14 or 20 m out.
+	protected static int CoverAround(BaseWorld world, vector p)
+	{
+		int n;
+		for (int i; i < 8; i++)
+		{
+			float r = i * 45 * Math.DEG2RAD;
+			vector dir = Vector(Math.Cos(r), 0, Math.Sin(r));
+			foreach (float m : {14.0, 20.0})
+			{
+				vector q = p + dir * m;
+				q[1] = world.GetSurfaceY(q[0], q[2]);
+				s_Trace.Start = q + Vector(0, 1, 0);
+				s_Trace.End = q + Vector(0, 20, 0);
+				if (world.TraceMove(s_Trace, null) < 1.0)
+				{
+					n++;
+					break;
+				}
+			}
+		}
+		return n;
+	}
+
 	protected static bool Clear(BaseWorld world, vector p)
 	{
 		// Not in the water: the sea is level too (19 Oct, Arland: 60 US drones launched into the

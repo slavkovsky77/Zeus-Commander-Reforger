@@ -30,6 +30,8 @@ class ZCR_OperatorMan
 	SCR_AIMoveIndividuallyBehavior m_Move;   // his last move to the post
 	ResourceName m_sHelmet;                  // what he wears when not flying
 	bool m_bMoving;         // the drone site is moving (ZCR_DroneSites): no holding at the post, no flying
+	vector m_vLegFrom;      // where his last leg through cover started (zero: none)
+	int m_iNoLegsUntil;     // no legs (straight to the post) until then: a leg that went nowhere
 }
 
 // A team out on sorties (Martin, 24 Oct 17:58: "operators should have larger bags with some amount of drones, then there
@@ -64,6 +66,10 @@ class ZCR_DroneOperator
 	static const ResourceName BAG_USSR = "{41A9C55B61F375F0}Prefabs/Items/Equipment/Backpacks/Backpack_Kolobok.et";
 	static const float POST_COVER_M = 25;
 	static const float POST_COVER_FAR_M = 60;    // none within 25 m (17:40: the farm-site operators stood in the open)
+	static const float LEG_M = 100;         // walks in legs through cover (note 436)
+	static const float LEG_COVER_M = 35;
+	protected static int s_iLegs;
+	protected static int s_iLegsCovered;
 	static const float HOLD_M = 6;          // the pilot while he flies (3 m: he settled 5 m off his post and was sent back every 3 s)
 	static const float STAY_M = 8;          // the pilot between flights, the guard always
 	static const float FLY_AT_M = 15;       // a flight starts only this near his post (28 Oct: he froze in the open 1 km off it)
@@ -750,7 +756,43 @@ class ZCR_DroneOperator
 		// minutes; the operators stopped, turned and started again all the way: "the operator is acting a bit weird").
 		if (m.m_Move && m.m_Move.GetActionState() == EAIActionState.RUNNING)
 			return;
-		SCR_AIMoveIndividuallyBehavior move = new SCR_AIMoveIndividuallyBehavior(utility, null, m.m_vPost, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 1,
+		// 29 Oct evening (Martin's bad report 436, 28 Oct: "soviet drone operators not moving through cover but on the road"):
+		// a walk longer than LEG_M + 40 goes in legs of LEG_M, each ending under the nearest roof or tree crowns within
+		// LEG_COVER_M of the line - one order to a spot 500-700 m off and the game's pathfinding took the road.
+		vector target = m.m_vPost;
+		vector here = c.GetOrigin();
+		// A leg that went nowhere (the check run, 29 Oct 23:21: Soviet operators sent the same leg every 3 s for 80 s, 144 m
+		// from their post, never launching - its cover spot unreachable): straight to the post for 90 s, as before the legs.
+		bool legs = now >= m.m_iNoLegsUntil;
+		if (legs && m.m_vLegFrom != vector.Zero && vector.DistanceXZ(here, m.m_vLegFrom) < 5)
+		{
+			m.m_iNoLegsUntil = now + 90;
+			legs = false;
+			Print(string.Format("[ZCR][OPLEG] t=%1 side=%2 event=no_progress to_post_m=%3 - straight to the post", now, m.m_sSide,
+				Math.Round(vector.DistanceXZ(here, m.m_vPost))), LogLevel.NORMAL);
+		}
+		m.m_vLegFrom = vector.Zero;
+		if (legs && vector.DistanceXZ(here, m.m_vPost) > LEG_M + 40)
+		{
+			m.m_vLegFrom = here;
+			vector dir = m.m_vPost - here;
+			dir[1] = 0;
+			dir.Normalize();
+			vector p = here + dir * LEG_M;
+			p[1] = GetGame().GetWorld().GetSurfaceY(p[0], p[2]);
+			vector hide;
+			bool covered = ZCR_DroneThreat.CoverNear(c, p, LEG_COVER_M, hide) && vector.DistanceXZ(hide, m.m_vPost) < vector.DistanceXZ(here, m.m_vPost) - 30;
+			if (covered)
+				target = hide;
+			else
+				target = p;
+			s_iLegs++;
+			if (covered)
+				s_iLegsCovered++;
+			Print(string.Format("[ZCR][OPLEG] t=%1 side=%2 covered=%3 leg_m=%4 to_post_m=%5 legs=%6 covered_legs=%7", now, m.m_sSide, covered,
+				Math.Round(vector.DistanceXZ(here, target)), Math.Round(vector.DistanceXZ(here, m.m_vPost)), s_iLegs, s_iLegsCovered), LogLevel.NORMAL);
+		}
+		SCR_AIMoveIndividuallyBehavior move = new SCR_AIMoveIndividuallyBehavior(utility, null, target, SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 1,
 			SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0);
 		ZCR_Reserved.Add(utility, move);
 		m.m_Move = move;
