@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "30 Oct night (Martin asleep: 'continue testing and resolving this bug'): the van bug verified and fixed - the UAZ-452's back seats are broken for the AI, bigger Soviet teams now ride Urals; the M60 tripod crash lead tested (not the cause); attack plans for every base, first normal-setup runs (one each): the US took Military Training Area at 7:57 with plans v 11:37 without, the Soviets Signal Hill at 9:08 v 7:57 - leads, not proof. Morning page: https://claude.ai/artifact/8UV3eoFcbiucStf8UGtF2w",
+    "Running now": "30 Oct evening, Martin watching: three Farm battles in the game window. The van check (the Soviets at the harbour HQ, as on 29 Oct): Farm taken at 11:36 instead of 19:29, 0 boarding timeouts instead of 68, Soviet losses 5 instead of 16. After a capture the attack teams now hold the base instead of walking back to their HQ.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's calls: the crash in the game window (four of one kind since 25 Oct, all in the engine's entity update - a crash list or matches with parts switched off); the hillside where two Urals overturned; the plans for every base in a watched match.",
+    "Being built next": "Rides that reach the target but time out getting the team out (they count as failed though the soldiers arrived); the crash in the game window (Martin's call: a crash list or matches with parts switched off); the plans for every base in a watched match.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r55", "The van fix seen in the window",
+     "The Farm battle with the Soviets at the harbour HQ, the same setup as the 29 Oct match with the old van: Farm taken at 11:36 instead of 19:29, 10 Soviets there by minute 8 instead of 0, boarding timeouts 0 instead of 68, Soviet rides delivered 4 of 11 instead of 1, Soviet losses 5 instead of 16, no script errors (8 before). Every Soviet ride was a Ural."),
+    ("good", "r55", "A taken base is held",
+     "In the first two battles of the evening the US attack teams were sent back to their own HQ 1.1 km away minutes after taking Farm, and fetched Humvees to drive home. AI Conflict leaves a held base off an attack team's list, so our rule 'main effort taken: hold it' never found it. Now it does: in the third battle all 7 Soviet attack teams stayed, 18-21 Soviets on Farm to the end."),
+
     ("good", "r54", "The van bug: verified and fixed",
      "Martin's hunch ('it can be just van bug'): in the van sub-lab the UAZ-452's driver and front seats took 56 of 56 soldiers, its six back seats 2-14 of ~40 each, and most who got in couldn't get out; the M998 and the Ural with the same soldiers 100% and 99.9%. The van now counts its two front seats, so bigger Soviet teams ride Urals. Farm test, Soviets at the harbour HQ: Farm taken in 4 of 5 runs with the fix, 0 of 3 with the old van; 12 soldiers there by minute 8 instead of 1."),
     ("good", "r54", "Drone trucks beside cover, operators through cover",
@@ -259,9 +264,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
+    "Rides that reach the target but time out getting the team out (DISEMBARK_TIMEOUT): counted as failed though the soldiers arrived.",
     "The crash in the game window: a crash list for the watched matches, or matches with parts switched off (Martin's call).",
-    "The hillside where two Urals overturned on the way from the south HQ to Farm (~2580, 2361): a truck trap if it happens again.",
-    "Attack plans for every base in a watched match, once the headless comparison says they help.",
+    "Attack plans for every base in a watched match.",
     "Building spots from the map (note 396).",
 ]
 
@@ -282,6 +287,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (55, "the van check in the window, attack teams hold a taken base", "30 Oct 15:33 - 23:56",
+     ["AI Conflict fork: a held base stays on an attack or reserve team's list, switched off (m_bZcrHeld), instead of being dropped (271e75c).",
+      "ZCR: the main-effort binding (-zcrBindMainEffort) switches a held main effort back on, so the attack teams hold what they took (0249b42) - the 28 Oct rule had never fired.",
+      "Three watched Farm battles (the game window, 1x, 20 min): two with the US at the harbour HQ, one with the Soviets there."],
+     "Martin: 'if van test is done and fixed try that farm battle again', 'run it in window', 'continue testing it in window' (review notes 461-463).",
+     "The van check, Soviets at the harbour HQ: Farm taken 11:36 v 19:29, boarding timeouts 0 v 68, Soviet losses 5 v 16. After the hold fix all 7 Soviet attack teams stayed on Farm (before: 7 US attack teams sent home)."),
+
     (54, "the van bug fixed, drone sites, plans for every base", "29 Oct 23:20 - 30 Oct 05:30",
      ["AI Conflict fork: the UAZ-452 counts its 2 front seats - its back is broken for the AI - so Soviet teams of 3+ ride the Ural (9dbd19f; -aicfVanSeats 8 = as before); plans per team from the origin nearest where it started, world sections, a 'none' plan, the hold line per plan (da5bb90).",
       "Watched matches: the seat fallback back on (Martin: 'probably back on').",
