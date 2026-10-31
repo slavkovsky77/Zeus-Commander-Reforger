@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "31 Oct evening: the transport integration test with the new defaults (passengers walk over with the driver, vehicles by a road, the seat fallback on as in the battles) - two runs to confirm boarding 35-39 s and the wait at the base ~70 s.",
+    "Running now": "1 Nov night: the transport integration test with rides 4 s apart instead of 8 (the start burst at the HQ queued 18 rides 40 s each with 8 s).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "A ride that leaves without one stuck soldier instead of failing for the whole team (every boarding timeout was one passenger idle by the door); supply runs in the transport test; Military Training Area's pads (Martin's call on the slope guard).",
+    "Being built next": "Keeping rides off blocked narrow tracks (two checkpoint tracks with boulders or walls trap a vehicle in most runs); the seat fallback in the Farm battle (Martin's call); supply runs in the transport test.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r59", "No cap on rides - they start 8 s apart",
+     "At most 3 rides could be leaving a base; the 4th team walked off while it waited and often walked the whole way (rides held 78-160 s; most of the trips done on foot). Martin: 'fuck cap' - gone; rides out of one base start 8 s apart instead. Transport test, same HQ: 4.8 / 6.2 -> 7.4 / 9.2 soldier-km a minute (south), ~8.4 (north); rides on 82-86% of trips (62%). The Farm battle without it: twice the rides, 43% of the Soviets at Farm by minute 5 (4%), Farm taken at 5:29 - and no jam at the HQ."),
+    ("info", "r59", "Where a team's 20 minutes go",
+     "Walking about half, aboard a quarter (43 km/h on the road), the rest standing or around the vehicle. The loss was before the ride: the cap, a cooldown after a failed ride (~140 s when it hits), and the team walking back 100-170 m to a vehicle at the base it just reached."),
+    ("bad", "r59", "Blocked narrow tracks trap rides",
+     "Four spots are half of all stuck vehicles in 30 runs: two 1 m tracks through checkpoints - granite boulders and 'no entry' signs at (2025,3464), wooden walls at (3095,2659) - that the game's drivers take as shortcuts, Military Training Area's junkyard, and a rocky beach the command truck drives onto."),
+    ("info", "r59", "Dropping closer than 150 m doesn't pay",
+     "Rides dropping their team 100 m from the target: within the noise, and most routes then found no road that close and drove across country - not taken."),
+
     ("good", "r58", "Boarding nearly halved",
      "Teams wait about 60 m from their vehicle. The driver used to run over alone while the other three stood still, then they ran the same 60 m. Now they walk over with him (AI Conflict's own per-soldier walk, which it only used beyond 90 m): boarding 60 s -> 35-39 s, the wait at the base 90-100 s -> 65-71 s."),
     ("good", "r58", "Ride vehicles appear by a road",
@@ -285,11 +294,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
+    "Keep rides off blocked narrow tracks (checkpoint tracks with boulders or walls).",
+    "The Farm battle's seat fallback: still off although Martin said 'back on' on 30 Oct (Martin's call).",
     "A ride leaves without one stuck soldier instead of failing for the whole team.",
-    "Supply runs in the transport test: the source depot has no surplus and 27 truck spawns found no room.",
-    "Military Training Area's pads: the slope guard (Martin's call).",
+    "Supply runs in the transport test (the source depot has no surplus).",
     "The attack-plan arrows: plans updated after a capture, buildings held around the objective (with Martin).",
-    "The crash in the game window (Martin's call).",
 ]
 
 FACTS = [
@@ -309,6 +318,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (59, "no ride cap - rides spaced 8 s apart", "31 Oct 22:40 - 1 Nov 00:50",
+     ["AI Conflict fork: rides out of one base start 8 game s apart (-aicfRideSpacingMs, 032d534); the Farm battle has no rides-per-base cap any more (Martin: 'fuck cap').",
+      "Transport test: a defend team at its forward spot has arrived (it stood up to 7 min uncounted); variants now / cap5 / cap0 / drop100 / spaced / spaced4; the older variants pinned to what they ran.",
+      "Assault test: storm-plan-measured-cap0 (the Farm battle with neither cap nor spacing)."],
+     "Martin: 'ok lets work on those transports until we are happy with other params', 'cap is retarted maybe some kind of timing so its not at once but fuck cap' (notes 480, 481).",
+     "Soldier-km a minute: 6.4 this morning -> 8.4-8.5 (north HQ) and 7.4-9.2 (south HQ); trips on a ride 62% -> 85%; the wait before leaving 93 s -> 50-54 s. The Farm battle without the cap: no jam at the HQ."),
+
     (58, "faster boarding, ride vehicles by a road", "31 Oct 21:00 - 22:40",
      ["AI Conflict fork: during the driver and gunner phases the other soldiers walk to within 12 m of the vehicle (-aicfWalkOverMeters, on by default; 7e776fd, d47c7d6).",
       "AI Conflict fork: a ride's vehicle appears on clear ground within 12 m of a road first (-aicfPadNearRoadMeters, on by default; a0aa437, d47c7d6); [ZCR][PADROAD] logs each base's spots by a road.",
