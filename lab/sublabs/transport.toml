@@ -7,9 +7,9 @@ runner = "lab/transporttest.py"
 minutes = 20.0
 units = 0
 scenarios = ["arland"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad"]
 baseline = "rides"
-candidate = "rides6"
+candidate = "approach180"
 score = "soldier_km_per_min * 10 - 2 * rides_failed"
 higher_is_better = true
 keys = ["trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "supply_runs"]
@@ -32,6 +32,7 @@ rides6 = "Rides, 6 out of a base at a time"
 ride1k = "Rides only over 1 km"
 stage50 = "Vehicle spot counts within 50 m"
 approach180 = "180 s to reach the vehicle"
+near-pad = "180 s, waits 20 m from the vehicle"
 ride1k-approach180 = "Rides over 1 km, 180 s to reach the vehicle"
 
 [variant_words]
@@ -40,5 +41,6 @@ foot = "no rides: every team walks - the reference for what the rides are worth"
 rides6 = "as rides, up to 6 rides leaving a base at a time"
 ride1k = "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"
 stage50 = "a team counts as at its vehicle spot within 50 m, not 25"
-approach180 = "180 s (not 90) for the team to reach its vehicle spot"
+approach180 = "180 s (not 90) for the team to reach its vehicle spot - the default from 31 Oct 17:05"
+near-pad = "as approach180, and the team waits 20 m from the vehicle's spot, not 43"
 ride1k-approach180 = "rides only over 1 km, and 180 s to reach the vehicle spot"

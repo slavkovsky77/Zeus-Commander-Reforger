@@ -36,8 +36,8 @@ SCENARIOS = {
 _TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -aicfArmedRideEvery 0"
 VARIANTS = {
     # name: (extra command line, words for the app)
-    "rides": (_TEAMS + " -aicfRidesPerBase 3",
-              "as the watched battles: transport rides (Humvee / UAZ-469 jeep), at most 3 rides leaving a base at a time"),
+    "rides": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 90000",
+              "as the watched battles until 31 Oct: transport rides (Humvee / UAZ-469 jeep), at most 3 leaving a base at a time, 90 s to reach the vehicle"),
     "foot": (_TEAMS + " -aicfInfantryRideMeters 100000", "no rides: every team walks - the reference for what the rides are worth"),
     "rides6": (_TEAMS + " -aicfRidesPerBase 6", "as rides, up to 6 rides leaving a base at a time"),
     # 31 Oct, the first window run: rides 12.9 km/h door to door v 12.0 on foot - 82 s from the ride's spot planned to
@@ -49,7 +49,11 @@ VARIANTS = {
     # The first A/B (note 475): 8-9 failed rides a run were SPAWN_SITE_APPROACH_TIMEOUT - the whole team has 90 s to reach
     # the vehicle spot, and after a trip it is strung out (the last man up to 550 m behind, the spot 100-250 m away).
     "approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000",
-                    "180 s (not 90) for the team to reach its vehicle spot"),
+                    "180 s (not 90) for the team to reach its vehicle spot - the default from 31 Oct 17:05 (failed rides 38% -> 13%)"),
+    # The overhead (note 476): ~90 s from a ride's spot planned to leaving, ~60 s of it boarding - the team waits 43 m from
+    # the vehicle's spot (so it is clear of the pad) and walks over when the vehicle is there.
+    "near-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehicleSpawnStagingOffsetMeters 20",
+                 "as approach180, and the team waits 20 m from the vehicle's spot, not 43"),
     "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000",
                            "rides only over 1 km, and 180 s to reach the vehicle spot"),
 }
