@@ -40,6 +40,12 @@ VARIANTS = {
               "as the watched battles: transport rides (Humvee / UAZ-469 jeep), at most 3 rides leaving a base at a time"),
     "foot": (_TEAMS + " -aicfInfantryRideMeters 100000", "no rides: every team walks - the reference for what the rides are worth"),
     "rides6": (_TEAMS + " -aicfRidesPerBase 6", "as rides, up to 6 rides leaving a base at a time"),
+    # 31 Oct, the first window run: rides 12.9 km/h door to door v 12.0 on foot - 82 s from the ride's spot planned to
+    # leaving (54 s boarding), 7 of 28 rides failed (the team didn't reach its vehicle in time / boarding ran out).
+    "ride1k": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000",
+               "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"),
+    "stage50": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnStagingRadiusMeters 50",
+                "a team counts as at its vehicle spot within 50 m, not 25 (the 'never reached the vehicle in time' failures)"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).

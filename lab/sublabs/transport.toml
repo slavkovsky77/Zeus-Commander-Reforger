@@ -7,7 +7,7 @@ runner = "lab/transporttest.py"
 minutes = 20.0
 units = 0
 scenarios = ["arland"]
-variants = ["rides", "foot", "rides6"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50"]
 baseline = "rides"
 candidate = "rides6"
 score = "soldier_km_per_min * 10 - 2 * rides_failed"
@@ -28,9 +28,13 @@ arland = "The US holds every base but the Soviet HQ, the Soviets field no teams;
 [variant_labels]
 rides = "Rides, 3 out of the HQ at a time"
 foot = "On foot"
-rides6 = "Rides, 6 out of the HQ at a time"
+rides6 = "Rides, 6 out of a base at a time"
+ride1k = "Rides only over 1 km"
+stage50 = "Vehicle spot counts within 50 m"
 
 [variant_words]
 rides = "as the watched Farm battle: transport rides, at most 3 leaving the HQ at a time"
 foot = "no rides: every team walks - the reference for what the rides are worth"
-rides6 = "as rides, up to 6 rides leaving the HQ at a time"
+rides6 = "as rides, up to 6 rides leaving a base at a time"
+ride1k = "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"
+stage50 = "a team counts as at its vehicle spot within 50 m, not 25"
