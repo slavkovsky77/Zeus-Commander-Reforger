@@ -87,8 +87,9 @@ VARIANTS = {
              "as now, with no cap on rides leaving a base (as before 29 Oct, when 5-9 rides jammed the HQ's road)"),
     # The walk-in (note 480): rides drop their team 150 m short of the target (the attack stand-off) even at a quiet base of
     # their own - ~10% of a team's time is the walk-in after the drop.
-    "drop100": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleDismountDistanceMeters 100").replace(" -aicfNoHiddenSeat", ""),
-                "as now, and rides drop their team within 100 m of the target, not 150"),
+    # cap0 v now with the defend fix (31 Oct 23:05-23:46, same HQ): 7.4 / 9.2 v 4.8 / 6.2 soldier-km a minute - drop100 builds on cap0.
+    "drop100": ((_TEAMS + " -aicfRidesPerBase 0 -aicfVehicleDismountDistanceMeters 100").replace(" -aicfNoHiddenSeat", ""),
+                "as cap0 (no cap on rides out of a base), and rides drop their team within 100 m of the target, not 150"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
