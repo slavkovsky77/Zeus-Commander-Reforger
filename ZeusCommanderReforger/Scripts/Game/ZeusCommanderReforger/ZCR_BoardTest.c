@@ -131,7 +131,7 @@ class ZCR_BoardTest
 		if (kinds == "ural_ussr") { Add("{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et", ussrSquad); return; }
 		// The crash lead of note 453: M60 tripods (Turret), a US two-man team each - one goes onto the gun.
 		if (kinds == "tripod_us") { Add("{887DB60486A18575}Prefabs/Weapons/Tripods/Tripod_M122_MG_M60.et", usTwo); return; }
-		if (kinds == "uaz469_ussr") { Add("{03D9932135924AEF}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_Camo_uncovered.et", ussrSquad); return; }
+		if (kinds == "uaz469_ussr") { Add("{259EE7B78C51B624}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469.et", ussrSquad); return; }
 		// Cars only for "all" and "cars" (04:05: "!= apc" put US cars and teams beside the BTR-70s' Soviet squads - they fought).
 		if (kinds == "all" || kinds == "cars")
 		{
