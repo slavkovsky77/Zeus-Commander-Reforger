@@ -52,6 +52,10 @@ VARIANTS = {
                     "180 s (not 90) for the team to reach its vehicle spot - the default from 31 Oct 17:05 (failed rides 38% -> 13%)"),
     # The overhead (note 476): ~90 s from a ride's spot planned to leaving, ~60 s of it boarding - the team waits 43 m from
     # the vehicle's spot (so it is clear of the pad) and walks over when the vehicle is there.
+    # Boarding (note 477): 60 s median - a soldier who stops making progress is re-ordered after 8 s, the driver pick
+    # rotated after ~16 s.
+    "stall4": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehiclePassengerStallMs 4000",
+               "as approach180, and a soldier who stops making progress while boarding is re-ordered after 4 s, not 8"),
     "near-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehicleSpawnStagingOffsetMeters 20",
                  "as approach180, and the team waits 20 m from the vehicle's spot, not 43"),
     "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000",

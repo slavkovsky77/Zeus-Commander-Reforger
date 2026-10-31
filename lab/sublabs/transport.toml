@@ -7,7 +7,7 @@ runner = "lab/transporttest.py"
 minutes = 20.0
 units = 0
 scenarios = ["arland"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4"]
 baseline = "rides"
 candidate = "approach180"
 score = "soldier_km_per_min * 10 - 2 * rides_failed"
@@ -33,6 +33,7 @@ ride1k = "Rides only over 1 km"
 stage50 = "Vehicle spot counts within 50 m"
 approach180 = "180 s to reach the vehicle"
 near-pad = "180 s, waits 20 m from the vehicle"
+stall4 = "180 s, stalled boarder re-ordered after 4 s"
 ride1k-approach180 = "Rides over 1 km, 180 s to reach the vehicle"
 
 [variant_words]
@@ -43,4 +44,5 @@ ride1k = "rides only for trips over 1 km (300 m now) - short trips walk, no wait
 stage50 = "a team counts as at its vehicle spot within 50 m, not 25"
 approach180 = "180 s (not 90) for the team to reach its vehicle spot - the default from 31 Oct 17:05"
 near-pad = "as approach180, and the team waits 20 m from the vehicle's spot, not 43"
+stall4 = "as approach180, and a soldier who stops making progress while boarding is re-ordered after 4 s, not 8"
 ride1k-approach180 = "rides only over 1 km, and 180 s to reach the vehicle spot"
