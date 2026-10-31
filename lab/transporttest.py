@@ -36,7 +36,9 @@ SCENARIOS = {
 _TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -aicfArmedRideEvery 0"
 # The fork's walk-over and pads by a road are on by default from 31 Oct 22:40 (note 479): the variants run before then
 # pin them off, so their numbers stay what they were.
-_OLD = " -aicfWalkOverMeters 0 -aicfPadNearRoadMeters 0"
+_OLD = " -aicfWalkOverMeters 0 -aicfPadNearRoadMeters 0 -aicfRideSpacingMs 0"
+# Ride spacing (1 Nov, note 481) is on by default from 00:10: the variants run before it pin it off.
+_NOSPACE = " -aicfRideSpacingMs 0"
 VARIANTS = {
     # name: (extra command line, words for the app)
     "rides": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 90000" + _OLD,
@@ -65,31 +67,35 @@ VARIANTS = {
                            "rides only over 1 km, and 180 s to reach the vehicle spot"),
     # Stuck vehicles (note 479): 24 of the 44 stuck-vehicle lines were within 60 m of the pad the ride left from - the
     # empty-ground search takes the clear spot nearest the base's spawn point (Military Training Area: in its junkyard).
-    "road-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12 -aicfWalkOverMeters 0",
+    "road-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12 -aicfWalkOverMeters 0" + _NOSPACE,
                  "as approach180, and the vehicle appears on clear ground within 12 m of a road when the base has one"),
     # Boarding (note 479): the team waits ~60 m from the vehicle; the passengers stood idle while the driver ran over and
     # got in (24 s), then ran the same 60 m (36 s). And the test had the seat fallback off (-aicfNoHiddenSeat from the
     # assault test's base) - the watched battles have had it on since 30 Oct (note 456).
-    "walk-over": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfWalkOverMeters 12 -aicfPadNearRoadMeters 0",
+    "walk-over": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfWalkOverMeters 12 -aicfPadNearRoadMeters 0" + _NOSPACE,
                   "as approach180, and the passengers walk to the vehicle while the driver gets in"),
     "seat-on": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000").replace(" -aicfNoHiddenSeat", "") + _OLD,
                 "as approach180 with the seat fallback on, as in the watched battles since 30 Oct"),
     "fast-board": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12"
-                    " -aicfWalkOverMeters 12").replace(" -aicfNoHiddenSeat", ""),
+                    " -aicfWalkOverMeters 12").replace(" -aicfNoHiddenSeat", "") + _NOSPACE,
                    "road-pad + walk-over + the seat fallback on"),
-    "now": ((_TEAMS + " -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", ""),
+    "now": ((_TEAMS + " -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", "") + _NOSPACE,
             "the fork's defaults from 31 Oct 22:40 (180 s, walk-over, pads by a road) with the seat fallback on - as the watched battles"),
     # Where the time goes (note 480): our 3-rides-per-base cap (29 Oct, the HQ jams) delayed rides 78-160 s and was the first
     # refusal on most trips that walked the whole way - the team walks off while it waits and is soon past 250 m.
-    "cap5": ((_TEAMS + " -aicfRidesPerBase 5").replace(" -aicfNoHiddenSeat", ""),
+    "cap5": ((_TEAMS + " -aicfRidesPerBase 5").replace(" -aicfNoHiddenSeat", "") + _NOSPACE,
              "as now, and up to 5 rides leaving a base at a time (3 now)"),
-    "cap0": ((_TEAMS + " -aicfRidesPerBase 0").replace(" -aicfNoHiddenSeat", ""),
+    "cap0": ((_TEAMS + " -aicfRidesPerBase 0").replace(" -aicfNoHiddenSeat", "") + _NOSPACE,
              "as now, with no cap on rides leaving a base (as before 29 Oct, when 5-9 rides jammed the HQ's road)"),
     # The walk-in (note 480): rides drop their team 150 m short of the target (the attack stand-off) even at a quiet base of
     # their own - ~10% of a team's time is the walk-in after the drop.
     # cap0 v now with the defend fix (31 Oct 23:05-23:46, same HQ): 7.4 / 9.2 v 4.8 / 6.2 soldier-km a minute - drop100 builds on cap0.
-    "drop100": ((_TEAMS + " -aicfRidesPerBase 0 -aicfVehicleDismountDistanceMeters 100").replace(" -aicfNoHiddenSeat", ""),
+    "drop100": ((_TEAMS + " -aicfRidesPerBase 0 -aicfVehicleDismountDistanceMeters 100").replace(" -aicfNoHiddenSeat", "") + _NOSPACE,
                 "as cap0 (no cap on rides out of a base), and rides drop their team within 100 m of the target, not 150"),
+    # Martin (1 Nov, note 481): "cap is retarted maybe some kind of timing so its not at once but fuck cap" - no cap, rides out of
+    # a base start 8 game seconds apart (the fork's default).
+    "spaced": (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
+               "no cap on rides out of a base, they start 8 s apart; walk-over, pads by a road, the seat fallback on"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).

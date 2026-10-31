@@ -114,12 +114,13 @@ VARIANTS = {
     # 30 Oct 03:15 the van fix (fork: the UAZ-452 counts its 2 front seats - its back is broken for the AI, the van sub-lab):
     "storm-safe-van8": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -aicfArmedRideEvery 0 -aicfVanSeats 8",
                         "storm-safe with the old van (8 seats: Soviet teams of 4 ride the UAZ-452 and its broken back) - the van fix's control"),
-    "storm-plan-measured": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
-                            "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides, the seat fallback off"),
+    # 1 Nov (Martin: "fuck cap", note 481): no cap on rides out of a base - they start 8 s apart (the fork's default).
+    "storm-plan-measured": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
+                            "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides 8 s apart, no cap; the seat fallback off"),
     # 31 Oct night (the transport test, note 480): the 3-rides-per-base cap cost the most there - no cap moved +8% (north HQ)
     # to +50% (south HQ) more soldiers, no jam at the HQ. Does the Farm battle jam at the HQ without it (the 29 Oct reason)?
-    "storm-plan-measured-cap0": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 0 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
-                                 "as storm-plan-measured, with no cap on rides leaving a base"),
+    "storm-plan-measured-cap0": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 0 -aicfRideSpacingMs 0 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
+                                 "as storm-plan-measured, with neither the cap nor the spacing on rides leaving a base"),
 }
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
