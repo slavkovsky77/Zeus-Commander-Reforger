@@ -15,6 +15,7 @@ class ZCR_ShuttleTest
 	protected static ref map<int, vector> s_mFrom = new map<int, vector>();   // slot -> where it began
 	protected static ref map<int, bool> s_mRode = new map<int, bool>();       // slot -> seen in a vehicle on this trip
 	protected static ref map<int, int> s_mTrips = new map<int, int>();        // slot -> trips assigned
+	protected static ref map<int, int> s_mNoneAt = new map<int, int>();       // slot -> when "no trip" was last logged
 
 	static bool On()
 	{
@@ -57,12 +58,34 @@ class ZCR_ShuttleTest
 				Math.Round(vector.DistanceXZ(from, current.m_vPosition)), now - s_mSince.Get(id), rode,
 				AICF_GroupRuntime.CountAliveAgents(slot.GetGroup())), LogLevel.NORMAL);
 			current = null;
+			s_mTarget.Set(id, -1);   // logged once, even if no next base is found this time
 		}
 		if (!current)
 		{
 			current = Next(faction, id, at, candidates);
 			if (!current)
+			{
+				// Why no trip (once a minute a team): what the commander's list held.
+				int said;
+				if (!s_mNoneAt.Find(id, said) || now - said >= 60)
+				{
+					s_mNoneAt.Set(id, now);
+					string seen;
+					foreach (AICF_AdaptiveCandidate c : candidates)
+					{
+						if (c)
+						{
+							string owner = "-";
+							if (c.m_Base && c.m_Base.GetFaction())
+								owner = c.m_Base.GetFaction().GetFactionKey();
+							seen += string.Format(" %1:%2:%3:%4:att%5:av%6:held%7", c.m_iNodeId, ZCR_LiveMap.Name(ZCR_Strategist.BaseName(c.m_Base)),
+								Math.Round(vector.DistanceXZ(at, c.m_vPosition)), owner, c.m_bAttack, c.m_bAvailable, c.m_bZcrHeld);
+						}
+					}
+					Print(string.Format("[ZCR][SHUTTLE] t=%1 side=%2 slot=%3 event=none candidates=%4%5", now, side, id, candidates.Count(), seen), LogLevel.NORMAL);
+				}
 				return;
+			}
 			int trips = s_mTrips.Get(id) + 1;
 			s_mTrips.Set(id, trips);
 			s_mTarget.Set(id, current.m_iNodeId);

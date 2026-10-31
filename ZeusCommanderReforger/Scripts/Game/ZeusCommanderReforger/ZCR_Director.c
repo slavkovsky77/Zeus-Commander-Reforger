@@ -2021,6 +2021,8 @@ class ZCR_Director
 		BaseTasks(runs, builds);
 		foreach (SCR_CampaignMilitaryBaseComponent base, string owner : m_mOwners)
 		{
+			if (!base || !base.GetOwner())
+				continue;   // 31 Oct, the transport test: 426 null-base errors here a run
 			vector at = base.GetOwner().GetOrigin() + Vector(0, 40, 0);
 			markers += Marker("B", at, Colour(owner), 1, BaseLabel(base, runs.Get(base), builds.Get(base)));
 			markers += Marker("Y", at, SupplyColour(base), 1, "");
