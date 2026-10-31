@@ -103,6 +103,7 @@ BUILDS = [
     (55, "the van check in the window, attack teams hold a taken base", "2026-10-30 23:56", "three watched Farm battles; a held main effort stays on the attack teams' list so they hold it instead of going home"),
     (56, "the Soviets ride jeeps, not half-empty trucks", "2026-10-31 13:25", "a watched Farm battle with a camera on the airfield spot; the UAZ-469 passes the boarding test and becomes the Soviets' first light ride"),
     (57, "the transport integration test, fewer failed rides", "2026-10-31 17:35", "one side on its whole map, teams sent base to base; 180 s game time to reach the vehicle (failed rides 38% -> 13%); quiet taken bases stay on the list"),
+    (58, "faster boarding, ride vehicles by a road", "2026-10-31 22:40", "the passengers walk to the vehicle while the driver gets in (boarding 60 s -> 35-39 s); a ride's vehicle appears by a road when the base has flat ground there"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),

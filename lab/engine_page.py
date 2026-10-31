@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "31 Oct afternoon: the transport integration test - the US holds the whole of Arland, nobody fights, its 12 teams of 4 travel from base to base by ride or on foot, every trip measured (door-to-door speed, failed rides and why, boarding and waiting times). Rides failed 38% of the time; with 180 game seconds to reach the vehicle 13%.",
+    "Running now": "31 Oct evening: the transport integration test with the new defaults (passengers walk over with the driver, vehicles by a road, the seat fallback on as in the battles) - two runs to confirm boarding 35-39 s and the wait at the base ~70 s.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Faster boarding (driver and passengers at once - boarding takes 60 s now); rides drop their team on the road at a cluttered base (Military Training Area's junkyard); supply runs in the transport test; the attack-plan arrows' improvements with Martin.",
+    "Being built next": "A ride that leaves without one stuck soldier instead of failing for the whole team (every boarding timeout was one passenger idle by the door); supply runs in the transport test; Military Training Area's pads (Martin's call on the slope guard).",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r58", "Boarding nearly halved",
+     "Teams wait about 60 m from their vehicle. The driver used to run over alone while the other three stood still, then they ran the same 60 m. Now they walk over with him (AI Conflict's own per-soldier walk, which it only used beyond 90 m): boarding 60 s -> 35-39 s, the wait at the base 90-100 s -> 65-71 s."),
+    ("good", "r58", "Ride vehicles appear by a road",
+     "A ride's vehicle took the clear spot nearest the base's centre - at Military Training Area inside its junkyard, and by the main base 60 m off the road: half the stuck vehicles in the transport test were rides still by their pad. Clear spots within 12 m of a road now come first; the main base's moved onto its road."),
+    ("bad", "r58", "Military Training Area keeps its junkyard pads",
+     "Its spots by the road are on a slope - 1.0-1.5 m difference under the vehicle - and the crash guard from 27 Oct (rides spawned on slopes crashed the server) allows 1.0 m. Loosening it is Martin's call."),
+    ("info", "r58", "A whole team loses its ride for one soldier",
+     "Every boarding timeout traced: three soldiers in, the fourth idle 2-35 m from the door after the game's get-in stalled and the retries ran out - about 80 s of waiting, then all four walk. Next: leave without him."),
+
     ("good", "r57", "Rides fail far less",
      "The new transport integration test showed most failed rides were teams not reaching their vehicle in time: the whole team had 90 seconds - real seconds, so 30 game seconds at the 3x Martin watches at - and after a trip it is strung out. Now 180 game seconds: failed rides 38% -> 13%, delivered 41% -> 63% (three runs each)."),
     ("good", "r57", "A taken base is kept, even a quiet one",
@@ -276,9 +285,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Faster boarding: driver and passengers ordered at once, a quicker switch when the chosen driver doesn't move.",
-    "Rides drop their team on the road at a cluttered base (Military Training Area's junkyard stops vehicles).",
-    "Supply runs in the transport test (the bases need to ask for supplies).",
+    "A ride leaves without one stuck soldier instead of failing for the whole team.",
+    "Supply runs in the transport test: the source depot has no surplus and 27 truck spawns found no room.",
+    "Military Training Area's pads: the slope guard (Martin's call).",
     "The attack-plan arrows: plans updated after a capture, buildings held around the objective (with Martin).",
     "The crash in the game window (Martin's call).",
 ]
@@ -300,6 +309,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (58, "faster boarding, ride vehicles by a road", "31 Oct 21:00 - 22:40",
+     ["AI Conflict fork: during the driver and gunner phases the other soldiers walk to within 12 m of the vehicle (-aicfWalkOverMeters, on by default; 7e776fd, d47c7d6).",
+      "AI Conflict fork: a ride's vehicle appears on clear ground within 12 m of a road first (-aicfPadNearRoadMeters, on by default; a0aa437, d47c7d6); [ZCR][PADROAD] logs each base's spots by a road.",
+      "Transport test: runs with the seat fallback on, as the battles (variant 'now'); older variants pinned to what they ran; a stuck-at-pad count."],
+     "Martin: 'you should try some optimization on that integration test scenario because I noticed its an issue', 'do what you recommend' (notes 474-479).",
+     "Boarding 60 s -> 35-39 s, the wait at the base 90-100 s -> 65-71 s (3 runs); stuck at a pad ~2 a run -> 0 except Military Training Area. Soldier-km a minute within the noise."),
+
     (57, "the transport integration test, fewer failed rides", "31 Oct 13:45 - 17:35",
      ["The transport integration test (lab/transporttest.py, ZCR_ShuttleTest.c): the US holds every base (-zcrAllBasesTo US), the Soviets field no teams (-aicfNoForces USSR, fork), nobody wins (-aicfNoVictory, fork); every US team is sent base to base and each trip is measured.",
       "AI Conflict fork: a quiet friendly base whose spawn point isn't active stays on the teams' lists switched off (f0ec0ac) - a taken base is no longer abandoned.",
