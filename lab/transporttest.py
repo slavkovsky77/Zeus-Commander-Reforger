@@ -96,6 +96,10 @@ VARIANTS = {
     # a base start 8 game seconds apart (the fork's default).
     "spaced": (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
                "no cap on rides out of a base, they start 8 s apart; walk-over, pads by a road, the seat fallback on"),
+    # spaced (1 Nov 00:29, north HQ): 8.5 / 8.4 soldier-km a minute, as good as no cap - but at the start burst 18 rides queued
+    # 40 s (median) for their turn and 3 teams walked too far meanwhile.
+    "spaced4": (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRideSpacingMs 4000",
+                "as spaced, rides out of a base 4 s apart, not 8"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
