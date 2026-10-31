@@ -165,11 +165,19 @@ class ZCR_Setup
 			return;
 		s_bDone = true;
 		int half = (fia.Count() + 1) / 2;
+		// -zcrAllBasesTo US (the transport test, 31 Oct - Martin: "it seems fucking retarded that soviet side has a lot of
+		// points"): every base but the other side's HQ goes to that side.
+		string allTo;
+		System.GetCLIParam("zcrAllBasesTo", allTo);
 		foreach (int k, SCR_CampaignMilitaryBaseComponent base : fia)
 		{
 			SCR_CampaignFaction side = ussr;
 			if (k < half)
 				side = us;
+			if (allTo == "US")
+				side = us;
+			else if (allTo == "USSR")
+				side = ussr;
 			base.SetFaction(side);
 			Print(string.Format("[ZCR][SETUP] t=%1 no_fia base=%2 to=%3", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base), side.GetFactionKey()), LogLevel.NORMAL);
 		}

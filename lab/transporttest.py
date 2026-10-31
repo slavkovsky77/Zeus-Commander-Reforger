@@ -1,16 +1,21 @@
-"""The transport test (31 Oct, Martin: "prepare transport sublab, this sublab will just do moving of manpower as efficiently
-as possible (no enemy on the map)"; review note 471). A full Arland match with one side only - AI Conflict's US commander,
-no Soviet commander (-aicfAICommanderMode US: the Soviets field nobody), no FIA, no drones - and one point on every list
-(-zcrOnePoint): the US moves all its teams from its HQ to that point the way the watched matches do (AI Conflict's rides,
-12 teams of 4). How fast does the manpower get there, and what goes wrong on the way?
+"""The transport integration test (31 Oct, Martin: "prepare transport sublab, this sublab will just do moving of manpower as
+efficiently as possible (no enemy on the map)", "points is now to optimize manpower reinforcement supplies, catch problems
+... i noticed soldier are not being transported properly", "we should measure how efficiently we are transporting soldiers
+over the map"; review notes 471, 474).
 
-    python lab/transporttest.py signal --variant rides --minutes 12
-    python lab/sublab.py run transport --scenario signal --variant foot --repeat 1
+A full Arland match where the US holds the whole map (-zcrAllBasesTo US: every base but the Soviet HQ) and nobody fights
+(-aicfNoForces USSR: the Soviets field no teams; no FIA, no drones). Each of the 12 US teams of 4 is sent to one of its bases
+and on arrival to the next (-zcrShuttleTest, ZCR_ShuttleTest.c) - the teams cross the map again and again the way AI Conflict
+moves them (a ride or on foot), while AI Conflict's supply trucks serve the same bases.
 
-Measures: soldiers within 300 m of the point at game minute 3, 5, 8 and 12 (and as a share of the side's soldiers); when
-a quarter, half and three quarters of them were there; the rides - asked, delivered, failed (at the HQ / on the way, and
-why), slow get-outs, the most at once; how long boarding and the drive took (medians); the vehicles used; unjams and stuck
-vehicles; script errors. Which HQ the US got is random per match (the harbour or the south one) - the run says which.
+    python lab/transporttest.py arland --variant rides --minutes 20
+    python lab/transporttest.py arland --variant rides --watch          # in the game window
+    python lab/sublab.py run transport --scenario arland --variant foot
+
+Measures, per trip (assign -> within 120 m of the base): how many, how far, door-to-door km/h (a walking team makes ~4-5),
+by ride or on foot; soldier-km moved and per game minute; the rides - asked, delivered, failed (at the HQ, and why), slow
+get-outs; boarding, drive and wait-at-the-base times; how full the vehicles were; unjams and stuck vehicles; the supply
+trucks' deliveries; script errors.
 """
 import argparse
 import json
@@ -22,35 +27,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "lab"))
-import assaulttest  # noqa: E402  (its BASE setup, ride counter and summary)
+import assaulttest  # noqa: E402  (its BASE setup, mods and ride counter)
 
 SCENARIOS = {
-    # name: (assaulttest scenario for the objective, words)
-    "signal": ("point", "Signal Hill - 1.6-1.7 km from either HQ, so both HQs give about the same trip"),
-    "farm": ("city", "Farm - 1.1 km from the harbour HQ, 2.1 km from the south one (the watched battle's base)"),
+    # name: words
+    "arland": "Arland: the US holds every base but the Soviet HQ; its 12 teams of 4 travel from base to base (0.4-3 km trips)",
 }
-_TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfArmedRideEvery 0"
+_TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -aicfArmedRideEvery 0"
 VARIANTS = {
     # name: (extra command line, words for the app)
     "rides": (_TEAMS + " -aicfRidesPerBase 3",
-              "as the watched Farm battle: 12 teams of 4, transport rides (Humvee / UAZ-469 jeep), at most 3 rides leaving the HQ at a time"),
+              "as the watched battles: transport rides (Humvee / UAZ-469 jeep), at most 3 rides leaving a base at a time"),
     "foot": (_TEAMS + " -aicfInfantryRideMeters 100000", "no rides: every team walks - the reference for what the rides are worth"),
-    "rides6": (_TEAMS + " -aicfRidesPerBase 6", "as rides, up to 6 rides leaving the HQ at a time"),
+    "rides6": (_TEAMS + " -aicfRidesPerBase 6", "as rides, up to 6 rides leaving a base at a time"),
 }
-TRANSIT_FAIL_AT_HQ_M = 150
+TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR"
+# Seats a ride vehicle has (the game's prefabs).
+SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
 
 
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1) -> dict:
-    point = assaulttest.POINTS[SCENARIOS[scenario][0]]
     extra, _ = VARIANTS[variant]
-    import bridges
     import sublab
-    bridges.ensure(("point",))
     title = sublab.title("transport", scenario, variant)
     label = f"transport-{scenario}-{variant}-p{port}" if not watch else f"transporttest-{scenario}-{variant}-watch"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--us", "point", "--commander-mode", "US", "--mods", assaulttest.MODS, "--plan-seconds", "60",
-            "--extra", f"{extra} -zcrOnePoint {point} -zcrTestTitle {title}"]
+            "--port", str(port), "--commander-mode", "US", "--mods", assaulttest.MODS, "--plan-seconds", "60",
+            "--extra", f"{extra}{TEST} -zcrTestTitle {title}"]
     if watch:
         argv += ["--solo", "--watch"]
         argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
@@ -63,53 +66,72 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     return summarize(runs[-1], scenario, variant)
 
 
+def _once(lines: list, tag: str, side: str = "US") -> list:
+    """The lines with a tag for a side, each once (AI Conflict's lines often come twice): keyed by t_ms and slot."""
+    out, seen = [], set()
+    for l in lines:
+        if tag not in l or f"faction={side} " not in l:
+            continue
+        k = ((re.search(r"t_ms=(\d+)", l) or [0, 0])[1], (re.search(r" slot=(\w+)", l) or [0, 0])[1])
+        if k not in seen:
+            seen.add(k)
+            out.append(l)
+    return out
+
+
 def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
-    out = assaulttest.summarize(run_dir, SCENARIOS[scenario][0], variant, attacker="US")
-    out["scenario"] = scenario
+    out = {"scenario": scenario, "variant": variant, "run": run_dir.name, "run_path": str(run_dir)}
     log = next(iter(sorted(run_dir.glob("logs/*/console.log"))), None)
     if not log:
+        out["error"] = "no log"
         return out
     lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
-    # When a quarter, half and three quarters of the side's soldiers were within 300 m of the point.
+    # The trips (ZCR_ShuttleTest).
+    trips = []
+    for l in dict.fromkeys(l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][SHUTTLE]" in l and "event=arrive" in l):
+        m = re.search(r" t=(\d+) .* slot=(\d+) event=arrive trip=(\d+) base=(\S+) dist=(\d+) trip_s=(\d+) rode=(\d) men=(\d+)", l)
+        if m:
+            trips.append({"t": int(m.group(1)), "slot": int(m.group(2)), "dist": int(m.group(5)), "s": int(m.group(6)),
+                          "rode": m.group(7) == "1", "men": int(m.group(8))})
+    assigned = len(set(l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][SHUTTLE]" in l and "event=assign" in l))
     rounds = {}
     for l in lines:
-        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=US id=(\d+) role=\w+ men=(\d+) ride=\d x=(-?\d+) z=(-?\d+)", l)
+        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=US id=(\d+) role=(\w+) men=(\d+) ride=\d x=(-?\d+) z=(-?\d+)", l)
         if m:
-            rounds.setdefault(int(m.group(1)), {})[int(m.group(2))] = (int(m.group(3)), float(m.group(4)), float(m.group(5)))
-    obj = _objective(run_dir, lines)
-    # Which HQ the US got (random per match): where its teams stood in the first round - the harbour (1158, 3282) or the south (1634, 909).
-    if rounds:
-        zs = sorted(z for _, _, z in rounds[min(rounds)].values())
-        out["hq"] = "harbour" if zs[len(zs) // 2] > 2000 else "south"
-    for share in (25, 50, 75):
-        out[f"t{share}_s"] = -1
-        if not obj:
-            continue
-        for t in sorted(rounds):
-            men = sum(n for n, _, _ in rounds[t].values())
-            near = sum(n for n, x, z in rounds[t].values() if (x - obj[0]) ** 2 + (z - obj[1]) ** 2 <= assaulttest.NEAR_M ** 2)
-            if men >= 8 and near * 100 >= share * men:
-                out[f"t{share}_s"] = t
-                break
-    # The rides: boarding (BOARDING -> TRANSIT) and the drive (TRANSIT -> DISMOUNT), per ride; why the failed ones failed.
-    state, since, board, drive, why = {}, {}, [], [], {}
-    seen = set()
-    for l in lines:
-        if "VEHICLE_STATE_CHANGED" not in l or "faction=US " not in l:
-            continue
+            rounds.setdefault(int(m.group(1)), []).append((m.group(3), int(m.group(4)), float(m.group(5)), float(m.group(6))))
+    last_t = max(rounds) if rounds else 0
+    out["minutes"] = round(last_t / 60, 1)
+    out["trips_assigned"] = assigned
+    out["trips_done"] = len(trips)
+    med = lambda v: round(statistics.median(v), 1) if v else -1
+    kmh = [t["dist"] / t["s"] * 3.6 for t in trips if t["s"] > 0]
+    out["door_kmh"] = med(kmh)
+    out["door_kmh_ride"] = med([t["dist"] / t["s"] * 3.6 for t in trips if t["s"] > 0 and t["rode"]])
+    out["door_kmh_foot"] = med([t["dist"] / t["s"] * 3.6 for t in trips if t["s"] > 0 and not t["rode"]])
+    out["trip_km"] = med([t["dist"] / 1000 for t in trips])
+    out["rode_pct"] = round(100 * sum(1 for t in trips if t["rode"]) / len(trips)) if trips else 0
+    out["long_rode_pct"] = (round(100 * sum(1 for t in trips if t["rode"] and t["dist"] >= 1000) / max(1, sum(1 for t in trips if t["dist"] >= 1000)))
+                            if trips else 0)
+    out["soldier_km"] = round(sum(t["men"] * t["dist"] for t in trips) / 1000, 1)
+    out["soldier_km_per_min"] = round(out["soldier_km"] / out["minutes"], 2) if out["minutes"] else 0
+    # The rides (AI Conflict's trip states), with the assault test's counter.
+    by_t = {t: [(r, n, x, z) for r, n, x, z in v] for t, v in rounds.items()}
+    out.update(assaulttest.rides(lines, "US", by_t))
+    state, since, board, drive, wait, why, planned = {}, {}, [], [], [], {}, {}
+    for l in _once(lines, "VEHICLE_STATE_CHANGED"):
         t = re.search(r"t_ms=(\d+)", l)
         s = re.search(r" slot=(\w+)", l)
         st = re.search(r"new_state=(\w+)|state=(\w+)", l)
         if not (t and s and st):
             continue
-        key = (t.group(1), s.group(1))
-        if key in seen:
-            continue
-        seen.add(key)
         slot, now, new = s.group(1), int(t.group(1)) / 1000, st.group(1) or st.group(2)
         old = state.get(slot)
+        if new == "SITE_PLANNED":
+            planned[slot] = now
         if new == "TRANSIT" and old == "BOARDING":
             board.append(now - since[slot])
+        if new == "TRANSIT" and slot in planned:
+            wait.append(now - planned.pop(slot))
         if new == "DISMOUNT" and old == "TRANSIT":
             drive.append(now - since[slot])
         if new == "FALLBACK" and old != "DISMOUNT":
@@ -118,48 +140,38 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         state[slot], since[slot] = new, now
     out["board_s"] = round(statistics.median(board)) if board else -1
     out["drive_s"] = round(statistics.median(drive)) if drive else -1
+    out["base_wait_s"] = round(statistics.median(wait)) if wait else -1
     out["fail_reasons"] = ", ".join(f"{k} {v}" for k, v in sorted(why.items(), key=lambda kv: -kv[1]))
-    cars, spawned = {}, set()
-    for l in lines:
-        if "VEHICLE_SPAWNED]" in l and "faction=US " in l:
-            m = re.search(r"prefab=\{[0-9A-F]+\}Prefabs/Vehicles/\w+/\w+/(\w+)\.et", l)
-            k = (re.search(r"t_ms=(\d+)", l) or [None, None])[1], (re.search(r" slot=(\w+)", l) or [None, None])[1]
-            if m and k not in spawned:   # lines often come twice
-                spawned.add(k)
-                cars[m.group(1)] = cars.get(m.group(1), 0) + 1
+    cars, full = {}, []
+    men_of = {}
+    for l in _once(lines, "VEHICLE_SPAWNED]"):
+        m = re.search(r"prefab=\{[0-9A-F]+\}Prefabs/Vehicles/\w+/\w+/(\w+)\.et", l)
+        s = re.search(r" numeric_slot=(\d+)", l)
+        if m:
+            cars[m.group(1)] = cars.get(m.group(1), 0) + 1
+            if s:
+                men_of[int(s.group(1))] = m.group(1)
     out["vehicles"] = ", ".join(f"{k} {v}" for k, v in sorted(cars.items()))
+    seats = [min(1.0, t["men"] / SEATS[men_of[t["slot"]]]) for t in trips if t["rode"] and men_of.get(t["slot"]) in SEATS]
+    out["seat_use_pct"] = round(100 * statistics.mean(seats)) if seats else -1
     out["unjams"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][UNJAM]" in l and "side=US " in l and "action=" in l})
     out["stuck"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][MOVEFAIL]" in l and "side=US " in l})
-    out["enemy_soldiers"] = len({re.search(r" id=(\d+)", l).group(1) for l in lines if "[ZCR][LIVE]" in l and "side=USSR " in l and "kind=team" in l and re.search(r" id=(\d+)", l)})
+    # The supply trucks: deliveries unloaded and how much.
+    unloads = [l for l in _once(lines, "LOGISTICS_UNLOAD_COMMITTED") if "purpose=DELIVERY" in l]
+    out["supply_runs"] = len(unloads)
+    out["supplies"] = sum(int((re.search(r" amount=(\d+)", l) or [0, 0])[1]) for l in unloads)
+    out["enemy_teams"] = len(_once(lines, "GROUP_ENTITY_SPAWNED", "USSR"))
+    out["lost"] = sum(1 for l in lines if "[ZCR][LOSS]" in l and " side=US " in l and "kind=man" in l)
+    out["script_errors"] = len([l for l in lines if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l])
+    out["crashed"] = bool(list(log.parent.glob("*.mdmp")))
     return out
-
-
-def _objective(run_dir: Path, lines: list):
-    """The point's place: the US plan line names its base id, the strategist's snapshot gives where it is."""
-    obj_id = None
-    for l in lines:
-        m = re.search(r"\[ZCR\]\[PLAN\].*faction=US .*Assault test: everything at .+? \(base (\d+)\)", l)
-        if m:
-            obj_id = int(m.group(1))
-            break
-    snap = run_dir / "profile" / "zcr" / "snapshots.jsonl"
-    if obj_id is None or not snap.exists():
-        return None
-    for s in snap.read_text(encoding="utf-8", errors="replace").splitlines()[:4]:
-        try:
-            b = next((b for b in json.loads(s).get("bases", []) if b.get("id") == obj_id), None)
-        except ValueError:
-            continue
-        if b:
-            return b["x"], b["z"]
-    return None
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("scenario", choices=sorted(SCENARIOS))
     ap.add_argument("--variant", default="rides", choices=list(VARIANTS))
-    ap.add_argument("--minutes", type=float, default=12)
+    ap.add_argument("--minutes", type=float, default=20)
     ap.add_argument("--port", type=int, default=2162)
     ap.add_argument("--watch", action="store_true", help="in the game window (solo) - only when nobody else uses the game")
     ap.add_argument("--speed", type=float, default=1, help="with --watch: the game's time multiplier")

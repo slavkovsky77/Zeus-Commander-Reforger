@@ -11,16 +11,18 @@ modded class AICF_AdaptiveCommanderPolicy
 			return;
 		ZCR_OnePoint.Filter(m_Faction, candidates);   // -zcrOnePoint: the point and the own main base only
 		ZCR_StrategicPlan plan = ZCR_StrategicPlan.Get(m_Faction.GetFactionKey());
-		if (!plan || plan.IsEmpty())
-			return;
-		foreach (AICF_AdaptiveCandidate candidate : candidates)
+		if (plan && !plan.IsEmpty())
 		{
-			if (!candidate)
-				continue;
-			candidate.m_fFrontValue += plan.GetPriority(candidate.m_iNodeId);
-			candidate.m_fDemand = Math.Max(candidate.m_fDemand, plan.GetDemand(candidate.m_iNodeId));
+			foreach (AICF_AdaptiveCandidate candidate : candidates)
+			{
+				if (!candidate)
+					continue;
+				candidate.m_fFrontValue += plan.GetPriority(candidate.m_iNodeId);
+				candidate.m_fDemand = Math.Max(candidate.m_fDemand, plan.GetDemand(candidate.m_iNodeId));
+			}
+			Bind(slot, plan, candidates);
 		}
-		Bind(slot, plan, candidates);
+		ZCR_ShuttleTest.Filter(m_Faction, slot, candidates);   // -zcrShuttleTest (the transport test): last, its trip wins
 	}
 
 	// -zcrBindMainEffort (the assault sub-lab, 28 Oct; review note 433): the plan's main effort binds the attack teams. The
