@@ -60,6 +60,20 @@ VARIANTS = {
                  "as approach180, and the team waits 20 m from the vehicle's spot, not 43"),
     "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000",
                            "rides only over 1 km, and 180 s to reach the vehicle spot"),
+    # Stuck vehicles (note 479): 24 of the 44 stuck-vehicle lines were within 60 m of the pad the ride left from - the
+    # empty-ground search takes the clear spot nearest the base's spawn point (Military Training Area: in its junkyard).
+    "road-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12",
+                 "as approach180, and the vehicle appears on clear ground within 12 m of a road when the base has one"),
+    # Boarding (note 479): the team waits ~60 m from the vehicle; the passengers stood idle while the driver ran over and
+    # got in (24 s), then ran the same 60 m (36 s). And the test had the seat fallback off (-aicfNoHiddenSeat from the
+    # assault test's base) - the watched battles have had it on since 30 Oct (note 456).
+    "walk-over": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfWalkOverMeters 12",
+                  "as approach180, and the passengers walk to the vehicle while the driver gets in"),
+    "seat-on": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000").replace(" -aicfNoHiddenSeat", ""),
+                "as approach180 with the seat fallback on, as in the watched battles since 30 Oct"),
+    "fast-board": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12"
+                    " -aicfWalkOverMeters 12").replace(" -aicfNoHiddenSeat", ""),
+                   "road-pad + walk-over + the seat fallback on"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
@@ -175,7 +189,13 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     seats = [min(1.0, t["men"] / SEATS[men_of[t["slot"]]]) for t in trips if t["rode"] and men_of.get(t["slot"]) in SEATS]
     out["seat_use_pct"] = round(100 * statistics.mean(seats)) if seats else -1
     out["unjams"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][UNJAM]" in l and "side=US " in l and "action=" in l})
-    out["stuck"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][MOVEFAIL]" in l and "side=US " in l})
+    stuck = {l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][MOVEFAIL]" in l and "side=US " in l}
+    out["stuck"] = len(stuck)
+    # Stuck within 60 m of a pad a US ride was spawned on - the ride couldn't get out to the road (note 479).
+    pads = {(float(m.group(1)), float(m.group(2))) for l in lines if "VEHICLE_SPAWN_PAD_PROBE" in l and "faction=US" in l and "result=CLEAR" in l
+            for m in [re.search(r"origin=<([-\d.]+),[-\d.]+,([-\d.]+)>", l)] if m}
+    at = [(int(m.group(1)), int(m.group(2))) for l in stuck for m in [re.search(r" x=(\d+) z=(\d+)", l)] if m]
+    out["stuck_at_pad"] = sum(1 for x, z in at if any((x - a) ** 2 + (z - b) ** 2 < 3600 for a, b in pads))
     # The supply trucks: deliveries unloaded and how much.
     unloads = [l for l in _once(lines, "LOGISTICS_UNLOAD_COMMITTED") if "purpose=DELIVERY" in l]
     out["supply_runs"] = len(unloads)
