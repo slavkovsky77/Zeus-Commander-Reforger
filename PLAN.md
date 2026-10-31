@@ -208,6 +208,7 @@ Status: **Done**, **In progress**, **Todo**, **Measure** (to measure first), **F
 - [Done] Team size and spacing to the nearest friend (141) | Charted from r13: 2.1-3.6 soldiers per team, 6-8 m apart (squads in single file: 3-5 m).
 
 ## Lab
+- [Todo] The arrow attack concept - Martin LOVES it, to tweak later (467) | Martin, 31 Oct: 'in commander lab I love that arrows!!!! thats ggreat!!!', 'we will tweak that arrow attack concept later, mark somewhere I LOVE IT!!'. The Map tab's attack arrows (a side's attacking teams to each base it attacks, thick = main effort, 'N/M there') and lines of attack (the plan's drive, hidden assembly ring, one lane per team with an arrowhead, hold line). Kept in KEEP.md. Tweaks together with Martin later; first: the side without a plan shows only its arrow (468).
 - [For review] A monitoring GUI that's part of the process (259) | The live lab monitor (d67b1ad): the loop's step, goals, iterations, matches, and a 'Tell the loop' box filed at each iteration's start. https://claude.ai/artifact/W6cEhQsEGXEnXmzSkjBEGJ
 - [Done] A plan and a page like Arma 3's, with a chapter for your remarks and one for bugs (145, 148) | This page.
 - [Done] Two armies only, no FIA, for faster testing (154, 156) | -zcrNoFIA: FIA's bases split between the sides at the start, the front in the middle from the first minute; FIA's ambient patrols don't spawn. The watched matches run it from 18:09 (.runtime/watch_extra.txt).
