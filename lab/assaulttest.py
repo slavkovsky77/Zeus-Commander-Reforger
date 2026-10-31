@@ -123,9 +123,12 @@ RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLI
 NEAR_M = 300
 
 
-def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1) -> dict:
+def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1,
+        cam_spot: str = "") -> dict:
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
+    if cam_spot:
+        extra += f" -zcrCamSpot {cam_spot}"
     us, ussr = ("assault", "hold") if attacker == "US" else ("hold", "assault")
     if attacker == "BOTH":
         us = ussr = "point"
@@ -335,11 +338,13 @@ def main() -> int:
     ap.add_argument("--watch", action="store_true", help="in the game window (solo) - only when nobody else uses the game")
     ap.add_argument("--speed", type=float, default=1, help="with --watch: the game's time multiplier (default 1x)")
     ap.add_argument("--summarize", default="", help="summarize an existing run folder instead of running")
+    ap.add_argument("--cam-spot", default="", help="with --watch: x,z,from_s,to_s - the camera follows the ride nearest that spot "
+                    "between those game seconds (-zcrCamSpot, 31 Oct: the airfield edge west of Farm)")
     a = ap.parse_args()
     if a.summarize:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
-        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed)
+        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot)
     print(json.dumps(r, indent=1))
     return 0
 

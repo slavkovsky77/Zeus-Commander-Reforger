@@ -590,6 +590,60 @@ class ZCR_Director
 				return;
 			}
 		}
+		// Lab (31 Oct, note 464): -zcrCamSpot x,z,from_s,to_s - between those game seconds the camera stays on one spot
+		// and follows the ride nearest to it (within 450 m), so Martin sees what stops the harbour side's trucks on the
+		// airfield edge west of Farm.
+		string camSpot;
+		if (System.GetCLIParam("zcrCamSpot", camSpot) && !camSpot.IsEmpty())
+		{
+			array<string> spotParts = {};
+			camSpot.Split(",", spotParts, true);
+			if (spotParts.Count() >= 4 && now >= spotParts[2].ToInt() && now <= spotParts[3].ToInt())
+			{
+				vector spot = Vector(spotParts[0].ToFloat(), 0, spotParts[1].ToFloat());
+				spot[1] = GetGame().GetWorld().GetSurfaceY(spot[0], spot[2]);
+				map<IEntity, int> aboard = new map<IEntity, int>();
+				map<IEntity, string> rideSide = new map<IEntity, string>();
+				foreach (IEntity e : m_aMen)
+				{
+					ChimeraCharacter c = ChimeraCharacter.Cast(e);
+					if (!c || !c.IsInVehicle())
+						continue;
+					IEntity v = e.GetRootParent();
+					if (!v || v == e)
+						continue;
+					aboard.Set(v, aboard.Get(v) + 1);
+					rideSide.Set(v, ZCR_LossLog.SideOf(e));
+				}
+				IEntity ride;
+				float rideDist = 450;
+				foreach (IEntity v, int n : aboard)
+				{
+					float d = vector.DistanceXZ(v.GetOrigin(), spot);
+					if (d < rideDist)
+					{
+						rideDist = d;
+						ride = v;
+					}
+				}
+				if (ride)
+				{
+					float kmh;
+					Physics ridePhys = ride.GetPhysics();
+					if (ridePhys)
+						kmh = ridePhys.GetVelocity().Length() * 3.6;
+					Show(ride.GetOrigin(), 35, 18, ride, string.Format("AIRFIELD SPOT - %1 %2, %3 aboard, %4 m from the spot, %5 km/h",
+						rideSide.Get(ride), VehicleName(ride), aboard.Get(ride), Math.Round(rideDist), Math.Round(kmh)), false);
+					m_iShotEnd = now + 12;
+				}
+				else
+				{
+					Show(spot, 90, 60, null, "AIRFIELD SPOT - no ride within 450 m yet", false);
+					m_iShotEnd = now + 8;
+				}
+				return;
+			}
+		}
 		string force = m_sForce;   // "action": the best fight now; "front": the hot zone
 		m_sForce = "";
 		m_iShot++;
