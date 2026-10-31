@@ -79,6 +79,12 @@ VARIANTS = {
                    "road-pad + walk-over + the seat fallback on"),
     "now": ((_TEAMS + " -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", ""),
             "the fork's defaults from 31 Oct 22:40 (180 s, walk-over, pads by a road) with the seat fallback on - as the watched battles"),
+    # Where the time goes (note 480): our 3-rides-per-base cap (29 Oct, the HQ jams) delayed rides 78-160 s and was the first
+    # refusal on most trips that walked the whole way - the team walks off while it waits and is soon past 250 m.
+    "cap5": ((_TEAMS + " -aicfRidesPerBase 5").replace(" -aicfNoHiddenSeat", ""),
+             "as now, and up to 5 rides leaving a base at a time (3 now)"),
+    "cap0": ((_TEAMS + " -aicfRidesPerBase 0").replace(" -aicfNoHiddenSeat", ""),
+             "as now, with no cap on rides leaving a base (as before 29 Oct, when 5-9 rides jammed the HQ's road)"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
