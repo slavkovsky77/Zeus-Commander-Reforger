@@ -34,46 +34,51 @@ SCENARIOS = {
     "arland": "Arland: the US holds every base but the Soviet HQ; its 12 teams of 4 travel from base to base (0.4-3 km trips)",
 }
 _TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -aicfArmedRideEvery 0"
+# The fork's walk-over and pads by a road are on by default from 31 Oct 22:40 (note 479): the variants run before then
+# pin them off, so their numbers stay what they were.
+_OLD = " -aicfWalkOverMeters 0 -aicfPadNearRoadMeters 0"
 VARIANTS = {
     # name: (extra command line, words for the app)
-    "rides": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 90000",
+    "rides": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 90000" + _OLD,
               "as the watched battles until 31 Oct: transport rides (Humvee / UAZ-469 jeep), at most 3 leaving a base at a time, 90 s to reach the vehicle"),
-    "foot": (_TEAMS + " -aicfInfantryRideMeters 100000", "no rides: every team walks - the reference for what the rides are worth"),
-    "rides6": (_TEAMS + " -aicfRidesPerBase 6", "as rides, up to 6 rides leaving a base at a time"),
+    "foot": (_TEAMS + " -aicfInfantryRideMeters 100000" + _OLD, "no rides: every team walks - the reference for what the rides are worth"),
+    "rides6": (_TEAMS + " -aicfRidesPerBase 6" + _OLD, "as rides, up to 6 rides leaving a base at a time"),
     # 31 Oct, the first window run: rides 12.9 km/h door to door v 12.0 on foot - 82 s from the ride's spot planned to
     # leaving (54 s boarding), 7 of 28 rides failed (the team didn't reach its vehicle in time / boarding ran out).
-    "ride1k": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000",
+    "ride1k": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000" + _OLD,
                "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"),
-    "stage50": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnStagingRadiusMeters 50",
+    "stage50": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnStagingRadiusMeters 50" + _OLD,
                 "a team counts as at its vehicle spot within 50 m, not 25 (the 'never reached the vehicle in time' failures)"),
     # The first A/B (note 475): 8-9 failed rides a run were SPAWN_SITE_APPROACH_TIMEOUT - the whole team has 90 s to reach
     # the vehicle spot, and after a trip it is strung out (the last man up to 550 m behind, the spot 100-250 m away).
-    "approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000",
+    "approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000" + _OLD,
                     "180 s (not 90) for the team to reach its vehicle spot - the default from 31 Oct 17:05 (failed rides 38% -> 13%)"),
     # The overhead (note 476): ~90 s from a ride's spot planned to leaving, ~60 s of it boarding - the team waits 43 m from
     # the vehicle's spot (so it is clear of the pad) and walks over when the vehicle is there.
     # Boarding (note 477): 60 s median - a soldier who stops making progress is re-ordered after 8 s, the driver pick
     # rotated after ~16 s.
-    "stall4": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehiclePassengerStallMs 4000",
+    "stall4": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehiclePassengerStallMs 4000" + _OLD,
                "as approach180, and a soldier who stops making progress while boarding is re-ordered after 4 s, not 8"),
-    "near-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehicleSpawnStagingOffsetMeters 20",
+    "near-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfVehicleSpawnStagingOffsetMeters 20" + _OLD,
                  "as approach180, and the team waits 20 m from the vehicle's spot, not 43"),
-    "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000",
+    "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000" + _OLD,
                            "rides only over 1 km, and 180 s to reach the vehicle spot"),
     # Stuck vehicles (note 479): 24 of the 44 stuck-vehicle lines were within 60 m of the pad the ride left from - the
     # empty-ground search takes the clear spot nearest the base's spawn point (Military Training Area: in its junkyard).
-    "road-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12",
+    "road-pad": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12 -aicfWalkOverMeters 0",
                  "as approach180, and the vehicle appears on clear ground within 12 m of a road when the base has one"),
     # Boarding (note 479): the team waits ~60 m from the vehicle; the passengers stood idle while the driver ran over and
     # got in (24 s), then ran the same 60 m (36 s). And the test had the seat fallback off (-aicfNoHiddenSeat from the
     # assault test's base) - the watched battles have had it on since 30 Oct (note 456).
-    "walk-over": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfWalkOverMeters 12",
+    "walk-over": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfWalkOverMeters 12 -aicfPadNearRoadMeters 0",
                   "as approach180, and the passengers walk to the vehicle while the driver gets in"),
-    "seat-on": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000").replace(" -aicfNoHiddenSeat", ""),
+    "seat-on": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000").replace(" -aicfNoHiddenSeat", "") + _OLD,
                 "as approach180 with the seat fallback on, as in the watched battles since 30 Oct"),
     "fast-board": ((_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000 -aicfPadNearRoadMeters 12"
                     " -aicfWalkOverMeters 12").replace(" -aicfNoHiddenSeat", ""),
                    "road-pad + walk-over + the seat fallback on"),
+    "now": ((_TEAMS + " -aicfRidesPerBase 3").replace(" -aicfNoHiddenSeat", ""),
+            "the fork's defaults from 31 Oct 22:40 (180 s, walk-over, pads by a road) with the seat fallback on - as the watched battles"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
