@@ -47,7 +47,15 @@ class ZCR_ShuttleTest
 			if (c && c.m_iNodeId == target)
 				current = c;
 		}
-		if (current && vector.DistanceXZ(at, current.m_vPosition) <= ARRIVE_M)
+		bool there = current && vector.DistanceXZ(at, current.m_vPosition) <= ARRIVE_M;
+		// A defend team holds a forward spot short of the base (FORWARD_DEFEND) and waited there for minutes, never counted
+		// (31 Oct, note 480: 12% of a defend team's time, up to 7 min a stop): standing at its own order's spot, when that
+		// spot is within 400 m of the base, is arriving.
+		AIWaypoint order = slot.GetWaypoint();
+		if (current && !there && order && !(lc && lc.IsInVehicle()) &&
+			vector.DistanceXZ(order.GetOrigin(), current.m_vPosition) <= 400 && vector.DistanceXZ(at, order.GetOrigin()) <= 30)
+			there = true;
+		if (there)
 		{
 			vector from = s_mFrom.Get(id);
 			int rode;
