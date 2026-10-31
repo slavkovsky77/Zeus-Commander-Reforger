@@ -1,0 +1,38 @@
+# Sub-lab "transport" - created 2026-10-31 13:49 by lab/sublab.py new
+name = "transport"
+question = "How fast do the rides move a side's soldiers from its HQ to a point, with no enemy on the map - and what goes wrong on the way?"
+issue = "31 Oct, Martin: 'prepare transport sublab, this sublab will just do moving of manpower as efficiently as possible (no enemy on the map)' - 'there was a lot of issues'. In the watched Farm battles most rides fail at the HQ (31 Oct 12:47: US 0/8 delivered, Soviets 4/15, all 8 failed Soviet rides at the HQ)"
+pass_rule = "rides beat walking on both scenarios: more soldiers at the point by minute 8 than on foot, and at most 1 ride in 4 failing; then a watched battle where the rides deliver"
+runner = "lab/transporttest.py"
+minutes = 12.0
+units = 0
+scenarios = ["signal", "farm"]
+variants = ["rides", "foot", "rides6"]
+baseline = "rides"
+candidate = "rides6"
+score = "at_obj_8 + at_obj_12 - 2*rides_failed"
+higher_is_better = true
+keys = ["at_obj_5", "at_obj_8", "at_obj_12", "t50_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "drive_s", "unjams", "stuck"]
+title = "Transport"
+main = "at_obj_8"
+score_words = "soldiers at the point by minute 8 plus those by minute 12, minus 2 per failed ride"
+baseline_words = "as the watched Farm battle: 12 teams of 4, transport rides (Humvee / UAZ-469), at most 3 rides leaving the HQ at a time"
+candidate_words = "as rides, up to 6 rides leaving the HQ at a time"
+
+[scenario_labels]
+signal = "Signal Hill"
+farm = "Farm"
+
+[scenario_words]
+signal = "Only the US on the map (no Soviet commander, no FIA, no drones): all 12 US teams of 4 go from their HQ to Signal Hill, 1.6-1.7 km from either HQ"
+farm = "Only the US on the map: all 12 US teams go from their HQ to Farm - 1.1 km from the harbour HQ, 2.1 km from the south one (random per match)"
+
+[variant_labels]
+rides = "Rides, 3 out of the HQ at a time"
+foot = "On foot"
+rides6 = "Rides, 6 out of the HQ at a time"
+
+[variant_words]
+rides = "as the watched Farm battle: transport rides, at most 3 leaving the HQ at a time"
+foot = "no rides: every team walks - the reference for what the rides are worth"
+rides6 = "as rides, up to 6 rides leaving the HQ at a time"

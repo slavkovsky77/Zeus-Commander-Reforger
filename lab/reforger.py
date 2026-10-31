@@ -114,7 +114,7 @@ def command(a, profile: Path) -> list:
         # -aicfConstructionAttempts 512 (AI Conflict's maximum, default 256): Arland's harbour main base
         # is cramped (water, access corridors) and its side's barracks search ran out of budget - that
         # side never recruited (19 Oct 13:27 US, 15:36 USSR).
-        cmd += ["-aicfAICommanderMode", "BOTH", "-maxFPS", "60", "-logStats", "10000", "-aicfConstructionAttempts", "512",
+        cmd += ["-aicfAICommanderMode", getattr(a, "commander_mode", "BOTH") or "BOTH", "-maxFPS", "60", "-logStats", "10000", "-aicfConstructionAttempts", "512",
                 "-zcrPlanSeconds", str(a.plan_seconds), "-zcrLabWeather"]
         if a.bridge:
             cmd += ["-zcrBridge", a.bridge_url]
@@ -191,6 +191,8 @@ def main() -> int:
     ap.add_argument("--us", default="", help="US strategist: none, doctrine, llm, phased, llm-phased, modern")
     ap.add_argument("--ussr", default="", help="USSR strategist")
     ap.add_argument("--extra", default="", help="more server parameters, e.g. '-zcrStormPriority 100'")
+    ap.add_argument("--commander-mode", default="BOTH", choices=["BOTH", "US", "USSR"],
+                    help="AI Conflict's commanders: BOTH, or one side only - the other side fields nobody (31 Oct: the transport test, no enemy)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
