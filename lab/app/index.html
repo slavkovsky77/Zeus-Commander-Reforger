@@ -236,7 +236,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <button role="tab" data-tab="matches">Matches</button>
     <button role="tab" data-tab="crashes">Crashes</button>
     <button role="tab" data-tab="progress">Progress</button>
-    <button role="tab" data-tab="sublab">Sub-labs</button>
+    <button role="tab" data-tab="sublab">Integration tests</button>
     <button role="tab" data-tab="map">Map</button>
     <button role="tab" data-tab="decisions">Decisions</button>
     <button role="tab" data-tab="changelog">Changelog</button>
@@ -250,7 +250,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
     <div class="card" id="testscard" hidden>
       <div class="row" style="justify-content:space-between"><h2>Tests running now</h2><span class="mono muted">headless, numbers so far</span></div>
       <div id="tests" style="display:grid;gap:12px"></div>
-      <p class="muted" style="margin:6px 0 0">Each finished run lands in the Sub-labs tab (its sub-lab, row = track, column = setup).</p>
+      <p class="muted" style="margin:6px 0 0">Each finished run lands in the Integration tests tab (its test, row = track, column = setup).</p>
     </div>
     <div class="match">
       <div class="card">
@@ -1242,7 +1242,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
           <p><b>Score</b> (one number per run, higher is better): ${esc(l.score_words || l.score_text)}.</p>
           <p><b>Passes when</b> ${esc(l.pass_rule)}.</p></details>
         ${recent ? `<details><summary>Last runs</summary><div style="display:grid;gap:4px;margin-top:6px">${recent}</div></details>` : ""}</div>`;
-    }).join("") || '<div class="empty">No sub-labs.</div>';
+    }).join("") || '<div class="empty">No integration tests.</div>';
   }
 
   // Per track: setups down, questions across; each cell the average and every run's value (Martin, 23 Oct 22:40: "these
