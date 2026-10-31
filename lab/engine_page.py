@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "31 Oct midday, Martin watching: a Farm battle in the game window with the camera on the airfield spot west of Farm (the Soviets at the harbour HQ). No truck stalled there this time; the Soviets took Farm. Martin: the trucks carry one team each - a waste of space - why not the UAZ and smaller cars? Now the Soviets' 4-man teams ride the UAZ-469 jeep.",
+    "Running now": "31 Oct afternoon: the transport integration test - the US holds the whole of Arland, nobody fights, its 12 teams of 4 travel from base to base by ride or on foot, every trip measured (door-to-door speed, failed rides and why, boarding and waiting times). Rides failed 38% of the time; with 180 game seconds to reach the vehicle 13%.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "The jeeps in a watched Farm battle; rides that fail at the HQ while boarding (8 of 8 failed Soviet rides this match); several teams in one truck (a bigger change to AI Conflict's rides); the crash in the game window (Martin's call).",
+    "Being built next": "Faster boarding (driver and passengers at once - boarding takes 60 s now); rides drop their team on the road at a cluttered base (Military Training Area's junkyard); supply runs in the transport test; the attack-plan arrows' improvements with Martin.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r57", "Rides fail far less",
+     "The new transport integration test showed most failed rides were teams not reaching their vehicle in time: the whole team had 90 seconds - real seconds, so 30 game seconds at the 3x Martin watches at - and after a trip it is strung out. Now 180 game seconds: failed rides 38% -> 13%, delivered 41% -> 63% (three runs each)."),
+    ("good", "r57", "A taken base is kept, even a quiet one",
+     "AI Conflict dropped a friendly base whose spawn point wasn't active yet - a base just taken - from every team's list, so the taken Signal Hill was left and everyone walked home. Now it stays on the list, switched off, and our rules switch it on."),
+    ("info", "r57", "Where a ride's time goes",
+     "Walk to the vehicle 26 s, boarding 60 s (the driver alone first, then the passengers), drive about 4 min, getting out 14 s. Jogging soldiers make ~12 km/h, so a 1.4 km ride only pays when nothing goes wrong before it leaves - boarding is the next thing to speed up."),
+
     ("good", "r56", "The Soviets ride jeeps",
      "Martin, watching: 'trucks could carry more than one team, waste of space' and 'why dont you use uaz and some smaller cars for smaller teams?'. Every Soviet ride was a 15-seat Ural with one 4-man team: the van counts only its 2 working seats since 30 Oct, and the UAZ-469 jeep was not on the list. The boarding test: the jeep 99.8% aboard, 10 s to board, as good as the Ural (the van 61-76%). It is now the Soviets' first light ride; in a short check 4 of 4 Soviet rides were jeeps. The US already rode 4-seat Humvees."),
     ("info", "r56", "The airfield spot, watched",
@@ -269,11 +276,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "The UAZ-469 jeeps in a watched Farm battle.",
-    "Rides that fail at the HQ while boarding (all 8 failed Soviet rides in the 31 Oct match).",
-    "Several teams in one truck: AI Conflict ties one ride to one team - a bigger change, after the jeeps.",
-    "The crash in the game window: a crash list for the watched matches, or matches with parts switched off (Martin's call).",
-    "Attack plans for every base in a watched match.",
+    "Faster boarding: driver and passengers ordered at once, a quicker switch when the chosen driver doesn't move.",
+    "Rides drop their team on the road at a cluttered base (Military Training Area's junkyard stops vehicles).",
+    "Supply runs in the transport test (the bases need to ask for supplies).",
+    "The attack-plan arrows: plans updated after a capture, buildings held around the objective (with Martin).",
+    "The crash in the game window (Martin's call).",
 ]
 
 FACTS = [
@@ -293,6 +300,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (57, "the transport integration test, fewer failed rides", "31 Oct 13:45 - 17:35",
+     ["The transport integration test (lab/transporttest.py, ZCR_ShuttleTest.c): the US holds every base (-zcrAllBasesTo US), the Soviets field no teams (-aicfNoForces USSR, fork), nobody wins (-aicfNoVictory, fork); every US team is sent base to base and each trip is measured.",
+      "AI Conflict fork: a quiet friendly base whose spawn point isn't active stays on the teams' lists switched off (f0ec0ac) - a taken base is no longer abandoned.",
+      "AI Conflict fork: a team has 180 game seconds (not 90 real) to reach its vehicle spot (0e6f0d6, e4003bc).",
+      "Lab app: the Sub-labs tab is now 'Integration tests'; lab/reforger.py --commander-mode."],
+     "Martin: 'prepare transport sublab ... moving of manpower as efficiently as possible (no enemy on the map)', 'soldier are not being transported properly', 'we should measure how efficiently we are transporting soldiers over the map', 'try some optimization' (notes 471, 474-477).",
+     "Failed rides 38% -> 13%, delivered 41% -> 63% (3 runs each). Tried without gain: rides only over 1 km, a wider vehicle spot, the team waiting closer to the vehicle."),
+
     (56, "the Soviets ride jeeps, not half-empty trucks", "31 Oct 12:47 - 13:25",
      ["AI Conflict fork: the UAZ-469 jeep is the Soviets' first light ride, 4 seats counted (ba2859a) - 4-man teams no longer take a 15-seat Ural.",
       "ZCR Director: -zcrCamSpot x,z,from,to keeps the camera on one spot and follows the nearest ride (96ad357); lab/assaulttest.py --cam-spot.",
