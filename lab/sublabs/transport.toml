@@ -7,7 +7,7 @@ runner = "lab/transporttest.py"
 minutes = 20.0
 units = 0
 scenarios = ["arland"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180"]
 baseline = "rides"
 candidate = "rides6"
 score = "soldier_km_per_min * 10 - 2 * rides_failed"
@@ -31,6 +31,8 @@ foot = "On foot"
 rides6 = "Rides, 6 out of a base at a time"
 ride1k = "Rides only over 1 km"
 stage50 = "Vehicle spot counts within 50 m"
+approach180 = "180 s to reach the vehicle"
+ride1k-approach180 = "Rides over 1 km, 180 s to reach the vehicle"
 
 [variant_words]
 rides = "as the watched Farm battle: transport rides, at most 3 leaving the HQ at a time"
@@ -38,3 +40,5 @@ foot = "no rides: every team walks - the reference for what the rides are worth"
 rides6 = "as rides, up to 6 rides leaving a base at a time"
 ride1k = "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"
 stage50 = "a team counts as at its vehicle spot within 50 m, not 25"
+approach180 = "180 s (not 90) for the team to reach its vehicle spot"
+ride1k-approach180 = "rides only over 1 km, and 180 s to reach the vehicle spot"

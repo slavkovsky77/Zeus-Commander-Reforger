@@ -46,6 +46,12 @@ VARIANTS = {
                "rides only for trips over 1 km (300 m now) - short trips walk, no wait for a vehicle"),
     "stage50": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnStagingRadiusMeters 50",
                 "a team counts as at its vehicle spot within 50 m, not 25 (the 'never reached the vehicle in time' failures)"),
+    # The first A/B (note 475): 8-9 failed rides a run were SPAWN_SITE_APPROACH_TIMEOUT - the whole team has 90 s to reach
+    # the vehicle spot, and after a trip it is strung out (the last man up to 550 m behind, the spot 100-250 m away).
+    "approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfVehicleSpawnApproachTimeoutMs 180000",
+                    "180 s (not 90) for the team to reach its vehicle spot"),
+    "ride1k-approach180": (_TEAMS + " -aicfRidesPerBase 3 -aicfInfantryRideMeters 1000 -aicfVehicleSpawnApproachTimeoutMs 180000",
+                           "rides only over 1 km, and 180 s to reach the vehicle spot"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
