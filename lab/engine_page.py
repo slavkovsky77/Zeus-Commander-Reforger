@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "30 Oct evening, Martin watching: three Farm battles in the game window. The van check (the Soviets at the harbour HQ, as on 29 Oct): Farm taken at 11:36 instead of 19:29, 0 boarding timeouts instead of 68, Soviet losses 5 instead of 16. After a capture the attack teams now hold the base instead of walking back to their HQ.",
+    "Running now": "31 Oct midday, Martin watching: a Farm battle in the game window with the camera on the airfield spot west of Farm (the Soviets at the harbour HQ). No truck stalled there this time; the Soviets took Farm. Martin: the trucks carry one team each - a waste of space - why not the UAZ and smaller cars? Now the Soviets' 4-man teams ride the UAZ-469 jeep.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "The spot at the airfield edge ~350 m west of Farm where Soviet rides from the harbour die (7 times in tonight's battles, 12 in last night's runs) - look at it in a watched battle, then drop the teams before it or keep the trucks off; the crash in the game window (Martin's call: a crash list or matches with parts switched off); the plans for every base in a watched match.",
+    "Being built next": "The jeeps in a watched Farm battle; rides that fail at the HQ while boarding (8 of 8 failed Soviet rides this match); several teams in one truck (a bigger change to AI Conflict's rides); the crash in the game window (Martin's call).",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r56", "The Soviets ride jeeps",
+     "Martin, watching: 'trucks could carry more than one team, waste of space' and 'why dont you use uaz and some smaller cars for smaller teams?'. Every Soviet ride was a 15-seat Ural with one 4-man team: the van counts only its 2 working seats since 30 Oct, and the UAZ-469 jeep was not on the list. The boarding test: the jeep 99.8% aboard, 10 s to board, as good as the Ural (the van 61-76%). It is now the Soviets' first light ride; in a short check 4 of 4 Soviet rides were jeeps. The US already rode 4-seat Humvees."),
+    ("info", "r56", "The airfield spot, watched",
+     "A camera mode for the lab (-zcrCamSpot) kept the view on the airfield edge west of Farm and followed the nearest ride. This match no truck stalled there: three Urals drove through at about 33 km/h and dropped their teams at the plan's assembly point. The failed Soviet rides were all at the HQ, while boarding."),
+
     ("good", "r55", "The van fix seen in the window",
      "The Farm battle with the Soviets at the harbour HQ, the same setup as the 29 Oct match with the old van: Farm taken at 11:36 instead of 19:29, 10 Soviets there by minute 8 instead of 0, boarding timeouts 0 instead of 68, Soviet rides delivered 4 of 11 instead of 1, Soviet losses 5 instead of 16, no script errors (8 before). Every Soviet ride was a Ural."),
     ("good", "r55", "A taken base is held",
@@ -264,10 +269,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "The airfield-edge spot ~350 m west of Farm where Soviet rides from the harbour die: look at it in a watched battle, then drop the teams before it or keep the trucks off.",
+    "The UAZ-469 jeeps in a watched Farm battle.",
+    "Rides that fail at the HQ while boarding (all 8 failed Soviet rides in the 31 Oct match).",
+    "Several teams in one truck: AI Conflict ties one ride to one team - a bigger change, after the jeeps.",
     "The crash in the game window: a crash list for the watched matches, or matches with parts switched off (Martin's call).",
     "Attack plans for every base in a watched match.",
-    "Building spots from the map (note 396).",
 ]
 
 FACTS = [
@@ -287,6 +293,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (56, "the Soviets ride jeeps, not half-empty trucks", "31 Oct 12:47 - 13:25",
+     ["AI Conflict fork: the UAZ-469 jeep is the Soviets' first light ride, 4 seats counted (ba2859a) - 4-man teams no longer take a 15-seat Ural.",
+      "ZCR Director: -zcrCamSpot x,z,from,to keeps the camera on one spot and follows the nearest ride (96ad357); lab/assaulttest.py --cam-spot.",
+      "Van sub-lab: the UAZ-469 test uses the jeep's real prefab (bf89041) - the 30 Oct run had a wrong ID and nobody boarded."],
+     "Martin, watching the Farm battle: 'trucks could carry more than one team, waste of space', 'why dont you use uaz and some smaller cars for smaller teams?' (review note 465).",
+     "Boarding test, Soviet squads: the jeep 99.8% aboard, 10 s to board, 5 left inside in 17 rounds (the Ural 99.9%, 10 s, 9; the van 61-76%, 44). Short check: 4 of 4 Soviet rides were jeeps, 0 script errors. The watched match: no stall at the airfield spot; the Soviets took Farm at 20:32."),
+
     (55, "the van check in the window, attack teams hold a taken base", "30 Oct 15:33 - 23:56",
      ["AI Conflict fork: a held base stays on an attack or reserve team's list, switched off (m_bZcrHeld), instead of being dropped (271e75c).",
       "ZCR: the main-effort binding (-zcrBindMainEffort) switches a held main effort back on, so the attack teams hold what they took (0249b42) - the 28 Oct rule had never fired.",

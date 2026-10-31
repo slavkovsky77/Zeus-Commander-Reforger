@@ -101,6 +101,7 @@ BUILDS = [
     (53, "transport rides, armour off the exit road, approaches from results", "2026-10-29 22:40", "watched matches: trucks and vans only (-aicfArmedRideEvery 0); armour bought at an HQ spawns 400 m toward the front in every match; lab/attackscore.py scores every approach from the runs, the planner and Gemini choose from the results"),
     (54, "the van bug fixed, drone sites, plans for every base", "2026-10-30 05:30", "the UAZ-452 counts its 2 front seats (its back is broken for the AI) - bigger Soviet teams ride Urals; the seat fallback back on in the watched matches; drone trucks beside cover, operators walk in legs through cover; attack plans for every Arland base; the lab map draws the lines of attack"),
     (55, "the van check in the window, attack teams hold a taken base", "2026-10-30 23:56", "three watched Farm battles; a held main effort stays on the attack teams' list so they hold it instead of going home"),
+    (56, "the Soviets ride jeeps, not half-empty trucks", "2026-10-31 13:25", "a watched Farm battle with a camera on the airfield spot; the UAZ-469 passes the boarding test and becomes the Soviets' first light ride"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
