@@ -26,7 +26,7 @@ VERDICT = {
     "Running now": "1 Nov night: the transport integration test with rides 4 s apart instead of 8 (the start burst at the HQ queued 18 rides 40 s each with 8 s).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Keeping rides off blocked narrow tracks (two checkpoint tracks with boulders or walls trap a vehicle in most runs); the seat fallback in the Farm battle (Martin's call); supply runs in the transport test.",
+    "Being built next": "Getting rides through the two checkpoints on the main roads (their chicanes trap a vehicle in most runs); the seat fallback in the Farm battle (Martin's call); supply runs in the transport test.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
@@ -35,8 +35,8 @@ NOW = [
      "At most 3 rides could be leaving a base; the 4th team walked off while it waited and often walked the whole way (rides held 78-160 s; most of the trips done on foot). Martin: 'fuck cap' - gone; rides out of one base start 8 s apart instead. Transport test, same HQ: 4.8 / 6.2 -> 7.4 / 9.2 soldier-km a minute (south), ~8.4 (north); rides on 82-86% of trips (62%). The Farm battle without it: twice the rides, 43% of the Soviets at Farm by minute 5 (4%), Farm taken at 5:29 - and no jam at the HQ."),
     ("info", "r59", "Where a team's 20 minutes go",
      "Walking about half, aboard a quarter (43 km/h on the road), the rest standing or around the vehicle. The loss was before the ride: the cap, a cooldown after a failed ride (~140 s when it hits), and the team walking back 100-170 m to a vehicle at the base it just reached."),
-    ("bad", "r59", "Blocked narrow tracks trap rides",
-     "Four spots are half of all stuck vehicles in 30 runs: two 1 m tracks through checkpoints - granite boulders and 'no entry' signs at (2025,3464), wooden walls at (3095,2659) - that the game's drivers take as shortcuts, Military Training Area's junkyard, and a rocky beach the command truck drives onto."),
+    ("bad", "r59", "Checkpoints on the main roads trap rides",
+     "Four spots are half of all stuck vehicles in 30 runs. Two are checkpoints the main road runs through - granite boulders laid as a chicane at (2025,3464), wooden walls at (3095,2659): the game's drivers fail the chicane. The others: Military Training Area's junkyard and a rocky beach the command truck drives onto."),
     ("info", "r59", "Dropping closer than 150 m doesn't pay",
      "Rides dropping their team 100 m from the target: within the noise, and most routes then found no road that close and drove across country - not taken."),
 
@@ -294,7 +294,7 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Keep rides off blocked narrow tracks (checkpoint tracks with boulders or walls).",
+    "Get rides through the checkpoints on the main roads (boulder and wall chicanes trap them).",
     "The Farm battle's seat fallback: still off although Martin said 'back on' on 30 Oct (Martin's call).",
     "A ride leaves without one stuck soldier instead of failing for the whole team.",
     "Supply runs in the transport test (the source depot has no surplus).",
