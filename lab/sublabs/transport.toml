@@ -2,20 +2,20 @@
 name = "transport"
 question = "How efficiently does a side move its soldiers over its own map - by ride or on foot - with nobody fighting, and what goes wrong on the way?"
 issue = "31 Oct, Martin: 'prepare transport sublab, this sublab will just do moving of manpower as efficiently as possible (no enemy on the map)' - 'there was a lot of issues'. In the watched Farm battles most rides fail at the HQ (31 Oct 12:47: US 0/8 delivered, Soviets 4/15, all 8 failed Soviet rides at the HQ)"
-pass_rule = "rides at least twice walking speed door to door, at most 1 ride in 10 failing, no stuck vehicle; then a watched battle where the rides deliver"
+pass_rule = "over 40 game minutes, time lost (teams walking far + standing on foot + sitting in a vehicle that does not move) at most 10% of all team time and no 5-minute slice over 15%; at most 1 ride in 10 failing; then watched by Martin (2 Nov, note 496: 98% by ride on the old count while he saw walking teams and stuck vehicles)"
 runner = "lab/transporttest.py"
-minutes = 20.0
+minutes = 40.0
 units = 0
 scenarios = ["arland"]
 variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2"]
 baseline = "rides"
 candidate = "nowalk2"
-score = "soldier_km_per_min * 10 - 2 * rides_failed"
+score = "100 - walk_far_pct - idle_far_pct - still_aboard_pct - rides_failed"
 higher_is_better = true
-keys = ["trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
+keys = ["walk_far_pct", "idle_far_pct", "still_aboard_pct", "stuck_detected", "trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
 title = "Transport"
-main = "soldier_km_per_min"
-score_words = "soldier-km moved per game minute (x10), minus 2 per failed ride"
+main = "walk_far_pct"
+score_words = "100 minus the time lost in % of team time (walking far, standing on foot, in a vehicle that does not move), minus 1 per failed ride - what Martin sees (note 496); before 2 Nov: soldier-km a minute x10 minus 2 per failed ride"
 baseline_words = "as the watched Farm battle: 12 teams of 4, transport rides (Humvee / UAZ-469), at most 3 rides leaving the HQ at a time"
 candidate_words = "no cap, no spacing, the seat fallback on; a taken vehicle spot is looked for again after 10 s; 12 vehicles a side; no ride ban after a slow drop-off"
 

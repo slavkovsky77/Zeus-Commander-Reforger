@@ -338,6 +338,21 @@ def timeline(lines: list) -> dict:
             t = game_t(l)
             if 0 <= t < nslices * SLICE_S:
                 failed[t // SLICE_S] += 1
+    # A failed ride at a base followed by the same team's next boarding within 2 minutes (2 Nov, note 500 - Martin: "team d1
+    # recovered somehow"; the 20-s wait after a failed ride at a base, notes 489-491).
+    retries, retried = 0, 0
+    boards = {}
+    for l in _once(lines, "BOARDING_COMPLETE]"):
+        sm = re.search(r" numeric_slot=(\d+)", l)
+        if sm:
+            boards.setdefault(int(sm.group(1)), []).append(game_t(l))
+    for l in lines:
+        m = re.search(r"\[ZCR\]\[RIDE\] faction=US slot=(\d+) failed=\S+ walks_ms=\d+ at_base=1", l)
+        if m:
+            retries += 1
+            t = game_t(l)
+            if any(0 < b - t <= 120 for b in boards.get(int(m.group(1)), [])):
+                retried += 1
     by5 = " | ".join(f"{k * 5}-{k * 5 + 5}: walk {walk[k]:.0f} idle {idle[k]:.0f} still {still[k]:.0f} stuck {stuck[k]} failed {failed[k]}"
                      for k in range(nslices))
     mins = max(1.0, end / 60)
@@ -345,7 +360,7 @@ def timeline(lines: list) -> dict:
     return {"walk_far_min": round(sum(walk), 1), "walk_far_pct": round(100 * sum(walk) / (teams * mins)),
             "idle_far_min": round(sum(idle), 1), "idle_far_pct": round(100 * sum(idle) / (teams * mins)),
             "still_aboard_min": round(sum(still), 1), "still_aboard_pct": round(100 * sum(still) / (teams * mins)),
-            "stuck_detected": sum(stuck), "rides_failed_t": sum(failed), "by5": by5}
+            "stuck_detected": sum(stuck), "rides_failed_t": sum(failed), "base_fail_retried": f"{retried}/{retries}", "by5": by5}
 
 
 def main() -> int:
