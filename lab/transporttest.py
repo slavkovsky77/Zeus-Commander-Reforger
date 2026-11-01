@@ -100,6 +100,10 @@ VARIANTS = {
     # 40 s (median) for their turn and 3 teams walked too far meanwhile.
     "spaced4": (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRideSpacingMs 4000",
                 "as spaced, rides out of a base 4 s apart, not 8"),
+    # spaced4 (1 Nov 00:51): the queue halved (20 s v 40 s), the totals not better (7.8 / 7.8) - 8 s stays. In those runs the
+    # cooldown after a failed ride (3 game minutes on foot, 26 Oct: request-fail loops) was the first refusal on 4 whole-way walks.
+    "cool90": (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRideCooldownMs 90000",
+               "as spaced, and a team whose ride failed walks 90 s before it may ask again, not 3 min"),
 }
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
