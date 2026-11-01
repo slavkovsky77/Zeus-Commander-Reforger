@@ -23,7 +23,7 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "1 Nov 22:45: one headless transport test (nowalk2: no ride ban after a slow drop-off), pinned to the upper cores while Martin plays.",
+    "Running now": "Nothing (1 Nov 23:00) - Martin is playing; the long-walk fixes are in and measured.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
     "Being built next": "The last long walks: a ride that fails at the HQ bars the team 3 min (the cooldown); one stuck soldier sinks the ride; rides through the checkpoints on the main roads; the Farm battle's seat fallback (Martin's call).",
@@ -33,8 +33,8 @@ VERDICT = {
 NOW = [
     ("good", "r61", "Teams walk far only when a ride breaks down",
      "Martin, watching: 'really the only should walk long distances when car broke down'. Two teams walked 2.1 km at the start: one's vehicle spot was taken by another team's vehicle and AI Conflict looked for another only after 60 s - the team was 500 m out by then; the other was refused by the limit of 10 vehicles a side (12 teams). Now a taken spot is looked for again after 10 s (the first such team had its vehicle 19 s later), 12 vehicles a side, and no ride spacing. Watched: trips of 1 km+ on foot 14% (18% overnight), none from these two causes; boarding 29 s, the wait at the base 39 s."),
-    ("bad", "r61", "A slow drop-off barred the next ride",
-     "6 of 8 failed rides in the watched run delivered their team - one soldier was slow to get out (DISEMBARK_TIMEOUT) - but counted as failed: the team was barred from rides for 3 minutes and walked its next trip, 1.2-2.1 km (5 of the 7 long walks). Fixed 22:45: no ban after a slow drop-off; being measured."),
+    ("good", "r61", "A slow drop-off no longer bars the next ride",
+     "6 of 8 failed rides in the watched run delivered their team - one soldier was slow to get out - but counted as failed: the team was barred from rides for 3 minutes and walked its next trip, 1.2-2.1 km (5 of its 7 long walks). Now no ban after a slow drop-off. Headless run: all 26 trips by vehicle, 0 of 22 trips of 1 km+ on foot (5 of 35 watched, 17 of 96 overnight). Its 7 script errors are AI Conflict's resupply (the same exception on 25-27 Oct), not this change."),
 
     ("info", "r60", "Spacing rides apart doesn't help",
      "Martin's 'maybe some kind of timing': rides out of a base 8 s apart. Farm battles, 4 with it v 5 without: rides delivered 30% v 41%, failed at the HQ 18% v 7% (teams queued, then timed out), a base captured in 3 of 4 v 5 of 5; no jam either way. Transport test: north 8.4 v 8.6, south 7.5 v 8.3 soldier-km a minute. Recommend no cap and no spacing - Martin's call."),
