@@ -105,6 +105,19 @@ VARIANTS = {
     "cool90": (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRideCooldownMs 90000",
                "as spaced, and a team whose ride failed walks 90 s before it may ask again, not 3 min"),
 }
+# 1 Nov 22:30 (note 484, Martin: "really the only should walk long distances when car broke down"): the fork looks again for
+# a vehicle spot after 10 s (not 60), allows 12 vehicles a side (not 10), and has no ride spacing by default. The variants
+# above pin what they ran.
+for _name, (_extra, _words) in list(VARIANTS.items()):
+    _pin = " -aicfSiteRelookMs 0 -aicfMaxVehiclesPerFaction 10"
+    if _name in ("spaced", "cool90"):
+        _pin += " -aicfRideSpacingMs 8000"
+    VARIANTS[_name] = (_extra + _pin, _words)
+# cap0 overnight (4 runs): 17 of 96 trips of 1 km+ on foot (29 of 160 km) - no vehicle spot in time 5, the cooldown after a
+# failed ride 3, the drop-off timing out 3, a soldier not boarding in time 2, the 10-s wait after a ride 2, the 10-vehicle limit 1.
+VARIANTS["nowalk"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
+                      "as cap0 (no cap, no spacing, the seat fallback on), and a team whose vehicle spot was taken looks again after "
+                      "10 s, not 60; 12 vehicles a side, not 10")
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}

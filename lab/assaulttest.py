@@ -115,8 +115,10 @@ VARIANTS = {
     "storm-safe-van8": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 3 -aicfArmedRideEvery 0 -aicfVanSeats 8",
                         "storm-safe with the old van (8 seats: Soviet teams of 4 ride the UAZ-452 and its broken back) - the van fix's control"),
     # 1 Nov (Martin: "fuck cap", note 481): no cap on rides out of a base - they start 8 s apart (the fork's default).
+    # 1 Nov 22:30 (note 484): the fork has no spacing by default any more (it lost 4 v 5 battles), looks again for a vehicle
+    # spot after 10 s, and allows 12 vehicles a side - this variant follows the fork's defaults.
     "storm-plan-measured": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
-                            "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides 8 s apart, no cap; the seat fallback off"),
+                            "per HQ the approach that did best in the measured runs, or no plan where none beat it (lab/attackscore.py); transport rides with neither cap nor spacing (the fork's defaults), 12 vehicles a side; the seat fallback off"),
     # 31 Oct night (the transport test, note 480): the 3-rides-per-base cap cost the most there - no cap moved +8% (north HQ)
     # to +50% (south HQ) more soldiers, no jam at the HQ. Does the Farm battle jam at the HQ without it (the 29 Oct reason)?
     "storm-plan-measured-cap0": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 0 -aicfRideSpacingMs 0 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",

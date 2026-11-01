@@ -7,9 +7,9 @@ runner = "lab/transporttest.py"
 minutes = 20.0
 units = 0
 scenarios = ["arland"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk"]
 baseline = "rides"
-candidate = "spaced"
+candidate = "nowalk"
 score = "soldier_km_per_min * 10 - 2 * rides_failed"
 higher_is_better = true
 keys = ["trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
@@ -17,7 +17,7 @@ title = "Transport"
 main = "soldier_km_per_min"
 score_words = "soldier-km moved per game minute (x10), minus 2 per failed ride"
 baseline_words = "as the watched Farm battle: 12 teams of 4, transport rides (Humvee / UAZ-469), at most 3 rides leaving the HQ at a time"
-candidate_words = "as rides, up to 6 rides leaving the HQ at a time"
+candidate_words = "no cap, no spacing, the seat fallback on; a team whose vehicle spot was taken looks again after 10 s; 12 vehicles a side"
 
 [scenario_labels]
 arland = "Arland - the whole map US"
