@@ -118,6 +118,13 @@ for _name, (_extra, _words) in list(VARIANTS.items()):
 VARIANTS["nowalk"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
                       "as cap0 (no cap, no spacing, the seat fallback on), and a team whose vehicle spot was taken looks again after "
                       "10 s, not 60; 12 vehicles a side, not 10")
+# nowalk, watched (1 Nov 22:15, note 485): no long walk from a taken vehicle spot or the vehicle limit any more; 5 of the 7 long
+# trips on foot came after a drop-off that ran out of time (one soldier slow to get out) - the ride counted as failed and the
+# team walked 3 minutes, past 250 m. From 22:45 the fork has no cooldown after a slow drop-off; the variants above pin it on.
+for _name, (_extra, _words) in list(VARIANTS.items()):
+    VARIANTS[_name] = (_extra + " -aicfDropoffCooldown 1", _words)
+VARIANTS["nowalk2"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
+                       "as nowalk, and a slow drop-off (one soldier slow to get out) doesn't bar the team from its next ride")
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
