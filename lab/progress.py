@@ -105,6 +105,7 @@ BUILDS = [
     (57, "the transport integration test, fewer failed rides", "2026-10-31 17:35", "one side on its whole map, teams sent base to base; 180 s game time to reach the vehicle (failed rides 38% -> 13%); quiet taken bases stay on the list"),
     (58, "faster boarding, ride vehicles by a road", "2026-10-31 22:40", "the passengers walk to the vehicle while the driver gets in (boarding 60 s -> 35-39 s); a ride's vehicle appears by a road when the base has flat ground there"),
     (59, "no ride cap - rides spaced 8 s apart", "2026-11-01 00:30", "the 3-rides-per-base cap held teams 1-3 min while they walked off; gone (Martin), rides out of a base start 8 s apart instead"),
+    (60, "the night's checks: spacing, watched run, battles", "2026-11-01 03:10", "no change to the defaults; spacing leans worse at the HQ - Martin's call"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
