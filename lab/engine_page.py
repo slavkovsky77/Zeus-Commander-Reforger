@@ -23,7 +23,7 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "1 Nov night: the Farm battle headless, rides 8 s apart v no spacing (2 more pairs) - the spacing leans worse at the HQ so far (failed at the HQ 19% v 6% of rides).",
+    "Running now": "Nothing - the night's runs are done (1 Nov 03:49); waiting for Martin's calls: the spacing (recommend off), the Farm battle's seat fallback, Military Training Area's slope guard.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
     "Being built next": "Martin's calls in the morning: the spacing (recommend off), the seat fallback in the Farm battle, Military Training Area's slope guard; then one stuck soldier sinking a ride (shown to Martin first - the boarding code).",
@@ -32,7 +32,7 @@ VERDICT = {
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
     ("info", "r60", "Spacing rides apart doesn't help",
-     "Martin's 'maybe some kind of timing': rides out of a base 8 s apart. Transport test: as good as no spacing or a little worse (north HQ 8.4 v 8.6 soldier-km a minute, south 7.5 v 8.3). Farm battles (2 v 3): more rides failed at the HQ with it (8 of 43 v 4 of 71) - teams queued, then timed out; no jam either way. Recommend no cap and no spacing - Martin's call."),
+     "Martin's 'maybe some kind of timing': rides out of a base 8 s apart. Farm battles, 4 with it v 5 without: rides delivered 30% v 41%, failed at the HQ 18% v 7% (teams queued, then timed out), a base captured in 3 of 4 v 5 of 5; no jam either way. Transport test: north 8.4 v 8.6, south 7.5 v 8.3 soldier-km a minute. Recommend no cap and no spacing - Martin's call."),
     ("info", "r60", "Watched transport run",
      "Martin watched it at 02:04: 7.6 soldier-km a minute, 88% of trips by ride, 25 of 33 rides delivered, none failed at the HQ, boarding 40 s. One Humvee left the road by 14 m beside 7 minefield signs and blew up - 4 dead (most likely a mine)."),
     ("info", "r60", "'Failed' rides at the front",
