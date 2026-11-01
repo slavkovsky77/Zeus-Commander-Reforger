@@ -10,6 +10,12 @@
 //   oncoming - ZCR_Oncoming's 15 km/h for a vehicle coming the other way.
 //   dodge    - ZCR_Dodge: of two drivers dodging each other, one holds still (0) while the other goes.
 //   lab      - -zcrCruiseSpeed N (the lab's speed cap).
+//   boarding - (2 Nov, notes 487/488/492 - Martin, watching: "team3 is driving into house", "a0 is stuck driving into
+//              house"): a vehicle holds still while its driver's team has no waypoint (AI Conflict's boarding, the
+//              drop-off) and a living member within 100 m is not aboard. The driver used to drive towards his team
+//              meanwhile: 341 of 956 vehicles in the transport runs moved 10 m+ before the passengers got in, and at Moss
+//              Hill, the team standing on the far side of a farmhouse, into the house (3 of 3 from that spot, each ride
+//              lost). -zcrNoBoardHold: off.
 // Not our armour (its guard sets its speed) and not a vehicle under a push. Four times a second.
 //   [ZCR][SPACING] t= side= vehicle= ahead= gap_m= band= kmh= ahead_kmh= x= z=   (a vehicle enters stop / crawl / creep; 10 s a vehicle)
 //   [ZCR][TRAFFIC] t= cars= limited= stops= crawls= oncoming=                  (every 60 s; counts since the last line)
@@ -33,7 +39,9 @@ class ZCR_Traffic
 	protected static ref map<IEntity, int> s_mStopSince = new map<IEntity, int>();
 	protected static ref map<IEntity, string> s_mBand = new map<IEntity, string>();
 	protected static ref map<IEntity, int> s_mLogAt = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mBoardHeld = new map<IEntity, int>();
 	protected int m_iNextLog = 60;
+	protected int m_iBoardHolds;
 	protected int m_iStops;
 	protected int m_iCrawls;
 	protected int m_iOncoming;
@@ -120,6 +128,8 @@ class ZCR_Traffic
 		if (!System.IsCLIParam("zcrNoSpacing"))
 			Spacing(cars, now);
 		ZCR_Dodge.Tick(cars, now);          // two drivers dodging each other: one gives way (24 Oct, report 27)
+		if (!System.IsCLIParam("zcrNoBoardHold"))
+			BoardHold(cars);
 		float lab = ZCR_Driving.CruiseLimit();
 		if (lab > 0)
 		{
@@ -133,8 +143,9 @@ class ZCR_Traffic
 		if (now >= m_iNextLog)
 		{
 			m_iNextLog = now + 60;
-			Print(string.Format("[ZCR][TRAFFIC] t=%1 cars=%2 limited=%3 stops=%4 crawls=%5 oncoming=%6", now, cars.Count(), s_mApplied.Count(),
-				m_iStops, m_iCrawls, m_iOncoming), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][TRAFFIC] t=%1 cars=%2 limited=%3 stops=%4 crawls=%5 oncoming=%6 board_holds=%7", now, cars.Count(), s_mApplied.Count(),
+				m_iStops, m_iCrawls, m_iOncoming, m_iBoardHolds), LogLevel.NORMAL);
+			m_iBoardHolds = 0;
 			m_iStops = 0;
 			m_iCrawls = 0;
 			m_iOncoming = 0;
@@ -240,6 +251,69 @@ class ZCR_Traffic
 					Math.Round(pa[0])) + string.Format(" z=%1", Math.Round(pa[2])), LogLevel.NORMAL);
 			}
 		}
+	}
+
+	// The boarding rule (see the top): 0 km/h while the driver's team, with no waypoint, still has a man outside nearby.
+	protected void BoardHold(array<IEntity> cars)
+	{
+		foreach (IEntity v : cars)
+		{
+			if (!v)
+				continue;
+			bool hold;
+			SCR_AIGroup group;
+			if (!ZCR_Armour.IsUnit(v))
+				group = DriverGroupOf(v);
+			if (group && !group.GetCurrentWaypoint())
+			{
+				array<AIAgent> agents = {};
+				group.GetAgents(agents);
+				foreach (AIAgent agent : agents)
+				{
+					if (!agent)
+						continue;
+					IEntity man = agent.GetControlledEntity();
+					if (!man || !AICF_GroupRuntime.IsAliveCharacter(man) || CompartmentAccessComponent.GetVehicleIn(man) == v)
+						continue;
+					if (vector.DistanceXZ(man.GetOrigin(), v.GetOrigin()) <= 100)
+					{
+						hold = true;
+						break;
+					}
+				}
+			}
+			bool held = s_mBoardHeld.Contains(v);
+			if (hold)
+			{
+				Limit(v, "boarding", 0);
+				if (!held)
+				{
+					s_mBoardHeld.Set(v, ZCR_LossLog.Seconds());
+					m_iBoardHolds++;
+				}
+			}
+			else if (held)
+			{
+				Release(v, "boarding");
+				s_mBoardHeld.Remove(v);
+			}
+		}
+	}
+
+	protected static SCR_AIGroup DriverGroupOf(IEntity vehicle)
+	{
+		array<BaseCompartmentSlot> seats = {};
+		AICF_FIAPatrolCrew.Seats(vehicle, seats);
+		foreach (BaseCompartmentSlot seat : seats)
+		{
+			if (!seat || seat.GetType() != ECompartmentType.PILOT || !seat.GetOccupant())
+				continue;
+			AIControlComponent control = AIControlComponent.Cast(seat.GetOccupant().FindComponent(AIControlComponent));
+			if (!control || !control.GetControlAIAgent())
+				return null;
+			return SCR_AIGroup.Cast(control.GetControlAIAgent().GetParentGroup());
+		}
+		return null;
 	}
 
 	protected static void Clear(IEntity a)

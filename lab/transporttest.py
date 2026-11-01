@@ -19,6 +19,7 @@ trucks' deliveries; script errors.
 """
 import argparse
 import json
+import math
 import re
 import statistics
 import subprocess
@@ -254,7 +255,97 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out["lost"] = sum(1 for l in lines if "[ZCR][LOSS]" in l and " side=US " in l and "kind=man" in l)
     out["script_errors"] = len([l for l in lines if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l])
     out["crashed"] = bool(list(log.parent.glob("*.mdmp")))
+    out.update(timeline(lines))
     return out
+
+
+FAR_M = 400      # a team this far from its target base is on a trip, not at its target
+BASE_M = 250     # a team this close to a base is at a base (walking to its vehicle, waiting for one), not walking a trip
+SLICE_S = 300
+
+
+def timeline(lines: list) -> dict:
+    """What Martin sees, over time (2 Nov, note 496: 'it degrated with time, a lot of walking units or stuck vehicles'
+    while rode_pct said 98% - it counts only trips that arrived). From every [ZCR][LIVE] team sample: team-minutes on
+    foot more than FAR_M from the target base and BASE_M from every base (walk_far_min; walk_far_pct of all team time),
+    on foot and standing anywhere far from the target, bases too (idle_far_min); aboard a vehicle that doesn't move
+    (still_aboard_min); each also as a share of all team time (_pct); AI Conflict's stuck
+    vehicles and failed rides; per 5 game minutes in 'by5'. The target base's spot = where teams stood when they
+    arrived there."""
+    samples = {}
+    for l in lines:
+        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=US id=(\d+) \S+ men=(\d+) ride=(\d) x=(-?\d+) z=(-?\d+) to=(\S+)", l)
+        if m:
+            samples[(int(m.group(1)), int(m.group(2)))] = (int(m.group(4)), float(m.group(5)), float(m.group(6)), m.group(7), int(m.group(3)))
+    arrive = []
+    for l in lines:
+        m = re.search(r"\[ZCR\]\[SHUTTLE\] t=(\d+) side=US slot=(\d+) event=arrive trip=\d+ base=(\S+)", l)
+        if m:
+            arrive.append((int(m.group(1)), int(m.group(2)), m.group(3)))
+    by_team = {}
+    for (t, i), v in sorted(samples.items()):
+        by_team.setdefault(i, []).append((t,) + v)
+    spots = {}
+    for t, i, base in arrive:
+        near = min(by_team.get(i, []), key=lambda s: abs(s[0] - t), default=None)
+        if near and abs(near[0] - t) <= 20:
+            spots.setdefault(base, []).append((near[2], near[3]))
+    spot = {b: (statistics.median(x for x, _ in v), statistics.median(z for _, z in v)) for b, v in spots.items()}
+    # The HQ: where the teams stood at the first sample.
+    first = [ss[0] for ss in by_team.values() if ss]
+    if first:
+        spot.setdefault("HQ", (statistics.median(s[2] for s in first), statistics.median(s[3] for s in first)))
+    end = max((t for t, _ in samples), default=0)
+    nslices = end // SLICE_S + 1
+    walk = [0.0] * nslices
+    idle = [0.0] * nslices
+    still = [0.0] * nslices
+    for i, ss in by_team.items():
+        for a, b in zip(ss, ss[1:]):
+            t, ride, x, z, to, men = a
+            dt = min(b[0] - t, 30)
+            if men <= 0 or to not in spot:
+                continue
+            if math.hypot(x - spot[to][0], z - spot[to][1]) <= FAR_M:
+                continue
+            moved = math.hypot(b[2] - x, b[3] - z) >= 3 * max(1, dt / 10)
+            if ride:
+                if not moved:
+                    still[t // SLICE_S] += dt / 60          # aboard a vehicle that doesn't move (boarding, queue, stuck)
+                continue
+            if not moved:
+                idle[t // SLICE_S] += dt / 60               # on foot, standing - at a base too (D1 'chilling at a house')
+            if any(math.hypot(x - bx, z - bz) <= BASE_M for bx, bz in spot.values()):
+                continue                                     # at a base: walking to the vehicle, waiting for one
+            walk[t // SLICE_S] += dt / 60
+    stuck = [0] * nslices
+    failed = [0] * nslices
+    t0 = None
+    for l in lines:
+        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) ", l)
+        tm = re.search(r"^(\d\d):(\d\d):(\d\d)", l)
+        if m and tm and t0 is None:
+            t0 = int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3)) - int(m.group(1))
+    def game_t(l):
+        tm = re.search(r"^(\d\d):(\d\d):(\d\d)", l)
+        return (int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3)) - t0) if tm and t0 is not None else -1
+    for l in _once(lines, "VEHICLE_STUCK_DETECTED"):
+        t = game_t(l)
+        if 0 <= t < nslices * SLICE_S:
+            stuck[t // SLICE_S] += 1
+    for l in lines:
+        if "[ZCR][RIDE] faction=US " in l and "failed=" in l:
+            t = game_t(l)
+            if 0 <= t < nslices * SLICE_S:
+                failed[t // SLICE_S] += 1
+    by5 = " | ".join(f"{k * 5}-{k * 5 + 5}: walk {walk[k]:.0f} idle {idle[k]:.0f} still {still[k]:.0f} stuck {stuck[k]} failed {failed[k]}"
+                     for k in range(nslices))
+    mins = max(1.0, end / 60)
+    teams = max(1, len(by_team))
+    return {"walk_far_min": round(sum(walk), 1), "walk_far_pct": round(100 * sum(walk) / (teams * mins)),
+            "idle_far_min": round(sum(idle), 1), "idle_far_pct": round(100 * sum(idle) / (teams * mins)),
+            "still_aboard_min": round(sum(still), 1), "still_aboard_pct": round(100 * sum(still) / (teams * mins)),
+            "stuck_detected": sum(stuck), "rides_failed_t": sum(failed), "by5": by5}
 
 
 def main() -> int:
