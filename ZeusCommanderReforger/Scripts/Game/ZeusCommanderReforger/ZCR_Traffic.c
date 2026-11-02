@@ -13,9 +13,11 @@
 //   boarding - (2 Nov, notes 487/488/492 - Martin, watching: "team3 is driving into house", "a0 is stuck driving into
 //              house"): a vehicle holds still while its driver's team has no waypoint (AI Conflict's boarding, the
 //              drop-off) and a living member within 100 m is not aboard. The driver used to drive towards his team
-//              meanwhile: 341 of 956 vehicles in the transport runs moved 10 m+ before the passengers got in, and at Moss
-//              Hill, the team standing on the far side of a farmhouse, into the house (3 of 3 from that spot, each ride
-//              lost). -zcrNoBoardHold: off.
+//              meanwhile, and at Moss Hill, the team standing on the far side of a farmhouse, into the house (3 of 3 from
+//              that spot, each ride lost). -zcrNoBoardHold: off. 2 Nov, note 505: in AI Conflict's boarding step at any
+//              distance (-zcrBoardHoldNear: 100 m as before), and held with no drive to the wheels - a cruise speed of 0
+//              still let the driver creep at 5-6 km/h (-zcrNoBoardGear: the cruise speed only).
+//   [ZCR][BOARDHOLD] t= vehicle= step= held= kmh= cruise= far_m= out= gear= x= z=  (a vehicle over 4 km/h while its team boards)
 // Not our armour (its guard sets its speed) and not a vehicle under a push. Four times a second.
 //   [ZCR][SPACING] t= side= vehicle= ahead= gap_m= band= kmh= ahead_kmh= x= z=   (a vehicle enters stop / crawl / creep; 10 s a vehicle)
 //   [ZCR][TRAFFIC] t= cars= limited= stops= crawls= oncoming=                  (every 60 s; counts since the last line)
@@ -40,8 +42,11 @@ class ZCR_Traffic
 	protected static ref map<IEntity, string> s_mBand = new map<IEntity, string>();
 	protected static ref map<IEntity, int> s_mLogAt = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBoardHeld = new map<IEntity, int>();
+	protected static ref map<IEntity, int> s_mBoardLogAt = new map<IEntity, int>();
+	protected static ref map<IEntity, float> s_mGearHeld = new map<IEntity, float>();
 	protected int m_iNextLog = 60;
 	protected int m_iBoardHolds;
+	protected int m_iBoardMoving;
 	protected int m_iStops;
 	protected int m_iCrawls;
 	protected int m_iOncoming;
@@ -143,9 +148,10 @@ class ZCR_Traffic
 		if (now >= m_iNextLog)
 		{
 			m_iNextLog = now + 60;
-			Print(string.Format("[ZCR][TRAFFIC] t=%1 cars=%2 limited=%3 stops=%4 crawls=%5 oncoming=%6 board_holds=%7", now, cars.Count(), s_mApplied.Count(),
-				m_iStops, m_iCrawls, m_iOncoming, m_iBoardHolds), LogLevel.NORMAL);
+			Print(string.Format("[ZCR][TRAFFIC] t=%1 cars=%2 limited=%3 stops=%4 crawls=%5 oncoming=%6 board_holds=%7 board_moving=%8", now, cars.Count(),
+				s_mApplied.Count(), m_iStops, m_iCrawls, m_iOncoming, m_iBoardHolds, m_iBoardMoving), LogLevel.NORMAL);
 			m_iBoardHolds = 0;
+			m_iBoardMoving = 0;
 			m_iStops = 0;
 			m_iCrawls = 0;
 			m_iOncoming = 0;
@@ -266,12 +272,17 @@ class ZCR_Traffic
 				group = DriverGroupOf(v);
 			// 2 Nov, note 502: also while AI Conflict's ride is boarding with the team's walking order still current - a driver
 			// drove off at up to 61 km/h with the last man outside, and the ride was lost.
+			string step;
+			if (group)
+				step = AICF_VehicleCoordinator.ZcrRideStep(SlotOf(group));
 			bool boarding = group && !group.GetCurrentWaypoint();
 			if (group && !boarding)
-			{
-				string step = AICF_VehicleCoordinator.ZcrRideStep(SlotOf(group));
 				boarding = step == "BOARDING" || step == "SPAWN_COMMIT" || step == "DISMOUNT";
-			}
+			// 2 Nov, note 504: in AI Conflict's boarding step the hold no longer ends at 100 m - Soviet jeeps drove off towards
+			// a last man further out, and his seat fallback can't act on a moving vehicle (400-900 deferrals a run).
+			bool anyDistance = (step == "BOARDING" || step == "SPAWN_COMMIT") && !System.IsCLIParam("zcrBoardHoldNear");
+			float far = -1;
+			int outside;
 			if (boarding)
 			{
 				array<AIAgent> agents = {};
@@ -283,11 +294,11 @@ class ZCR_Traffic
 					IEntity man = agent.GetControlledEntity();
 					if (!man || !AICF_GroupRuntime.IsAliveCharacter(man) || CompartmentAccessComponent.GetVehicleIn(man) == v)
 						continue;
-					if (vector.DistanceXZ(man.GetOrigin(), v.GetOrigin()) <= 100)
-					{
+					outside++;
+					float d = vector.DistanceXZ(man.GetOrigin(), v.GetOrigin());
+					far = Math.Max(far, d);
+					if (d <= 100 || anyDistance)
 						hold = true;
-						break;
-					}
 				}
 			}
 			bool held = s_mBoardHeld.Contains(v);
@@ -299,13 +310,91 @@ class ZCR_Traffic
 					s_mBoardHeld.Set(v, ZCR_LossLog.Seconds());
 					m_iBoardHolds++;
 				}
+				Gear(v, true);
 			}
 			else if (held)
 			{
 				Release(v, "boarding");
 				s_mBoardHeld.Remove(v);
+				Gear(v, false);
 			}
+			if (boarding && outside > 0)
+				BoardMoving(v, step, hold, far, outside);
 		}
+		// A held vehicle no longer driven (the driver got out, the vehicle gone) gets its gearbox back.
+		array<IEntity> drop = {};
+		foreach (IEntity hv, float was : s_mGearHeld)
+		{
+			if (!hv || cars.Find(hv) < 0)
+				drop.Insert(hv);
+		}
+		foreach (IEntity d : drop)
+		{
+			if (d)
+				Gear(d, false);
+			else
+				s_mGearHeld.Remove(d);
+		}
+	}
+
+	// No drive to the wheels while held: the gearbox efficiency 0, as the game's own cinematics stop a vehicle
+	// (VehicleCinematicTrack). The driver overrides both the cruise speed of 0 (held vehicles crept at 5-6 km/h) and the
+	// handbrake (released ~200 times a minute) (2 Nov, note 505). Back to the value it had (unless damage changed it meanwhile).
+	protected static void Gear(IEntity v, bool on)
+	{
+		float was;
+		bool have = s_mGearHeld.Find(v, was);
+		if ((on && System.IsCLIParam("zcrNoBoardGear")) || (!on && !have))
+			return;
+		CarControllerComponent car = CarControllerComponent.Cast(v.FindComponent(CarControllerComponent));
+		VehicleWheeledSimulation sim;
+		if (car)
+			sim = car.GetSimulation();
+		if (!sim)
+		{
+			s_mGearHeld.Remove(v);
+			return;
+		}
+		float now = sim.GearboxGetEfficiencyState();
+		if (on)
+		{
+			if (have && now <= 0)
+				return;
+			s_mGearHeld.Set(v, now);
+			sim.GearboxSetEfficiencyState(0);
+			return;
+		}
+		if (now <= 0)
+			sim.GearboxSetEfficiencyState(was);
+		s_mGearHeld.Remove(v);
+	}
+
+	// [ZCR][BOARDHOLD] t= vehicle= step= held= kmh= cruise= far_m= out= gear= x= z= : a vehicle moving over 4 km/h while its team
+	// boards, 10 s a vehicle - is it held (and still rolling), or not held at all?
+	protected void BoardMoving(IEntity v, string step, bool held, float far, int outside)
+	{
+		float kmh = Kmh(v);
+		if (kmh <= 4)
+			return;
+		if (held)
+			m_iBoardMoving++;
+		int now = ZCR_LossLog.Seconds();
+		int at;
+		if (s_mBoardLogAt.Find(v, at) && now - at < 10)
+			return;
+		s_mBoardLogAt.Set(v, now);
+		float cruise = -1;
+		s_mApplied.Find(v, cruise);
+		CarControllerComponent car = CarControllerComponent.Cast(v.FindComponent(CarControllerComponent));
+		float gear = -1;
+		if (car && car.GetSimulation())
+			gear = car.GetSimulation().GearboxGetEfficiencyState();
+		if (step.IsEmpty())
+			step = "NO_WAYPOINT";
+		vector p = v.GetOrigin();
+		Print(string.Format("[ZCR][BOARDHOLD] t=%1 vehicle=%2 step=%3 held=%4 kmh=%5 cruise=%6 far_m=%7 out=%8", now,
+			ZCR_LossLog.ShortName(v), step, held, Math.Round(kmh), cruise, Math.Round(far), outside) +
+			string.Format(" gear=%1 x=%2 z=%3", gear, Math.Round(p[0]), Math.Round(p[2])), LogLevel.NORMAL);
 	}
 
 	protected static AICF_GroupSlot SlotOf(AIGroup group)

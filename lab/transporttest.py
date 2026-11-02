@@ -141,6 +141,13 @@ VARIANTS["nowalk2"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
 # retry at a base, the leg reset and ZCR's boarding hold (the fork's and ZCR's defaults).
 VARIANTS["thr01"] = (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRecoveryMaxThreat 0.01",
                      "as nowalk2 (2 Nov fixes), with AI Conflict's old limit for its recoveries: only under a threat of 0.01")
+# 2 Nov morning (note 505): nowalk2 now holds a boarding vehicle at any distance (ZCR) and, in the fork, forgets a team's stuck
+# verdict when a ride ends and retries a missed order restore once a minute. "before" pins the previous build for an A/B.
+# 15-min Soviet checks (09:22-09:54): a held vehicle at a cruise speed of 0 still crept at 5-6 km/h (229 ticks a minute), the
+# handbrake didn't stop it (the driver released it ~200 times a minute), no drive to the wheels did (0) - now the default.
+VARIANTS["before"] = (VARIANTS["nowalk2"][0] + " -zcrBoardHoldNear -zcrNoBoardGear -aicfNoStuckReset -aicfNoRestoreRearm",
+                      "as nowalk2 before 2 Nov morning: the boarding hold only with a man within 100 m and by the cruise speed "
+                      "alone, a team's stuck verdict kept after a ride, no retry of a missed order restore")
 TEST = test_args("arland")
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
@@ -273,7 +280,18 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out["script_errors"] = len([l for l in lines if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l])
     out["crashed"] = bool(list(log.parent.glob("*.mdmp")))
     out.update(timeline(lines, side))
+    out.update(boarding(lines, side))
     return out
+
+
+def boarding(lines: list, side: str = "US") -> dict:
+    """Does the vehicle stand still while its team boards (note 505)? seat_moving_defer: the last man's seat put off because
+    the vehicle moved (AI Conflict); held_moving: [ZCR][BOARDHOLD] lines of a held vehicle still over 4 km/h, of all such lines.
+    (Not from [ZCR][GETINOUT]: it doesn't say which vehicle, and jeeps boarding side by side at the HQ get mixed up.)"""
+    defer = sum(1 for l in _once(lines, "PASSENGER_HIDDEN_EXACT_CARGO_DEFERRED", side) if "reason=VEHICLE_MOVING" in l)
+    hold = [l for l in lines if "[ZCR][BOARDHOLD]" in l]
+    held = sum(1 for l in hold if " held=1 " in l)
+    return {"seat_moving_defer": defer, "held_moving": f"{held}/{len(hold)}"}
 
 
 FAR_M = 400      # a team this far from its target base is on a trip, not at its target
