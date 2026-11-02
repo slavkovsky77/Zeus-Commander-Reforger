@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing (2 Nov 12:40) - the morning A/B is done: 15% of team time lost with the two fixes v 21% without, rides failed 14% v 20%.",
+    "Running now": "A 115-game-minute Soviet transport run at normal speed (15:55-17:50): does it degrade past 40 game minutes like Martin's 3x watched run?",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Drivers getting out while their team boards (7 v 2 in the A/B) - likely the game's 'stuck' rule on a vehicle held with no drive; the stone-wall pocket drop point; then Martin watches a 40-minute run.",
+    "Being built next": "Long runs with the ride detour against the old 250-m rule; then drivers getting out while boarding, the stone-wall pocket drop point.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r65", "The integration tests read like training curves",
+     "Martin: 'when I see some table I cant grasp whatever happens', 'we are training AI so same methods should be applied for reviewing'. The Integration tests tab is now a start page of tests (each with its number against its target and a curve) and one page per test: every run with the moving average and the target, the average per build, one small curve per measure he named (time lost, worst 5 minutes, walking far, standing, aboard a vehicle that doesn't move, rides failed, stuck, jams, drivers out, soldier-km a minute), tables last."),
+    ("bad", "r65", "Long matches degrade after 40 game minutes",
+     "Martin watched the Soviet transport run at 3x - 112 game minutes. The first 40 lost ~20% of team time, like the headless runs; after that 30-52% every 5 minutes. Two causes in the logs: one defend team stood 72 minutes at its forward spot because the test never counted it as arrived (fixed in the test), and teams 160-290 m from a base walked 1-2 km because of our 250-m ride rule - now a team rides from a base up to 500 m away when its march is 3x the walk back. Long runs check it next."),
+
     ("good", "r64", "Vehicles stand still while the team boards; a team gets its order back after a ride",
      "Martin after the watched run: 'it degrated with time, a lot of walking units or stuck vehicles'. Two causes found in the logs: a held vehicle at a cruise speed of 0 still crept off at 5-6 km/h (the handbrake didn't help - the AI driver let it off ~200 times a minute), and a team flagged 'stuck' before its ride was refused every new order after it (10 of 10 refusals). Now the drive to the wheels is cut while the team boards (as the game's cinematics stop a vehicle), and a ride's end forgets the old stuck flag. A/B, 4 + 4 runs of 40 min, US and Soviet: time lost 15% v 21%, rides failed 14% v 20%, rides delivered 231 v 187, teams standing with no order 0 v ~45 team-minutes."),
     ("bad", "r64", "Drivers get out while the team boards",
@@ -323,10 +328,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Drivers getting out while their team boards: log every failed vehicle move; a held vehicle's team stays aboard (7 v 2 in the A/B).",
+    "Long runs (110+ game minutes) with the ride detour against the old 250-m rule - judged on the minutes after 40.",
+    "Drivers getting out while their team boards (7 v 2 in the 2 Nov morning A/B; 0 in Martin's watched run).",
     "No drop point inside the stone-wall pocket between Moss Hill and Beauregard (2390,1385).",
-    "Rides still fail 1 in 7: the driver's recovery runs out, the team can't reach its vehicle spot in time, a strung-out team.",
-    "Martin watches a 40-minute run (US and Soviet) when the headless runs are at or under 10% time lost (now 15%).",
+    "Rides still fail 1 in 7: the driver's recovery runs out, vehicles overturn, the team can't reach its vehicle spot in time.",
 ]
 
 FACTS = [
@@ -346,6 +351,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (65, "Integration tests as training curves; rides from further out", "2 Nov 15:20 - 16:20",
+     ["Lab app (4336080): the Integration tests tab as a start page of tests and one page per test (#sublab/<name>): progress curves first (every run, the moving average of 5, the target, each build marked), the average per build, one curve per measure, then where it stands, setups (the current one split by build), runs, about. lab/sublab.py: derived measures, the build of each run.",
+      "ZCR (bc013db): the followed team's caption refreshes every 3 s - distance, what the team does, its men ([ZCR][CAMCAP]).",
+      "AI Conflict fork: a team more than 250 m from a base rides when a base that can give it a vehicle is within 500 m and its march is at least 3x the walk back (-aicfRideDetourMeters, [ZCR][RIDEDETOUR]).",
+      "Transport test: a defend team at its forward spot (up to 600 m from the base, within 100 m) counts as arrived; stuck vehicles and failed rides sliced by game time (d40875e); Martin's measures with targets."],
+     "Martin: 'i dont understand what actually happened', 'where is it?' (his measures), 'I really want to see some charts of progress', 'when following team in game subtitles dont update'. His watched Soviet run at 3x ran 112 game minutes: ~20% lost in the first 40, 30-52% after.",
+     "Late walking in his run: 33 of 40 team-minutes after the 250-m ride rule refused a team; late standing: one defend team 72 minutes at its forward spot, never counted as arrived. A 115-minute run at 1x is under way."),
+
     (64, "Vehicles really stop while the team boards; a team gets its order back after a ride", "2 Nov 09:00 - 12:40",
      ["ZCR_Traffic (578d193): the boarding hold through AI Conflict's whole boarding step at any distance, and it cuts the drive to the wheels (gearbox efficiency 0, restored when the hold ends or the driver leaves; -zcrNoBoardGear, -zcrBoardHoldNear for the old hold); a [ZCR][BOARDHOLD] line for a boarding vehicle over 4 km/h.",
       "AI Conflict fork (42f5ef2): an order restore refused for the team's stuck verdict after a ride forgets the verdict and rebuilds the order (-aicfNoStuckReset); a restore whose 4 tries are spent is retried once a minute (-aicfNoRestoreRearm).",
