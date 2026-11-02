@@ -7,8 +7,10 @@
 // ground (from 30 m off the centre, drones hit barracks, trees and a transformer at take-off).
 // Drone warfare doctrine (Martin, review note 118: modern combat, heavy drone use): a side with our
 // strategist sends its teams where the plan says (drone <base>: prep fire on the objective while
-// gathering, pressure during the assault and storm) - a team every 90 s, up to 3 in the air
-// (-zcrDroneTempo / -zcrDroneMax). A side on AI Conflict alone gets a baseline too, so both sides
+// gathering, pressure during the assault and storm). How many operator teams a side keeps and how fast it
+// launches is the commander's drone plan, decided again every 30 s from the situation (Decide: 2-6 teams, a
+// launch every 30-60 s; -zcrDroneTempo / -zcrDroneMax / -zcrDroneTeamsMin / -zcrDroneTeamsMax). A pilot flies one
+// drone at a time. A side on AI Conflict alone gets a baseline too, so both sides
 // use drones: every 2 minutes, up to 3, at the base most of its attack squads are sent to.
 // The hunt (both sides): every other launch goes for the biggest group of enemy soldiers the side
 // has seen in the last minute (5 or more within 100 m, within 2.5 km of its bases) - drones hunt
@@ -27,6 +29,7 @@ class ZCR_Drones
 	static int s_iFoundAt = -1;   // when the last team's drones were found in the air (the director cuts to them)
 
 	static const float DEFEND_M = 1200;   // a side holding its objective flies at known enemies this near it
+	static const float DEFEND_FAR_M = 2500;   // ... or further out, before a recon flight
 	protected static const ResourceName WAYPOINT = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et";
 
 	protected static ResourceName Team(FactionKey side, bool antiVehicle)
@@ -52,7 +55,7 @@ class ZCR_Drones
 
 	// Called by the strategist after each plan (server): the doctrine's drone targets, else the
 	// main effort when it is a base we don't hold.
-	static void OnPlan(FactionKey side, ZCR_StrategicPlan plan, bool fromStrategist)
+	static void OnPlan(FactionKey side, ZCR_StrategicPlan plan, bool fromStrategist, bool skyEmpty = false)
 	{
 		if (!Replication.IsServer() || !System.IsCLIParam("zcrDrones") || !fromStrategist)
 			return;
@@ -69,6 +72,7 @@ class ZCR_Drones
 		// in the Farm check the US took Farm at minute 11 and launched nothing after. Now it flies at the enemy it knows coming
 		// for it ("defend": the nearest known enemy within DEFEND_M of the held base).
 		bool defend;
+		bool recon;
 		if (target < 0)
 		{
 			target = plan.GetMainEffort();
@@ -78,16 +82,29 @@ class ZCR_Drones
 			{
 				vector held;
 				vector enemy;
-				if (!ZCR_Strategist.s_mNodePos.Find(target, held) || !ZCR_Sampler.NearestKnown(side, held, DEFEND_M, enemy))
+				if (!ZCR_Strategist.s_mNodePos.Find(target, held))
 					return;
-				defend = true;
+				// 2 Nov 21:00 (Martin: "I still see 0 drones up ... drones should be used more aggressively"): nobody known
+				// within DEFEND_M sent nothing up - the enemy known further out (DEFEND_FAR_M), else a recon flight over the
+				// enemy's nearest base (the drones are the side's eyes, ZCR_Sampler; Tend sends them at what they find).
+				if (ZCR_Sampler.NearestKnown(side, held, DEFEND_FAR_M, enemy))
+					defend = true;
+				else
+				{
+					target = ReconTarget(side, held);
+					if (target < 0)
+						return;
+					recon = true;
+				}
 			}
 		}
-		// The plan's surge (lab/modern.py: drones first) beats the side's usual tempo; the next launch no later than
-		// a surge interval from now.
-		int tempo = CliInt("zcrDroneTempo", 90);
-		int maxUp = CliInt("zcrDroneMax", 3);
+		// The side's drone plan (Decide: the pace and teams from the situation); the plan's surge (lab/modern.py: drones
+		// first) beats it; the next launch no later than a surge interval from now.
+		int tempo = Tempo(side);
+		int maxUp = MaxUp(side);
 		string why = "doctrine";
+		if (recon)
+			why = "recon";
 		if (plan.GetSurgeTempo() > 0)
 		{
 			tempo = plan.GetSurgeTempo();
@@ -102,7 +119,289 @@ class ZCR_Drones
 			return;
 		if (defend)
 			why = "defend";
-		Launch(side, target, tempo, maxUp, why);
+		Launch(side, target, tempo, maxUp, why, skyEmpty);
+	}
+
+	// The enemy-held base nearest 'at' within DEFEND_FAR_M - not the enemy's main base (searching there camped its spawn,
+	// SearchRoute); -1 for none.
+	protected static int ReconTarget(FactionKey side, vector at)
+	{
+		int best = -1;
+		float bestD = DEFEND_FAR_M;
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			string owner = ZCR_Strategist.s_mNodeOwner.Get(node);
+			if (owner == side || owner.IsEmpty())
+				continue;
+			SCR_CampaignFaction enemy = SCR_CampaignFaction.Cast(GetGame().GetFactionManager().GetFactionByKey(owner));
+			if (enemy && enemy.GetMainBase() && enemy.GetMainBase().GetOwner() && vector.DistanceXZ(enemy.GetMainBase().GetOwner().GetOrigin(), pos) < 300)
+				continue;
+			float d = vector.DistanceXZ(pos, at);
+			if (d < bestD)
+			{
+				bestD = d;
+				best = node;
+			}
+		}
+		return best;
+	}
+
+	// ---- The drone plan (Martin, 2 Nov 21:00: "two drone teams are not enough, and yeah make it every 30 s, and make more
+	// drone teams - it should actually be variable, the commander should decide, maybe even the LLM commander"; "it should
+	// actually not be static but decided dynamically according to the situation"). Before: one launch per 90 s a side
+	// whatever its pilots (6 per 10 game minutes), 1-2 pilots, 0 drones up in 47-67% of the samples of the Farm battle.
+	// Every DECIDE_S, per side with a plan: how many operator teams it keeps (ZCR_DroneSites sets up new ones - forward,
+	// else beside a drone truck - stands idle ones down and wakes them again to match) and how fast it launches:
+	//   TEAMS_MIN (2) and +1 for each: attack (its objective is the enemy's), contact (3+ enemies known within 400 m of the
+	//   objective), threat (an enemy known within THREAT_M of a base it holds), finding (2+ launches or retargets at
+	//   enemies seen in the last 3 min); -1 lost (a team lost in the last 3 min); at most TEAMS_MAX (6). Raised at once,
+	//   lowered only after 2 minutes of the lower count (no setting up and standing down every 30 s).
+	//   The pace (Martin: "make it every 30 s"): a launch every 30 s (-zcrDroneTempo) in a fight, 60 s when quiet (no
+	//   attack, contact or threat). 15 s with 5+ teams was tried (2 Nov 21:03, Farm): 96 launches in 20 min, 52 soldiers
+	//   killed by drones of 61 lost, the drone-reaction scripts 3x their cost - the team count is the dynamic part.
+	//   The commander ticks every ~15 s, one launch a tick at most.
+	//   The plan's surge (bridge line "surge <tempo> <max>") sets the pace and most drones up and raises the teams to <max>.
+	// THE HOOK for a commander that decides itself (the LLM commander, Gemini through the bridge):
+	//   ZCR_Drones.SetTeamsWanted(side, teams, seconds = 300) - that many teams (1..TEAMS_MAX) for 'seconds' (renew it with
+	//   every plan; it lapses back to the rule), 0 - the rule at once. Read by Decide; logged why=commander. Wiring in the
+	//   bridge parser (ZCR_Strategist.OnAnswer): a line "droneteams <n>" -> ZCR_Drones.SetTeamsWanted(m_sFaction, n).
+	//   Its drone targets stay the bridge's "drone <node>" lines (ZCR_StrategicPlan.GetDroneTargets).
+	// Logs every decision: [ZCR][DRONEPLAN] t= side= teams= tempo= have= changed= why=...
+	static const int DECIDE_S = 30;
+	static const int TEAMS_MIN = 2;
+	static const int TEAMS_MAX = 6;
+	static const float THREAT_M = 800;
+	static const int FOUND_S = 180;
+	static const int LOWER_AFTER_S = 120;
+	static const int TICK_SLACK = 5;           // the commander's ~15 s tick: a launch due at 30 s comes at 29-30, not 44
+	static const int PILOT_TAKEOFF_S = 20;     // a pilot's drone counts as up this long after launch (found after 1.5 s)
+	protected static ref map<FactionKey, int> s_mTeams = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mTempo = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mDecideAt = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mLastLaunchAt = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mLowerSince = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mHookTeams = new map<FactionKey, int>();
+	protected static ref map<FactionKey, int> s_mHookUntil = new map<FactionKey, int>();
+	protected static ref map<FactionKey, ref array<int>> s_mFoundAt = new map<FactionKey, ref array<int>>();
+	// The operator team that launched each drone team, and its last launch: a pilot flies one drone at a time.
+	protected static ref map<SCR_AIGroup, SCR_AIGroup> s_mTeamPilot = new map<SCR_AIGroup, SCR_AIGroup>();
+	protected static ref map<SCR_AIGroup, int> s_mPilotLaunchAt = new map<SCR_AIGroup, int>();
+
+	// The hook (see above): 'teams' operator teams for 'seconds'; 0 - back to the rule.
+	static void SetTeamsWanted(FactionKey side, int teams, int seconds = 300)
+	{
+		if (teams <= 0)
+		{
+			s_mHookTeams.Remove(side);
+			s_mHookUntil.Remove(side);
+		}
+		else
+		{
+			s_mHookTeams.Set(side, Math.ClampInt(teams, 1, CliInt("zcrDroneTeamsMax", TEAMS_MAX)));
+			s_mHookUntil.Set(side, ZCR_LossLog.Seconds() + Math.ClampInt(seconds, DECIDE_S, 3600));
+		}
+		s_mDecideAt.Set(side, 0);      // decided again at the next tick
+	}
+
+	// Operator teams the side's drone plan wants (ZCR_DroneSites); 0 - no plan (the infantry test, or before the first one):
+	// the sites as before (the main base's, forward ones up to MAX_SITES).
+	static int TeamsWanted(FactionKey side)
+	{
+		return s_mTeams.Get(side);
+	}
+
+	protected static int Tempo(FactionKey side)
+	{
+		int tempo;
+		if (s_mTempo.Find(side, tempo) && tempo > 0)
+			return tempo;
+		return CliInt("zcrDroneTempo", 30);
+	}
+
+	// Most of the side's teams in the air: -zcrDroneMax, else one per pilot the plan wants (at least 4).
+	protected static int MaxUp(FactionKey side)
+	{
+		int cli = CliInt("zcrDroneMax", 0);
+		if (cli > 0)
+			return cli;
+		int teams = s_mTeams.Get(side);
+		if (teams < 4)
+			return 4;
+		return teams;
+	}
+
+	// A launch or retarget at enemies seen (the drones are finding targets).
+	protected static void NoteFound(FactionKey side, int now)
+	{
+		array<int> times;
+		if (!s_mFoundAt.Find(side, times))
+		{
+			times = {};
+			s_mFoundAt.Set(side, times);
+		}
+		times.Insert(now);
+		while (!times.IsEmpty() && now - times[0] > FOUND_S)
+			times.RemoveOrdered(0);
+	}
+
+	protected static int FoundRecently(FactionKey side, int now)
+	{
+		array<int> times;
+		if (!s_mFoundAt.Find(side, times))
+			return 0;
+		int n;
+		foreach (int t : times)
+		{
+			if (now - t <= FOUND_S)
+				n++;
+		}
+		return n;
+	}
+
+	// The side's objective for the drone plan: the plan's first drone target the enemy holds, else its main effort.
+	protected static int Objective(ZCR_StrategicPlan plan, FactionKey side)
+	{
+		foreach (int t : plan.GetDroneTargets())
+		{
+			if (ZCR_Strategist.s_mNodePos.Contains(t) && ZCR_Strategist.s_mNodeOwner.Get(t) != side)
+				return t;
+		}
+		return plan.GetMainEffort();
+	}
+
+	// The drone plan, every DECIDE_S (see above). obj: the side's objective node (-1 none); surgeMax: the plan's surge.
+	protected static void Decide(FactionKey side, int obj, int surgeMax)
+	{
+		int now = ZCR_LossLog.Seconds();
+		int at;
+		if (s_mDecideAt.Find(side, at) && now < at)
+			return;
+		s_mDecideAt.Set(side, now + DECIDE_S);
+		int lo = CliInt("zcrDroneTeamsMin", TEAMS_MIN);
+		int hi = CliInt("zcrDroneTeamsMax", TEAMS_MAX);
+		if (hi < lo)
+			hi = lo;
+		int teams = lo;
+		string why;
+		bool fight;
+		vector objPos;
+		string objName = "-";
+		if (obj >= 0 && ZCR_Strategist.s_mNodePos.Find(obj, objPos))
+		{
+			objName = ZCR_Strategist.s_mNodeName.Get(obj);
+			if (ZCR_Strategist.s_mNodeOwner.Get(obj) != side)
+			{
+				teams++;
+				fight = true;
+				why += " attack";
+			}
+			int seen = ZCR_Sampler.KnownEnemiesNear(side, objPos, 400);
+			if (seen >= 3)
+			{
+				teams++;
+				fight = true;
+				why += string.Format(" contact=%1", seen);
+			}
+		}
+		string threatened;
+		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
+		{
+			vector enemy;
+			if (ZCR_Strategist.s_mNodeOwner.Get(node) == side && ZCR_Sampler.NearestKnown(side, pos, THREAT_M, enemy))
+			{
+				threatened = ZCR_Strategist.s_mNodeName.Get(node);
+				break;
+			}
+		}
+		if (!threatened.IsEmpty())
+		{
+			teams++;
+			fight = true;
+			why += " threat=" + threatened;
+		}
+		int found = FoundRecently(side, now);
+		if (found >= 2)
+		{
+			teams++;
+			why += string.Format(" finding=%1", found);
+		}
+		int lost = ZCR_DroneSites.LostSince(side, FOUND_S);
+		if (lost > 0)
+		{
+			teams--;
+			why += string.Format(" lost=%1", lost);
+		}
+		if (surgeMax > teams)
+		{
+			teams = surgeMax;
+			why += string.Format(" surge=%1", surgeMax);
+		}
+		if (!fight)
+			why = " quiet" + why;
+		teams = Math.ClampInt(teams, lo, hi);
+		int cur = s_mTeams.Get(side);
+		int until;
+		if (s_mHookUntil.Find(side, until) && now < until)
+		{
+			teams = s_mHookTeams.Get(side);
+			why = " commander" + why;
+			s_mLowerSince.Remove(side);
+		}
+		else if (cur > 0 && teams < cur)
+		{
+			// Lowered only after LOWER_AFTER_S of the lower count.
+			int since;
+			if (!s_mLowerSince.Find(side, since))
+			{
+				s_mLowerSince.Set(side, now);
+				since = now;
+			}
+			if (now - since < LOWER_AFTER_S)
+			{
+				why += string.Format(" (%1 wanted %2 s - kept)", teams, now - since);
+				teams = cur;
+			}
+			else
+				s_mLowerSince.Remove(side);
+		}
+		else
+			s_mLowerSince.Remove(side);
+		// The pace for the teams kept (not the count before the hold).
+		int pace = CliInt("zcrDroneTempo", 30);
+		int tempo = pace;
+		if (!fight)
+			tempo = pace * 2;
+		bool changed = teams != cur || tempo != s_mTempo.Get(side);
+		s_mTeams.Set(side, teams);
+		s_mTempo.Set(side, tempo);
+		Print(string.Format("[ZCR][DRONEPLAN] t=%1 side=%2 teams=%3 tempo=%4 have=%5 changed=%6 objective=%7 why=%8", now, side, teams, tempo,
+			ZCR_DroneSites.Teams(side), changed, objName, why.Trim()), LogLevel.NORMAL);
+		if (changed)
+			ZCR_Feed.Note(side, string.Format("drone plan: %1 operator teams, a launch every %2 s (%3)", teams, tempo, why.Trim()));
+	}
+
+	// A drone this operator team launched is up (or launched under PILOT_TAKEOFF_S ago): 1; none: 0; -1: the team never
+	// launched for a commander (the infantry test launches without one) - the caller decides as before.
+	static int PilotUp(SCR_AIGroup operators)
+	{
+		int at;
+		if (!operators || !s_mPilotLaunchAt.Find(operators, at))
+			return -1;
+		if (ZCR_LossLog.Seconds() - at < PILOT_TAKEOFF_S)
+			return 1;
+		BaseWorld world = GetGame().GetWorld();
+		for (int i; i < s_aDrones.Count(); i++)
+		{
+			IEntity d = s_aDrones[i];
+			SCR_AIGroup team;
+			SCR_AIGroup by;
+			if (!d || !s_mDroneTeam.Find(d, team) || !team || !s_mTeamPilot.Find(team, by) || by != operators)
+				continue;
+			vector p = d.GetOrigin();
+			if (p[1] - world.GetSurfaceY(p[0], p[2]) > 3)
+				return 1;
+		}
+		return 0;
 	}
 
 	// AI Conflict's side (no strategist): a baseline - every 2 min, up to 3 (was 4 min, 2: Martin, 19 Oct,
@@ -114,7 +413,9 @@ class ZCR_Drones
 			return;
 		int now = ZCR_LossLog.Seconds();
 		int next;
-		if (s_mNextAt.Find(side, next) && now < next)
+		bool waiting = s_mNextAt.Find(side, next) && now < next;
+		int decideAt;
+		if (waiting && (!s_mDecideAt.Find(side, decideAt) || now < decideAt))
 			return;
 		map<int, int> votes = new map<int, int>();
 		for (int s; s < state.GetSlotCount(); s++)
@@ -142,7 +443,8 @@ class ZCR_Drones
 				target = node;
 			}
 		}
-		if (target < 0)
+		Decide(side, target, 0);    // the drone plan for its teams (the pace stays the baseline's)
+		if (target < 0 || waiting)
 			return;
 		Launch(side, target, CliInt("zcrDroneBaselineTempo", 120), CliInt("zcrDroneBaselineMax", 3), "baseline");
 	}
@@ -169,13 +471,18 @@ class ZCR_Drones
 		int now = ZCR_LossLog.Seconds();
 		// A launch between plan rounds (26 Oct night: a launch was tried only when a new plan came, every 40-90 s, and an
 		// operator not ready at that moment waited for the next round - 14-16 drones a side in 30 minutes).
+		ZCR_StrategicPlan current = ZCR_StrategicPlan.Get(side);
+		bool planned = System.IsCLIParam("zcrDrones") && !current.IsEmpty() && current.GetSource() != "doctrine-fallback" && current.GetSource() != "no_answer";
+		if (planned)
+			Decide(side, Objective(current, side), current.GetSurgeMax());     // the drone plan, every DECIDE_S
 		int due;
-		if (!s_mNextAt.Find(side, due) || now >= due)
-		{
-			ZCR_StrategicPlan current = ZCR_StrategicPlan.Get(side);
-			if (!current.IsEmpty() && current.GetSource() != "doctrine-fallback" && current.GetSource() != "no_answer")
-				OnPlan(side, current, true);
-		}
+		bool dueNow = !s_mNextAt.Find(side, due) || now >= due;
+		// The sky empty (2 Nov 21:55 - Martin: "I still see 0 drones up"; the Farm check with a launch every 30 s: the US field
+		// site 500 m from Farm, its drones down in ~25 s, 0 up in 26% of the samples): no drone of the side up and none
+		// launched in the last PILOT_TAKEOFF_S - the next ready pilot goes now, not at the next 30 s.
+		bool skyEmpty = planned && !dueNow && InAir(side) == 0 && now - s_mLastLaunchAt.Get(side) >= PILOT_TAKEOFF_S;
+		if (planned && (dueNow || skyEmpty))
+			OnPlan(side, current, true, skyEmpty);
 		for (int i = s_aTeams.Count() - 1; i >= 0; i--)
 		{
 			SCR_AIGroup team = s_aTeams[i];
@@ -203,6 +510,7 @@ class ZCR_Drones
 			if (ZCR_Sampler.NearestKnown(side, goal, 1200, enemy) && vector.DistanceXZ(enemy, goal) > 80)
 			{
 				SetGoal(team, enemy, now);
+				NoteFound(side, now);
 				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 retarget hovering=%4 after=%5 to=%6 %7 distance=%8", now, side, s_mTeamNo.Get(team),
 					hovering.Count(), since, Math.Round(enemy[0]), Math.Round(enemy[2]), Math.Round(vector.DistanceXZ(enemy, goal))), LogLevel.NORMAL);
 				ZCR_Feed.Note(side, string.Format("drone team %1 had nothing to hit - on to enemies seen %2 m away", s_mTeamNo.Get(team), Math.Round(vector.DistanceXZ(enemy, goal))));
@@ -476,7 +784,7 @@ class ZCR_Drones
 		s_mTeamGoalAt.Set(team, now);
 	}
 
-	protected static void Launch(FactionKey side, int target, int tempo, int maxUp, string why)
+	protected static void Launch(FactionKey side, int target, int tempo, int maxUp, string why, bool skyEmpty = false)
 	{
 		vector goal;
 		if (!ZCR_Strategist.s_mNodePos.Find(target, goal))
@@ -486,7 +794,7 @@ class ZCR_Drones
 		if (why == "defend")
 		{
 			vector coming;
-			if (!ZCR_Sampler.NearestKnown(side, goal, DEFEND_M, coming))
+			if (!ZCR_Sampler.NearestKnown(side, goal, DEFEND_FAR_M, coming))
 				return;
 			goalName = "the enemy coming for " + goalName;
 			goal = coming;
@@ -516,7 +824,7 @@ class ZCR_Drones
 			}
 		}
 		int next;
-		if (s_mNextAt.Find(side, next) && now < next)
+		if (!skyEmpty && s_mNextAt.Find(side, next) && now < next)
 			return;
 		if (Active(side) >= maxUp)
 			return;
@@ -612,7 +920,11 @@ class ZCR_Drones
 		{
 			SetDrones(team, 1);
 			ZCR_DroneOperator.Launched(operators);
+			s_mTeamPilot.Set(team, operators);
+			s_mPilotLaunchAt.Set(operators, now);
 		}
+		if (why == "hunt" || why == "defend" || why.Contains("-seen"))
+			NoteFound(side, now);
 		s_mTeamNo.Set(team, n);
 		AddRoute(team, at, goal);
 		s_aTeams.Insert(team);
@@ -623,14 +935,15 @@ class ZCR_Drones
 		if (route)
 			s_mTeamRoute.Set(team, route);
 		s_mCount.Set(side, n);
-		s_mNextAt.Set(side, now + tempo);
+		s_mNextAt.Set(side, now + tempo - TICK_SLACK);
+		s_mLastLaunchAt.Set(side, now);
 		s_mLaunches.Set(side, s_mLaunches.Get(side) + 1);
 		string kind = "anti-infantry";
 		if (antiVehicle)
 			kind = "anti-vehicle";
 		ZCR_Feed.Note(side, string.Format("drone team %1 (%2) to %3", n, kind, goalName));
 		Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 kind=%4 from=%5 to=%6 distance=%7 why=%8", now, side, n, kind,
-			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why), LogLevel.NORMAL);
+			ZCR_Strategist.s_mNodeName.Get(Nearest(from)), goalName, Math.Round(best), why) + string.Format(" sky_empty=%1", skyEmpty), LogLevel.NORMAL);
 		Find(at, side, team);
 	}
 

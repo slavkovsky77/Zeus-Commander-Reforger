@@ -185,6 +185,10 @@ class ZCR_DroneOperator
 		ZCR_OperatorTeam team = Team(group);
 		if (!team || team.m_iState != 1 || team.m_iCarried <= 0)
 			return false;
+		// One drone at a time (2 Nov: the side's launches are no longer spaced 90 s apart - the pilots are the limit; a pilot
+		// flies his FPV until it is down).
+		if (ZCR_Drones.PilotUp(group) == 1)
+			return false;
 		ChimeraCharacter pilot = Pilot(group);
 		if (!pilot || vector.DistanceXZ(pilot.GetOrigin(), team.m_vPos) > STAY_M)
 			return false;
@@ -640,6 +644,7 @@ class ZCR_DroneOperator
 
 	protected static void Tick()
 	{
+		ZCR_CostScope cost = new ZCR_CostScope("droneops");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		Sorties(now);
 		map<string, int> pilots = new map<string, int>();
@@ -662,7 +667,13 @@ class ZCR_DroneOperator
 				continue;
 			}
 			pilots.Set(m.m_sSide, pilots.Get(m.m_sSide) + 1);
-			bool up = Flying(m.m_sSide, c.GetOrigin());
+			// His own drone (2 Nov: with 2-6 teams a side, any drone of the side up froze every pilot at his post and kept an
+			// empty one from walking back to resupply); a team that never launched for a commander (the infantry test):
+			// any drone of his side, as before.
+			int own = ZCR_Drones.PilotUp(m.m_Group);
+			bool up = own == 1;
+			if (own < 0)
+				up = Flying(m.m_sSide, c.GetOrigin());
 			// Only at his post (Martin, 28 Oct: "this is clearly a bug: drone operator being out in the open"): a pilot away
 			// from it - walking back after a site move or a fight - froze with his goggles wherever he was whenever a drone of
 			// his side was up (36% of 491 flights started over 30 m off the post, 7% over 200 m; one sat by the Airport Base

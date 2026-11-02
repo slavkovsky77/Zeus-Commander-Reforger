@@ -56,6 +56,9 @@ class ZCR_DroneSite
 	bool m_bSafe;           // its next spot has overhead cover for the operators
 	bool m_bDue;            // a move is due: no more launches from here, packing once the last drone is down
 	AIWaypoint m_Waypoint;
+	bool m_bShared;         // an extra operator team on another site's truck (the drone plan, 2 Nov): no truck of its own
+	bool m_bStandby;        // stood down by the drone plan: no launches until woken
+	int m_iAddedAt;
 }
 
 class ZCR_DroneSites
@@ -69,11 +72,15 @@ class ZCR_DroneSites
 	// that is at least FORWARD_CLOSER nearer the front than its nearest site.
 	static const float FORWARD_FAR = 1800;
 	static const float FORWARD_CLOSER = 400;
-	static const float FIELD_M = 700;    // a field site this far short of the front
+	static const float FIELD_M = 600;    // a field site this far short of the front (700: the harbour side's HQ site is ~1 km from
+	                                     // Farm, 700 m was not FIELD_CLOSER nearer - still one pilot, 20:34)
+	static const float FIELD_CLOSER = 300;
 	static const int FIRST_READY = 60;
 	static const int SETUP = 120;
 	static const int REBUILD = 300;
-	static const int MAX_SITES = 3;
+	static const int MAX_SITES = 3;            // without a drone plan (ZCR_Drones.TeamsWanted 0); with one, its count
+	static const int TEAMS_PER_TRUCK = 3;      // operator teams resupplying at one truck
+	static const int SHARED_READY = 30;
 	// 1500 m until 26 Oct night: on Arland the front (~1 km from the main base) never got one, and a side flew from one
 	// crew - 4 drones, then ~3 min out of the fight to reload (0.65 drones a minute with the surge's 40 s tempo).
 	static const float FORWARD_GAP = 700;
@@ -164,9 +171,21 @@ class ZCR_DroneSites
 			if (Create(side, faction.GetMainBase().GetOwner().GetOrigin(), front, true, ready))
 				alive++;
 		}
+		// The commander's drone plan (ZCR_Drones.Decide, 2 Nov 21:00 - Martin: "two drone teams are not enough ... it should
+		// be variable, the commander should decide"): as many operator teams as it wants - idle ones stood down when it
+		// wants fewer, woken first when it wants more; new ones forward as before, else beside the drone truck nearest the
+		// front (TEAMS_PER_TRUCK), else a new truck at the main base. Without a plan: MAX_SITES sites as before.
+		int wanted = ZCR_Drones.TeamsWanted(side);
+		int cap = MAX_SITES;
+		if (wanted > 0)
+		{
+			cap = wanted;
+			Standby(side, wanted, front, now);
+		}
 		// A forward site: the front is far from every site and the side holds a base near it.
-		if (front == vector.Zero || alive >= MAX_SITES)
+		if (front == vector.Zero || alive >= cap)
 			return;
+		bool tryNow = !s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 30;
 		float nearestSite = 1e9;
 		foreach (ZCR_DroneSite s : s_aSites)
 		{
@@ -174,7 +193,14 @@ class ZCR_DroneSites
 				nearestSite = Math.Min(nearestSite, vector.DistanceXZ(s.m_vPos, front));
 		}
 		if (nearestSite <= FORWARD_GAP)
+		{
+			if (wanted > 0 && tryNow)
+			{
+				s_mForwardTriedAt.Set(side, now);
+				AddTeam(side, front, now);
+			}
 			return;
+		}
 		// 2 Nov (note 514 - Martin: "I would expect them to be used more, definitely were used more before"): in every Farm
 		// battle the nearest base to the front (Signal Hill) had no clear ground, the same base was tried again every 2
 		// minutes and no forward site was ever set up - one pilot a side flying 1-2 km from the HQ, 5-10 launches per 10
@@ -212,14 +238,14 @@ class ZCR_DroneSites
 				vector field = front + dir * FIELD_M;
 				int fieldFailedAt;
 				bool fieldFailed = s_mForwardFailedAt.Find(side + ":field", fieldFailedAt) && now - fieldFailedAt < FORWARD_FAIL_S;
-				if (!fieldFailed && FIELD_M < nearestSite - FORWARD_CLOSER)
+				if (!fieldFailed && FIELD_M < nearestSite - FIELD_CLOSER)
 				{
 					at = field;
 					atNode = -2;
 				}
 			}
 		}
-		if (at != vector.Zero && (!s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 30))
+		if (at != vector.Zero && tryNow)
 		{
 			s_mForwardTriedAt.Set(side, now);
 			if (!Create(side, at, front, false, now + SETUP))
@@ -230,6 +256,151 @@ class ZCR_DroneSites
 				s_mForwardFailedAt.Set(key, now);
 			}
 		}
+		else if (at == vector.Zero && wanted > 0 && tryNow)
+		{
+			s_mForwardTriedAt.Set(side, now);
+			AddTeam(side, front, now);
+		}
+	}
+
+	// The side's operator teams on duty (not lost, not stood down) - the drone plan's 'have'.
+	static int Teams(string side)
+	{
+		int n;
+		foreach (ZCR_DroneSite s : s_aSites)
+		{
+			if (s.m_sSide == side && !s.m_bLost && !s.m_bStandby)
+				n++;
+		}
+		return n;
+	}
+
+	// Teams of the side lost in the last 'seconds' (the drone plan holds back a team for each).
+	static int LostSince(string side, int seconds)
+	{
+		int now = ZCR_LossLog.Seconds();
+		int n;
+		foreach (ZCR_DroneSite s : s_aSites)
+		{
+			if (s.m_sSide == side && s.m_bLost && now - s.m_iLostAt <= seconds)
+				n++;
+		}
+		return n;
+	}
+
+	// Teams on duty to match the plan: the newest idle team (not the main base's, no drone of its pilot up) stands down while
+	// there are more; a stood-down one nearest the front comes back while there are fewer.
+	protected static void Standby(string side, int wanted, vector front, int now)
+	{
+		int duty = Teams(side);
+		while (duty > wanted)
+		{
+			ZCR_DroneSite last = null;
+			foreach (ZCR_DroneSite s : s_aSites)
+			{
+				if (s.m_sSide != side || s.m_bLost || s.m_bStandby || s.m_bMain || ZCR_Drones.PilotUp(s.m_Operators) == 1)
+					continue;
+				if (!last || s.m_iAddedAt >= last.m_iAddedAt)
+					last = s;
+			}
+			if (!last)
+				break;
+			last.m_bStandby = true;
+			duty--;
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 team=standby at=%3 teams=%4 wanted=%5", now, side, last.m_sName, duty, wanted), LogLevel.NORMAL);
+		}
+		while (duty < wanted)
+		{
+			ZCR_DroneSite next = null;
+			float best = 1e9;
+			foreach (ZCR_DroneSite s : s_aSites)
+			{
+				if (s.m_sSide != side || s.m_bLost || !s.m_bStandby)
+					continue;
+				float d = vector.DistanceXZ(s.m_vPos, front);
+				if (d < best)
+				{
+					best = d;
+					next = s;
+				}
+			}
+			if (!next)
+				break;
+			next.m_bStandby = false;
+			duty++;
+			Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 team=wake at=%3 teams=%4 wanted=%5", now, side, next.m_sName, duty, wanted), LogLevel.NORMAL);
+		}
+	}
+
+	protected static int TeamsOn(IEntity truck)
+	{
+		int n;
+		foreach (ZCR_DroneSite s : s_aSites)
+		{
+			if (s.m_Truck == truck && !s.m_bLost)
+				n++;
+		}
+		return n;
+	}
+
+	// One more operator team: beside the drone truck nearest the front that has room (TEAMS_PER_TRUCK), resupplying there;
+	// none - a new site at the main base (its own truck).
+	protected static bool AddTeam(string side, vector front, int now)
+	{
+		ZCR_DroneSite host;
+		float best = 1e9;
+		foreach (ZCR_DroneSite s : s_aSites)
+		{
+			if (s.m_sSide != side || s.m_bLost || s.m_bShared || !s.m_Truck || s.m_iMove != 0 || TeamsOn(s.m_Truck) >= TEAMS_PER_TRUCK)
+				continue;
+			float d = vector.DistanceXZ(s.m_Truck.GetOrigin(), front);
+			if (d < best)
+			{
+				best = d;
+				host = s;
+			}
+		}
+		if (!host)
+		{
+			SCR_CampaignFaction faction = SCR_CampaignFaction.Cast(GetGame().GetFactionManager().GetFactionByKey(side));
+			if (!faction || !faction.GetMainBase() || !faction.GetMainBase().GetOwner())
+				return false;
+			return Create(side, faction.GetMainBase().GetOwner().GetOrigin(), front, false, now + SETUP);
+		}
+		Resource teamRes = Resource.Load(Operators(side));
+		if (!teamRes || !teamRes.IsValid())
+			return false;
+		vector truck = host.m_Truck.GetOrigin();
+		int k = TeamsOn(host.m_Truck);
+		array<vector> offsets = {Vector(-6, 0, -4), Vector(6, 0, -6), Vector(-6, 0, 6), Vector(8, 0, 0)};
+		vector post = truck + offsets[k % offsets.Count()];
+		post[1] = GetGame().GetWorld().GetSurfaceY(post[0], post[2]);
+		EntitySpawnParams params = new EntitySpawnParams();
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = post;
+		SCR_AIGroup group = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(teamRes, GetGame().GetWorld(), params));
+		if (!group)
+			return false;
+		ZCR_DroneSite site = new ZCR_DroneSite();
+		site.m_sSide = side;
+		site.m_sName = host.m_sName;
+		site.m_vPos = truck;
+		site.m_vLaunch = host.m_vLaunch;
+		site.m_bMain = false;
+		site.m_bShared = true;
+		site.m_Truck = host.m_Truck;
+		site.m_Operators = group;
+		site.m_iReadyAt = now + SHARED_READY;
+		site.m_iSetAt = site.m_iReadyAt;
+		site.m_vHome = host.m_vHome;
+		site.m_iAddedAt = now;
+		ZCR_DroneOperator.Register(group, side, post, truck);
+		ZCR_DroneOperator.Sortie(group, side, truck, front);
+		s_aSites.Insert(site);
+		Print(string.Format("[ZCR][DRONESITE] t=%1 side=%2 team_added at=%3 on_truck=%4 teams=%5 wanted=%6 x=%7 z=%8", now, side, site.m_sName, k + 1, Teams(side),
+			ZCR_Drones.TeamsWanted(side), Math.Round(post[0]), Math.Round(post[2])), LogLevel.NORMAL);
+		ZCR_Feed.Note(side, string.Format("another drone operator team at %1 (%2 on duty)", site.m_sName, Teams(side)));
+		return true;
 	}
 
 	protected static bool Destroyed(ZCR_DroneSite s)
@@ -295,6 +466,7 @@ class ZCR_DroneSites
 		s.m_iReadyAt = readyAt;
 		s.m_iSetAt = readyAt;
 		s.m_vHome = spot;
+		s.m_iAddedAt = ZCR_LossLog.Seconds();
 		ZCR_Trace.At("spawn", "drone_site", spot, side);
 		s.m_Truck = GetGame().SpawnEntityPrefab(truckRes, GetGame().GetWorld(), params);
 		params.Transform[3] = spot + Vector(6, 0, 4);
@@ -376,7 +548,7 @@ class ZCR_DroneSites
 		ZCR_DroneSite chosen;
 		foreach (ZCR_DroneSite s : s_aSites)
 		{
-			if (s.m_sSide != side || s.m_bLost || now < s.m_iReadyAt || !s.m_Operators)
+			if (s.m_sSide != side || s.m_bLost || s.m_bStandby || now < s.m_iReadyAt || !s.m_Operators)
 				continue;
 			if (s.m_iMove != 0 || s.m_bDue)
 				continue;                      // due to move, packing, driving or unloading: no launches
@@ -425,8 +597,8 @@ class ZCR_DroneSites
 	// the truck's own driver takes it there when it is more than SUPPORT_NEAR_M off.
 	protected static void PlanTruck(ZCR_DroneSite s, vector front, int now)
 	{
-		if (s.m_bMain || !s.m_Truck || front == vector.Zero || System.IsCLIParam("zcrStaticDroneSites"))
-			return;
+		if (s.m_bMain || s.m_bShared || !s.m_Truck || front == vector.Zero || System.IsCLIParam("zcrStaticDroneSites"))
+			return;                            // a shared team's truck is its host's to plan
 		vector back = s.m_vHome - front;
 		back[1] = 0;
 		if (back.Length() < 1)
@@ -571,7 +743,7 @@ class ZCR_DroneSites
 		// The operators no longer ride the truck (17:58: boarding went in/out, in/out - and Martin: the operators walk out on
 		// sorties with drones in their bags and resupply at the truck; Zeus Commander plans where the truck goes). The hops
 		// stay behind -zcrSiteHops.
-		if (!System.IsCLIParam("zcrSiteHops") || s.m_bMain || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
+		if (!System.IsCLIParam("zcrSiteHops") || s.m_bMain || s.m_bShared || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
 			return;                            // the main base's site is the static one
 		if (s.m_iMove == 0)
 		{
@@ -816,6 +988,8 @@ class ZCR_DroneSites
 				text += ", ";
 			if (s.m_bLost)
 				text += s.m_sName + " lost";
+			else if (s.m_bStandby)
+				text += s.m_sName + " standby";
 			else if (s.m_iMove != 0 || s.m_bDriving)
 				text += s.m_sName + " moving";
 			else if (now < s.m_iReadyAt)
