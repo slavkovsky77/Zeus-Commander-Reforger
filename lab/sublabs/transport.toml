@@ -25,6 +25,7 @@ arland-ussr = "Arland - the whole map Soviet"
 
 [scenario_words]
 arland = "The US holds every base but the Soviet HQ, the Soviets field no teams; the 12 US teams of 4 travel from base to base (0.4-3 km trips) while the supply trucks run"
+arland-ussr = "The Soviets hold every base but the US HQ, the US fields no teams; the 12 Soviet teams of 4 travel from base to base by UAZ-469 jeep or on foot (2 Nov, note 504)"
 
 [variant_labels]
 rides = "Rides, 3 out of the HQ at a time"
