@@ -117,6 +117,24 @@ def worst_slice(text, minutes, fields="walk idle still", teams=12, slice_min=5):
     return None if worst is None else round(worst)
 
 
+def slice_mean(text, minutes, start, end, fields="walk idle still", teams=12, slice_min=5):
+    """The named fields of a run's slices from game minute start up to end (2 Nov, Martin: "if one game is shorter you dont
+    have good results right?" - time lost grows as a match goes on, so runs of different lengths compare only on the same
+    minutes), as % of all team time then. None when the run has no full slice there."""
+    want, lost, total = fields.split(), 0.0, 0.0
+    for part in str(text or "").split("|"):
+        m = re.match(r"\s*(\d+)-(\d+):(.*)", part)
+        if not m or not (start <= int(m.group(1)) < end):
+            continue
+        length = min(slice_min, float(minutes or 0) - int(m.group(1)))
+        if length < slice_min / 2:
+            continue
+        vals = dict(re.findall(r"([a-z_]+) (-?[\d.]+)", m.group(3)))
+        lost += sum(float(vals.get(f, 0)) for f in want)
+        total += teams * length
+    return round(100 * lost / total) if total else None
+
+
 def derive(d: dict, row: dict) -> dict:
     """A test's [derived] measures (2 Nov, note 506), worked out from what every run stored - old runs too: an
     expression per key; a run missing what it needs gets none."""
@@ -124,7 +142,7 @@ def derive(d: dict, row: dict) -> dict:
         if row.get(k) is not None:
             continue
         try:
-            v = eval(expr, {"__builtins__": {}, "worst_slice": worst_slice, "round": round, "max": max, "min": min}, dict(row))
+            v = eval(expr, {"__builtins__": {}, "worst_slice": worst_slice, "slice_mean": slice_mean, "round": round, "max": max, "min": min}, dict(row))
             row[k] = round(v, 1) if isinstance(v, float) else v
         except Exception:
             row[k] = None
