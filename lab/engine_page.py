@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "2 Nov 01:30: two 40-minute headless transport tests with tonight's fixes and a diagnostic for teams left with no order after a failed ride.",
+    "Running now": "Nothing (2 Nov 05:40) - the night A/B is done: AI Conflict's recoveries with the 0.35 threat limit lose 18% of team time v 26% with the old limit.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Teams left with no order after a failed ride (AI Conflict rejects its own order restore, up to 25 min); rides still failing 1 in 5; vehicles stuck on the routes (a checkpoint, stone walls).",
+    "Being built next": "Teams left with no order for 10-26 min after an AI Conflict deadline is missed (5 of 8 night runs); the stone-wall pocket drop point between Moss Hill and Beauregard; then Martin watches a 40-minute run.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r63", "AI Conflict's recoveries now run when no enemy is near",
+     "AI Conflict allowed its recoveries (the last man's seat, the clean-up after a failed ride, moving a stuck team) only under a threat measure of 0.01; with no enemy on the map teams read 0.075-0.3, so they waited for ever: a last man's seat deferred 384 times, a team with no order for 20 minutes. Now 0.35. Night A/B, 4 x 40 min each: time lost 18% v 26% with the old limit, walking far 1-5% v 6-10%, rides failed 14% v 23% (fewer in every pair)."),
+    ("bad", "r63", "Teams left with no order after a missed deadline",
+     "In 5 of 8 night runs (both builds) one team stood 10-26 minutes with no order: an AI Conflict deadline was missed (giving the order back, leaving the main base) and the ride's clean-up then waited for good. One spot twice: a drop point in a pocket of stone walls between Moss Hill and Beauregard. Next fix."),
+
     ("good", "r62", "Vehicles wait for their team and leave the base one at a time",
      "Martin, watching the transport test (2 Nov): 'traffic jam at start ... there should be queieng', 'team3 is driving into house', 'team d4 is stuck into building', 'they had a perfectly fine car and they walk'. Found: the driver drove towards his team while the others walked over (341 of 956 vehicles moved 10 m+) - at Moss Hill into a farmhouse 3 of 3 times, at Farm behind a shed; 12 vehicles left the HQ within 16 s; a soldier whose get-in failed stood idle until the whole ride was written off; a failed ride at a base banned the team 3 minutes and it walked 1-1.8 km. Now: the vehicle holds still until its team is aboard, boarded vehicles leave a base ~6 s apart, a failed get-in gets the seat, a ride that fails at a base gets a new one after 20 s."),
     ("bad", "r62", "The transport test's numbers hid what Martin saw",
@@ -310,11 +315,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Teams left standing with no order after a failed ride: AI Conflict rejects its own order restore every second (2 teams, 9-25 min, in a 40-minute run).",
-    "Rides still fail 1 in 5 (a soldier not boarding, strung-out teams, the driver out of his seat).",
+    "A team whose ride is over but which still has no order after a minute goes back to the commander with a fresh order (10-26 min stands in 5 of 8 runs).",
+    "No drop point inside the stone-wall pocket between Moss Hill and Beauregard (2390,1385).",
+    "Rides still fail 1 in 7: a team that can't reach its vehicle spot in time, the driver's recovery running out, the last man not boarding.",
     "Vehicles stuck on the routes: the US checkpoint on the main road, stone walls by the roads, a castle bridge.",
-    "Watched by Martin when the 40-minute runs are at or under 10% time lost.",
-    "The Farm battle's seat fallback (Martin's call).",
+    "Martin watches a 40-minute run when the headless runs are at or under 10% time lost.",
 ]
 
 FACTS = [
@@ -334,6 +339,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (63, "AI Conflict's recoveries run with no enemy near", "2 Nov 02:14 - 05:37",
+     ["AI Conflict fork (d785ef5): its hidden recoveries are allowed up to a threat measure of 0.35, not 0.01 (-aicfRecoveryMaxThreat); an order restore rejected for want of a route leg forgets the leg and rebuilds the base order (-aicfNoLegReset).",
+      "ZCR_Traffic (72f2f79): the boarding hold also while AI Conflict's ride is boarding, with the team's walking order still current.",
+      "Transport test: variant thr01 (the old limit) for the A/B; scratchpad stands.py traces the long stands."],
+     "My finding from the 40-minute runs (notes 501-503): a driver drove off at 61 km/h with the last man outside; the last man's seat deferred hundreds of times for 'combat threat' with no enemy on the map; teams with no order for 20-25 min.",
+     "Night A/B, 4 x 40 min each: time lost 18% (12-24) v 26% (20-30) with the old limit; walking far 1-5% v 6-10%; rides failed 14% v 23%."),
+
     (62, "vehicles wait for their team, leave the base one at a time", "2 Nov 00:24 - 01:30",
      ["ZCR_Traffic 'boarding': a vehicle holds still while its team has no waypoint and a man outside within 100 m (-zcrNoBoardHold off).",
       "AI Conflict fork (c828f69): boarded vehicles leave a base one at a time, ~6 s apart ([ZCR][DEPART], -aicfDepartGapMs); a get-in that failed after the last retry gets the seat (-aicfNoFailedSeat); a ride that fails at a base gets one 20-s wait and a new ride, not 3 minutes (-aicfBaseFailWaitMs); a defend team's recovery leg short of its base is a plain leg, not a 1-hour hold.",
