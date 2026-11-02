@@ -33,7 +33,17 @@ import assaulttest  # noqa: E402  (its BASE setup, mods and ride counter)
 SCENARIOS = {
     # name: words
     "arland": "Arland: the US holds every base but the Soviet HQ; its 12 teams of 4 travel from base to base (0.4-3 km trips)",
+    # 2 Nov (note 504 - Martin: "i am still sleeping so test it on soviet side too"): the same with the Soviets.
+    "arland-ussr": "Arland: the Soviets hold every base but the US HQ; their 12 teams of 4 travel from base to base (UAZ-469 jeeps)",
 }
+# The side a scenario tests; the other side has no forces.
+SIDE_OF = {"arland": "US", "arland-ussr": "USSR"}
+
+
+def test_args(scenario: str) -> str:
+    side = SIDE_OF.get(scenario, "US")
+    other = "USSR" if side == "US" else "US"
+    return f" -zcrShuttleTest -zcrAllBasesTo {side} -aicfNoForces {other} -aicfNoVictory"
 _TEAMS = assaulttest._sized(4) + " -aicfSquadsPerSide 12 -aicfArmedRideEvery 0"
 # The fork's walk-over and pads by a road are on by default from 31 Oct 22:40 (note 479): the variants run before then
 # pin them off, so their numbers stay what they were.
@@ -131,7 +141,7 @@ VARIANTS["nowalk2"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
 # retry at a base, the leg reset and ZCR's boarding hold (the fork's and ZCR's defaults).
 VARIANTS["thr01"] = (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRecoveryMaxThreat 0.01",
                      "as nowalk2 (2 Nov fixes), with AI Conflict's old limit for its recoveries: only under a threat of 0.01")
-TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
+TEST = test_args("arland")
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
 
@@ -142,8 +152,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     title = sublab.title("transport", scenario, variant)
     label = f"transport-{scenario}-{variant}-p{port}" if not watch else f"transporttest-{scenario}-{variant}-watch"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
-            "--port", str(port), "--commander-mode", "US", "--mods", assaulttest.MODS, "--plan-seconds", "60",
-            "--extra", f"{extra}{TEST} -zcrTestTitle {title}"]
+            "--port", str(port), "--commander-mode", SIDE_OF.get(scenario, "US"), "--mods", assaulttest.MODS, "--plan-seconds", "60",
+            "--extra", f"{extra}{test_args(scenario)} -zcrTestTitle {title}"]
     if watch:
         argv += ["--solo", "--watch"]
         argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
@@ -171,6 +181,8 @@ def _once(lines: list, tag: str, side: str = "US") -> list:
 
 def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out = {"scenario": scenario, "variant": variant, "run": run_dir.name, "run_path": str(run_dir)}
+    side = SIDE_OF.get(scenario, "US")
+    other = "USSR" if side == "US" else "US"
     log = next(iter(sorted(run_dir.glob("logs/*/console.log"))), None)
     if not log:
         out["error"] = "no log"
@@ -186,7 +198,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     assigned = len(set(l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][SHUTTLE]" in l and "event=assign" in l))
     rounds = {}
     for l in lines:
-        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=US id=(\d+) role=(\w+) men=(\d+) ride=\d x=(-?\d+) z=(-?\d+)", l)
+        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=" + side + r" id=(\d+) role=(\w+) men=(\d+) ride=\d x=(-?\d+) z=(-?\d+)", l)
         if m:
             rounds.setdefault(int(m.group(1)), []).append((m.group(3), int(m.group(4)), float(m.group(5)), float(m.group(6))))
     last_t = max(rounds) if rounds else 0
@@ -206,9 +218,9 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out["soldier_km_per_min"] = round(out["soldier_km"] / out["minutes"], 2) if out["minutes"] else 0
     # The rides (AI Conflict's trip states), with the assault test's counter.
     by_t = {t: [(r, n, x, z) for r, n, x, z in v] for t, v in rounds.items()}
-    out.update(assaulttest.rides(lines, "US", by_t))
+    out.update(assaulttest.rides(lines, side, by_t))
     state, since, board, drive, wait, why, planned = {}, {}, [], [], [], {}, {}
-    for l in _once(lines, "VEHICLE_STATE_CHANGED"):
+    for l in _once(lines, "VEHICLE_STATE_CHANGED", side):
         t = re.search(r"t_ms=(\d+)", l)
         s = re.search(r" slot=(\w+)", l)
         st = re.search(r"new_state=(\w+)|state=(\w+)", l)
@@ -234,7 +246,7 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out["fail_reasons"] = ", ".join(f"{k} {v}" for k, v in sorted(why.items(), key=lambda kv: -kv[1]))
     cars, full = {}, []
     men_of = {}
-    for l in _once(lines, "VEHICLE_SPAWNED]"):
+    for l in _once(lines, "VEHICLE_SPAWNED]", side):
         m = re.search(r"prefab=\{[0-9A-F]+\}Prefabs/Vehicles/\w+/\w+/(\w+)\.et", l)
         s = re.search(r" numeric_slot=(\d+)", l)
         if m:
@@ -244,23 +256,23 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
     out["vehicles"] = ", ".join(f"{k} {v}" for k, v in sorted(cars.items()))
     seats = [min(1.0, t["men"] / SEATS[men_of[t["slot"]]]) for t in trips if t["rode"] and men_of.get(t["slot"]) in SEATS]
     out["seat_use_pct"] = round(100 * statistics.mean(seats)) if seats else -1
-    out["unjams"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][UNJAM]" in l and "side=US " in l and "action=" in l})
-    stuck = {l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][MOVEFAIL]" in l and "side=US " in l}
+    out["unjams"] = len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][UNJAM]" in l and f"side={side} " in l and "action=" in l})
+    stuck = {l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][MOVEFAIL]" in l and f"side={side} " in l}
     out["stuck"] = len(stuck)
     # Stuck within 60 m of a pad a US ride was spawned on - the ride couldn't get out to the road (note 479).
-    pads = {(float(m.group(1)), float(m.group(2))) for l in lines if "VEHICLE_SPAWN_PAD_PROBE" in l and "faction=US" in l and "result=CLEAR" in l
+    pads = {(float(m.group(1)), float(m.group(2))) for l in lines if "VEHICLE_SPAWN_PAD_PROBE" in l and f"faction={side} " in l and "result=CLEAR" in l
             for m in [re.search(r"origin=<([-\d.]+),[-\d.]+,([-\d.]+)>", l)] if m}
     at = [(int(m.group(1)), int(m.group(2))) for l in stuck for m in [re.search(r" x=(\d+) z=(\d+)", l)] if m]
     out["stuck_at_pad"] = sum(1 for x, z in at if any((x - a) ** 2 + (z - b) ** 2 < 3600 for a, b in pads))
     # The supply trucks: deliveries unloaded and how much.
-    unloads = [l for l in _once(lines, "LOGISTICS_UNLOAD_COMMITTED") if "purpose=DELIVERY" in l]
+    unloads = [l for l in _once(lines, "LOGISTICS_UNLOAD_COMMITTED", side) if "purpose=DELIVERY" in l]
     out["supply_runs"] = len(unloads)
     out["supplies"] = sum(int((re.search(r" amount=(\d+)", l) or [0, 0])[1]) for l in unloads)
-    out["enemy_teams"] = len(_once(lines, "GROUP_ENTITY_SPAWNED", "USSR"))
-    out["lost"] = sum(1 for l in lines if "[ZCR][LOSS]" in l and " side=US " in l and "kind=man" in l)
+    out["enemy_teams"] = len(_once(lines, "GROUP_ENTITY_SPAWNED", other))
+    out["lost"] = sum(1 for l in lines if "[ZCR][LOSS]" in l and f" side={side} " in l and "kind=man" in l)
     out["script_errors"] = len([l for l in lines if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l])
     out["crashed"] = bool(list(log.parent.glob("*.mdmp")))
-    out.update(timeline(lines))
+    out.update(timeline(lines, side))
     return out
 
 
@@ -269,7 +281,7 @@ BASE_M = 250     # a team this close to a base is at a base (walking to its vehi
 SLICE_S = 300
 
 
-def timeline(lines: list) -> dict:
+def timeline(lines: list, side: str = "US") -> dict:
     """What Martin sees, over time (2 Nov, note 496: 'it degrated with time, a lot of walking units or stuck vehicles'
     while rode_pct said 98% - it counts only trips that arrived). From every [ZCR][LIVE] team sample: team-minutes on
     foot more than FAR_M from the target base and BASE_M from every base (walk_far_min; walk_far_pct of all team time),
@@ -279,12 +291,12 @@ def timeline(lines: list) -> dict:
     arrived there."""
     samples = {}
     for l in lines:
-        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=US id=(\d+) \S+ men=(\d+) ride=(\d) x=(-?\d+) z=(-?\d+) to=(\S+)", l)
+        m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=" + side + r" id=(\d+) \S+ men=(\d+) ride=(\d) x=(-?\d+) z=(-?\d+) to=(\S+)", l)
         if m:
             samples[(int(m.group(1)), int(m.group(2)))] = (int(m.group(4)), float(m.group(5)), float(m.group(6)), m.group(7), int(m.group(3)))
     arrive = []
     for l in lines:
-        m = re.search(r"\[ZCR\]\[SHUTTLE\] t=(\d+) side=US slot=(\d+) event=arrive trip=\d+ base=(\S+)", l)
+        m = re.search(r"\[ZCR\]\[SHUTTLE\] t=(\d+) side=" + side + r" slot=(\d+) event=arrive trip=\d+ base=(\S+)", l)
         if m:
             arrive.append((int(m.group(1)), int(m.group(2)), m.group(3)))
     by_team = {}
@@ -334,12 +346,12 @@ def timeline(lines: list) -> dict:
     def game_t(l):
         tm = re.search(r"^(\d\d):(\d\d):(\d\d)", l)
         return (int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3)) - t0) if tm and t0 is not None else -1
-    for l in _once(lines, "VEHICLE_STUCK_DETECTED"):
+    for l in _once(lines, "VEHICLE_STUCK_DETECTED", side):
         t = game_t(l)
         if 0 <= t < nslices * SLICE_S:
             stuck[t // SLICE_S] += 1
     for l in lines:
-        if "[ZCR][RIDE] faction=US " in l and "failed=" in l:
+        if f"[ZCR][RIDE] faction={side} " in l and "failed=" in l:
             t = game_t(l)
             if 0 <= t < nslices * SLICE_S:
                 failed[t // SLICE_S] += 1
@@ -347,12 +359,12 @@ def timeline(lines: list) -> dict:
     # recovered somehow"; the 20-s wait after a failed ride at a base, notes 489-491).
     retries, retried = 0, 0
     boards = {}
-    for l in _once(lines, "BOARDING_COMPLETE]"):
+    for l in _once(lines, "BOARDING_COMPLETE]", side):
         sm = re.search(r" numeric_slot=(\d+)", l)
         if sm:
             boards.setdefault(int(sm.group(1)), []).append(game_t(l))
     for l in lines:
-        m = re.search(r"\[ZCR\]\[RIDE\] faction=US slot=(\d+) failed=\S+ walks_ms=\d+ at_base=1", l)
+        m = re.search(r"\[ZCR\]\[RIDE\] faction=" + side + r" slot=(\d+) failed=\S+ walks_ms=\d+ at_base=1", l)
         if m:
             retries += 1
             t = game_t(l)

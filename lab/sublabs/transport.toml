@@ -6,7 +6,7 @@ pass_rule = "over 40 game minutes, time lost (teams walking far + standing on fo
 runner = "lab/transporttest.py"
 minutes = 40.0
 units = 0
-scenarios = ["arland"]
+scenarios = ["arland", "arland-ussr"]
 variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2", "thr01"]
 baseline = "rides"
 candidate = "nowalk2"
@@ -21,6 +21,7 @@ candidate_words = "no cap, no spacing, the seat fallback on; a taken vehicle spo
 
 [scenario_labels]
 arland = "Arland - the whole map US"
+arland-ussr = "Arland - the whole map Soviet"
 
 [scenario_words]
 arland = "The US holds every base but the Soviet HQ, the Soviets field no teams; the 12 US teams of 4 travel from base to base (0.4-3 km trips) while the supply trucks run"
