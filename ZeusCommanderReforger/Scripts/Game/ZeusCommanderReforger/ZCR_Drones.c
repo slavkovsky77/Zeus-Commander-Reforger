@@ -26,6 +26,7 @@ class ZCR_Drones
 	static ref array<string> s_aDroneSide = {};
 	static int s_iFoundAt = -1;   // when the last team's drones were found in the air (the director cuts to them)
 
+	static const float DEFEND_M = 1200;   // a side holding its objective flies at known enemies this near it
 	protected static const ResourceName WAYPOINT = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et";
 
 	protected static ResourceName Team(FactionKey side, bool antiVehicle)
@@ -64,11 +65,23 @@ class ZCR_Drones
 				break;
 			}
 		}
+		// 2 Nov (note 514 - Martin: "I would expect them to be used more"): a side holding its objective sent no drones at all -
+		// in the Farm check the US took Farm at minute 11 and launched nothing after. Now it flies at the enemy it knows coming
+		// for it ("defend": the nearest known enemy within DEFEND_M of the held base).
+		bool defend;
 		if (target < 0)
 		{
 			target = plan.GetMainEffort();
-			if (target < 0 || ZCR_Strategist.s_mNodeOwner.Get(target) == side)
+			if (target < 0)
 				return;
+			if (ZCR_Strategist.s_mNodeOwner.Get(target) == side)
+			{
+				vector held;
+				vector enemy;
+				if (!ZCR_Strategist.s_mNodePos.Find(target, held) || !ZCR_Sampler.NearestKnown(side, held, DEFEND_M, enemy))
+					return;
+				defend = true;
+			}
 		}
 		// The plan's surge (lab/modern.py: drones first) beats the side's usual tempo; the next launch no later than
 		// a surge interval from now.
@@ -87,6 +100,8 @@ class ZCR_Drones
 		}
 		if (Active(side) >= maxUp)
 			return;
+		if (defend)
+			why = "defend";
 		Launch(side, target, tempo, maxUp, why);
 	}
 
@@ -468,6 +483,14 @@ class ZCR_Drones
 			return;
 		string goalName = ZCR_Strategist.s_mNodeName.Get(target);
 		int now = ZCR_LossLog.Seconds();
+		if (why == "defend")
+		{
+			vector coming;
+			if (!ZCR_Sampler.NearestKnown(side, goal, DEFEND_M, coming))
+				return;
+			goalName = "the enemy coming for " + goalName;
+			goal = coming;
+		}
 		// The hunt: every other launch at the enemy soldiers seen in the field, when there are enough.
 		if (s_mLaunches.Get(side) % 2 == 1)
 		{
@@ -543,7 +566,7 @@ class ZCR_Drones
 			// Our base nearest the objective.
 			foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
 			{
-				if ((why != "hunt" && node == target) || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
+				if ((why != "hunt" && why != "defend" && node == target) || ZCR_Strategist.s_mNodeOwner.Get(node) != side)
 					continue;
 				float d = vector.DistanceXZ(pos, goal);
 				if (d < best)

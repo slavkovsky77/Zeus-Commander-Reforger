@@ -53,6 +53,7 @@ class ZCR_OperatorTeam
 	int m_iLastLaunchAt;
 	int m_iSorties;
 	vector m_vPos;           // the launch position
+	bool m_bStayPut;         // loaded where he stood (stuck or slow on the way): his next launch position is there too
 }
 
 class ZCR_DroneOperator
@@ -79,6 +80,8 @@ class ZCR_DroneOperator
 	static const int CARRY = 4;             // drones in the pilot's bag
 	static const int LOAD_S = 45;
 	static const float SUPPLY_NEAR_M = 15;
+	static const float RESUPPLY_NEAR_M = 40;
+	static const int RESUPPLY_GIVE_UP_S = 120;
 	static ref array<ref ZCR_OperatorTeam> s_aTeams = {};
 	static ref array<ref ZCR_OperatorMan> s_aMen = {};
 	protected static bool s_bStarted;
@@ -270,6 +273,11 @@ class ZCR_DroneOperator
 					Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=loaded drones=%3", now, team.m_sSide, team.m_iCarried), LogLevel.NORMAL);
 				}
 				team.m_vPos = LaunchPosition(pilot, team);
+				// Loaded where he stood (note 514: the Soviet pilot made no progress for 13 minutes, 142 m from the truck - a walk
+				// to any other spot would end the same way, and a pilot flies only from his post): the post is where he is.
+				if (team.m_bStayPut)
+					team.m_vPos = at;
+				team.m_bStayPut = false;
 				team.m_iState = 0;
 				team.m_iStateAt = now;
 				team.m_iSorties++;
@@ -306,11 +314,20 @@ class ZCR_DroneOperator
 					SetPost(team.m_Group, truck);
 				}
 			}
-			if (team.m_iState == 2 && vector.DistanceXZ(at, team.m_vSupply) <= SUPPLY_NEAR_M)
+			// 2 Nov (note 514): in the Farm check the Soviet pilot ran out at minute 7, 143 m from the truck, and never came within
+			// SUPPLY_NEAR_M of it - his side flew nothing for the last 13 minutes. Near enough (RESUPPLY_NEAR_M), or walking
+			// RESUPPLY_GIVE_UP_S: he loads where he is ([ZCR][SORTIE] event=resupply late=1).
+			float toSupply = vector.DistanceXZ(at, team.m_vSupply);
+			if (team.m_iState == 2 && (toSupply <= SUPPLY_NEAR_M || toSupply <= RESUPPLY_NEAR_M || now - team.m_iStateAt >= RESUPPLY_GIVE_UP_S))
 			{
-				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=resupply walk_s=%3", now, team.m_sSide, now - team.m_iStateAt), LogLevel.NORMAL);
+				int late;
+				if (toSupply > SUPPLY_NEAR_M)
+					late = 1;
+				Print(string.Format("[ZCR][SORTIE] t=%1 side=%2 event=resupply walk_s=%3 late=%4 m=%5", now, team.m_sSide, now - team.m_iStateAt, late,
+					Math.Round(toSupply)), LogLevel.NORMAL);
 				team.m_iState = 3;
 				team.m_iStateAt = now;
+				team.m_bStayPut = late == 1;
 			}
 		}
 	}
@@ -768,8 +785,19 @@ class ZCR_DroneOperator
 		{
 			m.m_iNoLegsUntil = now + 90;
 			legs = false;
-			Print(string.Format("[ZCR][OPLEG] t=%1 side=%2 event=no_progress to_post_m=%3 - straight to the post", now, m.m_sSide,
-				Math.Round(vector.DistanceXZ(here, m.m_vPost))), LogLevel.NORMAL);
+			// Why he doesn't move (note 514): his AI on or off, stance, in a vehicle, what the last move order said.
+			AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+			int ai = -1;
+			if (control && control.IsAIActivated())
+				ai = 1;
+			else if (control)
+				ai = 0;
+			string moveState = "none";
+			if (m.m_Move)
+				moveState = typename.EnumToString(EAIActionState, m.m_Move.GetActionState());
+			Print(string.Format("[ZCR][OPLEG] t=%1 side=%2 event=no_progress to_post_m=%3 - straight to the post ai=%4 stance=%5 vehicle=%6 move=%7 pilot=%8",
+				now, m.m_sSide, Math.Round(vector.DistanceXZ(here, m.m_vPost)), ai,
+				typename.EnumToString(ECharacterStance, c.GetCharacterController().GetStance()), c.IsInVehicle(), moveState, m.m_bPilot), LogLevel.NORMAL);
 		}
 		m.m_vLegFrom = vector.Zero;
 		if (legs && vector.DistanceXZ(here, m.m_vPost) > LEG_M + 40)
