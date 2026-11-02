@@ -8,9 +8,13 @@ soldier) walks there and builds it. The camera follows the builders.
     python lab/buildtest.py near2                          # each side its 2 bases nearest its HQ, 12 game minutes
     python lab/buildtest.py near2 --variant noaccess       # without our depot access check (AI Conflict's own placement)
     python lab/buildtest.py farm --minutes 15 --watch      # in the game window (lab/watch_test.py records it)
+    python lab/buildtest.py near4 --variant fortplan       # fortifications where the model planned them (lab/fortplan.py)
 
 Prints one line: buildings decided / placed / built (by kind), searches given up, builders, their walk and build
-times, work blocked, failed moves, buildings on a road or right beside one, depot sites refused by the access check.
+times, work blocked, failed moves, buildings on a road or right beside one, depot sites refused by the access check; and
+the fortifications ([ZCR][FORTPLAN], measured on the map by lab/fortplan.py): how many came from a plan, the facing error to
+the nearest enemy base, the field of fire in the facing and toward the threat, approach lanes in view, cover behind within
+40 m, metres from a road, built %.
 """
 import argparse
 import json
@@ -42,7 +46,13 @@ VARIANTS = {
     "default": ("", "AI Conflict's builders with our changes (depot access check, depot first, fortifications)"),
     "noaccess": ("-aicfDepotNoAccess", "without our depot access check - AI Conflict's own depot placement"),
     "nofort": ("-aicfFortificationsPerBase 0", "no fortifications - only the buildings a base needs"),
+    # 2 Nov (Martin: "fortifications should be planned via the LLM general"): the plans of lab/fortplan.py - the model's spots
+    # and facings, or the code's own best-scored spots facing the threat; today's search where no planned spot fits.
+    "fortplan": ("-zcrFortPlan", "fortifications where the model planned them (spots and facing from the map, lab/fortplan.py)"),
+    "fortalgo": ("-zcrFortPlan", "fortifications at the code's best-scored spots, facing the threat (lab/fortplan.py, no model)"),
 }
+# variant -> the profile seed with $profile:zcr/fortplan.txt (lab/fortplan.py export <which>)
+SEEDS = {"fortplan": "llm", "fortalgo": "algo"}
 
 BASE = "-zcrNoFIA -zcrLabWeather -zcrNoArmour -zcrArmourVanilla -aicfMaxAgentsPerFaction 1 -aicfMaxBuildersPerFaction 6"
 
@@ -60,6 +70,11 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", map_name, "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", "none", "--ussr", "none",
             "--extra", f"{BASE} -zcrTestTitle {_title(scenario, variant)} -zcrBuildTest {spec} {extra}".strip()]
+    if variant in SEEDS:
+        seed = ROOT / ".runtime" / "fortplan" / map_name / f"seed_{SEEDS[variant]}"
+        if not (seed / "zcr" / "fortplan.txt").exists():
+            raise SystemExit(f"no plan file {seed / 'zcr' / 'fortplan.txt'} - run lab/fortplan.py plan + export {SEEDS[variant]} first")
+        argv += ["--seed-profile", str(seed)]
     if watch:
         argv += ["--watch", "--solo"]
         if speed > 1:
@@ -182,6 +197,11 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
         "script_errors": len([l for l in text.splitlines() if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l]),
         "crashed": bool(list(log.parent.glob("*.mdmp"))), "run": run_dir.name, "run_path": str(run_dir),
     })
+    if "[ZCR][FORTPLAN] event=placed" in text:
+        import fortplan
+        forts = fortplan.measure_text(text, set(done))
+        out.update(fortplan.summary(forts))
+        out["fort_sites"] = " ".join(f"{f['side']}:{f['kind'].lower()}@{round(f['x'])},{round(f['z'])}:{f['source']}:dir{round(f['dir'])}:err{f.get('face_err')}:fof{f['fof_facing']}" for f in forts)
     return out
 
 
