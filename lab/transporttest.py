@@ -145,7 +145,7 @@ VARIANTS["thr01"] = (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRecoveryM
 # verdict when a ride ends and retries a missed order restore once a minute. "before" pins the previous build for an A/B.
 # 15-min Soviet checks (09:22-09:54): a held vehicle at a cruise speed of 0 still crept at 5-6 km/h (229 ticks a minute), the
 # handbrake didn't stop it (the driver released it ~200 times a minute), no drive to the wheels did (0) - now the default.
-VARIANTS["before"] = (VARIANTS["nowalk2"][0] + " -zcrBoardHoldNear -zcrNoBoardGear -aicfNoStuckReset -aicfNoRestoreRearm",
+VARIANTS["before"] = (VARIANTS["nowalk2"][0] + " -zcrBoardHoldNear -zcrNoBoardGear -aicfNoStuckReset -aicfNoRestoreRearm -zcrNoHeldStay",
                       "as nowalk2 before 2 Nov morning: the boarding hold only with a man within 100 m and by the cruise speed "
                       "alone, a team's stuck verdict kept after a ride, no retry of a missed order restore")
 TEST = test_args("arland")
@@ -287,11 +287,17 @@ def summarize(run_dir: Path, scenario: str, variant: str) -> dict:
 def boarding(lines: list, side: str = "US") -> dict:
     """Does the vehicle stand still while its team boards (note 505)? seat_moving_defer: the last man's seat put off because
     the vehicle moved (AI Conflict); held_moving: [ZCR][BOARDHOLD] lines of a held vehicle still over 4 km/h, of all such lines.
+    driver_left: rides ended by the driver getting out while boarding; vehmove_held: failed vehicle moves on a held vehicle.
     (Not from [ZCR][GETINOUT]: it doesn't say which vehicle, and jeeps boarding side by side at the HQ get mixed up.)"""
     defer = sum(1 for l in _once(lines, "PASSENGER_HIDDEN_EXACT_CARGO_DEFERRED", side) if "reason=VEHICLE_MOVING" in l)
     hold = [l for l in lines if "[ZCR][BOARDHOLD]" in l]
     held = sum(1 for l in hold if " held=1 " in l)
-    return {"seat_moving_defer": defer, "held_moving": f"{held}/{len(hold)}"}
+    # The driver getting out while his team boards ends the ride (CREW_ROLE_LOST_DURING_BOARDING; 7 v 2 in the 2 Nov A/B), and a
+    # failed vehicle move on a held vehicle ([ZCR][VEHMOVE] held=1: the team kept aboard) of all failed vehicle moves logged.
+    driver = sum(1 for l in _once(lines, "BOARDING_CREW_ROLE_LOST", side) if "lost_role=DRIVER" in l)
+    vm = [l for l in lines if "[ZCR][VEHMOVE]" in l]
+    return {"seat_moving_defer": defer, "held_moving": f"{held}/{len(hold)}", "driver_left": driver,
+            "vehmove_held": f"{sum(1 for l in vm if ' held=1 ' in l)}/{len(vm)}"}
 
 
 FAR_M = 400      # a team this far from its target base is on a trip, not at its target

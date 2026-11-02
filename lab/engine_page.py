@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing (2 Nov 07:35) - the Soviet transport runs are done: 18% of team time lost, the same as the US.",
+    "Running now": "Nothing (2 Nov 12:40) - the morning A/B is done: 15% of team time lost with the two fixes v 21% without, rides failed 14% v 20%.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "A finished ride with no order hands the team back (the biggest single loss on both sides); the boarding hold at any distance (Soviet jeeps drove off with the last man far out).",
+    "Being built next": "Drivers getting out while their team boards (7 v 2 in the A/B) - likely the game's 'stuck' rule on a vehicle held with no drive; the stone-wall pocket drop point; then Martin watches a 40-minute run.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r64", "Vehicles stand still while the team boards; a team gets its order back after a ride",
+     "Martin after the watched run: 'it degrated with time, a lot of walking units or stuck vehicles'. Two causes found in the logs: a held vehicle at a cruise speed of 0 still crept off at 5-6 km/h (the handbrake didn't help - the AI driver let it off ~200 times a minute), and a team flagged 'stuck' before its ride was refused every new order after it (10 of 10 refusals). Now the drive to the wheels is cut while the team boards (as the game's cinematics stop a vehicle), and a ride's end forgets the old stuck flag. A/B, 4 + 4 runs of 40 min, US and Soviet: time lost 15% v 21%, rides failed 14% v 20%, rides delivered 231 v 187, teams standing with no order 0 v ~45 team-minutes."),
+    ("bad", "r64", "Drivers get out while the team boards",
+     "7 rides v 2 failed because the driver got out 33-50 s into the boarding. Likely the game's own rule: a vehicle move that ends 'stuck' sends the team out - and a held vehicle can't move. Logging and a guard are written; next check."),
+
     ("good", "r63", "The Soviets move as well as the US",
      "Martin: 'i am still sleeping so test it on soviet side too'. The transport test with the Soviets holding the map (UAZ-469 jeeps), 4 runs of 40 min: time lost 20, 16, 18, 19% (mean 18%, the US 18%), rides failed 16% (US 14%). The same open faults: a team with no order for 10-25 min after a missed deadline in all 4 runs (twice at one Airport spot). Worse for the Soviets: the jeep drives off while the last man is still far out (the seat fallback deferred 400-900 times a run for a moving vehicle; US 10-200)."),
 
@@ -318,11 +323,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "A team whose ride is over but which still has no order after a minute goes back to the commander with a fresh order (10-26 min stands in 9 of 12 runs, US and Soviet).",
-    "The boarding hold through AI Conflict's whole boarding step, however far the last man is (Soviet jeeps drove off at up to 50 km/h).",
+    "Drivers getting out while their team boards: log every failed vehicle move; a held vehicle's team stays aboard (7 v 2 in the A/B).",
     "No drop point inside the stone-wall pocket between Moss Hill and Beauregard (2390,1385).",
-    "Rides still fail 1 in 6-7: the team can't reach its vehicle spot in time, the driver's recovery runs out.",
-    "Martin watches a 40-minute run (US and Soviet) when the headless runs are at or under 10% time lost.",
+    "Rides still fail 1 in 7: the driver's recovery runs out, the team can't reach its vehicle spot in time, a strung-out team.",
+    "Martin watches a 40-minute run (US and Soviet) when the headless runs are at or under 10% time lost (now 15%).",
 ]
 
 FACTS = [
@@ -342,6 +346,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (64, "Vehicles really stop while the team boards; a team gets its order back after a ride", "2 Nov 09:00 - 12:40",
+     ["ZCR_Traffic (578d193): the boarding hold through AI Conflict's whole boarding step at any distance, and it cuts the drive to the wheels (gearbox efficiency 0, restored when the hold ends or the driver leaves; -zcrNoBoardGear, -zcrBoardHoldNear for the old hold); a [ZCR][BOARDHOLD] line for a boarding vehicle over 4 km/h.",
+      "AI Conflict fork (42f5ef2): an order restore refused for the team's stuck verdict after a ride forgets the verdict and rebuilds the order (-aicfNoStuckReset); a restore whose 4 tries are spent is retried once a minute (-aicfNoRestoreRearm).",
+      "Transport test: variant 'before' (the previous build) and the measures seat_moving_defer and held_moving."],
+     "Martin: 'it degrated with time, a lot of walking units or stuck vehicles ... we really need to work on that more!' My findings (notes 504-505): a held vehicle at a cruise speed of 0 still crept at 5-6 km/h and the handbrake was let off ~200 times a minute; every refused order after a ride was the team's old stuck verdict.",
+     "A/B, 4 + 4 runs of 40 min (Soviet, US, twice): time lost 15% (12-19) v 21% (13-29); rides failed 14% v 20%; delivered 231 v 187; held vehicles moving 11 v 200 checks; stuck verdicts after a ride 6 of 6 re-ordered v 6 refused. New lead: drivers getting out during boarding 7 v 2."),
+
     (63, "AI Conflict's recoveries run with no enemy near", "2 Nov 02:14 - 05:37",
      ["AI Conflict fork (d785ef5): its hidden recoveries are allowed up to a threat measure of 0.35, not 0.01 (-aicfRecoveryMaxThreat); an order restore rejected for want of a route leg forgets the leg and rebuilds the base order (-aicfNoLegReset).",
       "ZCR_Traffic (72f2f79): the boarding hold also while AI Conflict's ride is boarding, with the team's walking order still current.",

@@ -109,6 +109,7 @@ BUILDS = [
     (61, "teams walk long only when a ride broke down", "2026-11-01 22:45", "a taken vehicle spot is looked for again after 10 s (not 60), 12 vehicles a side, no spacing, no ride ban after a slow drop-off"),
     (62, "vehicles wait for their team, leave the base one at a time", "2026-11-02 01:30", "a vehicle holds still until its team is aboard; boarded vehicles leave a base ~6 s apart; a failed get-in gets the seat; a ride that fails at a base gets a new one after 20 s; the transport test judged on time lost over 40 min"),
     (63, "AI Conflict's recoveries run with no enemy near", "2026-11-02 02:14", "recoveries (seat fallback, clean-up, stuck teams) allowed up to a threat of 0.35 (was 0.01, never met); a rejected order restore forgets the route leg; the boarding hold also while the ride is boarding"),
+    (64, "vehicles really stop while the team boards; a team gets its order back after a ride", "2026-11-02 09:55", "the boarding hold cuts the drive to the wheels (a cruise speed of 0 still crept at 5-6 km/h); a ride's end forgets the team's stuck verdict from before it and rebuilds the order; a missed order restore is retried once a minute"),
 ]
 FAMILIES = [("arland-headless", "Arland headless"), ("arland-watched", "Arland watched"), ("everon-watched", "Everon watched"),
             ("arland-headless-2a", "Arland headless, two armies"), ("arland-watched-2a", "Arland watched, two armies"),
