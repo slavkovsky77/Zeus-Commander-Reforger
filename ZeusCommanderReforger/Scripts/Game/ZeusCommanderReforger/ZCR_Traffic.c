@@ -264,7 +264,15 @@ class ZCR_Traffic
 			SCR_AIGroup group;
 			if (!ZCR_Armour.IsUnit(v))
 				group = DriverGroupOf(v);
-			if (group && !group.GetCurrentWaypoint())
+			// 2 Nov, note 502: also while AI Conflict's ride is boarding with the team's walking order still current - a driver
+			// drove off at up to 61 km/h with the last man outside, and the ride was lost.
+			bool boarding = group && !group.GetCurrentWaypoint();
+			if (group && !boarding)
+			{
+				string step = AICF_VehicleCoordinator.ZcrRideStep(SlotOf(group));
+				boarding = step == "BOARDING" || step == "SPAWN_COMMIT" || step == "DISMOUNT";
+			}
+			if (boarding)
 			{
 				array<AIAgent> agents = {};
 				group.GetAgents(agents);
@@ -298,6 +306,20 @@ class ZCR_Traffic
 				s_mBoardHeld.Remove(v);
 			}
 		}
+	}
+
+	protected static AICF_GroupSlot SlotOf(AIGroup group)
+	{
+		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
+		{
+			for (int s; state && s < state.GetSlotCount(); s++)
+			{
+				AICF_GroupSlot slot = state.GetSlot(s);
+				if (slot && slot.GetGroup() == group)
+					return slot;
+			}
+		}
+		return null;
 	}
 
 	protected static SCR_AIGroup DriverGroupOf(IEntity vehicle)
