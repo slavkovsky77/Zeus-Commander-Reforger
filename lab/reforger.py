@@ -212,10 +212,12 @@ def main() -> int:
     (profile / "run.json").write_text(json.dumps(provenance(a, cmd), indent=1), encoding="utf-8")
     if a.client or getattr(a, "solo", False):
         window_settings(profile / "profile")
+    headless = not (a.client or getattr(a, "solo", False))
+    gate = cpu.aoe_gate(profile.name) if headless else None   # AoE mode: one headless server at a time (waits its turn)
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
-    if not (a.client or getattr(a, "solo", False)):
-        cpu.pin_if_watched(proc.pid)   # note 279: a headless server stays off the watched game's cores
+    if headless:
+        cpu.pin_if_watched(proc.pid)   # note 279: a headless server stays off the watched game's cores (and AoE's)
     if a.client:
         return 0
     t0, ready_at = time.time(), None
