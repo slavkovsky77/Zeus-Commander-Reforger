@@ -1361,9 +1361,29 @@ class ZCR_Director
 		string posture = slot.GetOperationalPosture();
 		if (posture == "INFANTRY_MUSTER")
 			text += " - gathering at base";
+		// 2 Nov, note 493 (Martin: "some of the subtitles of what is team actually doing is not completely correct"): the
+		// order alone read 'ATTACK Airport Base - 2126 m' while the team waited for a vehicle spot or boarded. Now what it
+		// does now, from AI Conflict's ride.
+		string step = AICF_VehicleCoordinator.ZcrRideStep(slot);
+		string doing;
+		if (step == "WAITING_FOR_SITE" || step == "SITE_PLANNED" || step == "APPROACHING_SITE" || step == "STAGING_CONFIRMED" ||
+			step == "SPAWN_COMMIT")
+			doing = "waiting for a vehicle";
+		else if (step == "BOARDING")
+			doing = "boarding";
+		else if (step == "TRANSIT")
+			doing = "riding";
+		else if (step == "DISMOUNT" || step == "HANDOFF")
+			doing = "getting out";
+		else if (step == "FALLBACK" || step == "COOLDOWN")
+			doing = "walking - the ride failed";
 		ChimeraCharacter c = ChimeraCharacter.Cast(leader);
-		if (c && c.IsInVehicle())
-			text += " - riding";
+		if (doing.IsEmpty() && c && c.IsInVehicle())
+			doing = "riding";
+		if (doing.IsEmpty() && m_sTeamGoal != "" && vector.DistanceXZ(leader.GetOrigin(), m_vTeamGoal) > 300)
+			doing = "walking";
+		if (!doing.IsEmpty())
+			text += " - " + doing;
 		return text;
 	}
 
