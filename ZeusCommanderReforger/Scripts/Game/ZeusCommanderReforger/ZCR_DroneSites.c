@@ -69,6 +69,7 @@ class ZCR_DroneSites
 	// that is at least FORWARD_CLOSER nearer the front than its nearest site.
 	static const float FORWARD_FAR = 1800;
 	static const float FORWARD_CLOSER = 400;
+	static const float FIELD_M = 700;    // a field site this far short of the front
 	static const int FIRST_READY = 60;
 	static const int SETUP = 120;
 	static const int REBUILD = 300;
@@ -197,11 +198,37 @@ class ZCR_DroneSites
 				atNode = node;
 			}
 		}
+		// No base of the side qualifies (the harbour side of the Farm battle: its HQ 1.1 km from Farm, nothing nearer): a site
+		// in the field, FIELD_M short of the front on the way from the side's main base (FPV teams set up in the open country
+		// behind the line, not only at bases) - when that is FORWARD_CLOSER nearer than its nearest site.
+		if (at == vector.Zero && faction && faction.GetMainBase() && faction.GetMainBase().GetOwner())
+		{
+			vector home = faction.GetMainBase().GetOwner().GetOrigin();
+			vector dir = home - front;
+			dir[1] = 0;
+			if (dir.Length() > FIELD_M + 100)
+			{
+				dir.Normalize();
+				vector field = front + dir * FIELD_M;
+				int fieldFailedAt;
+				bool fieldFailed = s_mForwardFailedAt.Find(side + ":field", fieldFailedAt) && now - fieldFailedAt < FORWARD_FAIL_S;
+				if (!fieldFailed && FIELD_M < nearestSite - FORWARD_CLOSER)
+				{
+					at = field;
+					atNode = -2;
+				}
+			}
+		}
 		if (at != vector.Zero && (!s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 30))
 		{
 			s_mForwardTriedAt.Set(side, now);
 			if (!Create(side, at, front, false, now + SETUP))
-				s_mForwardFailedAt.Set(side + ":" + atNode, now);
+			{
+				string key = side + ":" + atNode;
+				if (atNode == -2)
+					key = side + ":field";
+				s_mForwardFailedAt.Set(key, now);
+			}
 		}
 	}
 
