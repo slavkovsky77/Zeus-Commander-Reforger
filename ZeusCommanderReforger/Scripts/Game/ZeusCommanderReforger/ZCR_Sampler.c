@@ -41,6 +41,24 @@ class ZCR_Sampler
 	protected ref map<string, ref map<IEntity, vector>> m_mKnownPos = new map<string, ref map<IEntity, vector>>();
 	protected ref map<string, ref map<IEntity, int>> m_mKnownAt = new map<string, ref map<IEntity, int>>();
 	protected int m_iNextMeasure;
+	// Seen while moving (2 Nov, note 515 - Martin: "infantry is not choosing the best possible route going through real cover",
+	// "enemies should not be ignored"): every 10 s, squad soldiers moving on foot - can a living enemy within EXPOSE_M see him
+	// (eye to eye over terrain, buildings, foliage)? Each is checked against his EXPOSE_EYES nearest enemies on foot; at most
+	// EXPOSE_TRACES sight checks per side a pass (Martin felt a periodic lag), starting at a rotating place in the list so
+	// every soldier gets sampled - a first version with one budget for both sides and the map's order sampled only the first
+	// few soldiers once the sides were close. Per side: moving samples, seen ones; [ZCR][EXPOSE] every 30 s, with ai_seen=:
+	// the samples an enemy soldier's own perception saw in the last EXPOSE_SEEN_S (free - Learn reads every soldier's targets;
+	// 0 all through the first Farm battle with it, so not the measure).
+	protected int m_iNextExpose;
+	protected int m_iExposeTurn;
+	protected ref map<string, int> m_mExposeMoving = new map<string, int>();
+	protected ref map<string, int> m_mExposeSeen = new map<string, int>();
+	protected ref map<string, int> m_mExposeAiSeen = new map<string, int>();
+	protected ref map<IEntity, bool> m_mSeenNow = new map<IEntity, bool>();
+	protected static const float EXPOSE_SEEN_S = 3;
+	protected static const float EXPOSE_M = 400;
+	protected static const int EXPOSE_EYES = 4;
+	protected static const int EXPOSE_TRACES = 75;
 	protected ref TraceParam m_Trace;
 	protected ref TraceParam m_EyeTrace;
 	protected ref map<string, int> m_mSpotted = new map<string, int>();
@@ -286,6 +304,8 @@ class ZCR_Sampler
 		{
 			if (!target || !target.GetTargetEntity() || target.GetTimeSinceSeen() > 30)
 				continue;
+			if (target.GetTimeSinceSeen() <= EXPOSE_SEEN_S)
+				m_mSeenNow.Set(target.GetTargetEntity(), true);
 			pos.Set(target.GetTargetEntity(), target.GetLastSeenPosition());
 			when.Set(target.GetTargetEntity(), now);
 		}
@@ -340,6 +360,30 @@ class ZCR_Sampler
 		return hit && hit.GetRootParent() == target.GetRootParent();
 	}
 
+	// A soldier's sight line to another soldier (EXPOSE): from 0.7 m out of his eye - Exclude covers his body, not his helmet
+	// and weapon (child entities), which a trace from inside his head hits first (0 seen in two whole Farm battles) - to the
+	// other's eye; clear, or the first thing hit is the other soldier (or his gear).
+	protected bool SoldierSees(vector from, vector to, IEntity observer, IEntity target)
+	{
+		vector dir = to - from;
+		float len = dir.Length();
+		if (len < 1.5)
+			return true;
+		if (!m_EyeTrace)
+			m_EyeTrace = new TraceParam();
+		m_EyeTrace.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		m_EyeTrace.TargetLayers = EPhysicsLayerDefs.ViewGeometry | EPhysicsLayerDefs.Foliage;
+		m_EyeTrace.Exclude = observer;
+		m_EyeTrace.Start = from + dir * (0.7 / len);
+		m_EyeTrace.End = to;
+		m_EyeTrace.TraceEnt = null;
+		float f = GetGame().GetWorld().TraceMove(m_EyeTrace, null);
+		if (f >= 0.98)
+			return true;
+		IEntity hit = m_EyeTrace.TraceEnt;
+		return hit && target && hit.GetRootParent() == target.GetRootParent();
+	}
+
 	protected void Remember(string side, IEntity e, vector p, int now)
 	{
 		map<IEntity, vector> pos;
@@ -383,6 +427,7 @@ class ZCR_Sampler
 		ZCR_CostScope cost = new ZCR_CostScope("sampler");   // ZCR_Cost: our scripts' share of the frame time
 		int now = ZCR_LossLog.Seconds();
 		Forget(now);
+		m_mSeenNow.Clear();
 		map<IEntity, ref ZCR_SoldierState> next = new map<IEntity, ref ZCR_SoldierState>();
 		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
 		{
@@ -434,6 +479,11 @@ class ZCR_Sampler
 		}
 		m_mState = next;
 		SpotFromDrones(now);
+		if (now >= m_iNextExpose)
+		{
+			m_iNextExpose = now + 10;
+			Exposure();
+		}
 		if (now >= m_iNextMeasure)
 		{
 			m_iNextMeasure = now + 30;
@@ -441,9 +491,123 @@ class ZCR_Sampler
 		}
 	}
 
+	protected void Exposure()
+	{
+		ZCR_CostScope cost = new ZCR_CostScope("expose");
+		array<IEntity> usFoot = {};
+		array<IEntity> ussrFoot = {};
+		array<IEntity> usMoving = {};
+		array<IEntity> ussrMoving = {};
+		foreach (IEntity e, ZCR_SoldierState st : m_mState)
+		{
+			if (!e || !st || st.m_bInVehicle)
+				continue;
+			if (st.m_sSide == "US")
+			{
+				usFoot.Insert(e);
+				if (st.m_bMoving && st.m_bSquad)
+					usMoving.Insert(e);
+			}
+			else if (st.m_sSide == "USSR")
+			{
+				ussrFoot.Insert(e);
+				if (st.m_bMoving && st.m_bSquad)
+					ussrMoving.Insert(e);
+			}
+		}
+		m_iExposeTurn++;
+		ExposureOf("US", usMoving, ussrFoot);
+		ExposureOf("USSR", ussrMoving, usFoot);
+	}
+
+	protected void ExposureOf(string side, array<IEntity> moving, array<IEntity> enemies)
+	{
+		int n = moving.Count();
+		int traces;
+		for (int k; k < n && traces < EXPOSE_TRACES; k++)
+		{
+			IEntity e = moving[(k + m_iExposeTurn * 7) % n];
+			ZCR_SoldierState st = m_mState.Get(e);
+			if (!st)
+				continue;
+			// His EXPOSE_EYES nearest enemies within EXPOSE_M, nearest first.
+			array<IEntity> near = {};
+			array<float> nearM = {};
+			foreach (IEntity o : enemies)
+			{
+				ZCR_SoldierState os = m_mState.Get(o);
+				if (!os)
+					continue;
+				float d = vector.DistanceXZ(os.m_vPos, st.m_vPos);
+				if (d > EXPOSE_M)
+					continue;
+				int at = nearM.Count();
+				while (at > 0 && nearM[at - 1] > d)
+					at--;
+				if (at >= EXPOSE_EYES)
+					continue;
+				near.InsertAt(o, at);
+				nearM.InsertAt(d, at);
+				if (near.Count() > EXPOSE_EYES)
+				{
+					near.Remove(EXPOSE_EYES);
+					nearM.Remove(EXPOSE_EYES);
+				}
+			}
+			bool seen;
+			for (int q; q < near.Count() && traces < EXPOSE_TRACES; q++)
+			{
+				traces++;
+				if (SoldierSees(m_mState.Get(near[q]).m_vEye, st.m_vEye, near[q], e))
+				{
+					seen = true;
+					break;
+				}
+			}
+			m_mExposeMoving.Set(side, m_mExposeMoving.Get(side) + 1);
+			if (seen)
+				m_mExposeSeen.Set(side, m_mExposeSeen.Get(side) + 1);
+			if (m_mSeenNow.Contains(e))
+				m_mExposeAiSeen.Set(side, m_mExposeAiSeen.Get(side) + 1);
+		}
+	}
+
 	protected void Measure(int now)
 	{
 		array<string> sides = {"US", "USSR"};
+		foreach (string xs : sides)
+		{
+			int moving = m_mExposeMoving.Get(xs);
+			int seenBy = m_mExposeSeen.Get(xs);
+			int pct;
+			if (moving > 0)
+				pct = Math.Round(100.0 * seenBy / moving);
+			Print(string.Format("[ZCR][EXPOSE] t=%1 side=%2 moving=%3 seen=%4 pct=%5 ai_seen=%6", now, xs, moving, seenBy, pct, m_mExposeAiSeen.Get(xs)), LogLevel.NORMAL);
+			m_mExposeMoving.Set(xs, 0);
+			m_mExposeSeen.Set(xs, 0);
+			m_mExposeAiSeen.Set(xs, 0);
+			// What the side knows (note 515: the live attack planner reads it): the enemies it saw in the last minute, 10 m.
+			map<IEntity, vector> kpos;
+			map<IEntity, int> kat;
+			string list;
+			int n;
+			if (m_mKnownPos.Find(xs, kpos) && m_mKnownAt.Find(xs, kat))
+			{
+				foreach (IEntity ke, vector kp : kpos)
+				{
+					if (!ke || now - kat.Get(ke) > 60)
+						continue;
+					string ks = ZCR_LossLog.SideOf(ke);
+					if (ks != "US" && ks != "USSR")
+						continue;
+					if (n > 0)
+						list += ";";
+					list += string.Format("%1,%2", Math.Round(kp[0] / 10) * 10, Math.Round(kp[2] / 10) * 10);
+					n++;
+				}
+			}
+			Print(string.Format("[ZCR][KNOWN] t=%1 side=%2 n=%3 at=%4", now, xs, n, list), LogLevel.NORMAL);
+		}
 		// Drones up per side (Martin: "0 drones in the sky"), and the enemies their eyes found since the last.
 		if (System.IsCLIParam("zcrDrones"))
 		{
