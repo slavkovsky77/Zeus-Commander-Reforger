@@ -123,8 +123,13 @@ VARIANTS = {
     # to +50% (south HQ) more soldiers, no jam at the HQ. Does the Farm battle jam at the HQ without it (the 29 Oct reason)?
     "storm-plan-measured-cap0": (_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -aicfRidesPerBase 0 -aicfRideSpacingMs 0 -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0",
                                  "as storm-plan-measured, with neither the cap nor the spacing on rides leaving a base"),
+    # 2 Nov 18:10 (Martin: "transport is for now good", "lets run one farm battle"): the Farm battle with the transport
+    # test's setup - the seat fallback on (his call of 30 Oct, note 456, never applied here), and the fork's and ZCR's
+    # 2 Nov defaults (boarding hold, departure queue, 20-s retry at a base, order restore, ride detour).
+    "farm-now": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
+                 "storm-plan-measured with the transport test's setup: the seat fallback on, and every 2 Nov transport fix (the defaults)"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
