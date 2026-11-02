@@ -136,7 +136,7 @@ NEAR_M = 300
 
 
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1,
-        cam_spot: str = "") -> dict:
+        cam_spot: str = "", play: bool = False) -> dict:
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
     if cam_spot:
@@ -151,6 +151,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     bridges.ensure(("point",) if attacker == "BOTH" else ("assault", "hold"))
     title = sublab.title("assault", scenario, variant)
     label = f"assault-{scenario}-{variant}-p{port}" if not watch else f"assaulttest-{scenario}-{variant}-watch"   # lab/watch_test.py finds the game by it
+    if play:
+        label = f"assaulttest-{scenario}-{variant}-play"
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", MODS, "--plan-seconds", "60",
             "--extra", f"{extra} -zcrTestTitle {title}"]
@@ -161,14 +163,20 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         if not (seed / "zcr" / "attackplan.txt").exists():
             raise SystemExit(f"no plan file {seed / 'zcr' / 'attackplan.txt'} - run lab/attackplan.py --export first")
         argv += ["--seed-profile", str(seed)]
-    if watch:
+    if play:
+        # 2 Nov (Martin: "could you prepare version of farm battle that I could as soldier for one side?", "I would like to
+        # test gameplay as well"): the game hosts the match as for watching, but without our spectator mode - no director
+        # camera, the game's own deploy menu: he picks a side and spawns as a soldier among the AI teams, at 1x.
+        argv += ["--solo"]
+    elif watch:
         # The game window, at 1x by default (Martin watches at 1x - 28 Oct: 'it jumps because of speed'); always passed, the
         # game keeps its multiplier between runs. The test still lasts 'minutes' game minutes.
         argv += ["--solo", "--watch"]
         argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
         argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))
-    subprocess.run(argv, cwd=str(ROOT), stdout=None if watch else subprocess.DEVNULL, stderr=None if watch else subprocess.DEVNULL,
-                   creationflags=0 if watch else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
+    shown = watch or play
+    subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,
+                   creationflags=0 if shown else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
     if not runs:
         return {"scenario": scenario, "variant": variant, "error": "no run folder"}
@@ -349,6 +357,7 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=2160)
     ap.add_argument("--watch", action="store_true", help="in the game window (solo) - only when nobody else uses the game")
     ap.add_argument("--speed", type=float, default=1, help="with --watch: the game's time multiplier (default 1x)")
+    ap.add_argument("--play", action="store_true", help="in the game window as a player: the game's deploy menu, pick a side and play among the AI teams (1x)")
     ap.add_argument("--summarize", default="", help="summarize an existing run folder instead of running")
     ap.add_argument("--cam-spot", default="", help="with --watch: x,z,from_s,to_s - the camera follows the ride nearest that spot "
                     "between those game seconds (-zcrCamSpot, 31 Oct: the airfield edge west of Farm)")
@@ -356,7 +365,7 @@ def main() -> int:
     if a.summarize:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
-        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot)
+        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play)
     print(json.dumps(r, indent=1))
     return 0
 
