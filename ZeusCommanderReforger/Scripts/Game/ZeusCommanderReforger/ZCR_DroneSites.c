@@ -62,6 +62,13 @@ class ZCR_DroneSites
 {
 	static ref array<ref ZCR_DroneSite> s_aSites = {};
 	protected static ref map<string, int> s_mForwardTriedAt = new map<string, int>();
+	// A base where no clear ground was found, side:node -> when (note 514): skipped for FORWARD_FAIL_S.
+	protected static ref map<string, int> s_mForwardFailedAt = new map<string, int>();
+	static const int FORWARD_FAIL_S = 600;
+	// Up to FORWARD_FAR from the front (the south HQ's side of the Farm battle holds no base within FORWARD_NEAR), when
+	// that is at least FORWARD_CLOSER nearer the front than its nearest site.
+	static const float FORWARD_FAR = 1800;
+	static const float FORWARD_CLOSER = 400;
 	static const int FIRST_READY = 60;
 	static const int SETUP = 120;
 	static const int REBUILD = 300;
@@ -167,24 +174,34 @@ class ZCR_DroneSites
 		}
 		if (nearestSite <= FORWARD_GAP)
 			return;
+		// 2 Nov (note 514 - Martin: "I would expect them to be used more, definitely were used more before"): in every Farm
+		// battle the nearest base to the front (Signal Hill) had no clear ground, the same base was tried again every 2
+		// minutes and no forward site was ever set up - one pilot a side flying 1-2 km from the HQ, 5-10 launches per 10
+		// game minutes against 9-15 with 3-4 pilots in the 28 Oct battles. A base that failed is skipped for
+		// FORWARD_FAIL_S; the next one nearest the front is tried 30 s later.
 		vector at;
-		float best = FORWARD_NEAR;
+		int atNode = -1;
+		float best = FORWARD_FAR;
 		foreach (int node, vector pos : ZCR_Strategist.s_mNodePos)
 		{
 			if (ZCR_Strategist.s_mNodeOwner.Get(node) != side)
 				continue;
+			int failedAt;
+			if (s_mForwardFailedAt.Find(side + ":" + node, failedAt) && now - failedAt < FORWARD_FAIL_S)
+				continue;
 			float d = vector.DistanceXZ(pos, front);
-			if (d < best && d > 150)
+			if (d < best && d > 150 && d < nearestSite - FORWARD_CLOSER)
 			{
 				best = d;
 				at = pos;
+				atNode = node;
 			}
 		}
-		// A failed try (no clear ground there) is retried after 2 minutes, not every tick.
-		if (at != vector.Zero && (!s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 120))
+		if (at != vector.Zero && (!s_mForwardTriedAt.Contains(side) || now - s_mForwardTriedAt.Get(side) >= 30))
 		{
 			s_mForwardTriedAt.Set(side, now);
-			Create(side, at, front, false, now + SETUP);
+			if (!Create(side, at, front, false, now + SETUP))
+				s_mForwardFailedAt.Set(side + ":" + atNode, now);
 		}
 	}
 

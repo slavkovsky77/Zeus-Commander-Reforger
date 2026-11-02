@@ -63,6 +63,23 @@ modded class SCR_CampaignMilitaryBaseComponent
 			return true;
 		return super.IsValidTarget(faction);
 	}
+
+	// The point changes hands only by ZCR_PointSeize, the same rule for both sides: the game's own seizing still worked for
+	// the side whose radio network reaches the point (2 Nov 19:08: the harbour side took Farm by the game's rule while
+	// ours had both sides inside) - blocked there and logged.
+	override void SetFaction(SCR_CampaignFaction faction)
+	{
+		if (ZCR_PointSeize.Guards(this) && faction != GetFaction())
+		{
+			string to = "none";
+			if (faction)
+				to = faction.GetFactionKey();
+			Print(string.Format("[ZCR][SEIZE] t=%1 base=%2 event=game_capture_blocked to=%3", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(this), to),
+				LogLevel.NORMAL);
+			return;
+		}
+		super.SetFaction(faction);
+	}
 }
 
 // The point is taken by being there (2 Nov, note 513 - Martin: "there must be caputring bug", "fix so it can be captured,
@@ -75,15 +92,22 @@ modded class SCR_CampaignMilitaryBaseComponent
 // owner change itself is logged by the director ([ZCR][CAPTURE]). -zcrNoPointSeize: the game's own seizing only.
 class ZCR_PointSeize
 {
-	static const float POINT_M = 120;
+	static const float POINT_M = 60;      // the core of the base (120 m: both sides were always somewhere inside - contested all match)
 	static const float SEIZE_S = 60;
 	protected static bool s_bStarted;
+	protected static bool s_bSetting;   // our own owner change in progress
 	protected static ref ZCR_PointSeize s_Instance;
 	protected string m_sSide;
 	protected float m_fProgress;
 	protected int m_iLast = -1;
 	protected int m_iLogAt;
 	protected string m_sLastState;
+
+	// The game's own capture of the point is blocked while this rule runs (not our own change, not the setup's).
+	static bool Guards(SCR_CampaignMilitaryBaseComponent base)
+	{
+		return s_bStarted && !s_bSetting && ZCR_OnePoint.Is(base);
+	}
 
 	static void Start()
 	{
@@ -164,7 +188,9 @@ class ZCR_PointSeize
 			return;
 		Print(string.Format("[ZCR][SEIZE] t=%1 base=%2 event=taken by=%3 from=%4 us=%5 ussr=%6 radius_m=%7", now,
 			ZCR_Strategist.BaseName(base), taker, owner, us, ussr, Math.Round(radius)), LogLevel.NORMAL);
+		s_bSetting = true;
 		base.SetFaction(faction);
+		s_bSetting = false;
 	}
 
 	// Every living soldier: the AI's and the players'.
