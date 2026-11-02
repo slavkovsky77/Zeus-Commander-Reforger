@@ -128,15 +128,25 @@ VARIANTS = {
     # 2 Nov defaults (boarding hold, departure queue, 20-s retry at a base, order restore, ride detour).
     "farm-now": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
                  "storm-plan-measured with the transport test's setup: the seat fallback on, and every 2 Nov transport fix (the defaults)"),
+    # 2 Nov night (note 515 - Martin: "why gemini is not used for planning attacks?", "attack routes should be planned based
+    # on the context (positions of soldiers, cover)", "points where soldiers are dropped should be planned by LLM", "only one
+    # side can use it, the other one will not, and we will compare"): farm-now, and ONE side's attack teams get live plans
+    # from lab/liveplan.py running beside the battle (--live-side: harbour = the side whose HQ is nearer Farm, south, US or
+    # USSR) - drop points, cover routes past the enemies that side knows, go/wait/support; the other side plays farm-now.
+    "farm-live": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
+                  "farm-now; one side's live plans picked by the code (the cheapest drop points and routes, go)"),
+    "farm-gemini": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
+                    "farm-now; one side's live plans picked by Gemini every ~2.5 game minutes from the map image (drop points, routes, go/wait/support)"),
 }
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+LIVE = {"farm-live": "code", "farm-gemini": "gemini"}   # variant -> lab/liveplan.py's picker
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-live": "measured", "farm-gemini": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
 
 
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1,
-        cam_spot: str = "", play: bool = False) -> dict:
+        cam_spot: str = "", play: bool = False, live_side: str = "harbour") -> dict:
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
     if cam_spot:
@@ -175,8 +185,19 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         argv[argv.index("--extra") + 1] += f" -zcrSpeed {speed:g}"
         argv[argv.index("--minutes") + 1] = str(round(minutes / speed, 2))
     shown = watch or play
-    subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,
-                   creationflags=0 if shown else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
+    planner = None
+    if variant in LIVE:   # the live planner beside the battle (lab/liveplan.py), for one side
+        import time
+        (ROOT / ".runtime" / "liveplan").mkdir(parents=True, exist_ok=True)
+        planner = subprocess.Popen([sys.executable, "-u", str(ROOT / "lab" / "liveplan.py"), "--label", label, "--after", str(time.time()),
+                                    "--side", live_side, "--picker", LIVE[variant]], cwd=str(ROOT),
+                                   stdout=open(ROOT / ".runtime" / "liveplan" / f"{label}.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    try:
+        subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,
+                       creationflags=0 if shown else getattr(subprocess, "IDLE_PRIORITY_CLASS", 0))
+    finally:
+        if planner and planner.poll() is None:
+            planner.terminate()
     runs = sorted((ROOT / ".runtime" / "runs").glob(f"{label}-*"))
     if not runs:
         return {"scenario": scenario, "variant": variant, "error": "no run folder"}
@@ -361,11 +382,13 @@ def main() -> int:
     ap.add_argument("--summarize", default="", help="summarize an existing run folder instead of running")
     ap.add_argument("--cam-spot", default="", help="with --watch: x,z,from_s,to_s - the camera follows the ride nearest that spot "
                     "between those game seconds (-zcrCamSpot, 31 Oct: the airfield edge west of Farm)")
+    ap.add_argument("--live-side", default="harbour", help="farm-live / farm-gemini: the side with live plans - harbour (its HQ "
+                    "nearer Farm; HQs are drawn per match), south, US or USSR")
     a = ap.parse_args()
     if a.summarize:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
-        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play)
+        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play, a.live_side)
     print(json.dumps(r, indent=1))
     return 0
 

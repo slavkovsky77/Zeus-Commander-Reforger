@@ -43,16 +43,29 @@ class ZCR_Dismount
 	}
 
 	// The plan's ride: its driver's group gets a waypoint at the assembly point ahead of its own, once per vehicle.
-	protected static ref map<IEntity, bool> s_mSteered = new map<IEntity, bool>();
+	// 2 Nov night (note 515): per vehicle, the team (slot) it was steered for and the drop point - a live plan
+	// (lab/liveplan.py) may name another drop point while it drives; the ride still lets its team out where it was sent.
+	// A vehicle that later carries another team is steered again.
+	protected static ref map<IEntity, int> s_mSteered = new map<IEntity, int>();
+	protected static ref map<IEntity, vector> s_mSteeredTo = new map<IEntity, vector>();
 
-	static void Steer(IEntity vehicle, AICF_ZcrPlan plan)
+	static vector AssemblyFor(IEntity vehicle, AICF_ZcrPlan plan, int slot)
 	{
-		if (!vehicle || s_mSteered.Contains(vehicle))
+		vector p;
+		if (vehicle && s_mSteered.Contains(vehicle) && s_mSteered.Get(vehicle) == slot && s_mSteeredTo.Find(vehicle, p))
+			return p;
+		return plan.m_vAssembly;
+	}
+
+	static void Steer(IEntity vehicle, AICF_ZcrPlan plan, int slot)
+	{
+		if (!vehicle || (s_mSteered.Contains(vehicle) && s_mSteered.Get(vehicle) == slot))
 			return;
 		SCR_AIGroup group = ZCR_Detour.DriverGroup(vehicle);
 		if (!group)
 			return;
-		s_mSteered.Set(vehicle, true);
+		s_mSteered.Set(vehicle, slot);
+		s_mSteeredTo.Set(vehicle, plan.m_vAssembly);
 		vector p = plan.m_vAssembly;
 		p[1] = GetGame().GetWorld().GetSurfaceY(p[0], p[2]);
 		EntitySpawnParams params = new EntitySpawnParams();
@@ -100,9 +113,13 @@ modded class AICF_VehicleTransitFlow
 				// plan's assembly point - hidden from the objective, where the lanes start - and everyone gets out there. The
 				// plan from the origin nearest the ride's first tick (latched per team, shared with its approach legs).
 				AICF_ZcrPlan plan = AICF_ZcrAttackPlan.ForTeam(trip.GetAssignment().GetFactionKey(), trip.GetAssignment().GetSlotId(), target, at);
-				if (plan && d > vector.DistanceXZ(plan.m_vAssembly, target) - 30)
+				// A live plan's team on foot has no drop point (0 0): the covered dismount below as without a plan.
+				vector assembly;
+				if (plan)
+					assembly = ZCR_Dismount.AssemblyFor(trip.GetLease().GetVehicle(), plan, trip.GetAssignment().GetSlotId());
+				if (plan && assembly != vector.Zero && d > vector.DistanceXZ(assembly, target) - 30)
 				{
-					float toAssembly = vector.DistanceXZ(at, plan.m_vAssembly);
+					float toAssembly = vector.DistanceXZ(at, assembly);
 					if (toAssembly <= 60)
 					{
 						Print(string.Format("[ZCR][DISMOUNT] t=%1 faction=%2 out at=%3 %4 from_objective=%5 plan=%6 assembly", ZCR_LossLog.Seconds(),
@@ -111,7 +128,7 @@ modded class AICF_VehicleTransitFlow
 						AbortOwnedActions(trip);
 						return AICF_TripOutcome.StartDismount("ZCR_PLAN_ASSEMBLY", causationId);
 					}
-					ZCR_Dismount.Steer(trip.GetLease().GetVehicle(), plan);
+					ZCR_Dismount.Steer(trip.GetLease().GetVehicle(), plan, trip.GetAssignment().GetSlotId());
 					return super.Tick(trip, causationId);
 				}
 				if (d >= ZCR_Dismount.NEAR && d <= ZCR_Dismount.FAR && ZCR_Dismount.Hidden(target, at))
