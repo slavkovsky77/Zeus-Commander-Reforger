@@ -23,14 +23,17 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing (2 Nov 05:40) - the night A/B is done: AI Conflict's recoveries with the 0.35 threat limit lose 18% of team time v 26% with the old limit.",
+    "Running now": "Nothing (2 Nov 07:35) - the Soviet transport runs are done: 18% of team time lost, the same as the US.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Teams left with no order for 10-26 min after an AI Conflict deadline is missed (5 of 8 night runs); the stone-wall pocket drop point between Moss Hill and Beauregard; then Martin watches a 40-minute run.",
+    "Being built next": "A finished ride with no order hands the team back (the biggest single loss on both sides); the boarding hold at any distance (Soviet jeeps drove off with the last man far out).",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r63", "The Soviets move as well as the US",
+     "Martin: 'i am still sleeping so test it on soviet side too'. The transport test with the Soviets holding the map (UAZ-469 jeeps), 4 runs of 40 min: time lost 20, 16, 18, 19% (mean 18%, the US 18%), rides failed 16% (US 14%). The same open faults: a team with no order for 10-25 min after a missed deadline in all 4 runs (twice at one Airport spot). Worse for the Soviets: the jeep drives off while the last man is still far out (the seat fallback deferred 400-900 times a run for a moving vehicle; US 10-200)."),
+
     ("good", "r63", "AI Conflict's recoveries now run when no enemy is near",
      "AI Conflict allowed its recoveries (the last man's seat, the clean-up after a failed ride, moving a stuck team) only under a threat measure of 0.01; with no enemy on the map teams read 0.075-0.3, so they waited for ever: a last man's seat deferred 384 times, a team with no order for 20 minutes. Now 0.35. Night A/B, 4 x 40 min each: time lost 18% v 26% with the old limit, walking far 1-5% v 6-10%, rides failed 14% v 23% (fewer in every pair)."),
     ("bad", "r63", "Teams left with no order after a missed deadline",
@@ -315,11 +318,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "A team whose ride is over but which still has no order after a minute goes back to the commander with a fresh order (10-26 min stands in 5 of 8 runs).",
+    "A team whose ride is over but which still has no order after a minute goes back to the commander with a fresh order (10-26 min stands in 9 of 12 runs, US and Soviet).",
+    "The boarding hold through AI Conflict's whole boarding step, however far the last man is (Soviet jeeps drove off at up to 50 km/h).",
     "No drop point inside the stone-wall pocket between Moss Hill and Beauregard (2390,1385).",
-    "Rides still fail 1 in 7: a team that can't reach its vehicle spot in time, the driver's recovery running out, the last man not boarding.",
-    "Vehicles stuck on the routes: the US checkpoint on the main road, stone walls by the roads, a castle bridge.",
-    "Martin watches a 40-minute run when the headless runs are at or under 10% time lost.",
+    "Rides still fail 1 in 6-7: the team can't reach its vehicle spot in time, the driver's recovery runs out.",
+    "Martin watches a 40-minute run (US and Soviet) when the headless runs are at or under 10% time lost.",
 ]
 
 FACTS = [
