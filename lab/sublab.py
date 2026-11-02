@@ -15,6 +15,7 @@ score expression is evaluated on it, None counts as 0). lab/drivetest.py is the 
 import argparse
 import importlib.util
 import json
+import re
 import statistics
 import sys
 import tomllib
@@ -99,11 +100,64 @@ def record(name: str, row: dict) -> dict:
     return row
 
 
+def worst_slice(text, minutes, fields="walk idle still", teams=12, slice_min=5):
+    """The worst slice of a run's per-slice line ('0-5: walk 0 idle 2 still 15 stuck 3 | 5-10: ...', team-minutes): the
+    named fields summed, as % of all team time in that slice. A last slice under half its length doesn't count."""
+    want, worst = fields.split(), None
+    for part in str(text or "").split("|"):
+        m = re.match(r"\s*(\d+)-(\d+):(.*)", part)
+        if not m:
+            continue
+        length = min(slice_min, float(minutes or 0) - int(m.group(1)))
+        if length < slice_min / 2:
+            continue
+        vals = dict(re.findall(r"([a-z_]+) (-?[\d.]+)", m.group(3)))
+        pct = 100 * sum(float(vals.get(f, 0)) for f in want) / (teams * length)
+        worst = pct if worst is None else max(worst, pct)
+    return None if worst is None else round(worst)
+
+
+def derive(d: dict, row: dict) -> dict:
+    """A test's [derived] measures (2 Nov, note 506), worked out from what every run stored - old runs too: an
+    expression per key; a run missing what it needs gets none."""
+    for k, expr in (d.get("derived") or {}).items():
+        if row.get(k) is not None:
+            continue
+        try:
+            v = eval(expr, {"__builtins__": {}, "worst_slice": worst_slice, "round": round, "max": max, "min": min}, dict(row))
+            row[k] = round(v, 1) if isinstance(v, float) else v
+        except Exception:
+            row[k] = None
+    return row
+
+
 def rows(name: str) -> list:
     p = results_path(name)
     if not p.is_file():
         return []
-    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    try:
+        d = load(name)
+    except SystemExit:
+        d = {}
+    return [derive(d, json.loads(l)) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def builds() -> list:
+    """The lab's builds (lab/progress.py BUILDS): number, name, when it went live, what changed."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import progress
+        return [{"n": n, "name": name, "live": live, "words": words} for n, name, live, words in progress.BUILDS]
+    except Exception:
+        return []
+
+
+def build_at(blist: list, at: str):
+    n = None
+    for b in blist:
+        if str(at or "") >= b["live"]:
+            n = b["n"]
+    return n
 
 
 def run(name: str, scenario: str, variant: str, repeat: int, minutes: float, port: int) -> list:
@@ -139,7 +193,7 @@ def matrix(name: str) -> dict:
         row = {"scenario": s, "cells": {}}
         for v, group in (cells.get(s) or {}).items():
             cell = {"n": len(group), "score": round(statistics.mean(x.get("score") or 0 for x in group), 1)}
-            for k in d["keys"]:
+            for k in list(dict.fromkeys(list(d["keys"]) + list(d.get("derived") or {}))):
                 vals = [x.get(k) for x in group if isinstance(x.get(k), (int, float)) and not isinstance(x.get(k), bool)]
                 cell[k] = round(statistics.mean(vals), 1) if vals else None
             row["cells"][v] = cell
@@ -158,7 +212,21 @@ def matrix(name: str) -> dict:
             vals = [x.get(k) for x in group if isinstance(x.get(k), (int, float)) and not isinstance(x.get(k), bool)]
             cell[k] = round(statistics.mean(vals), 2) if vals else None
         overall[v] = cell
-    return {"name": name, "question": d.get("question", ""), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""), "score_text": d["score"],
+    # Every run for the app's charts and tables, with the build it ran on (by its start time).
+    blist = builds()
+    keys_all = list(dict.fromkeys(list(d["keys"]) + list(d.get("derived") or {}) + [q["key"] for q in d.get("questions", [])]))
+    every = []
+    for r in rs[-400:]:
+        x = {k: r.get(k) for k in ["at", "scenario", "variant", "score", "watched", "minutes", "run"] + keys_all}
+        x["build"] = build_at(blist, r.get("at"))
+        every.append(x)
+    first_at = rs[0]["at"] if rs else ""
+    shown = [b for b in blist if b["live"] >= first_at] if first_at else []
+    before = [b for b in blist if b["live"] < first_at]
+    if before:
+        shown.insert(0, before[-1])
+    return {"name": name, "question": d.get("question", ""), "builds": shown, "history_note": d.get("history_note", ""),
+            "stack": d.get("stack", {}), "issue": d.get("issue", ""), "pass_rule": d.get("pass_rule", ""), "score_text": d["score"],
             "summary": summary, "overall": overall, "overall_keys": keys,
             "title": d.get("title", name), "score_words": d.get("score_words", ""), "baseline_words": d.get("baseline_words", ""),
             "candidate_words": d.get("candidate_words", ""), "vlabel": d.get("variant_labels", {}), "vwords": d.get("variant_words", {}),
@@ -167,7 +235,7 @@ def matrix(name: str) -> dict:
             "keys": d["keys"], "higher_is_better": d["higher_is_better"], "runs": len(rs), "last_at": rs[-1]["at"] if rs else None,
             "table": table, "recent": [{k: r.get(k) for k in ["at", "scenario", "variant", "score"] + d["keys"] + ["run"]} for r in rs[-12:]][::-1],
             # every run, oldest first, for the app's charts (the last 400)
-            "all": [{k: r.get(k) for k in ["at", "scenario", "variant", "score", "watched"] + d["keys"]} for r in rs[-400:]]}
+            "all": every}
 
 
 def report(name: str) -> Path:

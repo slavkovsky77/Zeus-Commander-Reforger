@@ -12,12 +12,25 @@ baseline = "rides"
 candidate = "nowalk2"
 score = "100 - walk_far_pct - idle_far_pct - still_aboard_pct - rides_failed"
 higher_is_better = true
-keys = ["walk_far_pct", "idle_far_pct", "still_aboard_pct", "stuck_detected", "seat_moving_defer", "held_moving", "driver_left", "vehmove_held", "trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
+keys = ["time_lost_pct", "worst5_pct", "rides_failed_pct", "stuck_10", "unjams_10", "walk_far_pct", "idle_far_pct", "still_aboard_pct", "stuck_detected", "seat_moving_defer", "held_moving", "driver_left", "vehmove_held", "trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
 title = "Transport"
-main = "walk_far_pct"
+main = "time_lost_pct"
 score_words = "100 minus the time lost in % of team time (walking far, standing on foot, in a vehicle that does not move), minus 1 per failed ride - what Martin sees (note 496); before 2 Nov: soldier-km a minute x10 minus 2 per failed ride"
 baseline_words = "as the watched Farm battle: 12 teams of 4, transport rides (Humvee / UAZ-469), at most 3 rides leaving the HQ at a time"
 candidate_words = "no cap, no spacing, the seat fallback on; a taken vehicle spot is looked for again after 10 s; 12 vehicles a side; no ride ban after a slow drop-off"
+history_note = "Runs until 1 Nov 23:00 were 20 game minutes, later ones 40 - the slowdown Martin saw comes late in a run. The HQ is random per run and swings a run by up to 8 points, so judge on 4 runs or more."
+
+# Worked out from what every run stored, old runs too (2 Nov, note 506).
+[derived]
+time_lost_pct = "walk_far_pct + idle_far_pct + still_aboard_pct"
+worst5_pct = "worst_slice(by5, minutes)"
+rides_failed_pct = "round(100 * rides_failed / rides_asked) if rides_asked else None"
+stuck_10 = "round(10 * stuck_detected / minutes, 1) if minutes else None"
+unjams_10 = "round(10 * unjams / minutes, 1) if minutes else None"
+
+# The over-time chart splits time lost into its parts.
+[stack]
+time_lost_pct = ["walk_far_pct", "idle_far_pct", "still_aboard_pct"]
 
 [scenario_labels]
 arland = "Arland - the whole map US"
@@ -48,6 +61,10 @@ spaced4 = "No cap, rides 4 s apart"
 cool90 = "Spaced, 90 s cooldown after a failed ride"
 stall4 = "180 s, stalled boarder re-ordered after 4 s"
 ride1k-approach180 = "Rides over 1 km, 180 s to reach the vehicle"
+nowalk = "No cap, spot re-look 10 s, 12 vehicles"
+nowalk2 = "Current setup"
+thr01 = "Current setup, recoveries only with no threat"
+before = "Current setup without the 2 Nov morning fixes"
 
 [variant_words]
 rides = "as the watched Farm battle: transport rides, at most 3 leaving the HQ at a time"
@@ -70,3 +87,105 @@ spaced4 = "as spaced, rides out of a base 4 s apart, not 8"
 cool90 = "as spaced, and a team whose ride failed walks 90 s before it may ask again, not 3 min"
 stall4 = "as approach180, and a soldier who stops making progress while boarding is re-ordered after 4 s, not 8"
 ride1k-approach180 = "rides only over 1 km, and 180 s to reach the vehicle spot"
+nowalk = "as cap0 (no cap, no spacing, the seat fallback on), and a team whose vehicle spot was taken looks again after 10 s, not 60; 12 vehicles a side, not 10"
+nowalk2 = "the current setup: as nowalk, and a slow drop-off doesn't bar the team from its next ride; it takes in each day's fixes, so the app splits it by build"
+thr01 = "the current setup with AI Conflict's old limit for its recoveries (only under a threat of 0.01) - the night A/B of 2 Nov"
+before = "the current setup as before 2 Nov morning: the boarding hold only by the cruise speed, a team's stuck verdict kept after a ride, no retry of a missed order restore - the A/B of 2 Nov morning"
+
+[[questions]]
+key = "time_lost_pct"
+title = "Time lost"
+short = "% of team time lost"
+better = "lower"
+target = 10
+axis = "team time walking far with no ride, standing on foot away from the target, or aboard a vehicle that doesn't move - % of all team time"
+quote = "it degrated with time, a lot of walking units or stuck vehicles (note 496)"
+
+[[questions]]
+key = "worst5_pct"
+title = "Worst 5 minutes"
+short = "% lost in the worst 5 min"
+better = "lower"
+target = 15
+axis = "time lost in the run's worst 5 game minutes, % of all team time then (12 teams)"
+quote = "it degrated with time (note 496)"
+
+[[questions]]
+key = "walk_far_pct"
+title = "Walking far"
+short = "% walking far"
+better = "lower"
+axis = "on foot over 400 m from the target and 250 m from every base - % of team time"
+quote = "really the only should walk long distances when car broke down (note 485)"
+
+[[questions]]
+key = "idle_far_pct"
+title = "Standing on foot"
+short = "% standing"
+better = "lower"
+axis = "on foot and not moving, away from the target (at bases too) - % of team time"
+quote = "they chill at hose somwhere completely different (note 494)"
+
+[[questions]]
+key = "still_aboard_pct"
+title = "In a vehicle that doesn't move"
+short = "% aboard, not moving"
+better = "lower"
+axis = "aboard a vehicle that doesn't move, away from the target (boarding, queues, stuck) - % of team time"
+quote = "team d4 is stuck into building driving like retard into budiling (note 495)"
+
+[[questions]]
+key = "rides_failed_pct"
+title = "Rides failed"
+short = "% of rides failed"
+better = "lower"
+target = 10
+axis = "rides asked for that ended without delivering the team, % of the rides asked"
+quote = "they had a perfectly fine car and they walk (note 490)"
+
+[[questions]]
+key = "stuck_10"
+title = "Vehicles stuck"
+short = "stuck vehicles per 10 min"
+better = "lower"
+axis = "AI Conflict's stuck-vehicle reports per 10 game minutes"
+quote = "lol now team a0 is stuck driving into house (note 488)"
+
+[[questions]]
+key = "unjams_10"
+title = "Jams cleared"
+short = "jams cleared per 10 min"
+better = "lower"
+axis = "times our jam rule had to move a vehicle jammed against another, per 10 game minutes"
+quote = "a bit traffic jam at start they really should do it more in queue (note 486)"
+
+[[questions]]
+key = "driver_left"
+title = "Drivers out while boarding"
+short = "drivers out"
+better = "lower"
+axis = "rides that ended because the driver got out while his team boarded (measured from 2 Nov)"
+
+[[questions]]
+key = "soldier_km_per_min"
+title = "Soldier-km a minute"
+short = "soldier-km a minute"
+better = "higher"
+axis = "kilometres moved by all soldiers together, per game minute"
+quote = "we should measure how efficiently we are transporting soldiers over the map (note 474)"
+
+[summary]
+at = "2 Nov 12:40 · 65 headless runs, US and Soviet"
+verdict = "Teams lose 15% of their time now (4 runs of 40 min with the 2 Nov morning build) - down from 37% in the first runs (31 Oct) and 20% the night before. The target is 10%, and 1 ride in 7 still fails."
+learned = [
+  "Walking far is almost gone: 21% of team time in the first runs, 2-3% now - no cap on rides out of a base, a taken vehicle spot looked for again after 10 s, 12 vehicles a side (1 Nov).",
+  "What is left is time aboard a vehicle that doesn't move (boarding, queues, stuck: 6-10%) and standing on foot (4-5%).",
+  "Vehicles crept off while their team boarded - a cruise speed of 0 still moved 5-6 km/h; cutting the drive to the wheels holds them (2 Nov morning A/B: 15% v 21% lost).",
+  "Teams stood with no order after a ride because of a stuck flag from before it; a ride's end now forgets it (0 v ~45 team-minutes standing with no order).",
+]
+limits = [
+  "Runs until 1 Nov 23:00 were 20 game minutes, later ones 40 - the slowdown Martin saw comes late in a run.",
+  "The HQ is random per run and swings a run by up to 8 points: judge on 4 runs or more.",
+  "No enemy on the map - rides under fire are not tested here.",
+]
+next = "Drivers getting out while their team boards (7 v 2 in the A/B), the stone-wall pocket drop point, failed rides (the driver's recovery, reaching the vehicle spot) - then Martin watches 40-min runs on both sides."

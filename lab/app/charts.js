@@ -356,5 +356,125 @@ window.LabCharts = (() => {
     draw(chosen);
   }
 
-  return { loadProgress, renderLive, renderSublab, resize: () => { for (const c of live) c.resize(); } };
+  // ------------------------------------------------------------------ Integration tests: progress curves
+  // (2 Nov, note 506 - Martin: "i really want to see some charts of progress in graphs so I can see like how is
+  // optimization doing", "basically we are training AI so same methods should be applied for reviewing"). Like a training
+  // run's curves: every run a dot (coloured by track: US blue, Soviet red), the moving average of the last 5 runs as the
+  // line, the target dashed, the first run on each build marked (r61, r62...); and the average per build, like an eval
+  // per checkpoint.
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const shortAt = (at) => { const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d:\d\d)/.exec(String(at || "")); return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[4]}` : String(at || ""); };
+  const fmt1 = (v) => v == null ? "–" : (Math.round(v * 10) / 10).toString();
+  function sweep(container) {
+    for (const c of [...live]) if (c.isDisposed() || !document.body.contains(c.getDom())) { if (!c.isDisposed()) c.dispose(); live.delete(c); }
+    for (const el of container.querySelectorAll(".ec")) { const c = echarts.getInstanceByDom(el); if (c) { live.delete(c); c.dispose(); } }
+  }
+  function qOf(lab, key) {
+    return (lab.questions || []).find((x) => x.key === key) || { key, title: key.replace(/_/g, " "), short: key.replace(/_/g, " "),
+      better: /lost|crash|stuck|fail|jam|hit|error|walk|wait|_s$/.test(key) ? "lower" : "higher" };
+  }
+  const trackName = (lab, sc) => (lab.slabel || {})[sc] || sc;
+  const trackColor = (lab, sc, i) => /ussr|soviet/i.test(sc + " " + trackName(lab, sc)) ? css("--ussr")
+    : (/(^|\W)US$/.test(trackName(lab, sc)) || sc === "arland") ? css("--us") : kindColor((i + 2) % 8);
+  const runsWith = (lab, key) => (lab.all || []).filter((r) => !r.watched && typeof r[key] === "number")
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+
+  // One measure over every run: the training curve.
+  function sublabCurve(container, lab, key, opts = {}) {
+    const q = qOf(lab, key);
+    const runs = runsWith(lab, key);
+    const spec = { title: opts.title || q.title, better: q.better, why: opts.why != null ? opts.why : (q.axis || "") };
+    const el = card(container, spec, () => {
+      if (!runs.length) return null;
+      const tracks = [...new Set(runs.map((r) => r.scenario))];
+      const V = (v) => (lab.vlabel || {})[v] || v;
+      const N = 5;
+      const avg = runs.map((_, i) => { const w = runs.slice(Math.max(0, i - N + 1), i + 1); return Math.round(10 * w.reduce((a, r) => a + r[key], 0) / w.length) / 10; });
+      const bname = Object.fromEntries((lab.builds || []).map((b) => [b.n, b.name]));
+      const marks = [];
+      if (!opts.small) runs.forEach((r, i) => { if (r.build != null && (i === 0 || runs[i - 1].build !== r.build)) marks.push({ xAxis: i, name: bname[r.build] || "", label: { formatter: "r" + r.build } }); });
+      if (typeof q.target === "number") marks.push({ yAxis: q.target, name: "target", lineStyle: { type: "dashed", color: css("--good"), width: 1.5 },
+        label: { formatter: "target " + q.target, position: "insideEndTop", color: css("--good"), fontSize: 10.5, fontFamily: "JetBrains Mono, Consolas, monospace" } });
+      const series = tracks.map((sc, ti) => ({ name: trackName(lab, sc), type: "scatter", symbolSize: opts.small ? 6 : 8, z: 3,
+        itemStyle: { color: trackColor(lab, sc, ti), opacity: 0.75 }, data: runs.map((r) => r.scenario === sc ? r[key] : null) }));
+      series.push({ name: `average of the last ${N} runs`, type: "line", data: avg, showSymbol: false, smooth: 0.3, z: 4,
+        lineStyle: { width: opts.small ? 2 : 3, color: css("--ink") }, itemStyle: { color: css("--ink") },
+        markLine: { symbol: "none", silent: false, lineStyle: { type: "dotted", color: css("--muted"), width: 1 },
+          label: { position: "end", color: css("--muted"), fontSize: 10, fontFamily: "JetBrains Mono, Consolas, monospace" },
+          tooltip: { formatter: (p) => `${esc(p.name)}` }, data: marks } });
+      const tip = (ps) => {
+        const r = runs[ps[0].dataIndex];
+        return [`<b>${esc(shortAt(r.at))}</b> · ${esc(trackName(lab, r.scenario))}`,
+          `${esc(V(r.variant))}${r.build != null ? " · build r" + r.build : ""}${r.minutes ? " · " + fmt1(r.minutes) + " min" : ""}`,
+          `<b>${esc(q.title)}: ${fmt1(r[key])}</b>`, `average of the last ${N}: ${fmt1(avg[ps[0].dataIndex])}`].join("<br>");
+      };
+      return base({
+        dataZoom: opts.small ? [] : base().dataZoom,
+        legend: { ...base().legend, show: !opts.small, data: series.map((x) => x.name) },
+        grid: opts.small ? { left: 38, right: 12, top: 14, bottom: 26 } : { left: 42, right: 18, top: 44, bottom: 60 },
+        tooltip: { ...base().tooltip, trigger: "axis", formatter: tip },
+        xAxis: { type: "category", data: runs.map((r) => shortAt(r.at)), boundaryGap: true, ...axisStyle(), splitLine: { show: false },
+                 axisLabel: { ...axisStyle().axisLabel, show: !opts.small } },
+        yAxis: { type: "value", min: 0, name: opts.small ? "" : (q.short || ""), nameTextStyle: { color: css("--muted"), fontSize: 11, align: "left" }, ...axisStyle() },
+        series,
+      });
+    });
+    el.querySelector(".ec").style.height = (opts.height || 340) + "px";
+    if (opts.small) el.classList.add("small");
+    return el;
+  }
+
+  // One measure per build: the average of the runs on each build (an eval per checkpoint).
+  function sublabBuilds(container, lab, key) {
+    const q = qOf(lab, key);
+    const runs = runsWith(lab, key).filter((r) => r.build != null);
+    const el = card(container, { title: `${q.title}, average per build`, better: q.better,
+      why: "Each point: the average of every run on that build (all setups tried then). Hover a point for what changed in that build." }, () => {
+      if (!runs.length) return null;
+      const blds = [...new Set(runs.map((r) => r.build))].sort((a, b) => a - b);
+      const info = Object.fromEntries((lab.builds || []).map((b) => [b.n, b]));
+      const tracks = [...new Set(runs.map((r) => r.scenario))];
+      const mean = (rs) => rs.length ? Math.round(10 * rs.reduce((a, r) => a + r[key], 0) / rs.length) / 10 : null;
+      const all = blds.map((b) => mean(runs.filter((r) => r.build === b)));
+      const series = [{ name: "all runs", type: "line", data: all, symbol: "circle", symbolSize: 9, z: 4,
+        lineStyle: { width: 3, color: css("--ink") }, itemStyle: { color: css("--ink") },
+        label: { show: true, position: "top", color: css("--ink"), fontSize: 11, fontFamily: "JetBrains Mono, Consolas, monospace" },
+        markLine: typeof q.target === "number" ? { symbol: "none", silent: true, lineStyle: { type: "dashed", color: css("--good"), width: 1.5 },
+          label: { formatter: "target " + q.target, position: "insideEndTop", color: css("--good"), fontSize: 10.5 }, data: [{ yAxis: q.target }] } : undefined }];
+      if (tracks.length > 1) tracks.forEach((sc, ti) => series.push({ name: trackName(lab, sc), type: "line", connectNulls: true, symbolSize: 6,
+        lineStyle: { width: 1.5, type: "dashed", color: trackColor(lab, sc, ti) }, itemStyle: { color: trackColor(lab, sc, ti) },
+        data: blds.map((b) => mean(runs.filter((r) => r.build === b && r.scenario === sc))) }));
+      return base({
+        dataZoom: [],
+        legend: { ...base().legend, data: series.map((x) => x.name) },
+        grid: { left: 42, right: 18, top: 44, bottom: 30 },
+        tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => {
+          const b = blds[ps[0].dataIndex], i = info[b] || {};
+          const n = runs.filter((r) => r.build === b).length;
+          return [`<b>build r${b}</b> · ${esc(shortAt(i.live || ""))} · ${n} runs`, `<i>${esc(i.name || "")}</i>`]
+            .concat(ps.map((p) => `${esc(p.seriesName)}: <b>${fmt1(p.value)}</b>`)).join("<br>");
+        } },
+        xAxis: { type: "category", data: blds.map((b) => "r" + b), ...axisStyle(), splitLine: { show: false } },
+        yAxis: { type: "value", min: 0, name: q.short || "", nameTextStyle: { color: css("--muted"), fontSize: 11, align: "left" }, ...axisStyle() },
+        series,
+      });
+    });
+    el.querySelector(".ec").style.height = "300px";
+    return el;
+  }
+
+  // A tiny curve for the tests' start page (inline SVG): the moving average of the main measure, the target dashed.
+  function sparkline(lab, key, w = 260, h = 56) {
+    const q = qOf(lab, key), runs = runsWith(lab, key);
+    if (runs.length < 2) return "";
+    const N = 5, avg = runs.map((_, i) => { const s = runs.slice(Math.max(0, i - N + 1), i + 1); return s.reduce((a, r) => a + r[key], 0) / s.length; });
+    const vals = avg.concat(typeof q.target === "number" ? [q.target] : []);
+    const hi = Math.max(...vals) * 1.08 || 1, lo = 0;
+    const X = (i) => 2 + (w - 4) * i / (avg.length - 1), Y = (v) => h - 3 - (h - 6) * (v - lo) / (hi - lo);
+    const pts = avg.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+    const tgt = typeof q.target === "number" ? `<line x1="0" x2="${w}" y1="${Y(q.target).toFixed(1)}" y2="${Y(q.target).toFixed(1)}" stroke="var(--good)" stroke-width="1.2" stroke-dasharray="4 3"/>` : "";
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${esc(q.title)} over the runs">${tgt}<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/><circle cx="${X(avg.length - 1).toFixed(1)}" cy="${Y(avg[avg.length - 1]).toFixed(1)}" r="3.2" fill="var(--accent)"/></svg>`;
+  }
+
+  return { loadProgress, renderLive, renderSublab, sublabCurve, sublabBuilds, sparkline, shortAt, sweep, resize: () => { for (const c of live) c.resize(); } };
 })();
