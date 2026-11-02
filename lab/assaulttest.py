@@ -135,11 +135,16 @@ VARIANTS = {
     # USSR) - drop points, cover routes past the enemies that side knows, go/wait/support; the other side plays farm-now.
     "farm-live": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
                   "farm-now; one side's live plans picked by the code (the cheapest drop points and routes, go)"),
+    "farm-gemini-routes": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
+                           "farm-now; one side's live plans picked by Gemini every ~2.5 game minutes from the map image (drop points, routes, go/wait/support); drones by the rule"),
+    # 2 Nov 22:40 (Martin: "maybe even the LLM commander should decide when to use drones"; the drone plan's hook, ZCR 59c8451):
+    # farm-gemini's Gemini also decides its side's drone operator teams (1-6) and their target. Its first three battles
+    # (21:26-22:55) ran without - lab/livecompare.py tells them apart by liveplan.jsonl's "drones".
     "farm-gemini": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
-                    "farm-now; one side's live plans picked by Gemini every ~2.5 game minutes from the map image (drop points, routes, go/wait/support)"),
+                    "farm-gemini-routes, and Gemini also decides the side's drone teams (1-6) and where they fly (farm / enemy_hq / none)"),
 }
-LIVE = {"farm-live": "code", "farm-gemini": "gemini"}   # variant -> lab/liveplan.py's picker
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-live": "measured", "farm-gemini": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
@@ -190,7 +195,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         import time
         (ROOT / ".runtime" / "liveplan").mkdir(parents=True, exist_ok=True)
         planner = subprocess.Popen([sys.executable, "-u", str(ROOT / "lab" / "liveplan.py"), "--label", label, "--after", str(time.time()),
-                                    "--side", live_side, "--picker", LIVE[variant]], cwd=str(ROOT),
+                                    "--side", live_side, "--picker", LIVE[variant][0]] + (["--drones"] if LIVE[variant][1] else []), cwd=str(ROOT),
                                    stdout=open(ROOT / ".runtime" / "liveplan" / f"{label}.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     try:
         subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,

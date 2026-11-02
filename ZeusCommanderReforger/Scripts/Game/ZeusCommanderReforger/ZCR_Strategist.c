@@ -72,6 +72,7 @@ class ZCR_Strategist
 			return;
 		s_mStates.Set(m_sFaction, state);
 		ZCR_LabWeather.Apply();
+		ApplyLiveDrones(ZCR_StrategicPlan.Get(m_sFaction));
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
 			return;
@@ -331,6 +332,10 @@ class ZCR_Strategist
 				motorize = parts[1].ToInt() > 0;
 			if (parts.Count() == 2 && parts[0] == "drone")
 				drones.Insert(parts[1].ToInt());
+			// 2 Nov night: "droneteams <n>" - the strategist decides how many drone operator teams the side keeps (ZCR_Drones'
+			// hook, for 5 minutes; 0 hands it back to the drone rule).
+			if (parts.Count() == 2 && parts[0] == "droneteams")
+				ZCR_Drones.SetTeamsWanted(m_sFaction, parts[1].ToInt(), 300);
 			if (parts.Count() != 3)
 				continue;
 			if (parts[0] == "surge")
@@ -350,9 +355,40 @@ class ZCR_Strategist
 		plan.SetStorm(storm);
 		plan.SetMotorize(motorize);
 		plan.SetDroneTargets(drones);
+		ApplyLiveDrones(plan);
 		plan.SetSurge(surgeTempo, surgeMax);
 		plan.Apply(priority, demand, intent, source);
 		ZCR_Drones.OnPlan(m_sFaction, plan, source != "doctrine-fallback");
+	}
+
+	// 2 Nov night (note 515 - Martin: "maybe even the LLM commander should decide when to use drones"): the live planner's
+	// drone order for this side (lab/liveplan.py, -zcrLivePlan: Gemini picks how many operator teams and where they fly) -
+	// the team count through the drone plan's hook (ZCR_Drones.SetTeamsWanted, renewed every 2 minutes for 5, at once when
+	// it changes), the target as the plan's drone target (a base node; -1: none - the drone rule's own defend and recon).
+	// No order in the file: the drone rule as before. Logs [ZCR][LIVEDRONES] on each change.
+	protected int m_iLiveDroneTeams;
+	protected int m_iLiveDroneTarget = -2;
+	protected float m_fLiveDroneAt = -1e9;
+
+	protected void ApplyLiveDrones(ZCR_StrategicPlan plan)
+	{
+		int teams = AICF_ZcrAttackPlan.LiveDroneTeams(m_sFaction);
+		if (teams <= 0 || !plan || !GetGame().GetWorld())
+			return;
+		int target = AICF_ZcrAttackPlan.LiveDroneTarget(m_sFaction);
+		array<int> targets = {};
+		if (target >= 0)
+			targets.Insert(target);
+		plan.SetDroneTargets(targets);
+		float now = GetGame().GetWorld().GetWorldTime();
+		if (teams == m_iLiveDroneTeams && target == m_iLiveDroneTarget && now - m_fLiveDroneAt < 120000)
+			return;
+		ZCR_Drones.SetTeamsWanted(m_sFaction, teams, 300);
+		if (teams != m_iLiveDroneTeams || target != m_iLiveDroneTarget)
+			Print(string.Format("[ZCR][LIVEDRONES] t=%1 side=%2 teams=%3 target=%4", ZCR_LossLog.Seconds(), m_sFaction, teams, target), LogLevel.NORMAL);
+		m_iLiveDroneTeams = teams;
+		m_iLiveDroneTarget = target;
+		m_fLiveDroneAt = now;
 	}
 
 	protected void OnError(RestCallback callback)
