@@ -18,6 +18,7 @@ get-outs; boarding, drive and wait-at-the-base times; how full the vehicles were
 trucks' deliveries; script errors.
 """
 import argparse
+import bisect
 import json
 import math
 import re
@@ -361,15 +362,24 @@ def timeline(lines: list, side: str = "US") -> dict:
             walk[t // SLICE_S] += dt / 60
     stuck = [0] * nslices
     failed = [0] * nslices
-    t0 = None
+    # A line's game time: the game time of the last [ZCR][LIVE] line at or before its clock time. AI Conflict's t_ms and
+    # the log's clock run in real time - in a watched run sped up 3x (2 Nov, note 508) a fixed offset put every stuck
+    # vehicle and failed ride of a 112-game-minute run into its first 40 minutes.
+    clock_t = []
     for l in lines:
         m = re.search(r"\[ZCR\]\[LIVE\] t=(\d+) ", l)
         tm = re.search(r"^(\d\d):(\d\d):(\d\d)", l)
-        if m and tm and t0 is None:
-            t0 = int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3)) - int(m.group(1))
+        if m and tm:
+            c = int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3))
+            if not clock_t or c > clock_t[-1][0]:
+                clock_t.append((c, int(m.group(1))))
+    clocks = [c for c, _ in clock_t]
     def game_t(l):
         tm = re.search(r"^(\d\d):(\d\d):(\d\d)", l)
-        return (int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3)) - t0) if tm and t0 is not None else -1
+        if not tm or not clock_t:
+            return -1
+        k = bisect.bisect_right(clocks, int(tm.group(1)) * 3600 + int(tm.group(2)) * 60 + int(tm.group(3))) - 1
+        return clock_t[k][1] if k >= 0 else -1
     for l in _once(lines, "VEHICLE_STUCK_DETECTED", side):
         t = game_t(l)
         if 0 <= t < nslices * SLICE_S:
