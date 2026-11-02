@@ -126,6 +126,11 @@ for _name, (_extra, _words) in list(VARIANTS.items()):
     VARIANTS[_name] = (_extra + " -aicfDropoffCooldown 1", _words)
 VARIANTS["nowalk2"] = (_TEAMS.replace(" -aicfNoHiddenSeat", ""),
                        "as nowalk, and a slow drop-off (one soldier slow to get out) doesn't bar the team from its next ride")
+# 2 Nov night (note 502): the same build with AI Conflict's old threat limit for its recoveries (0.01) - an A/B for the 0.35
+# limit, the only difference. From 2 Nov 00:42 nowalk2 also carries the fork's departure queue, failed-get-in seat, 20-s
+# retry at a base, the leg reset and ZCR's boarding hold (the fork's and ZCR's defaults).
+VARIANTS["thr01"] = (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRecoveryMaxThreat 0.01",
+                     "as nowalk2 (2 Nov fixes), with AI Conflict's old limit for its recoveries: only under a threat of 0.01")
 TEST = " -zcrShuttleTest -zcrAllBasesTo US -aicfNoForces USSR -aicfNoVictory"
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
