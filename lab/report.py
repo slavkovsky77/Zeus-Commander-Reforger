@@ -156,7 +156,8 @@ def main() -> int:
         if moment - timedelta(seconds=90) <= t <= moment + timedelta(seconds=15):
             if "[ZCR]" in line:
                 window.append(line)
-            if "[ZCR][CAM]" in line and " label=" in line and t <= moment:
+            # [ZCR][CAMCAP]: a followed team's caption refreshed (note 507).
+            if ("[ZCR][CAM]" in line or "[ZCR][CAMCAP]" in line) and " label=" in line and t <= moment:
                 caption = line.split(" label=", 1)[1]
             if "[ZCR][REPORT]" in line:
                 reports.append(line)

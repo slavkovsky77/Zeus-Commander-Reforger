@@ -30,6 +30,14 @@ modded class SCR_BaseGameMode
 			ZCR_Watch.OnShot(target, back, height, follow, label);
 	}
 
+	// The caption alone (a followed team's distance and step, note 507): the camera stays where it is.
+	void ZCR_SendCaption(string label)
+	{
+		Rpc(RpcDo_ZCRCaption, label);
+		if (!System.IsConsoleApp())
+			ZCR_Watch.OnCaption(label);
+	}
+
 	void ZCR_SendOverlay(string top, string left, string right, string bottom, string markers)
 	{
 		Rpc(RpcDo_ZCROverlay, top, left, right, bottom, markers);
@@ -41,6 +49,12 @@ modded class SCR_BaseGameMode
 	protected void RpcDo_ZCRShot(vector target, float back, float height, RplId follow, string label, int seconds)
 	{
 		ZCR_Watch.OnShot(target, back, height, follow, label);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ZCRCaption(string label)
+	{
+		ZCR_Watch.OnCaption(label);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
@@ -357,6 +371,15 @@ class ZCR_Watch
 			s_Instance.m_Caption.SetText(label);
 		ZCR_WatchControls.OnLabel(label);
 		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
+	}
+
+	static void OnCaption(string label)
+	{
+		if (!s_Instance)
+			return;
+		if (s_Instance.m_Caption && !s_Instance.m_bFree)
+			s_Instance.m_Caption.SetText(label);
+		ZCR_WatchControls.OnLabel(label);
 	}
 
 	static void OnOverlay(string top, string left, string right, string bottom, string markers)

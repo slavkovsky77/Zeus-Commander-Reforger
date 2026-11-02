@@ -57,6 +57,12 @@ class ZCR_Director
 	protected float m_fShownHeight;
 	protected IEntity m_ShownFollow;
 	protected string m_sShownLabel;
+	// The followed team's caption, rebuilt every 3 s (2 Nov, note 507 - Martin: "when following team in game subtitles dont
+	// update (like meters, action) fix that"): it was written once, when the team was picked.
+	protected AICF_GroupSlot m_CaptionSlot;
+	protected IEntity m_CaptionLeader;
+	protected string m_sCaptionHead;
+	protected int m_iCaptionAt;
 	protected vector m_vFollowLast;
 	protected string m_sFollowSide;
 	protected ref array<vector> m_aHistTarget = {};
@@ -224,6 +230,8 @@ class ZCR_Director
 			FollowNearest(now);
 		if (m_ShownFollow)
 			m_vFollowLast = m_ShownFollow.GetOrigin();
+		if (m_CaptionSlot && now - m_iCaptionAt >= 3)
+			RefreshTeamCaption(now);
 		if (!m_bHold && now >= m_iShotEnd)
 			NextShot(now);
 		if (now >= m_iNextOverlay)
@@ -1037,6 +1045,8 @@ class ZCR_Director
 		m_fShownHeight = height;
 		m_ShownFollow = follow;
 		m_sShownLabel = label;
+		if (follow != m_CaptionLeader)
+			m_CaptionSlot = null;
 		if (follow)
 		{
 			m_vFollowLast = follow.GetOrigin();
@@ -1675,14 +1685,45 @@ class ZCR_Director
 			return;
 		}
 		AICF_GroupSlot slot = m_mLeaderSlot.Get(leader);
+		m_CaptionLeader = leader;
+		m_sCaptionHead = string.Format("FOLLOWING TEAM %1 OF %2", i + 1, n);
+		Show(leader.GetOrigin(), 60, 45, leader, TeamCaption(slot, leader), true);
+		m_CaptionSlot = slot;
+		m_iCaptionAt = ZCR_LossLog.Seconds();
+	}
+
+	// "FOLLOWING TEAM 3 OF 12: US team D1 (4 men) at Arleville (US) - DEFEND Airport Base - 2080 m to go - riding".
+	protected string TeamCaption(AICF_GroupSlot slot, IEntity leader)
+	{
 		int men = 1;
-		if (slot)
-			men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
 		string key = "team";
 		if (slot)
+		{
+			men = AICF_GroupRuntime.CountAliveAgents(slot.GetGroup());
 			key = "team " + slot.GetSlotKey();
-		Show(leader.GetOrigin(), 60, 45, leader, string.Format("FOLLOWING TEAM %1 OF %2: %3 %4 (%5 men) %6 - %7", i + 1, n,
-			ZCR_LossLog.SideOf(leader), key, men, Near(leader.GetOrigin()), TeamGoal(slot, leader)), true);
+		}
+		return string.Format("%1: %2 %3 (%4 men) %5 - %6", m_sCaptionHead, ZCR_LossLog.SideOf(leader), key, men, Near(leader.GetOrigin()),
+			TeamGoal(slot, leader));
+	}
+
+	// The followed team's caption again - the distance, what the team does now, its men - sent only when it changed; the
+	// camera is left as it is.
+	protected void RefreshTeamCaption(int now)
+	{
+		m_iCaptionAt = now;
+		if (!m_CaptionSlot || !m_CaptionLeader || m_ShownFollow != m_CaptionLeader || !Alive(m_CaptionLeader))
+			return;
+		string label = TeamCaption(m_CaptionSlot, m_CaptionLeader);
+		if (label == m_sShownLabel)
+			return;
+		m_sShownLabel = label;
+		Print(string.Format("[ZCR][CAMCAP] t=%1 label=%2", now, label), LogLevel.NORMAL);
+		string shown = label;
+		if (m_bLocked)
+			shown = "LOCKED - " + label;
+		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		if (gameMode)
+			gameMode.ZCR_SendCaption(shown);
 	}
 
 	// A tap on the picture: the soldier or vehicle there is followed (AUTO off until another pick);
