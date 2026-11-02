@@ -51,9 +51,12 @@ class ZCR_ShuttleTest
 		// A defend team holds a forward spot short of the base (FORWARD_DEFEND) and waited there for minutes, never counted
 		// (31 Oct, note 480: 12% of a defend team's time, up to 7 min a stop): standing at its own order's spot, when that
 		// spot is within 400 m of the base, is arriving.
+		// 2 Nov (note 508): in Martin's watched Soviet run team D1 stood 72 game minutes at its forward-defend spot - the spot
+		// 420 m from Airport Base, the team stopped 80 m short of it - never counted, never given its next trip: a third of
+		// the run's late standing. Now the order's spot within 600 m of the base and the team within 100 m of it.
 		AIWaypoint order = slot.GetWaypoint();
 		if (current && !there && order && !(lc && lc.IsInVehicle()) &&
-			vector.DistanceXZ(order.GetOrigin(), current.m_vPosition) <= 400 && vector.DistanceXZ(at, order.GetOrigin()) <= 30)
+			vector.DistanceXZ(order.GetOrigin(), current.m_vPosition) <= 600 && vector.DistanceXZ(at, order.GetOrigin()) <= 100)
 			there = true;
 		if (there)
 		{

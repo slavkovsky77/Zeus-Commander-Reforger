@@ -7,12 +7,12 @@ runner = "lab/transporttest.py"
 minutes = 40.0
 units = 0
 scenarios = ["arland", "arland-ussr"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2", "thr01", "before"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2", "thr01", "before", "nodetour"]
 baseline = "rides"
 candidate = "nowalk2"
 score = "100 - walk_far_pct - idle_far_pct - still_aboard_pct - rides_failed"
 higher_is_better = true
-keys = ["time_lost_pct", "worst5_pct", "rides_failed_pct", "stuck_10", "unjams_10", "walk_far_pct", "idle_far_pct", "still_aboard_pct", "stuck_detected", "seat_moving_defer", "held_moving", "driver_left", "vehmove_held", "trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
+keys = ["time_lost_pct", "worst5_pct", "rides_failed_pct", "stuck_10", "unjams_10", "walk_far_pct", "idle_far_pct", "still_aboard_pct", "stuck_detected", "seat_moving_defer", "held_moving", "driver_left", "vehmove_held", "ride_detours", "trips_done", "door_kmh", "door_kmh_ride", "door_kmh_foot", "soldier_km_per_min", "rode_pct", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "board_s", "base_wait_s", "seat_use_pct", "unjams", "stuck", "stuck_at_pad", "supply_runs"]
 title = "Transport"
 main = "time_lost_pct"
 score_words = "100 minus the time lost in % of team time (walking far, standing on foot, in a vehicle that does not move), minus 1 per failed ride - what Martin sees (note 496); before 2 Nov: soldier-km a minute x10 minus 2 per failed ride"
@@ -65,6 +65,7 @@ nowalk = "No cap, spot re-look 10 s, 12 vehicles"
 nowalk2 = "Current setup"
 thr01 = "Current setup, recoveries only with no threat"
 before = "Current setup without the 2 Nov morning fixes"
+nodetour = "Current setup, no ride from further out"
 
 [variant_words]
 rides = "as the watched Farm battle: transport rides, at most 3 leaving the HQ at a time"
@@ -91,6 +92,7 @@ nowalk = "as cap0 (no cap, no spacing, the seat fallback on), and a team whose v
 nowalk2 = "the current setup: as nowalk, and a slow drop-off doesn't bar the team from its next ride; it takes in each day's fixes, so the app splits it by build"
 thr01 = "the current setup with AI Conflict's old limit for its recoveries (only under a threat of 0.01) - the night A/B of 2 Nov"
 before = "the current setup as before 2 Nov morning: the boarding hold only by the cruise speed, a team's stuck verdict kept after a ride, no retry of a missed order restore - the A/B of 2 Nov morning"
+nodetour = "the current setup without the ride detour of 2 Nov afternoon: a team more than 250 m from a base always walks, however long its march"
 
 [[questions]]
 key = "time_lost_pct"

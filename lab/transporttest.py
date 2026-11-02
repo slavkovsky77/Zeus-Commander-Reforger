@@ -149,6 +149,11 @@ VARIANTS["thr01"] = (_TEAMS.replace(" -aicfNoHiddenSeat", "") + " -aicfRecoveryM
 VARIANTS["before"] = (VARIANTS["nowalk2"][0] + " -zcrBoardHoldNear -zcrNoBoardGear -aicfNoStuckReset -aicfNoRestoreRearm -zcrNoHeldStay",
                       "as nowalk2 before 2 Nov morning: the boarding hold only with a man within 100 m and by the cruise speed "
                       "alone, a team's stuck verdict kept after a ride, no retry of a missed order restore")
+# 2 Nov afternoon (note 508): Martin's watched Soviet run (3x, 112 game minutes) lost most of its late walking to the 250-m
+# ride rule - teams 160-290 m from a base walked 0.9-2 km. The fork now lets a team ride from a base up to 500 m away when
+# its march is 3x the walk back (-aicfRideDetourMeters); "nodetour" pins the rule as before for an A/B.
+VARIANTS["nodetour"] = (VARIANTS["nowalk2"][0] + " -aicfRideDetourMeters 0",
+                        "as nowalk2 without the ride detour: a team more than 250 m from a base always walks (before 2 Nov afternoon)")
 TEST = test_args("arland")
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
@@ -298,7 +303,8 @@ def boarding(lines: list, side: str = "US") -> dict:
     driver = sum(1 for l in _once(lines, "BOARDING_CREW_ROLE_LOST", side) if "lost_role=DRIVER" in l)
     vm = [l for l in lines if "[ZCR][VEHMOVE]" in l]
     return {"seat_moving_defer": defer, "held_moving": f"{held}/{len(hold)}", "driver_left": driver,
-            "vehmove_held": f"{sum(1 for l in vm if ' held=1 ' in l)}/{len(vm)}"}
+            "vehmove_held": f"{sum(1 for l in vm if ' held=1 ' in l)}/{len(vm)}",
+            "ride_detours": len({l.split("SCRIPT", 1)[-1] for l in lines if "[ZCR][RIDEDETOUR]" in l and f"faction={side} " in l})}
 
 
 FAR_M = 400      # a team this far from its target base is on a trip, not at its target
