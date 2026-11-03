@@ -607,11 +607,12 @@ class Planner:
         cover_pct = round(100 * sum(1 for c in cells if g.cover_m[c] <= COVER_REACH_M) / n)
         obj_pct = round(100 * sum(1 for c in cells if g.seen[c] > 0) / n)
         cost = sum(costs.w(a, b) for a, b in zip(cells, cells[1:]))
-        wps = thin_cells(g, cells)
+        wps, chain, open_max = cover_bounds(g, cells)   # was thin_cells (a point every 50 m) - now cover to cover
         hold = hold_point(g, cells, threat)
         return {"id": rid, "cells": cells, "pts": pts, "length_m": round(length), "minutes": round(length / WALK_MPS / 60, 1),
                 "known_enemy_view_pct": seen_pct, "max_threat": round(max(thr), 2), "cover_in_reach_pct": cover_pct,
-                "farm_view_pct": obj_pct, "cost": round(cost), "waypoints": wps, "hold": hold}
+                "farm_view_pct": obj_pct, "cost": round(cost), "waypoints": wps, "hold": hold,
+                "chain": chain_text(chain), "open_max_m": open_max}
 
     def route_via(self, rid, start_xz, via_cell, costs, D_obj, threat):
         """From a start through a point (a support position) into the objective."""
@@ -659,6 +660,92 @@ def thin_cells(g: Grid, cells):
                 x, z = g.xz(c2)
         fixed.append((round(x, 1), round(z, 1)))
     return fixed
+
+
+COVER_NEAR_M = 8        # a route cell this close to a roof, canopy or dense trees counts as in cover
+BOUND_IN_COVER_M = 120  # inside a long cover stretch, a point every this many metres
+BOUND_OPEN_M = 100      # across a long open stretch (over 150 m), a point every this many metres
+
+
+def cover_bounds(g: Grid, cells):
+    """The route as bounds from cover to cover (3 Nov night, note 535 - Martin: "the fastest way to actually win would be
+    to gradually occupy building and then push from closes building to closest tree line and thoe the points", "llm
+    general should actually plan axis of attack based on covers", "movement from cover to cover should be fast"): the
+    route's stretches in cover (a building, a tree line or wood) and in the open; a waypoint at the far edge of each cover
+    stretch (the jump-off point to the next), every BOUND_IN_COVER_M inside a long one and every BOUND_OPEN_M across a
+    long open one, and the end. -> (waypoints, chain [{"kind", "from_obj_m", "len_m"}], longest open stretch in m)"""
+    pts = [g.xz(c) for c in cells]
+    n = len(cells)
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    near = [float(g.cover_m[c]) <= COVER_NEAR_M for c in cells]
+
+    def building_near(k):
+        i0, j0 = cells[k]
+        return any(0 <= i0 + di < g.nx and 0 <= j0 + dj < g.nz and g.building[i0 + di, j0 + dj] for di in (-1, 0, 1) for dj in (-1, 0, 1))
+
+    def index_at(d, lo, hi):
+        for k in range(lo, hi + 1):
+            if cum[k] >= d:
+                return k
+        return hi
+
+    idx, chain, longest = [], [], 0.0
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and near[j + 1] == near[i]:
+            j += 1
+        span = cum[j] - cum[i]
+        if near[i]:
+            k = i
+            while cum[j] - cum[k] > BOUND_IN_COVER_M + 20:
+                k = index_at(cum[k] + BOUND_IN_COVER_M, k + 1, j)
+                idx.append(k)
+            idx.append(j)
+            chain.append({"kind": "buildings" if any(building_near(q) for q in range(i, j + 1)) else "trees",
+                          "from_obj_m": round(float(g.robj[cells[j]])), "len_m": round(span)})
+        else:
+            gap = cum[min(j + 1, n - 1)] - cum[max(i - 1, 0)]
+            longest = max(longest, gap)
+            if gap > 150:
+                k = i
+                while cum[j] - cum[k] > BOUND_OPEN_M + 20:
+                    k = index_at(cum[k] + BOUND_OPEN_M, k + 1, j)
+                    idx.append(k)
+            chain.append({"kind": "open", "from_obj_m": round(float(g.robj[cells[j]])), "len_m": round(gap)})
+        i = j + 1
+    idx.append(n - 1)
+    out, last = [], None
+    for k in sorted(set(idx)):
+        if k == 0 or (last is not None and cum[k] - cum[last] < 30 and k != n - 1):
+            continue
+        out.append(k)
+        last = k
+    wps = []
+    for k in out:
+        x, z = pts[k]
+        if g.building[cells[k]]:
+            c2 = g.nearest_valid(x, z, 25, avoid_building=True)
+            if c2 is not None:
+                x, z = g.xz(c2)
+        wps.append((round(x, 1), round(z, 1)))
+    if not wps:
+        wps = [(round(pts[-1][0], 1), round(pts[-1][1], 1))]
+    return wps, chain, round(longest)
+
+
+def chain_text(chain):
+    """'trees 540 m out -> open 120 m -> buildings 300 m out -> Farm' (short open bits under 40 m left out)."""
+    parts = []
+    for b in chain:
+        if b["kind"] == "open":
+            if b["len_m"] >= 40:
+                parts.append(f"open {b['len_m']} m")
+        else:
+            parts.append(f"{b['kind']} {b['from_obj_m']} m out")
+    return " -> ".join(parts + ["Farm"])
 
 
 def hold_point(g: Grid, cells, threat):
@@ -886,10 +973,12 @@ class Commander:
         for d in pic["drops"]:
             lines.append(f"  {d['id']}: {d['from_obj_m']} m {d['dir']} of Farm, drive {d['drive_m']} m from the HQ, "
                          f"{d['drive_seen_pts']} road points of the drive in known enemies' view")
-        lines += ["", "Routes into Farm (L/C/R from each start; percentages of the route):"]
+        lines += ["", "Routes into Farm (L/C/R from each start), each as its chain of cover - the buildings and tree lines a team "
+                  "bounds between, the open stretches it must cross - then its numbers:"]
         for rid, r in sorted(pic["routes"].items()):
-            lines.append(f"  {rid}: {r['length_m']} m ({r['minutes']} min on foot), in known enemies' view {r['known_enemy_view_pct']}%, "
-                         f"in Farm's view {r['farm_view_pct']}%, cover within 40 m {r['cover_in_reach_pct']}%, cost {r['cost']}")
+            lines.append(f"  {rid}: {r.get('chain', '?')}; {r['length_m']} m ({r['minutes']} min on foot), longest open stretch "
+                         f"{r.get('open_max_m', '?')} m, in known enemies' view {r['known_enemy_view_pct']}%, in Farm's view "
+                         f"{r['farm_view_pct']}%, cover within 40 m {r['cover_in_reach_pct']}%, cost {r['cost']}")
         if pic["support"]:
             lines += ["", "Support positions (see Farm, in reach of cover):"]
             for sp in pic["support"]:
@@ -908,6 +997,11 @@ class Commander:
                       "(1-6) and their target: farm (enemies at and around Farm - mind your own teams going in there), "
                       "enemy_hq (the enemy's main base and what leaves it) or none (they only defend your teams and scout)."]
             drones = ', "drones": {"teams": 1-6, "target": "farm"|"enemy_hq"|"none", "why": "few words"}'
+        lines += ["", "How to win (modern infantry against drones): plan an axis of attack through cover - take the buildings "
+                  "nearest Farm first, from there the closest tree line, then Farm itself; teams move fast from cover to cover "
+                  "and never stop in the open (a team lying in a field is what an FPV kills); choose routes with short open "
+                  "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
+                  "teams in cover for a joint push."]
         lines += ["", 'Answer JSON only: {"reason": "one line: your plan", "teams": [{"team": <id>, "drop": "D1" or null, '
                   '"route": "<start>-L|C|R", "order": "go"|"wait"|"support", "support": "P1" or null, "why": "few words"}]'
                   + drones + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
