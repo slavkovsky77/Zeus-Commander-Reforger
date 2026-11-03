@@ -46,6 +46,26 @@ class ZCR_Storm
 		return CAREFUL;
 	}
 
+	// A stormed leg is run (3 Nov night, note 534 - Martin: "it should be modern style like movement from cover to cover
+	// should be fast"): teams on foot within 600 m of Farm moved 28-71 m a game minute and closed on it by ~0.
+	// -zcrStormSpeed walk|run|sprint|game (game: the group's own speed).
+	static void Apply(SCR_AIWaypoint scripted)
+	{
+		if (!scripted)
+			return;
+		scripted.SetPriorityLevel(Priority());
+		string value = "run";
+		System.GetCLIParam("zcrStormSpeed", value);
+		if (value == "game")
+			return;
+		EMovementType speed = EMovementType.RUN;
+		if (value == "walk")
+			speed = EMovementType.WALK;
+		else if (value == "sprint")
+			speed = EMovementType.SPRINT;
+		scripted.AddSetting(SCR_AIGroupCharactersMovementSpeedSetting.Create(SCR_EAISettingOrigin.WAYPOINT, speed));
+	}
+
 	static bool IsStormed(string faction, SCR_CampaignMilitaryBaseComponent base)
 	{
 		if (!s_mTarget || !base || !base.GetOwner())
@@ -87,9 +107,7 @@ modded class AICF_OrderPlanner
 			return waypoint;
 		if (!ZCR_Storm.IsStormed(group.GetFaction().GetFactionKey(), target))
 			return waypoint;
-		SCR_AIWaypoint scripted = SCR_AIWaypoint.Cast(waypoint);
-		if (scripted)
-			scripted.SetPriorityLevel(ZCR_Storm.Priority());
+		ZCR_Storm.Apply(SCR_AIWaypoint.Cast(waypoint));
 		return waypoint;
 	}
 
@@ -105,9 +123,7 @@ modded class AICF_OrderPlanner
 			return waypoint;
 		if (!ZCR_Storm.IsStormed(faction.GetFactionKey(), target))
 			return waypoint;
-		SCR_AIWaypoint scripted = SCR_AIWaypoint.Cast(waypoint);
-		if (scripted)
-			scripted.SetPriorityLevel(ZCR_Storm.Priority());
+		ZCR_Storm.Apply(SCR_AIWaypoint.Cast(waypoint));
 		return waypoint;
 	}
 }
