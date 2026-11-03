@@ -23,14 +23,17 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "The drones A/B for Martin's 'Farm actually captured' (note 530): 3 Farm battles without any drones v 3 with, headless and one at a time while he plays, until ~20:40.",
+    "Running now": "Nothing - Martin plays AoE; the next Farm test waits for the choice on the second wave (below).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Farm taken and fought over by both sides: depending on the A/B - drone teams tied to the attack teams still alive (529), attack teams that push into Farm's 60 m core instead of standing 150-300 m out.",
+    "Being built next": "A second attack wave, so the side that lost Farm comes back: each side has ~58 soldiers but only 17-28 attack Farm (20 guard a home base nobody attacks, ~21 are drone operators, drivers and builders), and weakened teams are never refilled - Martin's call on which way.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r71", "Attack teams go into Farm instead of standing 200 m out",
+     "Martin: 'continue developing so farm is actually captured'. Teams near Farm stood 120-300 m out for 20 minutes. Two causes in AI Conflict's stuck check: after three checks it parked a team for good on its own spot (15 parked in front of Farm in 3 battles), and after each check it gave the team a new leg to a random point up to 140 m away, often beside it - a plain move, so the storm order (keep advancing under fire) was lost and the team stopped to trade shots. Now near its target a team is never parked, its new leg ends up to 80 m closer to Farm and keeps the storm order. Farm taken in 3 of 3 battles at 10:45-12:00 (before: 2 of 3 at 15:00 and 17:45); 19-23 soldiers at Farm by minute 12 (9-13)."),
+
     ("design", "r70", "Drones never circle over a squad, and never hover",
      "Martin watched the review battle: 'i love how they fly', but 'drones should not stop over enemies when there are too many of them' and 'they should not stop'. 18 of 54 looks round a target had ended with the drone shot down while circling; searching drones hovered over their last point. Now 4 or more soldiers on foot round the target and it goes straight in (1-3 shorten the look), a hit while circling sends it in at once, and a searching drone goes round its point on a 50 m circle at ~45 km/h. Next battle: 15 runs straight in, 2 drones lost circling (v 18). Drone tests 6/6."),
     ("design", "r70", "The lab map shows Gemini's plan and a team's waypoints",
@@ -362,9 +365,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Farm actually taken, both sides attacking and defending it (530): the drones A/B first - in the streamed battle drones did 71 of 81 losses and nobody stood in Farm's 60 m core but once.",
-    "Drone teams tied to the attack teams still alive - 'everybody is drone operator' (529).",
-    "Riders staying mounted to the drop point - the default or not, after the A/B.",
+    "A second wave for the side that lost Farm (530): after the capture nobody retook it in 6 battles - the losing side's attack teams are whittled to 1-2 men and never refilled, the cap of 50 is full.",
+    "Martin to watch: Farm taken with the new legs; the drones that don't stop; the map's waypoints; the rock unstick.",
+    "Drone teams and the cap - 'everybody is drone operator' (529).",
     "Forward drone trucks too far back (514), drivers leaving during boarding (505).",
 ]
 
@@ -385,6 +388,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (71, "Attack teams near Farm keep the storm order and go in", "3 Nov 18:49 - 21:57",
+     ["AI Conflict fork (cd75849): within -aicfZcrNoHoldNearM (450 m) of its target an attack team is never parked for good by the stuck check (FIELD_HOLD); 8abb8fb: its new leg after a stuck check ends up to 80 m closer on the line to the objective (the objective inside 100 m) instead of a random reachable point (-aicfZcrTowardLeg 0 = the old leg; STUCK_ROUTE_ENDPOINT_SELECTED toward=).",
+      "ZCR (a89ce8d): the storm priority (25) also on AI Conflict's stuck-route legs; the live team line gets wplevel= (the waypoint's priority level).",
+      "Lab: a headless run that dies in its first half minute is retried once (an engine flake at startup)."],
+     "Martin, 3 Nov evening (playing AoE): 'continue developing so farm is actually captures and both side actually atack defent the point'; 'why is farm FIA? why it wasnt capture by soviets or any other side?'; 'should drone cap be there? like shouldnt it be dynamic?'.",
+     "Farm battles, 20 min, headless, drones on: the old hold 2 of 3 taken (12:45, 13:45), parked near Farm 4/5/6; no hold 2 of 3 (15:00, 17:45), parked 0; no hold + legs toward Farm + storm kept: 3 of 3 (12:00, 11:00, 10:45), soldiers at Farm by minute 12 for the side that took it 19/23/22 (no hold: 9/13), new legs toward Farm 25-29 a battle. No recapture in any battle. 0 script errors of ours."),
+
     (70, "Drones never circle over a squad or hover; the lab map shows Gemini's plan and a team's waypoints", "3 Nov 17:20 - 18:20",
      ["FPV AI Drones (4ea57f2, 03a4163): their soldiers on foot within 60 m of the target shorten the look round (4+: straight in), a hit while looking round sends it in; a searching drone goes round its last point on a 50 m circle, holds 60% speed on spotting.",
       "AI Conflict fork (10658ff): loadout plans freed only over 64 (the review battle's crash followed a failed free); AICF_ZcrUnstick - a soldier on foot who hasn't moved 1.5 m between two stuck checks hops 2-7 m to free ground ([ZCR][UNSTICK], -aicfZcrUnstick 0).",
