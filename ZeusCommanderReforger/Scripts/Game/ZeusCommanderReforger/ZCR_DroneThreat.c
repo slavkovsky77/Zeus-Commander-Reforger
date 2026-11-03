@@ -213,8 +213,8 @@ class ZCR_DroneThreat
 					s_mShelterUntil.Set(c, now + 10);
 				if (!over && !sheltering && vector.DistanceXZ(c.GetOrigin(), dp) < 150 && (!s_mProneUntil.Contains(c) || now >= s_mProneUntil.Get(c) - 5))
 				{
-					// A house a few steps away: in, not down in the street.
-					if (!Dash(c, dp, now, taken))
+					// A house a few steps away: in, not down in the street - and a storming man runs on (Storming).
+					if (!Dash(c, dp, now, taken) && !Storming(c))
 						Down(c, now);
 				}
 				if (now - s_mReactedAt.Get(c) < COOLDOWN && s_mReactedAt.Contains(c))
@@ -345,6 +345,13 @@ class ZCR_DroneThreat
 				utility.m_CombatMoveState.ApplyRequestChangeStanceOutsideCover(ECharacterStance.CROUCH);
 			return;
 		}
+		// A storming team runs on to its next cover (Storming): into a building a few steps away, else no shelter run, no
+		// spreading, no lying down in the open.
+		if (Storming(c))
+		{
+			Dash(c, from, now, taken);
+			return;
+		}
 		// Close (under 100 m): down at once - a man sprinting upright is what an FPV catches (02:00,
 		// Martin's report 1: drone victims 95-98% standing, 0% prone; 75-94% were running for cover).
 		float d = vector.DistanceXZ(c.GetOrigin(), from);
@@ -403,6 +410,26 @@ class ZCR_DroneThreat
 			}
 		}
 		Down(c, now);
+	}
+
+	// A man whose team is on a stormed leg (its current waypoint carries a priority level, ZCR_Storm) keeps running under a
+	// drone (3 Nov night, note 535 - Martin, watching the Farm battle: "they seem stuck and being bombarded by drone",
+	// "movement from cover to cover should be fast"): the drone reaction put every man in the open within 150 m of a drone
+	// prone for 15 s and spread the others 15-25 m away from it - attack teams within 600 m of Farm moved 28-71 m a game
+	// minute and closed on it by ~0; 196 shelter runs a battle. -zcrStormDroneRun 0: they react as everyone else.
+	protected static bool Storming(ChimeraCharacter c)
+	{
+		string value;
+		if (System.GetCLIParam("zcrStormDroneRun", value) && value == "0")
+			return false;
+		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
+		if (!control || !control.GetControlAIAgent())
+			return false;
+		SCR_AIGroup group = SCR_AIGroup.Cast(control.GetControlAIAgent().GetParentGroup());
+		if (!group)
+			return false;
+		SCR_AIWaypoint current = SCR_AIWaypoint.Cast(group.GetCurrentWaypoint());
+		return current && current.GetPriorityLevel() > 0;
 	}
 
 	// Prone only, for 15 s, at scenario priority (above the attack's own stance) - then lifted.
