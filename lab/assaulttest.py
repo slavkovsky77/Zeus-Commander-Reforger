@@ -132,6 +132,10 @@ VARIANTS = {
     # dismount there) - farm-now without it, as before 3 Nov.
     "farm-now-nocontact": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -aicfContactDismountM 0").replace(" -aicfNoHiddenSeat", ""),
                            "farm-now without the contact dismount (a crew that got out is put back in, as before 3 Nov)"),
+    # 3 Nov (note 520, Martin: "could we override dco 400m dismount?"): riders stay aboard to the drop point - DCO's per-squad
+    # vehicle exit rule 'ordered or damaged' while a man of the squad is aboard (ZCR_DCO, -zcrRideStayMounted).
+    "farm-now-staymounted": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrRideStayMounted").replace(" -aicfNoHiddenSeat", ""),
+                             "farm-now, and a riding squad leaves its vehicle only at its drop point, when ordered or when the vehicle is badly damaged (DCO's exit rule)"),
     # 2 Nov night (note 515 - Martin: "why gemini is not used for planning attacks?", "attack routes should be planned based
     # on the context (positions of soldiers, cover)", "points where soldiers are dropped should be planned by LLM", "only one
     # side can use it, the other one will not, and we will compare"): farm-now, and ONE side's attack teams get live plans
@@ -148,7 +152,7 @@ VARIANTS = {
                     "farm-gemini-routes, and Gemini also decides the side's drone teams (1-6) and where they fly (farm / enemy_hq / none)"),
 }
 LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
