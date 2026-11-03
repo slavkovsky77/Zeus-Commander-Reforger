@@ -438,6 +438,11 @@ def main() -> int:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
         r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play, a.live_side, a.extra)
+        # A headless battle the game crashed in its first half minute (an engine access violation while loading - 3 Nov
+        # 13:06 and 18:49, 2 of the last two days' starts): once more, so a chain of A/B battles doesn't lose an arm.
+        if not (a.watch or a.play) and r.get("crashed") and (r.get("minutes") or 0) < 0.5:
+            print(f"crashed while starting ({r.get('run')}) - starting it once more", file=sys.stderr)
+            r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play, a.live_side, a.extra)
     print(json.dumps(r, indent=1))
     return 0
 
