@@ -13,6 +13,7 @@ loop keeps the game window); AI Conflict's own war goes on around the track (no 
 drives the side that holds its ground.
 """
 import argparse
+import math
 import re
 import subprocess
 import sys
@@ -82,6 +83,11 @@ TRACKS = {
     "farm-depots": ("arland-conflict-test", "2124,2948|2292,2927|2294,2982|2154,2909", "3253,2862", "uaz", "", "depots"),
     "manpower": ("arland-test", "1700,1000;2800,1600", "", "uralpickup", "", "shuttle"),
     # Trucks through the same lane, both ways (supply trucks; Competent AI driving widens their turn radius).
+    # The one-lane stone bridge east of Farm (2401,2775; note 512 - Martin: 'team a6 and other get stuck next to small bridge
+    # its too narrow'): Soviet jeeps both ways between the south road and the north-east road, every second car from B, so
+    # they meet at the bridge (half the jams of the long Soviet transport runs were on it).
+    "bridge": ("arland-test", "2215,2810", "2536,2956", "uaz", "", True),   # Farm road <-> north-east road, over the deck (no via:
+                                                                             # a via on the deck snapped to the river bed below)
     "trucks": ("arland-test", "1700,1000", "2800,1600", "ural", "2292,1277", True),
     # North farm fields: rides cut across fenced fields (2040,2980 / 2150,2880 / 2250,2970) on their way to the
     # US main base and can't find a way out (UNREACHABLE). US ground.
@@ -99,6 +105,8 @@ VARIANTS = {
     "risk": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),
     "risk2": ("-zcrRisk -zcrNoOncoming -zcrNoSpacing", ""),                   # v2.1: the same flags, this copy's forecast window 130 m                    # ours with the collision forecast instead of oncoming + spacing
     "nooncoming": ("-zcrNoOncoming", ""),
+    "noonelane": ("-zcrNoOneLane", ""),
+    "onelane110": ("-zcrOneLaneHoldM 110", ""),                              # the one-lane rule stopping the other way 110 m out (60 by default)                                       # ours without the one-lane bridge rule (before 3 Nov)
     "nocrossing": ("-zcrNoCrossing -zcrNoJunction", ""),                      # ours without the crossing and junction rules (before 23 Oct evening)
     "nojunction": ("-zcrCrossing -zcrNoJunction", ""),                        # ours with the crossing rule but not the junction slow-down
     "crossing": ("-zcrCrossing", ""),                                         # ours plus the crossing rule (off by default since 23 Oct 19:40)
@@ -185,6 +193,29 @@ def run(track: str, variant: str, minutes: float, cars: int, port: int, watch: b
     return summarize(runs[-1], track, variant)
 
 
+def bridge_crossings(text: str):
+    """The one-lane bridge east of Farm (2401,2775, the deck along (0.98, 0.21)): crossings of the deck by the test's vans
+    ([ZCR][LIVE] kind=van, a sample every 5 s - the side of the deck it is on changing while within 80 m), and the van-seconds
+    within 70 m of the deck per crossing (waiting, dodging, backing off - the time the bridge costs)."""
+    cx, cz, ax, az = 2401.0, 2775.0, 0.978, 0.208
+    side, crossings, near_s = {}, 0, 0
+    for m in re.finditer(r"\[ZCR\]\[LIVE\] t=\d+ kind=van id=(\d+) .*? x=(-?\d+) z=(-?\d+)", text):
+        x, z = int(m.group(2)) - cx, int(m.group(3)) - cz
+        if math.hypot(x, z) > 80:
+            side.pop(m.group(1), None)
+            continue
+        if math.hypot(x, z) <= 70:
+            near_s += 5
+        s = x * ax + z * az
+        if abs(s) < 14:
+            continue   # on the deck
+        sgn = 1 if s > 0 else -1
+        if m.group(1) in side and side[m.group(1)] != sgn:
+            crossings += 1
+        side[m.group(1)] = sgn
+    return crossings, (round(near_s / crossings) if crossings else None)
+
+
 def summarize(run_dir: Path, track: str, variant: str) -> dict:
     """One flat summary of a finished track run (also for backfilling old runs into the sub-lab)."""
     log = next(iter(sorted(run_dir.glob("logs/*/console.log"))), None)
@@ -230,6 +261,16 @@ def summarize(run_dir: Path, track: str, variant: str) -> dict:
         "risk_caps": text.count("[ZCR][RISK]"),
         "crossings": len(re.findall(r"\[ZCR\]\[CROSSING\] .* other=", text)),
         "junction_slows": len(re.findall(r"\[ZCR\]\[JUNCTION\] .* other=", text)),
+        # The one-lane bridge (3 Nov, note 512): unjams there (the head-on deadlock on the deck), waits short of the bridge,
+        # waits that ran out, and the fastest a held car still rolled.
+        "unjams": len(re.findall(r"\[ZCR\]\[UNJAM\] .*action=", text)),
+        "unjams_bridge": len([m for m in re.findall(r"\[ZCR\]\[UNJAM\] .*action=.* x=(-?\d+) z=(-?\d+)", text)
+                              if math.hypot(int(m[0]) - 2401, int(m[1]) - 2775) <= 45]),
+        "crossings": bridge_crossings(text)[0], "bridge_s_per_crossing": bridge_crossings(text)[1],
+        "onelane_waits": len(re.findall(r"\[ZCR\]\[ONELANE\] .*event=wait", text)),
+        "onelane_timeouts": len(re.findall(r"\[ZCR\]\[ONELANE\] .*event=go .*why=timeout", text)),
+        "onelane_wait_max_s": max([int(x) for x in re.findall(r"\[ZCR\]\[ONELANE\] .*event=go wait_s=(\d+)", text)] or [0]),
+        "onelane_held_kmh": max([int(x) for x in re.findall(r"\[ZCR\]\[ONELANE\] .*event=go .*max_kmh=(\d+)", text)] or [0]),
         "crossing_timeouts": len(re.findall(r"\[ZCR\]\[CROSSING\] .*why=timeout", text)),
         "men_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUM\] .*men_delivered=(\d+)", text) or [0])[-1]),
         "supplies_delivered": int((re.findall(r"\[ZCR\]\[TRAFFICSIM_SUPPLY\] .*supplies_delivered=(\d+)", text) or [0])[-1]),

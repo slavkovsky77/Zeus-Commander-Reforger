@@ -157,6 +157,10 @@ VARIANTS["nodetour"] = (VARIANTS["nowalk2"][0] + " -aicfRideDetourMeters 0",
 TEST = test_args("arland")
 # Seats a ride vehicle has (the game's prefabs).
 SEATS = {"M998_covered_long": 4, "UAZ469": 5, "M923A1_transport": 15, "Ural4320_transport": 15, "UAZ452_transport": 8}
+# 3 Nov (note 512): one car at a time over a one-lane stone bridge (ZCR_OneLane, on by default) - "noonelane" pins it off for
+# an A/B; the jams at the bridge east of Farm (2401,2775) are counted by lab/sublab measures from [ZCR][UNJAM].
+VARIANTS["noonelane"] = (VARIANTS["nowalk2"][0] + " -zcrNoOneLane",
+                         "as nowalk2, without the one-lane bridge rule (before 3 Nov)")
 
 
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1) -> dict:

@@ -44,6 +44,7 @@ class ZCR_Traffic
 	protected static ref map<IEntity, int> s_mBoardHeld = new map<IEntity, int>();
 	protected static ref map<IEntity, int> s_mBoardLogAt = new map<IEntity, int>();
 	protected static ref map<IEntity, float> s_mGearHeld = new map<IEntity, float>();
+	protected static ref map<IEntity, ref array<string>> s_mHoldRules = new map<IEntity, ref array<string>>();   // Hold's rules per vehicle
 	protected int m_iNextLog = 60;
 	protected int m_iBoardHolds;
 	protected int m_iBoardMoving;
@@ -90,6 +91,40 @@ class ZCR_Traffic
 		if (rule == "oncoming" && !again)
 			s_Instance.m_iOncoming++;
 		return true;
+	}
+
+	// A rule holds a vehicle still: cruise 0 and no drive to the wheels (Gear - a cruise speed of 0 alone still creeps at
+	// 5-6 km/h). ZCR_OneLane (3 Nov). Unhold gives it back - the gearbox once no rule and no boarding holds it.
+	static void Hold(IEntity v, string rule)
+	{
+		if (!v)
+			return;
+		Limit(v, rule, 0);
+		array<string> rules = s_mHoldRules.Get(v);
+		if (!rules)
+		{
+			rules = {};
+			s_mHoldRules.Set(v, rules);
+		}
+		if (rules.Find(rule) < 0)
+			rules.Insert(rule);
+		Gear(v, true);
+	}
+
+	static void Unhold(IEntity v, string rule)
+	{
+		if (!v)
+			return;
+		Release(v, rule);
+		array<string> rules = s_mHoldRules.Get(v);
+		if (rules)
+		{
+			rules.RemoveItem(rule);
+			if (rules.IsEmpty())
+				s_mHoldRules.Remove(v);
+		}
+		if (!s_mHoldRules.Contains(v) && !s_mBoardHeld.Contains(v))
+			Gear(v, false);
 	}
 
 	static void Release(IEntity v, string rule)
@@ -316,7 +351,8 @@ class ZCR_Traffic
 			{
 				Release(v, "boarding");
 				s_mBoardHeld.Remove(v);
-				Gear(v, false);
+				if (!s_mHoldRules.Contains(v))
+					Gear(v, false);
 			}
 			if (boarding && outside > 0)
 				BoardMoving(v, step, hold, far, outside);
@@ -330,6 +366,7 @@ class ZCR_Traffic
 		}
 		foreach (IEntity d : drop)
 		{
+			s_mHoldRules.Remove(d);
 			if (d)
 				Gear(d, false);
 			else

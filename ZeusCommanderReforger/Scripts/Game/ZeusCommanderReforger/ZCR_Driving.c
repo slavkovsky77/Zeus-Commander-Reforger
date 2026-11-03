@@ -94,6 +94,7 @@ class ZCR_Driving
 		ZCR_BuildTest.Start();     // lab: the base-building test - AI Conflict's builders at given bases (-zcrBuildTest)
 		ZCR_Oncoming.Start();      // both slow to 15 km/h for a car coming the other way (-zcrNoOncoming off)
 		ZCR_Crossing.Start();      // paths crossing ahead: the later one stops - off (worse in the lab), -zcrCrossing on
+		ZCR_OneLane.Start();       // one car at a time over a one-lane bridge (-zcrNoOneLane off)
 		ZCR_Junction.Start();      // two vehicles heading for the same junction: both 20 km/h there (-zcrNoJunction off)
 		ZCR_Traffic.Start();       // the speed arbiter and the spacing rule (-zcrNoTraffic / -zcrNoSpacing off)
 		ZCR_Risk.Start();          // collision forecast: the fastest speed with under 10% risk (-zcrRisk on)

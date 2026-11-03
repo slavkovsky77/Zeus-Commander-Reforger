@@ -207,8 +207,11 @@ class ZCR_DriveTest
 		return Vector(v[0].ToFloat(), 0, v[1].ToFloat());
 	}
 
-	// The road point nearest to p, on the ground; p itself without a road near.
-	static vector OnRoad(vector p)
+	// The road point nearest to p, on the ground; p itself without a road near. onLine (the via point, 3 Nov - the one-lane
+	// bridge east of Farm): the nearest point on the road's line, not its nearest vertex - the bridge's road piece has only
+	// its two ends, so a via there could be reached without crossing; at the height of the line (over a bridge the ground
+	// is the river bed).
+	static vector OnRoad(vector p, bool onLine = false)
 	{
 		vector best = p;
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
@@ -230,6 +233,27 @@ class ZCR_DriveTest
 						best = q;
 					}
 				}
+				if (onLine)
+				{
+					for (int i; i + 1 < points.Count(); i++)
+					{
+						vector a = points[i];
+						vector ab = points[i + 1] - a;
+						float len2 = ab[0] * ab[0] + ab[2] * ab[2];
+						if (len2 < 0.01)
+							continue;
+						float t = Math.Clamp(((p[0] - a[0]) * ab[0] + (p[2] - a[2]) * ab[2]) / len2, 0, 1);
+						vector onSeg = a + ab * t;
+						if (vector.DistanceXZ(onSeg, p) < d)
+						{
+							d = vector.DistanceXZ(onSeg, p);
+							best = onSeg;
+						}
+					}
+					float lineY = best[1];
+					best[1] = Math.Max(lineY, GetGame().GetWorld().GetSurfaceY(best[0], best[2]));
+					return best;
+				}
 			}
 		}
 		best[1] = GetGame().GetWorld().GetSurfaceY(best[0], best[2]);
@@ -245,7 +269,11 @@ class ZCR_DriveTest
 			m_vA = OnRoad(m_vA);
 			m_vB = OnRoad(m_vB);
 			if (m_vVia != vector.Zero)
-				m_vVia = OnRoad(m_vVia);
+			{
+				m_vVia = OnRoad(m_vVia, true);
+				Print(string.Format("[ZCR][DRIVETEST] event=VIA x=%1 y=%2 z=%3 ground=%4", Math.Round(m_vVia[0]), Math.Round(m_vVia[1] * 10) / 10, Math.Round(m_vVia[2]),
+					Math.Round(GetGame().GetWorld().GetSurfaceY(m_vVia[0], m_vVia[2]) * 10) / 10), LogLevel.NORMAL);
+			}
 			Print(string.Format("[ZCR][DRIVETEST] t=%1 track a=%2,%3 b=%4,%5 straight_m=%6 cars=%7 prefab=%8", now, Math.Round(m_vA[0]), Math.Round(m_vA[2]),
 				Math.Round(m_vB[0]), Math.Round(m_vB[2]), Math.Round(vector.DistanceXZ(m_vA, m_vB)), m_iCount, m_sPrefab), LogLevel.NORMAL);
 			foreach (int gk, vector g0 : m_aGoals)
