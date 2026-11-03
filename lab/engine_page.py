@@ -23,14 +23,25 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "A 115-game-minute Soviet transport run at normal speed (15:55-17:50): does it degrade past 40 game minutes like Martin's 3x watched run?",
+    "Running now": "Nothing - Martin plays Age of Empires; the next game window is the Farm battle with every fix of the night.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Long runs with the ride detour against the old 250-m rule; then drivers getting out while boarding, the stone-wall pocket drop point.",
+    "Being built next": "Martin watches the Farm battle (capture, drones, stutter fix), then Gemini's side of it; the one-lane rule at the narrow bridge.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("good", "r67", "Drones three times as busy, the count decided by the commander",
+     "Martin: 'drones should be used more agressivly', 'two drone teams are not enough', 'every 30s', 'decided dynamically according to the situation'. The commander now re-decides 2-6 drone teams a side every 30 s from the situation (attack, contact, threat, drones finding targets, losses) and launches every 30 s in a fight. Farm battle: launches 23 -> 65 in 20 minutes, pilots 2/1 -> 6/5, no drone up 53%/47% of the time -> 8%/15%; drones took 29 of 42 losses."),
+    ("good", "r67", "The stutter while playing is gone",
+     "Martin: 'lag comes every nth second'. Our fork's check whether a van can get from a depot spot to a road ran in one frame - ~80 ms a failed check, up to ~250 ms, every 0.6-3 s while bases looked for depots. Now cached and spread over frames (5 ms a frame at most): 10-s windows with a 200 ms+ frame 68 -> 1, slow frames 1167 -> 393, median FPS 53 -> 57; depots at the same spots."),
+    ("good", "r66", "Farm can be taken from either side",
+     "Martin: 'there must be caputring bug', 'pls FIX THAT!!'. In ~30 Farm battles only the side whose HQ is the harbour ever took Farm - the game seizes only inside a side's radio network. Now one rule for both at one-point battles: alone in the 60-m core for 30 s takes it, both inside = contested. The south side took Farm for the first time (minute 11) and held it through a contest."),
+    ("design", "r67", "Gemini commands one side's attack - built, to be watched",
+     "Martin: 'infantry is not choosing the best possible route going through real cover', 'points where soldiers are dropped should be planned by LLM', 'enemies should not be ignored', 'only one side can use it'. Every 30 s the code draws a threat map from the enemies the side knows, hidden drop points and left/centre/right cover routes; every ~2.5 min Gemini picks per team the drop point, route, go/wait/support and the drone teams. 8 Gemini v 10 rules headless battles: Farm taken 1 v 0, attack legs on a planned route 55% v 33%, losses about even - within noise. Not counted until Martin has watched it."),
+    ("design", "r67", "Fortifications placed by Gemini - first version",
+     "Martin: 'it will be probably much smarter in choosing place and direction'. The code proposes valid spots, Gemini picks 5 + 3 spares and their facing from a map image; builders try the planned spots first. Building test: facing error 102 -> 51 degrees, facing the enemy within 30 degrees 18% -> 37%, built 88-91%. Only 55% land on a planned spot, none at Farm (fenced paddocks); not in the normal battles yet."),
+
     ("good", "r65", "The integration tests read like training curves",
      "Martin: 'when I see some table I cant grasp whatever happens', 'we are training AI so same methods should be applied for reviewing'. The Integration tests tab is now a start page of tests (each with its number against its target and a curve) and one page per test: every run with the moving average and the target, the average per build, one small curve per measure he named (time lost, worst 5 minutes, walking far, standing, aboard a vehicle that doesn't move, rides failed, stuck, jams, drivers out, soldier-km a minute), tables last."),
     ("bad", "r65", "Long matches degrade after 40 game minutes",
@@ -328,10 +339,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Long runs (110+ game minutes) with the ride detour against the old 250-m rule - judged on the minutes after 40.",
-    "Drivers getting out while their team boards (7 v 2 in the 2 Nov morning A/B; 0 in Martin's watched run).",
-    "No drop point inside the stone-wall pocket between Moss Hill and Beauregard (2390,1385).",
-    "Rides still fail 1 in 7: the driver's recovery runs out, vehicles overturn, the team can't reach its vehicle spot in time.",
+    "Martin watches the Farm battle with the night's fixes (capture, drones, stutter, ride detour), then the Farm battle with Gemini on one side.",
+    "Gemini's wait and support orders never became a hold in the game - make them hold, then more Gemini v rules battles.",
+    "One car at a time over the narrow bridge east of Farm (Martin: 'team a6 and other get stuck next to small bridge').",
+    "Drivers getting out while their team boards; forward drone trucks too far back (400-500 m walks to reload).",
+    "Drone flight realism (a chance to miss, a look round before the dive) - waiting on Martin's call.",
 ]
 
 FACTS = [
@@ -351,6 +363,22 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (67, "2-6 drone teams decided by the commander; the stutter fixed; Gemini plans one side", "2 Nov 21:30 - 23:15",
+     ["ZCR (59c8451): the commander's drone plan - 2-6 operator teams a side re-decided every 30 s from the situation, a launch every 30 s in a fight and 60 s when quiet ([ZCR][DRONEPLAN]); ZCR_Drones.SetTeamsWanted for the LLM commander.",
+      "AI Conflict fork (a431ec6): the depot way-out check cached on a shared 6-m grid and spread over frames (5 ms a frame); [DEPOT_ACCESS_COST] and [CONSTRUCTION_SLOW_UPDATE] log the cost.",
+      "Fortifications from the map (8508744, fork a65a599): lab/fortplan.py - the code proposes spots, Gemini picks 5 + 3 spares and their facing; the builders try them first (-zcrFortPlan, [ZCR][FORTPLAN]).",
+      "Live attack plans (1aad85d, 6c335a4, 7b37ad6, fork 20bcfa5, 528ddb5): lab/liveplan.py beside the battle - threat map from [ZCR][KNOWN], drop points, cover routes; Gemini every ~150 s per team drop point, route, go/wait/support, drone teams and target (-zcrLivePlan; farm-gemini, farm-live variants; lab/livecompare.py). A live-plan team keeps its route after a ride or a stuck-route leg.",
+      "Lab (a1c1442): AoE mode - every headless server pinned to the upper cores and one at a time (python lab/cpu.py aoe on|off). PLAN cleaned up to 32 recent items in 6 themes, the rest in PLAN_ARCHIVE.md."],
+     "Martin: 'two drone teams are not enough', 'every 30s', 'decided dynamically', 'lag comes every nth second', 'fortifications should be planned via llm', 'why gemini is not used for planning attacks?', 'only one side can use it the other one will not use it and we will compare', 'can I go play age of empire while you develop?'.",
+     "Drones: launches 23 -> 65 in 20 min, no drone up 53%/47% -> 8%/15%. Stutter: 10-s windows with a 200 ms+ frame 68 -> 1. Forts: facing error 102 -> 51 deg. Gemini v rules, 8 v 10 headless battles: Farm taken 1 v 0, legs on a planned route 55% v 33%, losses even; wait/support never became a hold. 74 Gemini calls, none invalid, $0.53."),
+    (66, "Farm taken from either side; drones from forward sites; play it yourself", "2 Nov 17:50 - 20:40",
+     ["ZCR (d1c6e92, aef15b2, 5ce54b9): ZCR_PointSeize - one capture rule for both sides at one-point battles: alone in the 60-m core for 30 s, both inside = contested ([ZCR][SEIZE]); -zcrNoPointSeize turns it off.",
+      "ZCR drone sites (aef15b2, 052a87d): a forward site tries other bases (a failed base skipped for 10 min), else a field site 600 m short of the front; pilots reload where they stand when they can't reach the truck in 120 s; the holder flies at enemies coming within 2.5 km.",
+      "Lab (13aad89): lab/play.py - the full battle with the deploy menu, Martin plays a soldier; assaulttest --play for the Farm battle. assaulttest farm-now (7eb20d6) - the Farm battle with the transport test's setup.",
+      "Transport test (4cf061d): time lost per window of game time - minutes 0-20 (the main curve), 20-40, after 40. KEEP (cd4d3df): a failed ride gets a new vehicle in 20 s."],
+     "Martin: 'isnt it bugged really because they are there I only see US guys and its still FIA flag', 'there must be caputring bug', 'pls FIX THAT!!', 'why not many drones are used?', 'could you prepare version of farm battle that I could play as soldier'. /bad: 'team a6 and other get stuck next to small bridge its too narrow'.",
+     "In ~30 Farm battles since 29 Oct only the harbour side took Farm: the game seizes only inside a side's radio network. After the fix the south side took Farm (minute 11) and held it. Drones before: one pilot a side, one drone up at a time, sites only at the HQs (1.1 and 2 km from Farm)."),
+
     (65, "Integration tests as training curves; rides from further out", "2 Nov 15:20 - 16:20",
      ["Lab app (4336080): the Integration tests tab as a start page of tests and one page per test (#sublab/<name>): progress curves first (every run, the moving average of 5, the target, each build marked), the average per build, one curve per measure, then where it stands, setups (the current one split by build), runs, about. lab/sublab.py: derived measures, the build of each run.",
       "ZCR (bc013db): the followed team's caption refreshes every 3 s - distance, what the team does, its men ([ZCR][CAMCAP]).",
