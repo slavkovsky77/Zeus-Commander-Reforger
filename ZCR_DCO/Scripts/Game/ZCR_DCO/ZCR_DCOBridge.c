@@ -22,8 +22,66 @@ modded class ZCR_Tactical
 	static const float CALM_M = 800;
 	protected ref map<string, int> m_mLodLogAt = new map<string, int>();
 
+	// Riders stay mounted (3 Nov, note 520 - Martin: "could we override dco 400m dismount?"; a lab arm, -zcrRideStayMounted):
+	// DCO's 400-m rule never fires on AI Conflict's rides (0 of 185 get-out orders in the probe battle); what throws a riding
+	// team out is DCO's shot reaction (passengers, any enemy shot within 700 m) and the game's vehicle combat (everyone, the
+	// driver too, an enemy group within 200 m - 550 m when it shoots), both checked by DCO's own gate on every get-out. While
+	// a squad has a man aboard a vehicle it gets DCO's per-squad exit rule 'ordered or damaged' through DCO's API
+	// (vehicleExit = ORDERED | DAMAGED; a burning or wrecked vehicle can always be left), DCO's global rule again once it is
+	// on foot. AI Conflict's own unloading gets its men out directly, past that gate, so drop points still work.
+	//   [ZCR][STAYMOUNTED] t= faction= mounted= set=        (every 60 s)
+	static const int MOUNTED_EXIT = DCO_EVehicleExit.ORDERED | DCO_EVehicleExit.DAMAGED;
+	protected ref map<string, int> m_mMountLogAt = new map<string, int>();
+
+	protected void StayMounted(string faction, AICF_FactionState state)
+	{
+		int mounted, changed;
+		for (int i; i < state.GetSlotCount(); i++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(i);
+			if (!slot || !slot.GetGroup())
+				continue;
+			SCR_AIGroup g = slot.GetGroup();
+			array<AIAgent> agents = {};
+			g.GetAgents(agents);
+			bool aboard;
+			foreach (AIAgent a : agents)
+			{
+				if (!a || !a.GetControlledEntity())
+					continue;
+				IEntity v = CompartmentAccessComponent.GetVehicleIn(a.GetControlledEntity());
+				if (!v)
+					continue;
+				SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.Cast(v.FindComponent(SCR_AIVehicleUsageComponent));
+				if (usage && usage.GetVehicleType() == EAIVehicleType.STATIC_WEAPON)
+					continue;
+				aboard = true;
+				break;
+			}
+			int want = -1;
+			if (aboard)
+			{
+				want = MOUNTED_EXIT;
+				mounted++;
+			}
+			if (Math.Round(DCO_API.GetSquadSetting(g, "vehicleExit")) != want)
+			{
+				DCO_API.SetSquadSetting("zeus_commander", g, "vehicleExit", want);
+				changed++;
+			}
+		}
+		int now = ZCR_LossLog.Seconds();
+		if (now >= m_mMountLogAt.Get(faction))
+		{
+			m_mMountLogAt.Set(faction, now + 60);
+			Print(string.Format("[ZCR][STAYMOUNTED] t=%1 faction=%2 mounted=%3 set=%4", now, faction, mounted, changed), LogLevel.NORMAL);
+		}
+	}
+
 	override void Tend(string faction, AICF_FactionState state)
 	{
+		if (state && System.IsCLIParam("zcrRideStayMounted"))
+			StayMounted(faction, state);
 		if (!state || System.IsCLIParam("zcrNoDcoLod"))
 			return;
 		int lightOff = DCO_GroupFeatures.PresetOff(DCO_EGroupDetail.LIGHT);
