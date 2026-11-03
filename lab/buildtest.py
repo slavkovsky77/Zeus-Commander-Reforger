@@ -50,9 +50,12 @@ VARIANTS = {
     # and facings, or the code's own best-scored spots facing the threat; today's search where no planned spot fits.
     "fortplan": ("-zcrFortPlan", "fortifications where the model planned them (spots and facing from the map, lab/fortplan.py)"),
     "fortalgo": ("-zcrFortPlan", "fortifications at the code's best-scored spots, facing the threat (lab/fortplan.py, no model)"),
+    # 3 Nov (note 518): today's search turned to face the nearest enemy base first (its first 32 sites all faced north).
+    "fortface": ("-zcrFortFace", "today's search, each site tried facing the nearest enemy base first, then +-30/60/90 deg"),
+    "fortplan-face": ("-zcrFortPlan -zcrFortFace", "the model's planned spots first, then today's search facing the enemy first"),
 }
 # variant -> the profile seed with $profile:zcr/fortplan.txt (lab/fortplan.py export <which>)
-SEEDS = {"fortplan": "llm", "fortalgo": "algo"}
+SEEDS = {"fortplan": "llm", "fortalgo": "algo", "fortplan-face": "llm"}
 
 BASE = "-zcrNoFIA -zcrLabWeather -zcrNoArmour -zcrArmourVanilla -aicfMaxAgentsPerFaction 1 -aicfMaxBuildersPerFaction 6"
 

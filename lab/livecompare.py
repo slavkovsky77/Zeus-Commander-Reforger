@@ -107,6 +107,7 @@ def side_rows(run: Path, variant: str) -> list:
                      "at_obj_5": s.get(f"{k}_at_obj_5"), "at_obj_8": s.get(f"{k}_at_obj_8"), "at_obj_12": s.get(f"{k}_at_obj_12"),
                      "at_obj_15": s.get(f"{k}_at_obj_15"), "first_arrival_s": s.get(f"{k}_first_arrival_s"),
                      "rides_delivered": s.get(f"{k}_rides_delivered"), "rides_failed": s.get(f"{k}_rides_failed"),
+                     "rides_contact": s.get(f"{k}_rides_contact"),
                      "minutes": s["minutes"], "script_errors": s.get("script_errors"),
                      "attack_legs": legs[side][0], "route_legs_pct": round(100 * legs[side][1] / legs[side][0]) if legs[side][0] else None,
                      "model_calls": calls if side == live_side else 0, "model_fallbacks": fallbacks if side == live_side else 0,

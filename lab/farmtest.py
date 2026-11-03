@@ -43,7 +43,8 @@ def to_row(r: dict, run: Path) -> dict:
             "held_min": round((r.get("held_s") or 0) / 60, 1), "lost": r.get("lost"), "killed": r.get("killed"),
             "at_obj_8": r.get("at_obj_8"), "at_obj_12": r.get("at_obj_12"), "route_legs_pct": r.get("route_legs_pct"),
             "expose_pct": r.get("expose_pct"), "minutes": r.get("minutes"), "script_errors": r.get("script_errors"),
-            "model_calls": r.get("model_calls"), "run": run.name, "run_path": str(run)}
+            "model_calls": r.get("model_calls"), "rides_delivered": r.get("rides_delivered"), "rides_failed": r.get("rides_failed"),
+            "rides_contact": r.get("rides_contact"), "run": run.name, "run_path": str(run)}
 
 
 def recorded() -> set:

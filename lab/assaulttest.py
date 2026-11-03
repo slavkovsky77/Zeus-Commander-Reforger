@@ -128,6 +128,10 @@ VARIANTS = {
     # 2 Nov defaults (boarding hold, departure queue, 20-s retry at a base, order restore, ride detour).
     "farm-now": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0").replace(" -aicfNoHiddenSeat", ""),
                  "storm-plan-measured with the transport test's setup: the seat fallback on, and every 2 Nov transport fix (the defaults)"),
+    # 3 Nov (note 519): the A/B of the contact dismount (fork: a ride within 800 m of its target whose crew got out ends as a
+    # dismount there) - farm-now without it, as before 3 Nov.
+    "farm-now-nocontact": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -aicfContactDismountM 0").replace(" -aicfNoHiddenSeat", ""),
+                           "farm-now without the contact dismount (a crew that got out is put back in, as before 3 Nov)"),
     # 2 Nov night (note 515 - Martin: "why gemini is not used for planning attacks?", "attack routes should be planned based
     # on the context (positions of soldiers, cover)", "points where soldiers are dropped should be planned by LLM", "only one
     # side can use it, the other one will not, and we will compare"): farm-now, and ONE side's attack teams get live plans
@@ -144,16 +148,18 @@ VARIANTS = {
                     "farm-gemini-routes, and Gemini also decides the side's drone teams (1-6) and where they fly (farm / enemy_hq / none)"),
 }
 LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
 
 
 def run(scenario: str, variant: str, minutes: float, units: int, port: int, watch: bool = False, speed: float = 1,
-        cam_spot: str = "", play: bool = False, live_side: str = "harbour") -> dict:
+        cam_spot: str = "", play: bool = False, live_side: str = "harbour", more: str = "") -> dict:
     attacker = SCENARIOS[scenario]
     extra, _ = VARIANTS[variant]
+    if more:   # --extra: lab probes for one run (e.g. -zcrGetOutProbe), the variant unchanged
+        extra += " " + more
     if cam_spot:
         extra += f" -zcrCamSpot {cam_spot}"
     us, ussr = ("assault", "hold") if attacker == "US" else ("hold", "assault")
@@ -221,7 +227,7 @@ def rides(lines: list, side: str, rounds: dict) -> dict:
             m = re.search(r" t=(\d+) kind=team side=\w+ id=(\d+) .* x=(-?\d+) z=(-?\d+)", l)
             if m:
                 where.setdefault(int(m.group(2)), []).append((int(m.group(1)), float(m.group(3)), float(m.group(4))))
-    state, out, peak = {}, {"rides_asked": 0, "rides_delivered": 0, "rides_failed": 0, "rides_failed_at_hq": 0, "rides_slow_out": 0}, 0
+    state, out, peak = {}, {"rides_asked": 0, "rides_delivered": 0, "rides_contact": 0, "rides_failed": 0, "rides_failed_at_hq": 0, "rides_slow_out": 0}, 0
     for l in lines:
         if "[VEHICLE_STATE_CHANGED]" not in l or f"faction={side} " not in l:
             continue
@@ -234,6 +240,8 @@ def rides(lines: list, side: str, rounds: dict) -> dict:
             out["rides_asked"] += 1
         elif st == "DISMOUNT":
             out["rides_delivered"] += 1
+            if "reason=ZCR_CONTACT_DISMOUNT" in l:   # 3 Nov (note 519): the team got out near the objective, on foot from there
+                out["rides_contact"] += 1
         elif st == "FALLBACK" and state.get(slot) == "DISMOUNT":
             # Delivered, then a slow get-out (DISEMBARK_TIMEOUT ~20 s after the drop, 30 Oct 23:35): not a failed ride.
             out["rides_slow_out"] += 1
@@ -257,7 +265,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         sides = {s: summarize(run_dir, scenario, variant, objective, s) for s in ("US", "USSR")}
         out["objective"] = sides["USSR"].get("objective", "?")
         for k in ("at_obj_3", "at_obj_5", "at_obj_5_pct", "at_obj_8", "at_obj_12", "at_obj_15", "first_arrival_s", "to_obj_pct", "lone_survivors", "ride_fails",
-                  "captured", "capture_s", "hq_m", "teams_in", "third_in_s", "first_to_third_s", "plan_dismounts", "holds", "hold_go_s", "rides_asked", "rides_delivered", "rides_failed", "rides_failed_at_hq", "rides_slow_out", "rides_peak"):
+                  "captured", "capture_s", "hq_m", "teams_in", "third_in_s", "first_to_third_s", "plan_dismounts", "holds", "hold_go_s", "rides_asked", "rides_delivered", "rides_contact", "rides_failed", "rides_failed_at_hq", "rides_slow_out", "rides_peak"):
             for s in ("US", "USSR"):
                 out[f"{s.lower()}_{k}"] = sides[s].get(k)
         out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
@@ -387,13 +395,14 @@ def main() -> int:
     ap.add_argument("--summarize", default="", help="summarize an existing run folder instead of running")
     ap.add_argument("--cam-spot", default="", help="with --watch: x,z,from_s,to_s - the camera follows the ride nearest that spot "
                     "between those game seconds (-zcrCamSpot, 31 Oct: the airfield edge west of Farm)")
+    ap.add_argument("--extra", default="", help="more server parameters for this run only, e.g. '-zcrGetOutProbe'")
     ap.add_argument("--live-side", default="harbour", help="farm-live / farm-gemini: the side with live plans - harbour (its HQ "
                     "nearer Farm; HQs are drawn per match), south, US or USSR")
     a = ap.parse_args()
     if a.summarize:
         r = summarize(Path(a.summarize), a.scenario, a.variant)
     else:
-        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play, a.live_side)
+        r = run(a.scenario, a.variant, a.minutes, 0, a.port, a.watch, a.speed, a.cam_spot, a.play, a.live_side, a.extra)
     print(json.dumps(r, indent=1))
     return 0
 
