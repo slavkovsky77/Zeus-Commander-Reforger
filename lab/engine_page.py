@@ -23,7 +23,7 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Two more Soviet transport A/B pairs (40 min, the one-lane rule on v off), headless, until ~07:55.",
+    "Running now": "Nothing - the night is done; the next run is the Farm battle with a Gemini side, in the window, when Martin says go.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
     "Being built next": "Martin watches the Farm battle with a Gemini side in the window; then make the drop points sit further back - most failed rides fail in the last 800 m.",
@@ -32,7 +32,7 @@ VERDICT = {
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
     ("design", "r68", "One car at a time over a one-lane bridge",
-     "Martin: 'team a6 and other get stuck next to small bridge its too narrow'. Arland's old stone bridges carry one vehicle (deck 4.7 m wide); two cars met head-on on the deck east of Farm and stood there while the unjam rule backed one off every 20 s - 62 of the 130 jams in his 3x Soviet run. Now whoever reaches the bridge first has it, cars behind it its way follow, a car coming the other way stops 110 m out until the deck is clear; held cars are braked (one rolled down to the river onto the deck at first). Driving test, 3 runs each: same throughput, car hits 0 v 3, no deadlock on the deck (one run without the rule lost all 4 vans there). Soviet transport A/B: no bridge jam either way, the waits cost 3 vehicle-minutes in 70 - more runs needed."),
+     "Martin: 'team a6 and other get stuck next to small bridge its too narrow'. Arland's old stone bridges carry one vehicle (deck 4.7 m wide); two cars met head-on on the deck east of Farm and stood there while the unjam rule backed one off every 20 s - 62 of the 130 jams in his 3x Soviet run. Now whoever reaches the bridge first has it, cars behind it its way follow, a car coming the other way stops 110 m out until the deck is clear; held cars are braked (one rolled down to the river onto the deck at first). Driving test, 3 runs each: same throughput, car hits 0 v 3, no deadlock on the deck (one run without the rule lost all 4 vans there). Six Soviet transport runs: bridge jams 0/0/0 with the rule v 0/8/0 without, time lost about the same (minutes 0-20: 18 v 16%, within the HQ draw's swing) - it removes the deadlock, it doesn't speed transport up."),
     ("design", "r68", "Gemini's wait orders now hold; the battle still comes out even",
      "Of 73 wait or support orders none held: the hold point moved every 30 s with the team's redrawn route, and a team already walking toward Farm finished its leg first. Now one timer per team, a new wait rebuilds the leg at once, the hold point stays put. Teams now get sent to their hold point - but they are often fighting, in a failed ride, or their side holds Farm already. 9 Gemini v 13 rule sides on the new build: losses 27 v 28, Farm taken 1/9 v 2/13, attacks on a cover route 54% v 35%. The drones decide these battles."),
     ("good", "r68", "The Farm battle is an integration test with a curve per commander",
@@ -350,7 +350,7 @@ PROBLEMS = [
 NEXT = [
     "Martin watches the Farm battle with Gemini on one side in the window - Gemini's numbers don't count until he has.",
     "Drop points further back from Farm: 63 of 69 rides that failed in transit failed within 800 m of it.",
-    "More long Soviet transport runs with and without the one-lane rule (the bridge jams by chance: 22 in one 115-min run, 0 in two 70-min ones).",
+    "A watched Soviet transport run: does the bridge rule look right on screen (cars waiting short of the bridge, then going)?",
     "Drone flight realism (a chance to miss, a look round before the dive) - waiting on Martin's call.",
 ]
 
