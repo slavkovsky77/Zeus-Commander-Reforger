@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "4 headless Farm battles where riders stay in the car to the drop point (the DCO override, note 520) and the fortification facing tests, until ~14:55; then the review battle for Martin in the window.",
+    "Running now": "The drones A/B for Martin's 'Farm actually captured' (note 530): 3 Farm battles without any drones v 3 with, headless and one at a time while he plays, until ~20:40.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin watches the review battle (farm-gemini-forts): Gemini commanding one side, the dynamic drone teams, the new drone attack run, the contact dismount and Gemini's fortifications - nothing counts as done before he has seen it.",
+    "Being built next": "Farm taken and fought over by both sides: depending on the A/B - drone teams tied to the attack teams still alive (529), attack teams that push into Farm's 60 m core instead of standing 150-300 m out.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r70", "Drones never circle over a squad, and never hover",
+     "Martin watched the review battle: 'i love how they fly', but 'drones should not stop over enemies when there are too many of them' and 'they should not stop'. 18 of 54 looks round a target had ended with the drone shot down while circling; searching drones hovered over their last point. Now 4 or more soldiers on foot round the target and it goes straight in (1-3 shorten the look), a hit while circling sends it in at once, and a searching drone goes round its point on a 50 m circle at ~45 km/h. Next battle: 15 runs straight in, 2 drones lost circling (v 18). Drone tests 6/6."),
+    ("design", "r70", "The lab map shows Gemini's plan and a team's waypoints",
+     "Martin: 'i still see the same plan in commander lab as always are we using gemini or what?' - Gemini was commanding (every ~2.5 min, 0 problems), but the map drew the stored plan the teams started with. Now a Gemini side's live routes replace it, with Gemini's reason per team and its plan in words under the map; a clicked team shows its route as numbered waypoints (purple: the plan, dark: the game's own - AI Conflict gives one at a time); a full screen button."),
+    ("design", "r70", "The review battle's crash, and soldiers stuck in rocks",
+     "The first review battle crashed (heap corruption) 25 s after AI Conflict failed to free a loadout's preview soldier - an error seen 25 times before without a crash; loadout plans now stay to the match's end, and the next 36-minute battle ran clean. Martin: 'team a6, soviet one is stuck under the rock' - in 53 Farm battles 16 teams stood still through AI Conflict's stuck hold and never moved again; a soldier on foot who hasn't moved 1.5 m between two stuck checks now hops 2-7 m to free ground the navmesh connects onward."),
+
     ("design", "r69", "Teams thrown out of their ride near Farm go on foot at once",
      "In 33 Farm battles 241 of the 264 rides that failed, failed within 800 m of Farm - not on the way. A probe battle logged who ordered every get-out: the game's own vehicle-combat rule sends everyone out of an unarmed car, the driver too, when an enemy group is within 200 m (550 m when it shoots), and DCO sends passengers out at a shot within 700 m; DCO's 400-m dismount never fired. AI Conflict then put the crew back in, up to twice, and gave up after a median 85 s - the team standing at the car under fire. Now within 800 m of the target a team that got out is a dismount there. A/B, 4 v 3 battles: rides failed 2.5 v 9.3 a battle, standing at a failing ride 0 v 10.4 team-minutes; losses 52 v 53, soldiers at Farm at minute 12 9 v 11 - level."),
     ("design", "r69", "FPV drones look round before the dive",
@@ -355,9 +362,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin watches the review battle: Gemini on one side, the dynamic drones, the new drone attack run, the contact dismount, Gemini's fortifications.",
-    "Riders stay in the car to the drop point (the DCO override) - 4 battles against the contact dismount, then Martin's pick.",
-    "Fortifications facing the enemy by default, once the near4 building test agrees.",
+    "Farm actually taken, both sides attacking and defending it (530): the drones A/B first - in the streamed battle drones did 71 of 81 losses and nobody stood in Farm's 60 m core but once.",
+    "Drone teams tied to the attack teams still alive - 'everybody is drone operator' (529).",
+    "Riders staying mounted to the drop point - the default or not, after the A/B.",
     "Forward drone trucks too far back (514), drivers leaving during boarding (505).",
 ]
 
@@ -378,6 +385,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (70, "Drones never circle over a squad or hover; the lab map shows Gemini's plan and a team's waypoints", "3 Nov 17:20 - 18:20",
+     ["FPV AI Drones (4ea57f2, 03a4163): their soldiers on foot within 60 m of the target shorten the look round (4+: straight in), a hit while looking round sends it in; a searching drone goes round its last point on a 50 m circle, holds 60% speed on spotting.",
+      "AI Conflict fork (10658ff): loadout plans freed only over 64 (the review battle's crash followed a failed free); AICF_ZcrUnstick - a soldier on foot who hasn't moved 1.5 m between two stuck checks hops 2-7 m to free ground ([ZCR][UNSTICK], -aicfZcrUnstick 0).",
+      "ZCR (91f9e6a): the live map's team line carries the group's waypoint queue (wps=); the drone camera skips a destroyed drone.",
+      "Lab (bd4f022, 7b6c092, 88333ea): the map draws Gemini's live plan and a clicked team's numbered waypoints, full screen; lab/droneloss.py credits drone hits to the drone's side; farm-now-staymounted-nodrones for the drones A/B."],
+     "Martin, 3 Nov evening: 'are we using fucking gemini or what?'; 'when i click unit I should see its way points'; 'shit it crashed'; 'drones should not stop over enemies when there are too many of them'; 'good job on drones i love how they fly'; 'but they should not stop'; 'make map fullscreen'; 'team a6 ... stuck under the rock'; 'everybody is drone operator'; 'continue developing so farm is actually captured'.",
+     "Review battle 1: crashed at minute 10 (heap corruption after the loadout error). Review battle 2: 36 min, no crash, 0 loadout errors; drones 71 of 81 losses (US drones 45 kills, Soviet 26); straight in over a crowd 15, drones lost circling 2 (v 18); nobody took Farm - one soldier in its 60 m core once. 53 Farm battles: 16 teams stuck for good. Drone tests 6/6 twice."),
+
     (69, "Teams thrown out of their ride near Farm go on foot at once; drones look round before the dive", "3 Nov 11:57 - 13:50",
      ["AI Conflict fork (f0388ba): ZcrContactDismount - within -aicfContactDismountM (default 800) of the ride's target, a ride whose crew is being recovered or has a living member out of the car ends as a dismount there ([ZCR][CONTACTOUT], ZCR_CONTACT_DISMOUNT); -zcrFortFace: today's fortification site search tries facing the nearest enemy base first.",
       "FPV AI Drones (f9ab338): the attack run spots, circles the target (Orbit Time 8 s, Orbit Radius 40 m), picks its side and dives; Accuracy 100 by default as the Arma 3 module, Second Pass Chance 50.",

@@ -162,9 +162,15 @@ VARIANTS = {
     # 18 v 9 with the contact dismount alone, Farm taken by 3 sides v 0 in 7 battles; more cars burn with the team aboard).
     "farm-review": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrFortPlan -zcrFortFace -zcrRideStayMounted").replace(" -aicfNoHiddenSeat", ""),
                     "farm-gemini-forts, and a riding squad stays in its car to the drop point (DCO's exit rule 'ordered or damaged')"),
+    # 3 Nov 18:15 (note 530 - Martin: "continue developing so farm is actually captured and both sides actually attack and
+    # defend the point"): in the streamed battle drones did 71 of 81 losses and the attack teams stood 120-300 m out with their
+    # waypoint on Farm's centre - nobody in its 60 m core but once. The same battle without any drones, to see what they do.
+    "farm-now-staymounted-nodrones": (None, "farm-now-staymounted without drones: no drone mods, no drone teams (the A/B of note 530)"),
 }
+NO_DRONES = {"farm-now-staymounted-nodrones"}
+VARIANTS["farm-now-staymounted-nodrones"] = (VARIANTS["farm-now-staymounted"][0], VARIANTS["farm-now-staymounted-nodrones"][1])
 LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
@@ -193,6 +199,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
     argv = [sys.executable, "-u", str(ROOT / "lab" / "reforger.py"), "--map", "arland", "--minutes", str(minutes), "--label", label,
             "--port", str(port), "--us", us, "--ussr", ussr, "--drones", "--mods", MODS, "--plan-seconds", "60",
             "--extra", f"{extra} -zcrTestTitle {title}"]
+    if variant in NO_DRONES:   # no drone mods, no drone teams (the A/B of note 530)
+        argv.remove("--drones")
     if variant in SEEDS:
         seed = ROOT / ".runtime" / "attack" / f"seed_{POINTS.get(scenario, scenario).lower()}_{SEEDS[variant]}"
         if SEEDS[variant].startswith("@"):   # a whole map's plans (lab/attackplan.py --all)
