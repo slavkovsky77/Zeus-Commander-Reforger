@@ -150,9 +150,15 @@ VARIANTS = {
     # (21:26-22:55) ran without - lab/livecompare.py tells them apart by liveplan.jsonl's "drones".
     "farm-gemini": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan").replace(" -aicfNoHiddenSeat", ""),
                     "farm-gemini-routes, and Gemini also decides the side's drone teams (1-6) and where they fly (farm / enemy_hq / none)"),
+    # 3 Nov (notes 517-520): Martin reviews by watching - one battle with everything of his 2 Nov wishes that is built: farm-gemini
+    # (Gemini commands one side: drop points, cover routes, wait/go, its drone teams), the dynamic drone teams, the contact
+    # dismount (the fork's default), the new drone attack run (the local FPV AI Drones), and the fortifications Gemini planned
+    # (-zcrFortPlan, $profile:zcr/fortplan.txt from lab/fortplan.py; elsewhere today's search facing the enemy first).
+    "farm-gemini-forts": ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrFortPlan -zcrFortFace").replace(" -aicfNoHiddenSeat", ""),
+                          "farm-gemini, and both sides build the fortifications Gemini planned from the map (place and facing), the rest facing the enemy"),
 }
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
