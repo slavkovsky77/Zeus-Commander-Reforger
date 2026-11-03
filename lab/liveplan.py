@@ -700,6 +700,7 @@ class Commander:
         # places, not ids - the drop points and support positions are numbered anew every round.
         self.orders = {}
         self.frozen_drop = {}   # team id -> (x, z): the drop point its ride was given
+        self.frozen_hold = {}   # team id -> (order, (x, z)): the hold point of its wait or support while that order stands
         self.version = int(time.time()) % 100000 * 10
         self.last_model_t = -1e9
         self.last_model_owner = None
@@ -1020,7 +1021,18 @@ class Commander:
                     via = self.p.route_via(f"{start}-{sp['id'] if sp else 'P'}", from_xz, cell, pic["costs"], pic["D_obj"], pic["threat"])
                     if via:
                         route, go, hold, hold_s = via, 0, via["hold"], SUPPORT_S
-            out[tid] = {"drop": drop_xz, "route": route, "go": go, "hold": hold, "hold_s": hold_s}
+            # The hold point stays put while the team's wait (or support) stands (3 Nov, note 515): its route is redrawn
+            # from where it stands every 30 s, and the hold point moved with it - the team never got there, 0 holds in 8
+            # battles. A new spot only when the order changes or the new one is 250 m+ away.
+            if go:
+                self.frozen_hold.pop(tid, None)
+            else:
+                prev = self.frozen_hold.get(tid)
+                if prev and prev[0] == o.get("order") and math.hypot(prev[1][0] - hold[0], prev[1][1] - hold[1]) < 250:
+                    hold = prev[1]
+                else:
+                    self.frozen_hold[tid] = (o.get("order"), tuple(hold))
+            out[tid] = {"drop": drop_xz, "route": route, "go": go, "hold": list(hold), "hold_s": hold_s}
         return out
 
     def write(self, pic, entries, profile_zcr: Path):
