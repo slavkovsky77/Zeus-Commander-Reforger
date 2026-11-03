@@ -65,7 +65,19 @@ class ZCR_LiveMap
 				string head = string.Format("[ZCR][LIVE] t=%1 kind=team side=%2 id=%3 role=%4 men=%5 ride=%6 x=%7 z=%8 to=%9", now, faction, slot.GetSlotId(),
 					typename.EnumToString(AICF_EGroupRole, slot.GetRole()), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), ride, Math.Round(at[0]),
 					Math.Round(at[2]), to);
-				string tail = string.Format(" posture=%1 wp=%2", posture, wp);
+				// The group's whole waypoint queue (3 Nov, Martin: "in commander lab map when i click unit I should see its way
+				// points !!"), for the map's click-a-team view.
+				string teamWps;
+				array<AIWaypoint> teamQueue = {};
+				slot.GetGroup().GetWaypoints(teamQueue);
+				foreach (AIWaypoint qw : teamQueue)
+				{
+					if (qw && teamWps.Length() < 400)
+						teamWps += string.Format("%1,%2;", Math.Round(qw.GetOrigin()[0]), Math.Round(qw.GetOrigin()[2]));
+				}
+				if (teamWps.IsEmpty())
+					teamWps = "-";
+				string tail = string.Format(" posture=%1 wp=%2 wps=%3", posture, wp, teamWps);
 				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
 				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}
