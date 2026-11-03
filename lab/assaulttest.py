@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import droneloss  # noqa: E402
 
 # The watched matches' setup on 28 Oct (.runtime/watch_extra.txt, watch_mods.txt; armour mods off), frozen so a later
 # change to the watched setup doesn't move the sub-lab's baseline.
@@ -285,6 +287,11 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
         out["at_obj_5"] = (sides["US"].get("at_obj_5") or 0) + (sides["USSR"].get("at_obj_5") or 0)
         out["ride_fails"] = (sides["US"].get("ride_fails") or 0) + (sides["USSR"].get("ride_fails") or 0)
         out["us_lost"], out["ussr_lost"] = sides["USSR"].get("def_lost"), sides["USSR"].get("att_lost")
+        # Losses to FPV drones (lab/droneloss.py: the game credits a drone's hit to nobody or to a man in the car it hit).
+        dl = sides["USSR"].get("drones") or {}
+        for s in ("US", "USSR"):
+            out[f"{s.lower()}_lost_drones"] = (dl.get(s) or {}).get("to_drones", 0)
+            out[f"{s.lower()}_drone_kills"] = (dl.get(s) or {}).get("drone_kills", 0)
         for k in ("minutes", "script_errors", "crashed"):
             out[k] = sides["USSR"].get(k)
         return out
@@ -390,6 +397,7 @@ def summarize(run_dir: Path, scenario: str, variant: str, objective: tuple | Non
     out.update(rides(lines, attacker, rounds))
     losses = {s: sum(1 for l in lines if "[ZCR][LOSS]" in l and f" side={s} " in l and "kind=man" in l) for s in (attacker, defender)}
     out["att_lost"], out["def_lost"] = losses[attacker], losses[defender]
+    out["drones"] = droneloss.by_side(lines)
     last_t = max(rounds) if rounds else 0
     out["minutes"] = round(last_t / 60, 1)
     out["script_errors"] = len([l for l in lines if re.search(r"SCRIPT +\(E\)", l) and "Leak" not in l and "[AICF]" not in l])
