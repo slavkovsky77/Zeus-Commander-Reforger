@@ -20,8 +20,8 @@ pass_rule = "our mod loses at most 1 car a run where the game's driver alone los
 runner = "lab/drivetest.py"
 minutes = 10
 units = 6
-scenarios = ["headon", "mosshill-conflict", "trucks", "northfarm", "everonexit", "headonblast", "convoyblast", "convoy", "traffic", "supply", "manpower", "apc-headon", "apc-convoyblast", "tank-headon", "ifv-convoyblast", "farm", "farm-conflict"]
-variants = ["raw", "default", "moveturrets", "risk", "risk2", "nooncoming", "nocrossing", "nojunction", "nospacing", "price", "competent", "crx", "jmvai", "best"]
+scenarios = ["headon", "mosshill-conflict", "trucks", "northfarm", "everonexit", "headonblast", "convoyblast", "convoy", "traffic", "supply", "manpower", "apc-headon", "apc-convoyblast", "tank-headon", "ifv-convoyblast", "farm", "farm-conflict", "bridge"]
+variants = ["raw", "default", "moveturrets", "risk", "risk2", "nooncoming", "nocrossing", "nojunction", "nospacing", "price", "competent", "crx", "jmvai", "best", "noonelane", "onelane110"]
 baseline = "raw"
 candidate = "default"
 score = "legs - 4*lost - 3*car_hits - jams - 2*(oldest_open_s > 300)"
@@ -34,6 +34,8 @@ baseline_words = "the game's own driver, with nothing of ours"
 candidate_words = "our vehicle mod as it is now"
 
 [variant_labels]
+noonelane = "Ours, without the one-lane bridge rule"
+onelane110 = "Ours, one-lane bridge rule stopping 110 m out"
 raw = "Game's driver alone"
 default = "Our mod (all rules)"
 risk = "Our mod v2 (collision forecast)"
@@ -66,6 +68,7 @@ jmvai = "the JMVehicleAI driving mod instead of ours"
 best = "our mod with roads preferred and wider turns"
 
 [scenario_labels]
+bridge = "One-lane stone bridge east of Farm"
 headon = "Head-on on a narrow lane"
 mosshill-conflict = "Moss Hill trap (real base)"
 trucks = "Trucks through the trap"
