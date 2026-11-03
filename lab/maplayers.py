@@ -364,6 +364,63 @@ def plans_in_use(run: Path, log: Path, map_slug: str) -> list:
     return out
 
 
+LIVE_INTENT = re.compile(r"t=\d+ (\w+) gemini \([^)]*\): (.+)$")
+
+
+def live_plans(run: Path) -> tuple:
+    """Gemini's plan as it stands (3 Nov, Martin: "i still see the same plan in commander lab as always are we using
+    fucking gemini or what?" - the map drew the stored plan the teams were given at the start, not the live one): the
+    latest round of lab/liveplan.py (profile/zcr/liveplan.jsonl) -> one plan per route its teams play now, drawn like the
+    stored plans; and the side's last plan in Gemini's words (profile/zcr/liveplan.log)."""
+    zcr = run / "profile" / "zcr"
+    f = zcr / "liveplan.jsonl"
+    if not f.exists():
+        return [], {}
+    with open(f, "rb") as fh:
+        fh.seek(max(0, f.stat().st_size - 400_000))
+        rows = fh.read().decode("utf-8", "replace").splitlines()
+    last = None
+    for line in reversed(rows):
+        try:
+            last = json.loads(line)
+            break
+        except ValueError:
+            continue
+    if not last:
+        return [], {}
+    side, orders = last.get("side", ""), last.get("orders") or {}
+    from_obj = {(round(d["x"]), round(d["z"])): d.get("from_obj_m") for d in last.get("drops") or []}
+    groups = {}
+    for tid, e in (last.get("entries") or {}).items():
+        wps = e.get("waypoints") or []
+        if len(wps) < 2:
+            continue
+        drop = e.get("drop")
+        key = (e.get("route", "?"), round(drop[0]) if drop else None, round(drop[1]) if drop else None)
+        g = groups.setdefault(key, {"id": key[0], "side": side, "teams": [], "lanes": [wps], "holds": [e.get("hold")],
+                                    "assembly": drop or wps[0], "assembly_m": from_obj.get((key[1], key[2])), "drive": [],
+                                    "approach": "", "from_name": "", "by": "rules", "why": [], "go": e.get("go", 1)})
+        g["teams"].append(int(tid))
+        o = orders.get(tid) or {}
+        if o.get("source") == "model":
+            g["by"] = "Gemini"
+        if o.get("why") and o["why"] not in g["why"]:
+            g["why"].append(o["why"])
+    for g in groups.values():
+        g["teams"].sort()
+        g["why"] = "; ".join(g["why"])
+    intents = {}
+    lf = zcr / "liveplan.log"
+    if lf.exists():
+        with open(lf, "rb") as fh:
+            fh.seek(max(0, lf.stat().st_size - 60_000))
+            for line in fh.read().decode("utf-8", "replace").splitlines():
+                m = LIVE_INTENT.search(line)
+                if m:
+                    intents[m.group(1)] = "Gemini: " + m.group(2)
+    return list(groups.values()), intents
+
+
 def live(map_slug: str) -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
     test vans - with each van's planned route and the game's current path (lab app /api/map/live)."""
@@ -473,6 +530,14 @@ def live(map_slug: str) -> dict:
             attack_plans = plans_in_use(run, log, map_slug)
         except OSError:
             attack_plans = []
+        # A side Gemini commands: its live plan replaces the stored one it started with.
+        try:
+            gemini, gemini_intents = live_plans(run)
+        except OSError:
+            gemini, gemini_intents = [], {}
+        if gemini:
+            attack_plans = [p for p in attack_plans if p["side"] not in {g["side"] for g in gemini}] + gemini
+        intents.update(gemini_intents)
         return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
                 "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents,
                 "attack_plans": attack_plans}

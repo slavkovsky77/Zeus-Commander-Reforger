@@ -584,8 +584,28 @@ video { width: 100%; border-radius: 8px; background: #000; }
         const what = doing[t.posture] || (t.posture && t.posture !== "-" ? String(t.posture).toLowerCase().replace(/_/g, " ") : (t.role || "").toLowerCase());
         const home = t.posture === "LONE_SURVIVOR_RETREAT";
         if (key === sel) {
-          const tr = drawSel(key, t.x, t.z, c, null, null, goal);
-          info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its waypoint (straight)` : ""} · moved ${this.km(this.len(tr))} on this map so far`;
+          // Its waypoints (3 Nov, Martin: "in commander lab map when i click unit I should see its way points !!"): the route
+          // of the plan it plays (Gemini's live plan, else the stored plan - team N on lane N mod lanes) from where it is now,
+          // purple with numbered dots; the game's own waypoint queue (wps=, white dashes) when the game sends it.
+          const pl = (d.attack_plans || []).find(p => p.side === t.side && p.teams.includes(Number(t.id)));
+          let route = null, planTxt = "";
+          if (pl && pl.lanes.length) {
+            const lane = pl.lanes[pl.by ? 0 : Number(t.id) % pl.lanes.length];
+            const near = lane.reduce((best, q, k) => { const m = Math.hypot(q[0] - t.x, q[1] - t.z); return m < best[0] ? [m, k] : best; }, [1e9, -1]);
+            const ahead = near[0] < 60 ? lane.slice(near[1] + 1) : [...(t.ride && pl.go !== 0 ? [pl.assembly] : []), ...lane];
+            route = ahead.length ? [[t.x, t.z], ...ahead] : null;
+            ahead.forEach((q, k) => markers.push(L.circleMarker([q[1], q[0]], opts({ radius: 5, color: "#fff", weight: 1.5, fillColor: "#7a3fd1", fillOpacity: 1 }))
+              .bindTooltip(`waypoint ${k + 1} of ${ahead.length}${t.ride && pl.go !== 0 && near[0] >= 60 && k === 0 ? " - get out here" : ""}`)));
+            const h = pl.holds[pl.by ? 0 : Number(t.id) % pl.lanes.length];
+            if (h) markers.push(L.circleMarker([h[1], h[0]], opts({ radius: 7, color: "#111", weight: 3, fillColor: "#fff", fillOpacity: 1 })).bindTooltip(pl.go === 0 ? "its support position" : "hold point on its lane"));
+            planTxt = `<br>${pl.by ? esc(pl.by) + "'s" : "Stored"} plan ${esc(pl.id)}: ${ahead.length} waypoint${ahead.length === 1 ? "" : "s"} ahead, ${route ? this.km(this.len(route)) : "0 m"} (purple)${pl.why ? ` - "${esc(pl.why)}"` : ""}`;
+          }
+          const queue = t.wps && t.wps.length ? [[t.x, t.z], ...t.wps] : null;
+          if (queue) t.wps.forEach((q, k) => markers.push(L.circleMarker([q[1], q[0]], opts({ radius: 4, color: "#111", weight: 1.5, fillColor: "#fff", fillOpacity: 1 })).bindTooltip(`game waypoint ${k + 1} of ${t.wps.length}`)));
+          const tr = drawSel(key, t.x, t.z, c, route, queue, goal);
+          info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its current waypoint (ring)` : ""} · moved ${this.km(this.len(tr))} on this map so far`
+            + (planTxt || (route ? "" : "<br>Not on a planned route - AI Conflict's own waypoint (ring)"))
+            + (queue ? ` · the game's waypoints: ${t.wps.length} (white dashes)` : "");
         } else if (goal && !sel) extra.push(L.polyline([[t.z, t.x], [goal[1], goal[0]]], { color: home ? this.css("--muted") : c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
         markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: home ? this.css("--muted") : "#fff", weight: 1.5, fillColor: c, fillOpacity: (home ? .45 : .95) * dim(key), opacity: dim(key) }))
           .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " · assigned " + esc(t.to) : ""}`)
@@ -710,8 +730,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
         for (const p of d.attack_plans) {
           const c = side[p.side] || this.css("--muted");
           const teams = p.teams.map(n => "A" + n).join(" ");
-          const tip = `${esc(p.side)} plan ${esc(p.id)}${p.approach ? " from the " + esc(p.approach) : ""}${p.from_name ? " (attacking from " + esc(p.from_name) + ")" : ""}`
-            + `: get out ${p.assembly_m != null ? p.assembly_m + " m out" : "at the ring"}, hidden from the objective; ${p.lanes.length} lanes through cover; teams ${esc(teams)}`;
+          const tip = `${esc(p.side)} ${p.by ? esc(p.by) + " " : ""}plan ${esc(p.id)}${p.approach ? " from the " + esc(p.approach) : ""}${p.from_name ? " (attacking from " + esc(p.from_name) + ")" : ""}`
+            + `: get out ${p.assembly_m != null ? p.assembly_m + " m out" : "at the ring"}, hidden from the objective; ${p.lanes.length} lanes through cover; teams ${esc(teams)}`
+            + (p.why ? ` - "${esc(p.why)}"` : "");
           if (p.drive && p.drive.length > 1)
             extra.push(L.polyline(p.drive.map(q => [q[1], q[0]]), { color: c, weight: 2, opacity: .7, dashArray: "2 6", interactive: false }));
           extra.push(L.circle([p.assembly[1], p.assembly[0]], { radius: 45, color: c, weight: 3, fillColor: c, fillOpacity: .15 }).bindTooltip(tip));
