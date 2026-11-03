@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - Martin plays Age of Empires; the next game window is the Farm battle with every fix of the night.",
+    "Running now": "Two more Soviet transport A/B pairs (40 min, the one-lane rule on v off), headless, until ~07:55.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin watches the Farm battle (capture, drones, stutter fix), then Gemini's side of it; the one-lane rule at the narrow bridge.",
+    "Being built next": "Martin watches the Farm battle with a Gemini side in the window; then make the drop points sit further back - most failed rides fail in the last 800 m.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r68", "One car at a time over a one-lane bridge",
+     "Martin: 'team a6 and other get stuck next to small bridge its too narrow'. Arland's old stone bridges carry one vehicle (deck 4.7 m wide); two cars met head-on on the deck east of Farm and stood there while the unjam rule backed one off every 20 s - 62 of the 130 jams in his 3x Soviet run. Now whoever reaches the bridge first has it, cars behind it its way follow, a car coming the other way stops 110 m out until the deck is clear; held cars are braked (one rolled down to the river onto the deck at first). Driving test, 3 runs each: same throughput, car hits 0 v 3, no deadlock on the deck (one run without the rule lost all 4 vans there). Soviet transport A/B: no bridge jam either way, the waits cost 3 vehicle-minutes in 70 - more runs needed."),
+    ("design", "r68", "Gemini's wait orders now hold; the battle still comes out even",
+     "Of 73 wait or support orders none held: the hold point moved every 30 s with the team's redrawn route, and a team already walking toward Farm finished its leg first. Now one timer per team, a new wait rebuilds the leg at once, the hold point stays put. Teams now get sent to their hold point - but they are often fighting, in a failed ride, or their side holds Farm already. 9 Gemini v 13 rule sides on the new build: losses 27 v 28, Farm taken 1/9 v 2/13, attacks on a cover route 54% v 35%. The drones decide these battles."),
+    ("good", "r68", "The Farm battle is an integration test with a curve per commander",
+     "Martin: 'only one side can use it the other one will not use it and we will compare'. Every Farm battle gives a row per side - Gemini, the rule commander or the code picker, from which HQ - and the lab app draws each commander's own curve: soldiers lost, enemies taken out, took Farm, soldiers at Farm at minute 12, attacks on a planned route, seen while moving. 62 rows from 31 battles."),
+    ("bad", "r68", "Rides in the battle fail mostly in the last 800 m",
+     "In 26 Farm battles rides delivered their team only 21-37% of the time. 68 of 86 failures came in transit, 63 of those within 800 m of Farm: the driver shot or gone, the team scattered, the vehicle burning from a drone. These are rides driving into the fight, not the transport bugs - drop points further back are the next thing to try."),
+
     ("good", "r67", "Drones three times as busy, the count decided by the commander",
      "Martin: 'drones should be used more agressivly', 'two drone teams are not enough', 'every 30s', 'decided dynamically according to the situation'. The commander now re-decides 2-6 drone teams a side every 30 s from the situation (attack, contact, threat, drones finding targets, losses) and launches every 30 s in a fight. Farm battle: launches 23 -> 65 in 20 minutes, pilots 2/1 -> 6/5, no drone up 53%/47% of the time -> 8%/15%; drones took 29 of 42 losses."),
     ("good", "r67", "The stutter while playing is gone",
@@ -339,10 +348,9 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin watches the Farm battle with the night's fixes (capture, drones, stutter, ride detour), then the Farm battle with Gemini on one side.",
-    "Gemini's wait and support orders never became a hold in the game - make them hold, then more Gemini v rules battles.",
-    "One car at a time over the narrow bridge east of Farm (Martin: 'team a6 and other get stuck next to small bridge').",
-    "Drivers getting out while their team boards; forward drone trucks too far back (400-500 m walks to reload).",
+    "Martin watches the Farm battle with Gemini on one side in the window - Gemini's numbers don't count until he has.",
+    "Drop points further back from Farm: 63 of 69 rides that failed in transit failed within 800 m of it.",
+    "More long Soviet transport runs with and without the one-lane rule (the bridge jams by chance: 22 in one 115-min run, 0 in two 70-min ones).",
     "Drone flight realism (a chance to miss, a look round before the dive) - waiting on Martin's call.",
 ]
 
@@ -363,6 +371,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (68, "One car at a time over a one-lane bridge; Gemini's wait orders hold", "3 Nov 04:30 - 07:15",
+     ["ZCR (e35aff0): ZCR_OneLane - stone bridges found by prefab (Castle_01_Bridge; Arland 2401,2775, 1942,1917, 2934,2014); whoever reaches the bridge first has it, a car coming the other way is stopped 110 m out until the deck and 30 m past it are clear, a wait turns the bridge after 30 s and ends at 60 s; ZCR_Traffic.Hold/Unhold and a brake every 100 ms for held cars ([ZCR][ONELANE]; -zcrNoOneLane, -zcrOneLaneHoldM).",
+      "AI Conflict fork (d11e7e2): a live-plan team's hold timer is per team and kind of wait, and a new wait rebuilds its leg at once (ZCR_LIVE_WAIT). Live planner (b0474f8): the hold point stays put while the order stands.",
+      "Lab (23685ba): the integration test 'Farm battle' (lab/farmtest.py, lab/sublabs/farm.toml) - a row per side per battle, a curve per commander (split_average in the app's curves). Driving test: the 'bridge' track, crossings and bridge seconds per crossing; transport test 'noonelane' for the A/B."],
+     "Martin, 2 Nov: 'team a6 and other get stuck next to small bridge its too narrow', 'but /good is they try to resolve it somehow'; 'only one side can use it the other one will not use it and we will compare'; 'ok bro I am sleeping I so continuu developing with whatever you need'.",
+     "Bridge: driving test same throughput, car hits 0 v 3, no deck deadlock (one without the rule lost all 4 vans on the deck); Soviet transport 70 min: no bridge jam in either run, 176 s of waits. Gemini: of 73 waits none held before; 9 Gemini v 13 rule sides after: losses 27 v 28, Farm 1/9 v 2/13, cover routes 54% v 35%. Rides in the battle: 63 of 69 transit failures within 800 m of Farm."),
+
     (67, "2-6 drone teams decided by the commander; the stutter fixed; Gemini plans one side", "2 Nov 21:30 - 23:15",
      ["ZCR (59c8451): the commander's drone plan - 2-6 operator teams a side re-decided every 30 s from the situation, a launch every 30 s in a fight and 60 s when quiet ([ZCR][DRONEPLAN]); ZCR_Drones.SetTeamsWanted for the LLM commander.",
       "AI Conflict fork (a431ec6): the depot way-out check cached on a shared 6-m grid and spread over frames (5 ms a frame); [DEPOT_ACCESS_COST] and [CONSTRUCTION_SLOW_UPDATE] log the cost.",
