@@ -66,8 +66,11 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 #mapwrap.full { position: fixed; inset: 0; z-index: 2000; background: var(--panel); display: flex; flex-direction: column;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 #mapwrap.full #mapview { flex: 1; height: auto; border: 0; border-radius: 0; }
-#mapwrap.full #map-sel { position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 1000; max-height: 38vh; overflow: auto; }
+#mapwrap.full #map-selwrap { position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 1000; max-height: 50vh; overflow: auto; }
 #mapwrap.full #map-sel:empty { display: none; }
+/* A remark about the clicked unit (3 Nov, Martin: "when clicking on unit I should be able to annotate question/bad/good"). */
+.mapnote { margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--panel); display: grid; gap: 8px; }
+.mapnote textarea { width: 100%; box-sizing: border-box; min-height: 52px; }
 .mapfs { font: 600 13px var(--f-body); padding: 6px 10px; background: var(--panel); color: var(--ink); border: 2px solid rgba(0,0,0,.25); border-radius: 6px; cursor: pointer; }
 .wpnum { width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 700 11px/16px var(--f-body); text-align: center; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .leaflet-container { font: 13px var(--f-body); }
@@ -397,7 +400,16 @@ video { width: 100%; border-radius: 8px; background: #000; }
       </div>
       <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
-      <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-sel"></div></div>
+      <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-selwrap"><div id="map-sel"></div>
+        <form id="map-note" class="mapnote" hidden>
+          <div class="kinds" role="radiogroup" aria-label="Kind">
+            <label><input type="radio" name="mapkind" value="question" checked>Question</label>
+            <label><input type="radio" name="mapkind" value="bad">Bad</label>
+            <label><input type="radio" name="mapkind" value="good">Good</label>
+          </div>
+          <textarea id="map-note-text" rows="2" placeholder="About this one - what you see or want to know" aria-label="Remark about the selected unit"></textarea>
+          <div class="row"><button class="go" type="submit">Send about <span id="map-note-who">it</span></button><span class="muted" id="map-note-msg"></span></div>
+        </form></div></div>
       <div class="legend">
         <div><span class="dot" style="background:var(--good)"></span>Depot spot: most vans got out</div>
         <div><span class="dot" style="background:var(--warn)"></span>Depot spot: some vans got out</div>
@@ -475,6 +487,31 @@ video { width: 100%; border-radius: 8px; background: #000; }
       }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
+      // A remark about the clicked unit (3 Nov, note 532 - Martin: "when clicking on unit I should be able to annotate
+      // question/bad/good"): into the inbox with the unit (side, team, men, what it does, where, the run, the game second)
+      // and the moment he started typing. The box sits outside the redrawn selection, so typing survives the refresh.
+      let noteSince = 0;
+      $("map-note-text").addEventListener("input", () => {
+        if (!$("map-note-text").value.trim()) { noteSince = 0; return; }
+        if (!noteSince) { noteSince = Date.now(); this.noteUnit = this.selUnit; $("map-note-msg").textContent = `Moment noted: ${new Date().toLocaleTimeString()}`; }
+      });
+      $("map-note").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = $("map-note-text").value.trim();
+        if (!text) return;
+        const kind = (document.querySelector('input[name="mapkind"]:checked') || {}).value || "question";
+        const unit = this.noteUnit || this.selUnit || null;
+        const typing_s = noteSince ? Math.round((Date.now() - noteSince) / 1000) : 0;
+        $("map-note-msg").textContent = "Sending…";
+        try {
+          const r = await fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, text, typing_s, unit }) });
+          if (!r.ok) throw new Error();
+          $("map-note-text").value = "";
+          noteSince = 0;
+          this.noteUnit = null;
+          $("map-note-msg").textContent = `Sent (${kind}) - about ${unit && unit.who ? unit.who : "the selection"}.`;
+        } catch (_) { $("map-note-msg").textContent = "Not sent - is the PC on?"; }
+      });
       $("map-l-efforts").addEventListener("change", () => this.draw());
       $("map-l-plans").addEventListener("change", () => this.draw());
       setInterval(() => { if (tab === "map") this.live(); }, 5000);
@@ -578,6 +615,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         $("map-missions").innerHTML = '<p class="muted">No game running on this map right now - the live layer shows teams, supply trucks and test vans while one runs.</p>';
         $("map-efforts").innerHTML = "";
         $("map-sel").innerHTML = "";
+        $("map-note").hidden = !this.sel;
         return;
       }
       const side = { US: this.css("--us"), USSR: this.css("--ussr"), FIA: this.css("--fia") };
@@ -588,7 +626,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       const opts = (o) => Object.assign({ bubblingMouseEvents: false }, o);
       const ll = (pts) => pts.map(p => [p[1], p[0]]);
       const extra = [];   // the selected one's lines, drawn under the markers
-      let info = "";
+      let info = "", selUnit = null;
       const drawSel = (key, x, z, colour, route, path, goal) => {
         const tr = trails[key] || [];
         const all = [[x, z]];
@@ -638,6 +676,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
           const queue = t.wps && t.wps.length ? [[t.x, t.z], ...t.wps] : null;
           if (queue) t.wps.forEach((q, k) => markers.push(wpNum(q, k + 1, "#222", `The game's waypoint ${k + 1} of ${t.wps.length} (AI Conflict's order to the team)`)));
           const tr = drawSel(key, t.x, t.z, c, route, queue, goal);
+          selUnit = { who: `${t.side} team ${t.id}`, kind: "team", side: t.side, id: t.id, role: t.role, men: t.men, ride: t.ride,
+            doing: what, to: t.to, posture: t.posture, x: Math.round(t.x), z: Math.round(t.z), wp: t.wp, run: d.run, t: d.t };
           info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its current waypoint (ring)` : ""} · moved ${this.km(this.len(tr))} on this map so far`
             + (planTxt || (route ? "" : "<br>Not on a planned route - AI Conflict's own waypoint (ring)"))
             + (queue ? ` · the game's waypoints: ${t.wps.length} (white dashes)` : "");
@@ -791,6 +831,10 @@ video { width: 100%; border-radius: 8px; background: #000; }
       }
       for (const l of extra) l.addTo(g);
       for (const m of markers) m.addTo(g);
+      if (sel && !selUnit) selUnit = { who: sel.replace(/:/g, " "), kind: sel.split(":")[0], key: sel, run: d.run, t: d.t };
+      this.selUnit = selUnit;
+      $("map-note").hidden = !sel;
+      $("map-note-who").textContent = selUnit ? selUnit.who : "it";
       $("map-sel").innerHTML = sel
         ? `<div class="mapsel">${info || "It isn't on the map any more."} <button type="button" id="map-sel-clear">Clear</button></div>`
         : `<p class="muted">Click a van, truck or team on the map - or a row below - to see its route.</p>`;

@@ -389,13 +389,16 @@ def inbox(n: int = 30) -> list:
     return rows[-n:][::-1]
 
 
-def add_remark(kind: str, text: str, typing_s: float = 0) -> dict:
-    """A remark into the inbox. seen_at: the moment it is about - when the owner started typing it (typing_s before now)."""
+def add_remark(kind: str, text: str, typing_s: float = 0, unit=None) -> dict:
+    """A remark into the inbox. seen_at: the moment it is about - when the owner started typing it (typing_s before now).
+    unit: the map's clicked unit it is about (3 Nov, note 532) - side, team, men, what it does, where, the run, the game second."""
     RUNTIME.mkdir(parents=True, exist_ok=True)
     now = datetime.now()
     row = {"id": now.strftime("%Y%m%d-%H%M%S-%f")[:-3], "at": now_iso(), "kind": kind[:20], "text": text[:2000], "status": "new"}
     if 0 < typing_s < 1800:
         row["seen_at"] = (now - timedelta(seconds=typing_s)).strftime("%Y-%m-%dT%H:%M:%S")
+    if isinstance(unit, dict):
+        row["unit"] = {str(k)[:20]: (v if isinstance(v, (int, float, bool)) or v is None else str(v)[:120]) for k, v in list(unit.items())[:20]}
     with open(INBOX, "a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
     return row
@@ -537,7 +540,7 @@ class Handler(BaseHTTPRequestHandler):
                 typing_s = float(body.get("typing_s") or 0)
             except (TypeError, ValueError):
                 typing_s = 0
-            return self.json(add_remark(str(body.get("kind", "wish")), text, typing_s))
+            return self.json(add_remark(str(body.get("kind", "wish")), text, typing_s, body.get("unit")))
         except Exception as e:
             return self.json({"error": str(e)}, 400)
 
@@ -551,7 +554,8 @@ def wait(minutes: float) -> int:
         rows = inbox(100000)
         if len(rows) > seen:
             for r in rows[: len(rows) - seen][::-1]:
-                print(f"new remark: [{r['kind']}] {r['text']}")
+                about = f" (about {r['unit'].get('who')}, game t={r['unit'].get('t')})" if isinstance(r.get("unit"), dict) else ""
+                print(f"new remark: [{r['kind']}] {r['text']}{about}")
             return 0
     print("no new remark")
     return 1
