@@ -56,11 +56,16 @@ class ZCR_LiveMap
 				if (posture.IsEmpty())
 					posture = "-";
 				string wp = "-";
+				// The current waypoint's priority level: above 0 the team keeps moving under fire (a storm, ZCR_Storm).
+				float wpLevel;
 				AIWaypoint current = slot.GetGroup().GetCurrentWaypoint();
 				if (current)
 				{
 					vector w = current.GetOrigin();
 					wp = string.Format("%1,%2", Math.Round(w[0]), Math.Round(w[2]));
+					SCR_AIWaypoint currentScripted = SCR_AIWaypoint.Cast(current);
+					if (currentScripted)
+						wpLevel = currentScripted.GetPriorityLevel();
 				}
 				string head = string.Format("[ZCR][LIVE] t=%1 kind=team side=%2 id=%3 role=%4 men=%5 ride=%6 x=%7 z=%8 to=%9", now, faction, slot.GetSlotId(),
 					typename.EnumToString(AICF_EGroupRole, slot.GetRole()), AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()), ride, Math.Round(at[0]),
@@ -77,7 +82,7 @@ class ZCR_LiveMap
 				}
 				if (teamWps.IsEmpty())
 					teamWps = "-";
-				string tail = string.Format(" posture=%1 wp=%2 wps=%3", posture, wp, teamWps);
+				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4", posture, wp, teamWps, Math.Round(wpLevel));
 				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
 				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}

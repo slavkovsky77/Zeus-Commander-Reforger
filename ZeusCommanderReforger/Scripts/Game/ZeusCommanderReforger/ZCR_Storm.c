@@ -92,4 +92,22 @@ modded class AICF_OrderPlanner
 			scripted.SetPriorityLevel(ZCR_Storm.Priority());
 		return waypoint;
 	}
+
+	// The new leg AI Conflict gives a stuck team is stormed too (3 Nov, note 530): it was a plain move, so from its first
+	// stuck check on a storming team stopped to trade shots 200 m out (Farm, 20 minutes, nobody in the farm).
+	override protected AIWaypoint CreateStuckRouteWaypoint(
+		AICF_GroupSlot slot,
+		SCR_CampaignFaction faction,
+		SCR_CampaignMilitaryBaseComponent target)
+	{
+		AIWaypoint waypoint = super.CreateStuckRouteWaypoint(slot, faction, target);
+		if (!waypoint || !slot || slot.GetRole() != AICF_EGroupRole.ATTACK || !faction)
+			return waypoint;
+		if (!ZCR_Storm.IsStormed(faction.GetFactionKey(), target))
+			return waypoint;
+		SCR_AIWaypoint scripted = SCR_AIWaypoint.Cast(waypoint);
+		if (scripted)
+			scripted.SetPriorityLevel(ZCR_Storm.Priority());
+		return waypoint;
+	}
 }
