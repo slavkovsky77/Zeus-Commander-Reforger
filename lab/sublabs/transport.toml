@@ -7,7 +7,7 @@ runner = "lab/transporttest.py"
 minutes = 40.0
 units = 0
 scenarios = ["arland", "arland-ussr"]
-variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2", "thr01", "before", "nodetour"]
+variants = ["rides", "foot", "rides6", "ride1k", "stage50", "approach180", "ride1k-approach180", "near-pad", "stall4", "road-pad", "walk-over", "seat-on", "fast-board", "now", "cap5", "cap0", "drop100", "spaced", "spaced4", "cool90", "nowalk", "nowalk2", "thr01", "before", "nodetour", "noonelane"]
 baseline = "rides"
 candidate = "nowalk2"
 score = "100 - walk_far_pct - idle_far_pct - still_aboard_pct - rides_failed"
@@ -44,6 +44,7 @@ arland = "The US holds every base but the Soviet HQ, the Soviets field no teams;
 arland-ussr = "The Soviets hold every base but the US HQ, the US fields no teams; the 12 Soviet teams of 4 travel from base to base by UAZ-469 jeep or on foot (2 Nov, note 504)"
 
 [variant_labels]
+noonelane = "As nowalk2, without the one-lane bridge rule"
 rides = "Rides, 3 out of the HQ at a time"
 foot = "On foot"
 rides6 = "Rides, 6 out of a base at a time"
