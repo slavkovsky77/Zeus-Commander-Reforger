@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - the night is done; the next run is the Farm battle with a Gemini side, in the window, when Martin says go.",
+    "Running now": "4 headless Farm battles where riders stay in the car to the drop point (the DCO override, note 520) and the fortification facing tests, until ~14:55; then the review battle for Martin in the window.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin watches the Farm battle with a Gemini side in the window; then make the drop points sit further back - most failed rides fail in the last 800 m.",
+    "Being built next": "Martin watches the review battle (farm-gemini-forts): Gemini commanding one side, the dynamic drone teams, the new drone attack run, the contact dismount and Gemini's fortifications - nothing counts as done before he has seen it.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r69", "Teams thrown out of their ride near Farm go on foot at once",
+     "In 33 Farm battles 241 of the 264 rides that failed, failed within 800 m of Farm - not on the way. A probe battle logged who ordered every get-out: the game's own vehicle-combat rule sends everyone out of an unarmed car, the driver too, when an enemy group is within 200 m (550 m when it shoots), and DCO sends passengers out at a shot within 700 m; DCO's 400-m dismount never fired. AI Conflict then put the crew back in, up to twice, and gave up after a median 85 s - the team standing at the car under fire. Now within 800 m of the target a team that got out is a dismount there. A/B, 4 v 3 battles: rides failed 2.5 v 9.3 a battle, standing at a failing ride 0 v 10.4 team-minutes; losses 52 v 53, soldiers at Farm at minute 12 9 v 11 - level."),
+    ("design", "r69", "FPV drones look round before the dive",
+     "A Workshop user: 'first spot the target, fly around a bit, then attack - now it acts more like a rocket'. A drone now eases off when it spots a target, flies out to a 40 m circle at a safe height, goes part way round (about 8 s), picks its side - a vehicle's rear or weak spot, a soldier's back - and dives in about 2 s. Accuracy as in Arma 3 (Martin): 100 by default; below that a planned miss comes down beside the target or flies past and comes round (Second Pass Chance 50). Drone tests 6/6."),
+    ("design", "r69", "Fortifications away from their plan face the enemy first (test setting)",
+     "Today's site search turned each spot through 8 fixed headings and its first 32 spots all faced north - fortifications faced a median 103 deg off the enemy at Farm. With -zcrFortFace the headings start at the nearest enemy base: 30 deg in the Farm building test (2 runs), more of them within 30 deg (9/17, 16/22 v 3/18). On by default once near4 is checked."),
+
     ("design", "r68", "One car at a time over a one-lane bridge",
      "Martin: 'team a6 and other get stuck next to small bridge its too narrow'. Arland's old stone bridges carry one vehicle (deck 4.7 m wide); two cars met head-on on the deck east of Farm and stood there while the unjam rule backed one off every 20 s - 62 of the 130 jams in his 3x Soviet run. Now whoever reaches the bridge first has it, cars behind it its way follow, a car coming the other way stops 110 m out until the deck is clear; held cars are braked (one rolled down to the river onto the deck at first). Driving test, 3 runs each: same throughput, car hits 0 v 3, no deadlock on the deck (one run without the rule lost all 4 vans there). Six Soviet transport runs: bridge jams 0/0/0 with the rule v 0/8/0 without, time lost about the same (minutes 0-20: 18 v 16%, within the HQ draw's swing) - it removes the deadlock, it doesn't speed transport up."),
     ("design", "r68", "Gemini's wait orders now hold; the battle still comes out even",
@@ -348,10 +355,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin watches the Farm battle with Gemini on one side in the window - Gemini's numbers don't count until he has.",
-    "Drop points further back from Farm: 63 of 69 rides that failed in transit failed within 800 m of it.",
-    "A watched Soviet transport run: does the bridge rule look right on screen (cars waiting short of the bridge, then going)?",
-    "Drone flight realism (a chance to miss, a look round before the dive) - waiting on Martin's call.",
+    "Martin watches the review battle: Gemini on one side, the dynamic drones, the new drone attack run, the contact dismount, Gemini's fortifications.",
+    "Riders stay in the car to the drop point (the DCO override) - 4 battles against the contact dismount, then Martin's pick.",
+    "Fortifications facing the enemy by default, once the near4 building test agrees.",
+    "Forward drone trucks too far back (514), drivers leaving during boarding (505).",
 ]
 
 FACTS = [
@@ -371,6 +378,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (69, "Teams thrown out of their ride near Farm go on foot at once; drones look round before the dive", "3 Nov 11:57 - 13:50",
+     ["AI Conflict fork (f0388ba): ZcrContactDismount - within -aicfContactDismountM (default 800) of the ride's target, a ride whose crew is being recovered or has a living member out of the car ends as a dismount there ([ZCR][CONTACTOUT], ZCR_CONTACT_DISMOUNT); -zcrFortFace: today's fortification site search tries facing the nearest enemy base first.",
+      "FPV AI Drones (f9ab338): the attack run spots, circles the target (Orbit Time 8 s, Orbit Radius 40 m), picks its side and dives; Accuracy 100 by default as the Arma 3 module, Second Pass Chance 50.",
+      "ZCR_DCO (4657de0): -zcrRideStayMounted - a riding squad gets DCO's exit rule 'ordered or damaged' through DCO's API while aboard (a test arm).",
+      "Lab (91e446b, e18d5d7): farm-now-nocontact and farm-now-staymounted for the A/B, rides_contact counted, --extra for one-run probes; building test fortface / fortplan-face; farm-gemini-forts, the review battle."],
+     "Martin, 3 Nov: 'bro i hope you're developing'; 'could we override dco 400m dismount?'; drones: 'like in arma 3', 'apply drone edit'; 'remember i always have to review features i asked for by watching it'.",
+     "Probe battle: 185 get-out orders - DCO's shot reaction 77, the game's vehicle combat 75 (all 12 drivers who left), failed moves 17, fire 10; DCO's 400-m rule 0. A/B 4 v 3 battles: rides failed 2.5 v 9.3, standing at a failing ride 0 v 10.4 team-minutes, losses 52 v 53, at Farm minute 12 9 v 11. Drone tests 6/6. Farm building test: facing error 103 -> 30 deg."),
+
     (68, "One car at a time over a one-lane bridge; Gemini's wait orders hold", "3 Nov 04:30 - 07:15",
      ["ZCR (e35aff0): ZCR_OneLane - stone bridges found by prefab (Castle_01_Bridge; Arland 2401,2775, 1942,1917, 2934,2014); whoever reaches the bridge first has it, a car coming the other way is stopped 110 m out until the deck and 30 m past it are clear, a wait turns the bridge after 30 s and ends at 60 s; ZCR_Traffic.Hold/Unhold and a brake every 100 ms for held cars ([ZCR][ONELANE]; -zcrNoOneLane, -zcrOneLaneHoldM).",
       "AI Conflict fork (d11e7e2): a live-plan team's hold timer is per team and kind of wait, and a new wait rebuilds its leg at once (ZCR_LIVE_WAIT). Live planner (b0474f8): the hold point stays put while the order stands.",
