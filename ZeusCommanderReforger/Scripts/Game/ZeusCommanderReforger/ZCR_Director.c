@@ -1666,7 +1666,16 @@ class ZCR_Director
 		}
 		else
 			i = (i + dir + n) % n;
+		// A drone or leader gone since the list was made (3 Nov: 'NULL pointer to instance. Variable leader' in drones mode,
+		// the destroyed drone's entry): the next one still there.
+		int step = dir;
+		if (step == 0)
+			step = 1;
+		for (int tries; tries < n && !m_aGroupLeaders[i]; tries++)
+			i = (i + step + n) % n;
 		IEntity leader = m_aGroupLeaders[i];
+		if (!leader)
+			return;
 		m_bHold = true;
 		m_bLocked = true;
 		m_iSpotUntil = 0;
