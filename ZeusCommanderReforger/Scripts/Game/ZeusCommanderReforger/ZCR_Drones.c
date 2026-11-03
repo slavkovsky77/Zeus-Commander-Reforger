@@ -269,6 +269,22 @@ class ZCR_Drones
 		return plan.GetMainEffort();
 	}
 
+	// The side's attack teams with a man alive.
+	protected static int LivingAttackTeams(FactionKey side)
+	{
+		AICF_FactionState state = ZCR_Strategist.s_mStates.Get(side);
+		if (!state)
+			return 0;
+		int n;
+		for (int s; s < state.GetSlotCount(); s++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(s);
+			if (slot && slot.GetRole() == AICF_EGroupRole.ATTACK && slot.GetGroup() && AICF_GroupRuntime.CountAliveAgents(slot.GetGroup()) > 0)
+				n++;
+		}
+		return n;
+	}
+
 	// The drone plan, every DECIDE_S (see above). obj: the side's objective node (-1 none); surgeMax: the plan's surge.
 	protected static void Decide(FactionKey side, int obj, int surgeMax)
 	{
@@ -366,6 +382,23 @@ class ZCR_Drones
 		}
 		else
 			s_mLowerSince.Remove(side);
+		// Tied to the fight (3 Nov, note 529 - Martin: "i see everybody is drone operator that not ideal"): with
+		// -zcrDroneTeamsPerAttack N, at most one operator team per N of the side's living attack teams (at least 1), the
+		// commander's count too - drones support the assault instead of replacing it (the review battle: 4-5 operator teams a
+		// side flew on while the attack teams were down to 3 and 8 men).
+		int per = CliInt("zcrDroneTeamsPerAttack", 0);
+		if (per > 0)
+		{
+			int attackTeams = LivingAttackTeams(side);
+			int cap = attackTeams / per;
+			if (cap < 1)
+				cap = 1;
+			if (teams > cap)
+			{
+				teams = cap;
+				why += string.Format(" cap=%1 (%2 attack teams)", cap, attackTeams);
+			}
+		}
 		// The pace for the teams kept (not the count before the hold).
 		int pace = CliInt("zcrDroneTempo", 30);
 		int tempo = pace;
