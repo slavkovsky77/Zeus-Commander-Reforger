@@ -168,9 +168,14 @@ VARIANTS = {
     "farm-now-staymounted-nodrones": (None, "farm-now-staymounted without drones: no drone mods, no drone teams (the A/B of note 530)"),
 }
 NO_DRONES = {"farm-now-staymounted-nodrones"}
+# 3 Nov 18:35 (note 530): AI Conflict parked 2.6 attack teams a battle for good within 400 m of Farm (FIELD_HOLD after three
+# "no progress" checks while they fought their way in); the fork now never parks an attack team within 450 m of its target.
+# The old rule, for the A/B:
+VARIANTS["farm-now-staymounted-hold"] = (VARIANTS["farm-now-staymounted"][0] + " -aicfZcrNoHoldNearM 0",
+                                         "farm-now-staymounted with AI Conflict's old field hold in front of the objective (the A/B of note 530)")
 VARIANTS["farm-now-staymounted-nodrones"] = (VARIANTS["farm-now-staymounted"][0], VARIANTS["farm-now-staymounted-nodrones"][1])
 LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
-SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
+SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
 NEAR_M = 300
