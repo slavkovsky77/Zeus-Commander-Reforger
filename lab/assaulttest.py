@@ -178,7 +178,13 @@ VARIANTS["farm-now-staymounted-nodrones"] = (VARIANTS["farm-now-staymounted"][0]
 # home-defence teams nobody attacks. The fork's second wave: home-defence teams join the attack when it is down to half.
 VARIANTS["farm-now-staymounted-wave"] = (VARIANTS["farm-now-staymounted"][0] + " -aicfZcrSecondWave 1",
                                          "farm-now-staymounted with the second wave: home-defence teams (all but one) join the attack when the attack teams are down to half their men and home is safe")
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+# 3 Nov night (note 534 - Martin: "two sides battle over the farm but general actually uses brain, not hardcoded shit"):
+# Gemini commands BOTH sides (lab/liveplan.py --side both: drop points, routes, go/wait/support, drone teams), no stored
+# plan file, the second wave on, riders stay mounted to the drop point.
+VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrRideStayMounted -aicfZcrSecondWave 1").replace(" -aicfNoHiddenSeat", ""),
+                           "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
+LIVE_BOTH = {"farm-brains"}   # variants whose live planner plans both sides
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
@@ -234,7 +240,7 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         import time
         (ROOT / ".runtime" / "liveplan").mkdir(parents=True, exist_ok=True)
         planner = subprocess.Popen([sys.executable, "-u", str(ROOT / "lab" / "liveplan.py"), "--label", label, "--after", str(time.time()),
-                                    "--side", live_side, "--picker", LIVE[variant][0]] + (["--drones"] if LIVE[variant][1] else []), cwd=str(ROOT),
+                                    "--side", "both" if variant in LIVE_BOTH else live_side, "--picker", LIVE[variant][0]] + (["--drones"] if LIVE[variant][1] else []), cwd=str(ROOT),
                                    stdout=open(ROOT / ".runtime" / "liveplan" / f"{label}.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     try:
         subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,

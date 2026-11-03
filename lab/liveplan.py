@@ -702,6 +702,8 @@ class Commander:
         self.frozen_drop = {}   # team id -> (x, z): the drop point its ride was given
         self.frozen_hold = {}   # team id -> (order, (x, z)): the hold point of its wait or support while that order stands
         self.version = int(time.time()) % 100000 * 10
+        self.lines = []         # this side's lines of the plan file (team/drones), for a shared file
+        self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
         self.last_model_lost = 0
@@ -1037,8 +1039,7 @@ class Commander:
 
     def write(self, pic, entries, profile_zcr: Path):
         g = self.p.g
-        self.version += 1
-        lines = [f"version {self.version}"]
+        lines = []
         if self.drones_on and self.drones:
             nodes = pic.get("nodes") or {}
             node = {"farm": nodes.get(OBJECTIVE, -1), "enemy_hq": nodes.get("enemy_hq", -1)}.get(self.drones["target"], -1)
@@ -1049,17 +1050,12 @@ class Commander:
             lines.append(f"team {self.side} {tid} {g.ox:.1f} {g.oz:.1f} {dx:.1f} {dz:.1f} {e['go']} {e['hold'][0]:.1f} {e['hold'][1]:.1f} "
                          f"{e['hold_s']} {e['route']['id']} {len(wps)}")
             lines += [f"{x:.1f} {z:.1f}" for x, z in wps]
-        lines.append("end")
-        profile_zcr.mkdir(parents=True, exist_ok=True)
-        tmp = profile_zcr / "liveplan.tmp"
-        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        for _ in range(20):
-            try:
-                os.replace(tmp, profile_zcr / "liveplan.txt")
-                return
-            except PermissionError:
-                time.sleep(0.1)
-        self.log("could not replace liveplan.txt (the game held it)")
+        self.lines = lines
+        if self.sink:   # both sides planned (3 Nov, --side both): one file with both generals' orders
+            self.sink(profile_zcr)
+            return
+        self.version += 1
+        write_live(profile_zcr, [f"version {self.version}"] + lines + ["end"], self.log)
 
     # -- one round ------------------------------------------------------------------------------------------------------
     def round(self, s: Situation, profile_zcr: Path, write=True):
@@ -1232,6 +1228,20 @@ def make_llm():
     return providers.OpenRouter(cfg)
 
 
+def write_live(profile_zcr: Path, lines, log=print):
+    """$profile:zcr/liveplan.txt, replaced whole (the game reads it when its version line changes)."""
+    profile_zcr.mkdir(parents=True, exist_ok=True)
+    tmp = profile_zcr / "liveplan.tmp"
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    for _ in range(20):
+        try:
+            os.replace(tmp, profile_zcr / "liveplan.txt")
+            return
+        except PermissionError:
+            time.sleep(0.1)
+    log("could not replace liveplan.txt (the game held it)")
+
+
 def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) -> Situation:
     s = Situation()
     s.t = reader.t
@@ -1328,9 +1338,21 @@ def live(a):
         else:
             time.sleep(3)
     reader = LogReader(console)
-    cmd = None
-    side = ""
-    last_round_t = -1e9
+    # 3 Nov night (Martin: "test more like those two sides battle over the farm but general actually uses brain, not
+    # hardcoded shit"): --side both - a general for each side, both sides' orders in the one liveplan.txt the game reads.
+    cmds = {}           # side -> Commander
+    last_round_t = {}   # side -> the game second of its last round
+    version = [int(time.time()) % 100000 * 10]
+
+    def sink(zdir):
+        version[0] += 1
+        lines = [f"version {version[0]}"]
+        for c in cmds.values():
+            lines += c.lines
+        write_live(zdir, lines + ["end"], log)
+        for c in cmds.values():
+            c.version = version[0]
+
     last_size, last_growth = -1, time.time()
     while True:
         reader.poll()
@@ -1340,29 +1362,37 @@ def live(a):
         elif time.time() - last_growth > 120:
             log("the game's log stopped growing - done")
             break
-        if not side and reader.t >= 30:
+        if not cmds and reader.t >= 30:
             hqs = hq_positions(run_dir, reader)
-            side = resolve_side(a.side, hqs, planner)
-            if side:
+            both = a.side == "both"
+            for spec in (["US", "USSR"] if both else [a.side]):
+                side = resolve_side(spec, hqs, planner)
+                if not side or side not in hqs:
+                    continue
                 cmd = Commander(planner, side, a.picker, zcr, llm, log, a.drones)
+                if both:
+                    cmd.sink = sink
+                cmds[side] = cmd
                 g = planner.g
                 log(f"plans for {side} (HQ {hqs.get(side)}, {math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz):.0f} m from Farm); "
-                    f"the other side plays the rules")
+                    + ("both sides planned live" if both else "the other side plays the rules"))
                 with open(zcr / "liveplan.jsonl", "a", encoding="utf-8") as f:
                     f.write(json.dumps({"event": "side", "side": side, "spec": a.side, "picker": a.picker, "hqs": hqs,
                                         "drones": bool(a.drones and a.picker == "gemini"),
                                         "hq_m": round(math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz)),
                                         "model": llm.model if llm else None}) + "\n")
-        if cmd and reader.t - last_round_t >= ROUND_S and reader.teams(side):
-            last_round_t = reader.t
+        for side, cmd in cmds.items():
+            if reader.t - last_round_t.get(side, -1e9) < ROUND_S or not reader.teams(side):
+                continue
+            last_round_t[side] = reader.t
             s = situation(reader, side, cmd_hqs(run_dir, reader))
             try:
                 e = cmd.round(s, zcr)
-                log(f"t={s.t} round: {len(e['entries'])} teams planned, {len(e['routes'])} routes, {len(e['drops'])} drops, "
+                log(f"t={s.t} {side} round: {len(e['entries'])} teams planned, {len(e['routes'])} routes, {len(e['drops'])} drops, "
                     f"{e['known']} known, owner {s.owner}, {e['source']}, picture {e['picture_s']} s")
             except Exception as ex:
                 import traceback
-                log(f"t={s.t} round failed: {type(ex).__name__}: {ex}\n{traceback.format_exc()}")
+                log(f"t={s.t} {side} round failed: {type(ex).__name__}: {ex}\n{traceback.format_exc()}")
         time.sleep(3)
     return 0
 
@@ -1412,7 +1442,7 @@ def main() -> int:
     ap.add_argument("--label", default="", help="the battle's run label (lab/assaulttest.py); the newest run folder with it")
     ap.add_argument("--after", type=float, default=0, help="with --label: a run folder made after this (epoch seconds)")
     ap.add_argument("--run", default="", help="the run folder (instead of --label)")
-    ap.add_argument("--side", default="harbour", help="US, USSR, harbour (the side whose HQ is nearer Farm) or south")
+    ap.add_argument("--side", default="harbour", help="US, USSR, harbour (the side whose HQ is nearer Farm), south, or both (a general for each side)")
     ap.add_argument("--picker", default="code", choices=["code", "gemini"])
     ap.add_argument("--drones", action="store_true", help="with --picker gemini: the model also decides the drone teams and target")
     ap.add_argument("--replay", default="", help="offline: an old run folder")

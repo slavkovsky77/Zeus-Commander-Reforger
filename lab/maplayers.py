@@ -130,11 +130,16 @@ def current_run(map_slug: str, kinds: str = "match"):
     """The run being played on this map now (its log written in the last 90 s), else the newest one of these kinds
     (28 Oct, Martin: "the map should also have an option to watch the current match only")."""
     allowed = allowed_kinds(kinds)
-    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and kind(r) in allowed), key=run_time, reverse=True)[:40]
+    # The game being played counts whatever its kind (3 Nov night: a watched Farm test is a 'test' run, so with 'match'
+    # the map showed a 28 Oct match as "the latest; none is being played"); the newest-run fallback keeps the kinds.
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir()), key=run_time, reverse=True)[:40]
     newest = None
     for run in runs:
         logs = sorted(run.glob("logs/*/console.log"))
         if not logs:
+            continue
+        playing = time.time() - logs[-1].stat().st_mtime < 90
+        if kind(run) not in allowed and not playing:
             continue
         if not _live_world.get(run.name):
             with open(logs[-1], "rb") as f:
@@ -143,7 +148,7 @@ def current_run(map_slug: str, kinds: str = "match"):
                 _live_world[run.name] = slug(w.group(1).decode())
         if _live_world.get(run.name) != map_slug:
             continue
-        if time.time() - logs[-1].stat().st_mtime < 90:
+        if playing:
             return run, True
         newest = newest or run
     return newest, False
@@ -379,33 +384,38 @@ def live_plans(run: Path) -> tuple:
     with open(f, "rb") as fh:
         fh.seek(max(0, f.stat().st_size - 400_000))
         rows = fh.read().decode("utf-8", "replace").splitlines()
-    last = None
+    # The latest round of each side (3 Nov night: lab/liveplan.py --side both plans both sides into one file).
+    latest = {}
     for line in reversed(rows):
         try:
-            last = json.loads(line)
-            break
+            row = json.loads(line)
         except ValueError:
             continue
-    if not last:
+        if row.get("entries") is not None and row.get("side") and row["side"] not in latest:
+            latest[row["side"]] = row
+        if len(latest) == 2:
+            break
+    if not latest:
         return [], {}
-    side, orders = last.get("side", ""), last.get("orders") or {}
-    from_obj = {(round(d["x"]), round(d["z"])): d.get("from_obj_m") for d in last.get("drops") or []}
     groups = {}
-    for tid, e in (last.get("entries") or {}).items():
-        wps = e.get("waypoints") or []
-        if len(wps) < 2:
-            continue
-        drop = e.get("drop")
-        key = (e.get("route", "?"), round(drop[0]) if drop else None, round(drop[1]) if drop else None)
-        g = groups.setdefault(key, {"id": key[0], "side": side, "teams": [], "lanes": [wps], "holds": [e.get("hold")],
-                                    "assembly": drop or wps[0], "assembly_m": from_obj.get((key[1], key[2])), "drive": [],
-                                    "approach": "", "from_name": "", "by": "rules", "why": [], "go": e.get("go", 1)})
-        g["teams"].append(int(tid))
-        o = orders.get(tid) or {}
-        if o.get("source") == "model":
-            g["by"] = "Gemini"
-        if o.get("why") and o["why"] not in g["why"]:
-            g["why"].append(o["why"])
+    for side, last in latest.items():
+        orders = last.get("orders") or {}
+        from_obj = {(round(d["x"]), round(d["z"])): d.get("from_obj_m") for d in last.get("drops") or []}
+        for tid, e in (last.get("entries") or {}).items():
+            wps = e.get("waypoints") or []
+            if len(wps) < 2:
+                continue
+            drop = e.get("drop")
+            key = (side, e.get("route", "?"), round(drop[0]) if drop else None, round(drop[1]) if drop else None)
+            g = groups.setdefault(key, {"id": key[1], "side": side, "teams": [], "lanes": [wps], "holds": [e.get("hold")],
+                                        "assembly": drop or wps[0], "assembly_m": from_obj.get((key[2], key[3])), "drive": [],
+                                        "approach": "", "from_name": "", "by": "rules", "why": [], "go": e.get("go", 1)})
+            g["teams"].append(int(tid))
+            o = orders.get(tid) or {}
+            if o.get("source") == "model":
+                g["by"] = "Gemini"
+            if o.get("why") and o["why"] not in g["why"]:
+                g["why"].append(o["why"])
     for g in groups.values():
         g["teams"].sort()
         g["why"] = "; ".join(g["why"])
