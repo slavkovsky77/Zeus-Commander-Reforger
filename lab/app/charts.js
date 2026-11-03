@@ -397,8 +397,20 @@ window.LabCharts = (() => {
         label: { formatter: "target " + q.target, position: "insideEndTop", color: css("--good"), fontSize: 10.5, fontFamily: "JetBrains Mono, Consolas, monospace" } });
       const series = tracks.map((sc, ti) => ({ name: trackName(lab, sc), type: "scatter", symbolSize: opts.small ? 6 : 8, z: 3,
         itemStyle: { color: trackColor(lab, sc, ti), opacity: 0.75 }, data: runs.map((r) => r.scenario === sc ? r[key] : null) }));
-      series.push({ name: `average of the last ${N} runs`, type: "line", data: avg, showSymbol: false, smooth: 0.3, z: 4,
-        lineStyle: { width: opts.small ? 2 : 3, color: css("--ink") }, itemStyle: { color: css("--ink") },
+      // split_average (a test comparing commanders, e.g. "farm"): each scenario its own average line, in its own colour; the
+      // overall line stays only to carry the build marks and the target.
+      const split = lab.split_average && tracks.length > 1;
+      const own = {};
+      if (split) tracks.forEach((sc, ti) => {
+        const idx = runs.map((r, i) => (r.scenario === sc ? i : -1)).filter((i) => i >= 0);
+        const data = runs.map(() => null);
+        idx.forEach((i, j) => { const w = idx.slice(Math.max(0, j - N + 1), j + 1); data[i] = Math.round(10 * w.reduce((a, k) => a + runs[k][key], 0) / w.length) / 10; });
+        own[sc] = data;
+        series.push({ name: `${trackName(lab, sc)} - average of its last ${N}`, type: "line", data, connectNulls: true, showSymbol: false, smooth: 0.3, z: 4,
+          lineStyle: { width: opts.small ? 2 : 3, color: trackColor(lab, sc, ti) }, itemStyle: { color: trackColor(lab, sc, ti) } });
+      });
+      series.push({ name: split ? "builds" : `average of the last ${N} runs`, type: "line", data: avg, showSymbol: false, smooth: 0.3, z: 4,
+        lineStyle: split ? { width: 0, opacity: 0 } : { width: opts.small ? 2 : 3, color: css("--ink") }, itemStyle: { color: css("--ink") },
         markLine: { symbol: "none", silent: false, lineStyle: { type: "dotted", color: css("--muted"), width: 1 },
           label: { position: "end", color: css("--muted"), fontSize: 10, fontFamily: "JetBrains Mono, Consolas, monospace" },
           tooltip: { formatter: (p) => `${esc(p.name)}` }, data: marks } });
@@ -406,12 +418,13 @@ window.LabCharts = (() => {
         const r = runs[ps[0].dataIndex];
         return [`<b>${esc(shortAt(r.at))}</b> · ${esc(trackName(lab, r.scenario))}`,
           `${esc(V(r.variant))}${r.build != null ? " · build r" + r.build : ""}${r.minutes ? " · " + fmt1(r.minutes) + " min" : ""}`,
-          `<b>${esc(q.title)}: ${fmt1(r[key])}</b>`, `average of the last ${N}: ${fmt1(avg[ps[0].dataIndex])}`].join("<br>");
+          `<b>${esc(q.title)}: ${fmt1(r[key])}</b>`, split ? `${esc(trackName(lab, r.scenario))}, average of its last ${N}: ${fmt1(own[r.scenario][ps[0].dataIndex])}`
+            : `average of the last ${N}: ${fmt1(avg[ps[0].dataIndex])}`].join("<br>");
       };
       return base({
         dataZoom: opts.small ? [] : base().dataZoom,
-        legend: { ...base().legend, show: !opts.small, data: series.map((x) => x.name) },
-        grid: opts.small ? { left: 38, right: 12, top: 14, bottom: 26 } : { left: 42, right: 18, top: 44, bottom: 60 },
+        legend: { ...base().legend, show: !opts.small, data: series.map((x) => x.name).filter((n) => n !== "builds") },
+        grid: opts.small ? { left: 38, right: 12, top: 14, bottom: 26 } : { left: 42, right: 18, top: split ? 64 : 44, bottom: 60 },
         tooltip: { ...base().tooltip, trigger: "axis", formatter: tip },
         xAxis: { type: "category", data: runs.map((r) => shortAt(r.at)), boundaryGap: true, ...axisStyle(), splitLine: { show: false },
                  axisLabel: { ...axisStyle().axisLabel, show: !opts.small } },

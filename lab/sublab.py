@@ -251,6 +251,7 @@ def matrix(name: str) -> dict:
             "slabel": d.get("scenario_labels", {}), "swords": d.get("scenario_words", {}), "questions": d.get("questions", []), "main": d.get("main", ""), "caveats": d.get("scenario_caveats", {}), "conclusion": d.get("conclusion", ""), "conclusion_at": d.get("conclusion_at", ""),
             "scenarios": d["scenarios"], "variants": d["variants"], "baseline": d.get("baseline"), "candidate": d.get("candidate"),
             "keys": d["keys"], "higher_is_better": d["higher_is_better"], "runs": len(rs), "last_at": rs[-1]["at"] if rs else None,
+            "split_average": bool(d.get("split_average")),
             "table": table, "recent": [{k: r.get(k) for k in ["at", "scenario", "variant", "score"] + d["keys"] + ["run"]} for r in rs[-12:]][::-1],
             # every run, oldest first, for the app's charts (the last 400)
             "all": every}
