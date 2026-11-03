@@ -61,6 +61,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 .ended p { margin: 0; line-height: 1.55; max-width: 80ch; }
 /* Map tab: Enfumap's tiles with our layers (lab/maplayers.py). */
 #mapview { height: min(72vh, 760px); border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+/* Full screen (3 Nov, Martin: "we should be maybe able to make map fullscreen"): the browser's own full screen where it
+   has one, else the map fills the window; the clicked team's box floats at the bottom. */
+#mapwrap.full { position: fixed; inset: 0; z-index: 2000; background: var(--panel); display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+#mapwrap.full #mapview { flex: 1; height: auto; border: 0; border-radius: 0; }
+#mapwrap.full #map-sel { position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 1000; max-height: 38vh; overflow: auto; }
+#mapwrap.full #map-sel:empty { display: none; }
+.mapfs { font: 600 13px var(--f-body); padding: 6px 10px; background: var(--panel); color: var(--ink); border: 2px solid rgba(0,0,0,.25); border-radius: 6px; cursor: pointer; }
+.wpnum { width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 700 11px/16px var(--f-body); text-align: center; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .leaflet-container { font: 13px var(--f-body); }
 .maplbl { font: 700 12px var(--f-display); letter-spacing: .02em; background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: none; padding: 2px 6px; }
 .maplbl::before { display: none; }
@@ -388,7 +397,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       </div>
       <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
-      <div id="mapview" role="region" aria-label="Map"></div>
+      <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-sel"></div></div>
       <div class="legend">
         <div><span class="dot" style="background:var(--good)"></span>Depot spot: most vans got out</div>
         <div><span class="dot" style="background:var(--warn)"></span>Depot spot: some vans got out</div>
@@ -405,9 +414,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
         <div><span class="dot" style="border-color:var(--us);border-style:dashed;background:transparent"></span>Live: dashed ring - a base the side is defending (teams sent, how many are there)</div>
         <div><span class="dot" style="background:#a05a00;border-radius:2px"></span>Live: a supply truck (square) or test van (dot) - click one for its route</div>
         <div><span class="dot" style="background:var(--us);border-radius:1px;transform:rotate(45deg)"></span>Live: a base builder (diamond), dashed to the building he works on (white square)</div>
-        <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:6px;vertical-align:2px"></span>Selected: its planned route; solid: where it drove; white dashes: the game's path now; ring: its goal</div>
+        <div><span class="dot" style="background:#7a3fd1;border-radius:2px;height:6px;vertical-align:2px"></span>Selected: its planned route; solid: where it drove; white dashes: the game's path now; ring: its goal. A clicked team: numbered purple badges = its plan's waypoints (Gemini's or the stored plan's), numbered dark badges = the game's own waypoints</div>
       </div>
-      <div id="map-sel"></div>
       <div id="map-missions"></div>
       <p class="muted">Map © <a href="https://enfumap.com" target="_blank" rel="noopener">Enfumap</a>, drawn from the game's files; not affiliated with Bohemia Interactive. Layers from our run logs since 20 Oct (lab/maplayers.py).</p>
     </div>
@@ -489,6 +497,20 @@ video { width: 100%; border-radius: 8px; background: #000; }
       this.view.fitBounds([[0, 0], [meta.worldSize, meta.worldSize]]);
       for (const k of ["traps", "routes", "buildings", "built", "spots", "bases", "live"]) this.groups[k] = L.layerGroup();   // drawn bottom to top
       this.view.on("click", () => { if (this.sel) this.pick(this.sel); });
+      const Full = L.Control.extend({ options: { position: "topright" }, onAdd: () => {
+        const b = L.DomUtil.create("button", "mapfs");
+        b.type = "button";
+        b.textContent = $("mapwrap").classList.contains("full") ? "✕ Exit full screen" : "⛶ Full screen";
+        L.DomEvent.disableClickPropagation(b);
+        b.addEventListener("click", () => this.full());
+        return b;
+      } });
+      this.view.addControl(new Full());
+      if (!this.fsWired) {
+        this.fsWired = true;
+        document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && $("mapwrap").classList.contains("full")) this.full(false); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("mapwrap").classList.contains("full")) this.full(false); });
+      }
       this.toggle();
       this.layers();
       this.live();
@@ -537,6 +559,16 @@ video { width: 100%; border-radius: 8px; background: #000; }
       return bd + this.len(pts.slice(best));
     },
     km(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; },
+    full(want) {
+      const w = $("mapwrap"), on = want === undefined ? !w.classList.contains("full") : want;
+      w.classList.toggle("full", on);
+      try {
+        if (on && w.requestFullscreen && !document.fullscreenElement) w.requestFullscreen().catch(() => {});
+        else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      } catch (_) {}
+      for (const b of document.querySelectorAll(".mapfs")) b.textContent = on ? "✕ Exit full screen" : "⛶ Full screen";
+      setTimeout(() => this.view && this.view.invalidateSize(), 80);
+    },
     draw() {
       const g = this.groups.live, d = this.d;
       if (!g || !d) return;
@@ -573,6 +605,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
         return tr;
       };
       const markers = [];
+      // A numbered waypoint badge (the clicked team's route).
+      const wpNum = (q, n, colour, tip) => L.marker([q[1], q[0]], { bubblingMouseEvents: false, zIndexOffset: 500,
+        icon: L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10], html: `<div class="wpnum" style="background:${colour}">${n}</div>` }) }).bindTooltip(tip);
       // What a team really does (AI Conflict's posture) and where it really walks (its current waypoint) - 28 Oct, note 433:
       // the assigned target alone showed lone survivors walking home as 'attacking Military Training Area'.
       const doing = { ATTACK_PRIMARY: "attacking", ATTACK_SUPPORT: "attacking", AREA_SECURITY: "guarding", FORWARD_DEFEND: "defending",
@@ -594,14 +629,14 @@ video { width: 100%; border-radius: 8px; background: #000; }
             const near = lane.reduce((best, q, k) => { const m = Math.hypot(q[0] - t.x, q[1] - t.z); return m < best[0] ? [m, k] : best; }, [1e9, -1]);
             const ahead = near[0] < 60 ? lane.slice(near[1] + 1) : [...(t.ride && pl.go !== 0 ? [pl.assembly] : []), ...lane];
             route = ahead.length ? [[t.x, t.z], ...ahead] : null;
-            ahead.forEach((q, k) => markers.push(L.circleMarker([q[1], q[0]], opts({ radius: 5, color: "#fff", weight: 1.5, fillColor: "#7a3fd1", fillOpacity: 1 }))
-              .bindTooltip(`waypoint ${k + 1} of ${ahead.length}${t.ride && pl.go !== 0 && near[0] >= 60 && k === 0 ? " - get out here" : ""}`)));
+            ahead.forEach((q, k) => markers.push(wpNum(q, k + 1, "#7a3fd1",
+              `${pl.by ? esc(pl.by) + "'s" : "Planned"} waypoint ${k + 1} of ${ahead.length}${t.ride && pl.go !== 0 && near[0] >= 60 && k === 0 ? " - get out here" : ""}`)));
             const h = pl.holds[pl.by ? 0 : Number(t.id) % pl.lanes.length];
             if (h) markers.push(L.circleMarker([h[1], h[0]], opts({ radius: 7, color: "#111", weight: 3, fillColor: "#fff", fillOpacity: 1 })).bindTooltip(pl.go === 0 ? "its support position" : "hold point on its lane"));
             planTxt = `<br>${pl.by ? esc(pl.by) + "'s" : "Stored"} plan ${esc(pl.id)}: ${ahead.length} waypoint${ahead.length === 1 ? "" : "s"} ahead, ${route ? this.km(this.len(route)) : "0 m"} (purple)${pl.why ? ` - "${esc(pl.why)}"` : ""}`;
           }
           const queue = t.wps && t.wps.length ? [[t.x, t.z], ...t.wps] : null;
-          if (queue) t.wps.forEach((q, k) => markers.push(L.circleMarker([q[1], q[0]], opts({ radius: 4, color: "#111", weight: 1.5, fillColor: "#fff", fillOpacity: 1 })).bindTooltip(`game waypoint ${k + 1} of ${t.wps.length}`)));
+          if (queue) t.wps.forEach((q, k) => markers.push(wpNum(q, k + 1, "#222", `The game's waypoint ${k + 1} of ${t.wps.length} (AI Conflict's order to the team)`)));
           const tr = drawSel(key, t.x, t.z, c, route, queue, goal);
           info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its current waypoint (ring)` : ""} · moved ${this.km(this.len(tr))} on this map so far`
             + (planTxt || (route ? "" : "<br>Not on a planned route - AI Conflict's own waypoint (ring)"))
