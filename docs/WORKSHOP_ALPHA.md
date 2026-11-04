@@ -114,9 +114,9 @@ Dependency: Realistic Combat Drones (SalamiBoiDev, APL) - it flies RCD's drones,
 
 The first playable alpha of Zeus Commander Reforger. The US and the Soviets start at their main bases on Arland; Farm is a
 Soviet base; **Beauregard**, the town by the sea, is neutral and the only objective. Both commanders put everything on it:
-fireteams ride out, get dropped out of sight, go in from cover to cover, storm the town and hold it once taken. When an
-attack is down to half its men, the home-defence teams come as a second wave. FPV drone teams hunt over the town all the
-time. A battle is usually decided within 15-45 minutes - and it can change hands.
+fireteams ride out, get out short of the town, go in and storm it, and hold it once taken. When an attack is down to
+half its men, the home-defence teams come as a second wave. FPV drone teams hunt over the town all the time. The town
+usually falls within 10-20 minutes - and it can change hands.
 
 How to play: Play > Scenarios > *Zeus Commander: The Battle for Beauregard (Alpha)* - pick a side and spawn among the AI
 teams, or host it on a server (scenario id `{E035D09029D235F6}Missions/ZCR_Alpha_Beauregard.conf`). Everything is set
