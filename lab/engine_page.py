@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Martin watches the battle for Beauregard in the window (Gemini commands both sides, 60 min) with the new phone camera.",
+    "Running now": "Nothing - the night's town battles are done; Martin to review in the morning (the phone taps, field forts, the alpha's decisions).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Overnight: Gemini v Gemini and Gemini v the rules on the town battle (headless), field fortification lines the general places where it needs them (538), men who stay in the houses they are sent to.",
+    "Being built next": "Field fortifications actually built (every try so far failed the game's checks or its commit; fixed at 07:03), why the men at the point don't stay in the houses (14-34% early in the night, 0-8% later), and Martin's calls on the alpha release.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r74", "The night's town battles: Gemini against the code, Gemini against Gemini",
+     "Martin: 'over night you can test both gemini vs gemini but also gemini vs rule based'. 8 headless battles for Beauregard, 30 min each (the 'town' integration test, curves in the lab app): Gemini against the code from the nearer HQ: took the town 1 of 2, lost 44 and took out 40 a battle; Gemini against the code from the farther HQ: took the town 0 of 3, lost 39 and took out 34 a battle; the code against Gemini from the nearer HQ: took the town 2 of 3, lost 34 and took out 39 a battle; the code against Gemini from the farther HQ: took the town 0 of 2, lost 40 and took out 44 a battle; Gemini against Gemini from the nearer HQ: took the town 2 of 3, lost 30 and took out 48 a battle; Gemini against Gemini from the farther HQ: took the town 1 of 3, lost 48 and took out 30 a battle. Gemini against Gemini took the town in 2 of 3. The nearer HQ matters most; with 1-2 battles per arm none of it is settled. Not watched."),
+    ("design", "r74", "Field fortifications the general orders outside any base - tried, not built yet",
+     "Martin: 'llm general could actually build defense lines (bunkers and shit) where it needs'. Gemini picks up to 3 field positions (the side holding the point: a ring 110-240 m out, facing the enemy; the attacker: forward positions); the side's nearest base builds them first. Every try failed in the night: first the game's site checks (PHYSICAL_OBSTRUCTION, roads, water, the base's corridors - now each spot is searched round, 41 tries out to 30 m, clear of roads and objects), then the commit's re-check cancelled the ones that found a site (the base already had its 5; fixed 07:03). Built so far: 0."),
+    ("design", "r74", "Waits that end, the AI's door reaction back, a crash lead",
+     "Gemini kept teams waiting 8-12 minutes; a team kept waiting 4 minutes now goes on, and Gemini is told. The AI's 'open the navlink door' reaction never loaded since 23 Oct (our modded class lacked the game's decorator - found by the alpha's load test). Both crashes of the watched town battles came 1-4 s after the FPV mod deleted a used-up drone station (3 of 7 crashes in 4 days): empty stations are kept now (-fpvaiKeepStations) - to verify in watched battles."),
+    ("design", "r74", "Houses at the point: a hold tried and taken back",
+     "A move-and-hold (40 s in the house, renewed) made it worse: 7-8 men at the point, none inside, 630 runs - off again; stops on the way keep the plain move. Inside at the point fell from 14-34% early in the night to 0-8% later; the door fix and the hold came in the same hours - an A/B to run."),
+
     ("design", "r73", "The battle for Beauregard: Farm is Soviet, both generals fight for the town",
      "Martin: 'can we change farm to battle for boulevard', 'farm can be soviet now', 'make it connected - there is battle of the city'. Scenario beauregard: Farm starts Soviet (-zcrBaseTo), the point is Beauregard, both sides Gemini with the town's cover scan. 3 watched battles: the Soviets took the town at 15:46 and at 16:42, the US at 12:22; losses 20-45 a side, about 25 a side by drones."),
     ("design", "r73", "Each general knows where its side gets killed, and picks a strategy",
@@ -381,11 +390,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin to watch: the phone camera (eight buttons, a stick for each thumb) and the lab app's /v2 page next to a battle.",
-    "Overnight, headless: Gemini v Gemini and Gemini v the rules on the battle for Beauregard; the morning report as curves.",
-    "Field fortification lines anywhere the general needs them - a building vehicle or field spots (538).",
-    "Men who stay in the houses at the point (14-34% inside now); APCs that hit what they shoot at.",
-    "Then the full map with both generals thinking.",
+    "Martin: the phone taps in Artemis (one tap a button now), the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander), whether the crashes stopped.",
+    "Field fortifications built in a battle (the commit fix is in since 07:03) and shown on the lab map.",
+    "Men who stay in the houses at the point - an A/B of the door reaction; the house spots.",
+    "From the nearer HQ Gemini took the town 1 of 2 against the code, the code 2 of 3 against Gemini - more battles before it means anything.",
 ]
 
 FACTS = [
@@ -405,6 +413,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (74, "The night of 4 Nov: field fortifications, waits that end, the door fix, a crash lead", "4 Nov 03:20 - 08:40",
+     ["AI Conflict fork (b7fd903, 5d1247f, 78fa87c): field fortifications - 'fort <side> x z facing' in the live plan, the side's nearest base builds them first with its radius stretched to the spot, each spot searched round (41 tries out to 30 m), the commit's coverage re-check no longer cancels them (and 'fortify' at the point is capped at 8, not 5).",
+      "ZCR (8716234, 02fa8ec, 9779445): the phone camera - eight buttons, a stick for each thumb, a single Artemis tap counts (a cursor jump onto a button with no click), the cursor parks after a tap; 780f2a9: the AI's navlink-door reaction loads again; dfb0f07 / 11523f8 / 49b826a: a house hold tried and turned off. FPV AI Drones (290befc): -fpvaiKeepStations.",
+      "Lab (c41e8ab, 7ed09b8, 05e0e66, d53eb5c, e940c00, bb46120): field positions for the general (clear of roads and objects), waits end at 4 minutes, the general told which forts stand; lab/towntest.py + the 'town' integration test, lab/nighttown.py; the lab map's field fortifications. The alpha release prepared on release-alpha (subagent: five Workshop items, the battle in-game without Python, 0 script errors, nothing uploaded)."],
+     "Martin, 4 Nov 03:20-04:00: 'you dropped too many buttons sides were important, details too', 'speed game', 'good to have those pad on left and right so i can use my thumbs', 'why do i have to tap two times in moonlight artemis', 'bro that battle is spectacular now', 'btw battle crashed but it was absolutely great', 'develop during night llm general more whatever you will need to improve i loved what was done', 'prepare everything for the release i want it out as alpha version now'.",
+     "8 headless town battles from 04:27 (30 min each): Gemini against the code from the nearer HQ: took the town 1 of 2, lost 44 and took out 40 a battle; Gemini against the code from the farther HQ: took the town 0 of 3, lost 39 and took out 34 a battle; the code against Gemini from the nearer HQ: took the town 2 of 3, lost 34 and took out 39 a battle; the code against Gemini from the farther HQ: took the town 0 of 2, lost 40 and took out 44 a battle; Gemini against Gemini from the nearer HQ: took the town 2 of 3, lost 30 and took out 48 a battle; Gemini against Gemini from the farther HQ: took the town 1 of 3, lost 48 and took out 30 a battle. Field fortifications built: 0. 0 script errors of ours in the battles; no crash in the headless battles."),
+
     (73, "The battle for Beauregard: houses, danger zones, a strategy per side, armour orders, the phone camera", "4 Nov 01:14 - 03:16",
      ["ZCR (4c7e674, 1f59802): ZCR_HouseHold - men on foot at the point go to interior spots of its houses, and teams stopping near houses go in; the live team line carries waypoint kinds (wpk=) and every soldier (mp=); ccefed8: -zcrBaseTo (Farm Soviet), anti-drone fire 180 m / 6 shooters under counter_drone; fd0dfca: the general's armour orders (overwatch / assault / hold); 1f59802: under counter_drone every drone launch goes for a known enemy drone site.",
       "AI Conflict fork (5d3ac2b): 'fortify' puts fortifications first at the held point (up to 8); af234c9: armour orders in the live plan; bdfff22: typed route points (cover stop c, enter-buildings stop e) with pauses of 15 / 25 s.",
