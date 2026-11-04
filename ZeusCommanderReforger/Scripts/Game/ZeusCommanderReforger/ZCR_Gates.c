@@ -80,6 +80,10 @@ class ZCR_OpenGates
 // ([ZCR][JAM]). Now the gate is opened from the seat, the way the AI would open it by hand (SCR_AIOpenDoor's actions),
 // and nobody gets out. On foot nothing changes. Lab only, opt-in -zcrAutoGate (it replaces the gate opening Martin likes to see).
 //   [ZCR][GATE] t= vehicle= x= z= doors=
+// The vanilla class's [BaseContainerProps()] repeated (4 Nov, found by the alpha's load test): without it every config entry of
+// the class failed to load ("Unknown class 'SCR_AIGoalReaction_OpenNavlinkDoor'" at start) - the AI agent's own reaction to
+// "open the navlink door" was missing in every battle since 23 Oct.
+[BaseContainerProps()]
 modded class SCR_AIGoalReaction_OpenNavlinkDoor
 {
 	override void PerformReaction(notnull SCR_AIUtilityComponent utility, SCR_AIMessageBase message)
