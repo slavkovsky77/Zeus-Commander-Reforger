@@ -38,6 +38,15 @@ class ZCR_AntiDrone
 	protected int m_iNextLog;
 	static const float RANGE = 120;
 	static const int SHOOTERS = 3;
+	// The live general's 'counter_drone' (4 Nov, note 542 - Martin: "i think both side should target also drones"): that
+	// side's soldiers fire at drones out to RANGE_CD, up to SHOOTERS_CD at each (AICF_ZcrAttackPlan.LiveStrategy).
+	static const float RANGE_CD = 180;
+	static const int SHOOTERS_CD = 6;
+
+	protected static bool CounterDrone(string side)
+	{
+		return AICF_ZcrAttackPlan.LiveStrategy(side) == "counter_drone";
+	}
 	static const float SPHERE_M = 4;
 	static const float FRIEND_NEAR_M = 8;
 	static const float FRIEND_LINE_M = 1.5;
@@ -90,7 +99,7 @@ class ZCR_AntiDrone
 				continue;
 			// Who can see it: soldiers of the other sides on foot within range, machine gunners first.
 			m_aFound.Clear();
-			world.QueryEntitiesBySphere(dp, RANGE, AddMan, null, EQueryEntitiesFlags.DYNAMIC);
+			world.QueryEntitiesBySphere(dp, RANGE_CD, AddMan, null, EQueryEntitiesFlags.DYNAMIC);
 			array<ChimeraCharacter> shooters = {};
 			array<float> order = {};
 			foreach (IEntity e : m_aFound)
@@ -104,9 +113,11 @@ class ZCR_AntiDrone
 				CharacterControllerComponent ctl = c.GetCharacterController();
 				if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE)
 					continue;
+				float d = vector.Distance(c.EyePosition(), dp);
+				if (d > RANGE && !(d <= RANGE_CD && CounterDrone(side)))
+					continue;
 				if (!Sees(world, c.EyePosition(), dp, c, drone))
 					continue;
-				float d = vector.Distance(c.EyePosition(), dp);
 				float rank = d;
 				if (IsGunner(c))
 					rank -= 1000;
@@ -124,7 +135,10 @@ class ZCR_AntiDrone
 			float byDist;
 			string side = ZCR_LossLog.SideOf(shooters[0]);
 			int fired;
-			for (int k; k < shooters.Count() && fired < SHOOTERS; k++)
+			int maxShooters = SHOOTERS;
+			if (CounterDrone(side))
+				maxShooters = SHOOTERS_CD;
+			for (int k; k < shooters.Count() && fired < maxShooters; k++)
 			{
 				ChimeraCharacter c = shooters[k];
 				if (FriendInFire(c, side, c.EyePosition(), dp) || (m_mAim.Contains(c) && FriendInFire(c, side, c.EyePosition(), m_mAim.Get(c))))

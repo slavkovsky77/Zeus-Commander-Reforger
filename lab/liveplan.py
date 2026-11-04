@@ -53,7 +53,7 @@ import roadgraph  # noqa: E402
 
 ATTACK = ROOT / ".runtime" / "attack"
 MAPS = ROOT / ".runtime" / "maps"
-OBJECTIVE = "Farm"
+OBJECTIVE = "Farm"      # the battle's objective: --objective (4 Nov: Beauregard, the battle of the city)
 
 ROUND_S = 30            # the code redraws every this many game seconds
 GEMINI_S = 150          # the model every this many game seconds ...
@@ -84,6 +84,9 @@ WALK_MPS, DRIVE_MPS = 1.5, 8.0
 HOLD_M = 180
 WAYPOINT_M = 50
 WAIT_S, SUPPORT_S = 180, 480
+RAID_S = 150            # a raid team fights at the enemy drone site up to this long, then goes on to the objective
+SITE_SEEN_M = 100       # an enemy drone site is located once one of the side's known enemies stood this close to it
+STANCES = ("assault", "fortify", "counter_drone")
 GROUP_M = 80            # teams on foot this close share their routes
 AT_OBJ_M = 150          # a team this close to the objective fights there - no live entry
 HQ_M = 350              # a team this close to its HQ, not riding, waits for a ride (gets a drop point)
@@ -304,6 +307,7 @@ class Situation:
         self.known = []         # (x, z) the side knows
         self.lost = {"US": 0, "USSR": 0}
         self.own_losses = []    # (t, kind, x, z) of the side's own losses in the last DANGER_S
+        self.sites = []         # (x, z, name) of the enemy drone sites the side has located
         self.known_n = 0
         self.droneplan = {}     # the side's drone plan's last decision ([ZCR][DRONEPLAN])
         self.nodes = {}         # base name -> graph node id; "enemy_hq" -> the enemy main base's
@@ -330,6 +334,8 @@ class LogReader:
         self.owner_t = 0
         self.lost = {"US": 0, "USSR": 0}
         self.losses = []        # (t, side, kind "man"|"vehicle", x, z) - every loss (danger zones, note 541)
+        self.sites = []         # [side, x, z, name] - every drone site set up ([ZCR][DRONESITE] set_up)
+        self.located = {"US": set(), "USSR": set()}   # side -> indexes of ENEMY drone sites it has located (note 542)
         self.first_round = {}
         self.droneplan = {}     # side -> the drone plan's last decision (teams wanted, tempo, teams it has, why)
         self.buf = ""
@@ -374,6 +380,13 @@ class LogReader:
                     del self.rounds[side][k]
                 self.last_round[side] = t
             return
+        if "[ZCR][DRONESITE]" in line and " set_up " in line:
+            d = dict(kv.split("=", 1) for kv in line.split("[ZCR][DRONESITE]", 1)[1].split() if "=" in kv)
+            try:
+                self.sites.append([d["side"], float(d["x"]), float(d["z"]), line.split(" at=", 1)[1].split(" main=")[0]])
+            except (KeyError, ValueError, IndexError):
+                pass
+            return
         m = self.KNOWN.search(line)
         if m:
             side = m.group(2)
@@ -383,6 +396,11 @@ class LogReader:
                     a, b = p.split(",")
                     pts.append((float(a), float(b)))
             self.known[side] = pts
+            # An enemy drone site is located once an enemy the side saw stood near it (its operators, its truck).
+            for k, (ss, sx, sz, _) in enumerate(self.sites):
+                if ss != side and side in self.located and k not in self.located[side] and \
+                        any(math.hypot(x - sx, z - sz) <= SITE_SEEN_M for x, z in pts):
+                    self.located[side].add(k)
             self.known_t[side] = int(m.group(1))
             self.t = max(self.t, int(m.group(1)))
             return
@@ -853,6 +871,7 @@ class Commander:
         self.frozen_hold = {}   # team id -> (order, (x, z)): the hold point of its wait or support while that order stands
         self.version = int(time.time()) % 100000 * 10
         self.lines = []         # this side's lines of the plan file (team/drones), for a shared file
+        self.strategy = None    # {"stance", "why"} - the model's battle strategy (note 542)
         self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
@@ -915,9 +934,17 @@ class Commander:
                 routes[info["id"]] = info
         for info in routes.values():
             info["zones"] = [zn["id"] for zn in zones if any(math.hypot(zn["x"] - x, zn["z"] - z) <= DANGER_R_M for x, z in info["pts"])]
+        sites = []
+        for sx, sz, sname in s.sites:
+            cell = g.nearest_valid(sx, sz, 40, avoid_building=True)
+            if cell is None:
+                continue
+            ang = math.degrees(math.atan2(sx - g.ox, sz - g.oz))
+            sites.append({"id": f"H{len(sites) + 1}", "x": round(sx), "z": round(sz), "cell": cell, "name": sname,
+                          "from_obj_m": round(math.hypot(sx - g.ox, sz - g.oz)), "dir": compass(ang)})
         known = observers_from(s.known)
         pic = {"t": s.t, "nodes": s.nodes, "threat": threat, "costs": costs, "D_obj": D_obj, "drops": drops, "support": sup, "teams": teams,
-               "zones": zones,
+               "zones": zones, "sites": sites,
                "status": status, "starts": starts, "routes": routes, "known": known, "owner": s.owner, "lost": dict(s.lost),
                "hq": hq, "seconds": round(time.time() - t0, 1)}
         self.last = pic
@@ -1046,6 +1073,10 @@ class Commander:
             for zn in zones:
                 lines.append(f"  {zn['id']}: {zn['from_obj_m']} m {zn['dir']} of Farm - {zn['men']} soldiers and {zn['vehicles']} vehicles lost, "
                              f"the last {zn['newest_s'] // 60} min {zn['newest_s'] % 60:02d} s ago")
+        if pic.get("sites"):
+            lines += ["", "Enemy drone sites you have located (their FPV operators - each launches a drone about every 30 s):"]
+            for sp_ in pic["sites"]:
+                lines.append(f"  {sp_['id']}: {sp_['from_obj_m']} m {sp_['dir']} of Farm ({sp_['name']})")
         lines += ["", "Drop points (where a vehicle lets a team out; all hidden from the enemies you know and from Farm):"]
         for d in pic["drops"]:
             lines.append(f"  {d['id']}: {d['from_obj_m']} m {d['dir']} of Farm, drive {d['drive_m']} m from the HQ, "
@@ -1082,8 +1113,17 @@ class Commander:
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
                   "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
                   "next team dies the same way - pick another drop point or route unless there is no other way in."]
-        lines += ["", 'Answer JSON only: {"reason": "one line: your plan", "teams": [{"team": <id>, "drop": "D1" or null, '
-                  '"route": "<start>-L|C|R", "order": "go"|"wait"|"support", "support": "P1" or null, "why": "few words"}]'
+        lines += ["", "Your strategy - think about the battle, not only the next move, and choose one: 'assault' (take Farm), "
+                  "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers, sandbags and MG nests "
+                  "there first), 'counter_drone' (enemy drones are killing your men: twice as many of your soldiers fire at "
+                  "drones, out to 180 m). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
+                  "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
+                  "often the way in."]
+        raid = ', "site": "H1" or null' if pic.get("sites") else ""
+        lines += ["", 'Answer JSON only: {"reason": "one line: your plan", "strategy": {"stance": "assault"|"fortify"|"counter_drone", '
+                  '"why": "few words"}, "teams": [{"team": <id>, "drop": "D1" or null, '
+                  '"route": "<start>-L|C|R", "order": "go"|"wait"|"support"' + ('|"raid"' if raid else '') + ', "support": "P1" or null'
+                  + raid + ', "why": "few words"}]'
                   + drones + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
                   "in a vehicle keeps its drop point). route: one of the routes listed from the team's start (for a team at the "
                   "HQ, from the drop point you give it)."]
@@ -1115,7 +1155,7 @@ class Commander:
                 out[tid]["source"] = "kept" if prev else "code"
                 continue
             o = {"order": str(e.get("order", "go")).lower(), "support_xz": None, "why": str(e.get("why", ""))[:120], "source": "model"}
-            if o["order"] not in ("go", "wait", "support"):
+            if o["order"] not in ("go", "wait", "support", "raid"):
                 problems.append(f"T{tid}: order {o['order']!r}")
                 o["order"] = "go"
             if st == "at_hq":
@@ -1135,6 +1175,13 @@ class Commander:
                 side_ = code.get(tid, {}).get("route", "C")
                 o["source"] = "model+code_route"
             o["route"] = side_
+            if o["order"] == "raid":
+                site = {sp_["id"]: sp_ for sp_ in pic.get("sites") or []}.get(str(e.get("site")))
+                if site is None:
+                    problems.append(f"T{tid}: raid site {e.get('site')!r}")
+                    o["order"] = "go"
+                else:
+                    o["site_xz"] = (site["x"], site["z"])
             if o["order"] == "support":
                 sp = sup_by.get(str(e.get("support")))
                 if sp is None:
@@ -1143,6 +1190,12 @@ class Commander:
                 else:
                     o["support_xz"] = (sp["x"], sp["z"])
             out[tid] = o
+        if isinstance(ans, dict) and isinstance(ans.get("strategy"), dict):
+            stance = str(ans["strategy"].get("stance", "")).lower()
+            if stance in STANCES:
+                self.strategy = {"stance": stance, "why": str(ans["strategy"].get("why", ""))[:120]}
+            else:
+                problems.append(f"strategy {stance!r}")
         if self.drones_on and isinstance(ans, dict):
             d = ans.get("drones")
             try:
@@ -1189,6 +1242,13 @@ class Commander:
             go, hold, hold_s = 1, route["hold"], 0
             if o.get("order") == "wait":
                 go, hold_s = 0, WAIT_S
+            elif o.get("order") == "raid" and o.get("site_xz"):
+                cell = g.nearest_valid(o["site_xz"][0], o["site_xz"][1], 40, avoid_building=True)
+                if cell is not None:
+                    from_xz = drop_xz if (st in ("at_hq", "riding") and drop_xz) else (tm["x"], tm["z"])
+                    via = self.p.route_via(f"{start}-H", from_xz, cell, pic["costs"], pic["D_obj"], pic["threat"])
+                    if via:
+                        route, go, hold, hold_s = via, 0, via["hold"], RAID_S
             elif o.get("order") == "support" and o.get("support_xz"):
                 sp = self.match_support(pic, o["support_xz"])
                 cell = sp["cell"] if sp else g.nearest_valid(o["support_xz"][0], o["support_xz"][1], 30, avoid_building=True)
@@ -1214,6 +1274,8 @@ class Commander:
     def write(self, pic, entries, profile_zcr: Path):
         g = self.p.g
         lines = []
+        if self.strategy:
+            lines.append(f"strategy {self.side} {self.strategy['stance']}")
         if self.drones_on and self.drones:
             nodes = pic.get("nodes") or {}
             node = {"farm": nodes.get(OBJECTIVE, -1), "enemy_hq": nodes.get("enemy_hq", -1)}.get(self.drones["target"], -1)
@@ -1259,7 +1321,8 @@ class Commander:
                     self.orders.update(orders)
                     entry.update(source="gemini", reason=ans.get("reason"), answer=ans, problems=problems, model_s=secs, prompt=text,
                                  image=str(image.name))
-                    self.log(f"t={s.t} {s.side} gemini ({secs} s, {len(problems)} problems): {ans.get('reason')}")
+                    stance = f" [strategy: {self.strategy['stance']}]" if self.strategy else ""
+                    self.log(f"t={s.t} {s.side} gemini ({secs} s, {len(problems)} problems): {ans.get('reason')}{stance}")
                 except Exception as e:   # the model failed: the code's pick for every team
                     self.orders.update(self.code_orders(pic))
                     entry.update(source="code-fallback", error=f"{type(e).__name__}: {e}")
@@ -1270,6 +1333,8 @@ class Commander:
         if self.drones_on:
             entry["drones"] = self.drones
             entry["droneplan"] = s.droneplan
+        entry["strategy"] = self.strategy
+        entry["sites"] = [{k: v for k, v in sp_.items() if k != "cell"} for sp_ in pic.get("sites") or []]
         entry["orders"] = {tid: {k: v for k, v in o.items()} for tid, o in self.orders.items() if tid in entries}
         entry["entries"] = {tid: {"route": e["route"]["id"], "go": e["go"], "drop": e["drop"], "hold": e["hold"], "hold_s": e["hold_s"],
                                   "waypoints": e["route"]["waypoints"], "wp_kinds": e["route"].get("wp_kinds"),
@@ -1383,6 +1448,11 @@ SYSTEM = ("You are the battle commander of one side in an Arma Reforger match (a
           "The enemies shown are only those your soldiers saw in the last minute. Answer with JSON only.")
 
 
+def named(text: str) -> str:
+    """The prompt's 'Farm' as the battle's objective (--objective)."""
+    return text if OBJECTIVE == "Farm" else text.replace("Farm", OBJECTIVE.replace("_", " "))
+
+
 def ask_model(llm, image: Path, text: str) -> dict:
     import providers
     img = Image.open(image).convert("RGB")
@@ -1391,8 +1461,8 @@ def ask_model(llm, image: Path, text: str) -> dict:
     url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
     r = providers._post("https://openrouter.ai/api/v1/chat/completions",
                         {"model": llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
-                         "messages": [{"role": "system", "content": SYSTEM},
-                                      {"role": "user", "content": [{"type": "text", "text": text},
+                         "messages": [{"role": "system", "content": named(SYSTEM)},
+                                      {"role": "user", "content": [{"type": "text", "text": named(text)},
                                                                    {"type": "image_url", "image_url": {"url": url}}]}]},
                         {"authorization": f"Bearer {llm.key}", "x-title": "Zeus Commander Reforger"}, 60)
     if "error" in r:
@@ -1440,6 +1510,7 @@ def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) ->
                 s.known += [(e["x"], e["z"])] * min(e["men"], 3)
     s.lost = dict(reader.lost)
     s.own_losses = [(lt, k, x, z) for lt, sd, k, x, z in reader.losses if sd == side and reader.t - lt <= DANGER_S]
+    s.sites = [(reader.sites[k][1], reader.sites[k][2], reader.sites[k][3]) for k in sorted(reader.located.get(side, ()))]
     s.droneplan = dict(reader.droneplan.get(side, {}))
     s.nodes = base_nodes(reader, side)
     return s
@@ -1494,7 +1565,9 @@ def find_run(label: str, after: float, timeout=600) -> Path:
 
 
 def live(a):
-    planner = Planner()
+    global OBJECTIVE
+    OBJECTIVE = a.objective
+    planner = Planner(scan=Path(a.scan) if a.scan else None)
     llm = make_llm() if a.picker == "gemini" else None
     run_dir = Path(a.run) if a.run else find_run(a.label, a.after or time.time())
     zcr = run_dir / "profile" / "zcr"
@@ -1626,6 +1699,8 @@ def main() -> int:
     ap.add_argument("--run", default="", help="the run folder (instead of --label)")
     ap.add_argument("--side", default="harbour", help="US, USSR, harbour (the side whose HQ is nearer Farm), south, or both (a general for each side)")
     ap.add_argument("--picker", default="code", choices=["code", "gemini"])
+    ap.add_argument("--objective", default="Farm", help="the base fought over (its name as in the log, underscores for spaces)")
+    ap.add_argument("--scan", default="", help="its 10 m ground scan (-zcrAttackScan; default .runtime/attack/farm_scan.jsonl)")
     ap.add_argument("--drones", action="store_true", help="with --picker gemini: the model also decides the drone teams and target")
     ap.add_argument("--replay", default="", help="offline: an old run folder")
     ap.add_argument("--t", type=int, default=420, help="with --replay: the game second")

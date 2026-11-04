@@ -178,6 +178,26 @@ class ZCR_Setup
 				side = us;
 			else if (allTo == "USSR")
 				side = ussr;
+			// -zcrBaseTo "Farm:USSR,..." (4 Nov - Martin: "keep farm scenario but lets just do different city, farm can be soviet
+			// now I guess", "make it connected in a way in this scenario there is battle of the city"): those bases to that side.
+			string baseTo;
+			if (System.GetCLIParam("zcrBaseTo", baseTo) && !baseTo.IsEmpty())
+			{
+				array<string> pairs = {};
+				baseTo.Split(",", pairs, true);
+				foreach (string pair : pairs)
+				{
+					array<string> nameSide = {};
+					pair.Split(":", nameSide, true);
+					if (nameSide.Count() == 2 && nameSide[0] == ZCR_Strategist.BaseName(base))
+					{
+						if (nameSide[1] == "US")
+							side = us;
+						else if (nameSide[1] == "USSR")
+							side = ussr;
+					}
+				}
+			}
 			base.SetFaction(side);
 			Print(string.Format("[ZCR][SETUP] t=%1 no_fia base=%2 to=%3", ZCR_LossLog.Seconds(), ZCR_Strategist.BaseName(base), side.GetFactionKey()), LogLevel.NORMAL);
 		}

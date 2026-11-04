@@ -36,13 +36,19 @@ SCENARIOS = {
     "us": "US",       # the US attacks
     "point": "BOTH",  # one neutral point (Signal Hill), both sides go for it; nothing else on any list (-zcrOnePoint)
     "city": "BOTH",   # one base, Farm (29 Oct, Martin: "make it in a way there can be fight somewhere, so maybe farm")
+    # 4 Nov (Martin, after the Farm battles: "keep farm scenario but lets just do different city, farm can be soviet now I
+    # guess", "make it connected in a way in this scenario there is battle of the city"): the battle for Beauregard, the town
+    # 1.1 km east of Farm by the sea, Farm a Soviet base now (-zcrBaseTo in the variant).
+    "beauregard": "BOTH",
 }
 
 # The one-point scenarios' point: Signal Hill 1628 m from one HQ, 1688 m from the other; Farm 1115 m from the
 # north-western (harbour) HQ and 2090 m from the southern one - the harbour side holds it first, the other storms it.
 # Both sides may attack the point whatever their radio network reaches (fork 1a910e8, ZCR_OnePoint). Tried once each
 # on 29 Oct: Arleville (every base dealt, out of one side's radio reach) and Beauregard (every base left neutral).
-POINTS = {"point": "Signal_Hill", "city": "Farm"}
+POINTS = {"point": "Signal_Hill", "city": "Farm", "beauregard": "Beauregard"}
+# The live planner's 10 m ground scan of each point other than Farm (-zcrAttackScan all, 29 Oct).
+SCANS = {"beauregard": ROOT / ".runtime" / "attack" / "arland" / "scan_3297_2860.jsonl"}
 POINT = POINTS["point"]
 
 SCENARIO_WORDS = {
@@ -50,6 +56,7 @@ SCENARIO_WORDS = {
     "us": "The US attacks the Soviet base nearest its HQ with everything from the first minute; the Soviets hold it",
     "point": "One neutral point in the middle (Signal Hill, 1.6-1.7 km from both HQs) and the two main bases - both sides go for the point with everything; no other base is on any list",
     "city": "One base, Farm (1.1 km from the harbour HQ, 2.1 km from the southern one) - the other bases dealt to the sides but off every list; both sides storm Farm",
+    "beauregard": "The battle for the city: Beauregard (the town by the sea 1.1 km east of Farm, 2.2 km from the harbour HQ, 2.6 km from the southern one) - Farm a Soviet base after its battle, the other bases dealt but off every list; both sides storm Beauregard",
 }
 
 
@@ -183,12 +190,14 @@ VARIANTS["farm-now-staymounted-wave"] = (VARIANTS["farm-now-staymounted"][0] + "
 # plan file, the second wave on, riders stay mounted to the drop point.
 VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrRideStayMounted -aicfZcrSecondWave 1").replace(" -aicfNoHiddenSeat", ""),
                            "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
-LIVE_BOTH = {"farm-brains"}   # variants whose live planner plans both sides
+VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR",
+                           "farm-brains for the battle of a city: Gemini commands both sides, no stored plans, the second wave - Farm a Soviet base")
+LIVE_BOTH = {"farm-brains", "town-brains"}   # variants whose live planner plans both sides
 # 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
 # ratio right? and it provides defense?"): DCO's defend and idle positions indoors first (coverPreference 1; Recommended:
 # 0 = balanced) and several teams may share a building (Farm has few).
-DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}}
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}, "town-brains": {"coverPreference": 1, "shareBuildings": True}}
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
@@ -253,7 +262,8 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
         import time
         (ROOT / ".runtime" / "liveplan").mkdir(parents=True, exist_ok=True)
         planner = subprocess.Popen([sys.executable, "-u", str(ROOT / "lab" / "liveplan.py"), "--label", label, "--after", str(time.time()),
-                                    "--side", "both" if variant in LIVE_BOTH else live_side, "--picker", LIVE[variant][0]] + (["--drones"] if LIVE[variant][1] else []), cwd=str(ROOT),
+                                    "--side", "both" if variant in LIVE_BOTH else live_side, "--picker", LIVE[variant][0]] + (["--drones"] if LIVE[variant][1] else [])
+                                   + (["--objective", POINTS[scenario], "--scan", str(SCANS[scenario])] if scenario in SCANS else []), cwd=str(ROOT),
                                    stdout=open(ROOT / ".runtime" / "liveplan" / f"{label}.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     try:
         subprocess.run(argv, cwd=str(ROOT), stdout=None if shown else subprocess.DEVNULL, stderr=None if shown else subprocess.DEVNULL,
