@@ -327,6 +327,7 @@ class LogReader:
     LIVE = re.compile(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=(\w+) id=(\d+) role=(\w+) men=(\d+) ride=(\d) x=(-?\d+) z=(-?\d+) to=(.*?) posture=")
     KNOWN = re.compile(r"\[ZCR\]\[KNOWN\] t=(\d+) side=(\w+) n=(\d+) at=(\S*)")
     CAPTURE = re.compile(r"\[ZCR\]\[CAPTURE\] t=(\d+) base=(.+?) from=(\w*) to=(\w+)")
+    SETUP = re.compile(r"\[ZCR\]\[SETUP\] t=(\d+) no_fia base=(\S+) to=(\w+)")
     LOSS = re.compile(r"\[ZCR\]\[LOSS\] t=(\d+) .* side=(\w+) kind=man")
     DRONEPLAN = re.compile(r"\[ZCR\]\[DRONEPLAN\] t=(\d+) side=(\w+) teams=(\d+) tempo=(\d+) have=(\d+) .*?why=(.*)$")
 
@@ -439,6 +440,13 @@ class LogReader:
         m = self.CAPTURE.search(line)
         if m and m.group(2) == OBJECTIVE:
             self.owner = m.group(4)
+            self.owner_t = int(m.group(1))
+            return
+        # The objective dealt to a side at the start (-zcrBaseTo, 4 Nov evening: the field fortification test gave Beauregard
+        # to the US and its general planned as the attacker - captures were all the reader knew).
+        m = self.SETUP.search(line)
+        if m and m.group(2) == OBJECTIVE and m.group(3) in ("US", "USSR"):
+            self.owner = m.group(3)
             self.owner_t = int(m.group(1))
             return
         m = self.LOSS.search(line)
