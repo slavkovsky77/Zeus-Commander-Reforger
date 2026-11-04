@@ -10,7 +10,7 @@
 // 4 Nov night: they didn't stay - in the town battles only 14-34% of the men at the point were inside, with 704 runs in one
 // battle (the move ends on arrival and the squad takes them out again). Now the run is a move-and-hold (the game's
 // move-and-investigate behaviour: to the spot, then HOLD_S there within 2 m), renewed every RENEW_S while the man is at his
-// spot - at the point only; the stops on the way keep the plain move. -zcrHouseHoldStay 0: the plain move as before.
+// spot - at the point only. Measured worse (0 inside of 7-8 at the point): off unless -zcrHouseHoldStay 1.
 class ZCR_HouseHold
 {
 	static const float SPOT_STEP = 3;
@@ -251,7 +251,9 @@ class ZCR_HouseHold
 	protected static bool Stay()
 	{
 		string value;
-		return !(System.GetCLIParam("zcrHouseHoldStay", value) && value == "0");
+		// Off by default (4 Nov night, battle 2: 7-8 men at the point, none inside, 630 runs and 2 renews - the hold never let
+		// them settle at the spot; the plain move had 14-34% inside). -zcrHouseHoldStay 1: the move-and-hold.
+		return System.GetCLIParam("zcrHouseHoldStay", value) && value == "1";
 	}
 
 	// The run to a spot: to it and a hold there (HOLD_S within 2 m), or the plain move (-zcrHouseHoldStay 0).
