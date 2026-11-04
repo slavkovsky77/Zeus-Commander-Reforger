@@ -386,9 +386,10 @@
         }
         if (this.layers.soldiers) for (const m of t.mp || []) {
           const hollow = m[2] === "p" || m[2] === "v";
-          L.circleMarker([m[1], m[0]], { bubblingMouseEvents: false, radius: (mine ? 4 : 2.6) + (this.view.getZoom() >= 5 ? .8 : 0), color: c, weight: hollow ? 1.5 : 0, fill: !hollow, fillColor: c,
+          const down = m[2] === "u";   // unconscious (5 Nov): grey, ringed in the side's colour
+          L.circleMarker([m[1], m[0]], { bubblingMouseEvents: false, radius: (mine ? 4 : 2.6) + (this.view.getZoom() >= 5 ? .8 : 0), color: c, weight: hollow || down ? 1.5 : 0, fill: !hollow, fillColor: down ? "#9a9a9a" : c,
             fillOpacity: sel && !mine ? .35 : .9, opacity: sel && !mine ? .35 : 1 })
-            .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${{ s: "standing", c: "crouched", p: "prone", v: "in a vehicle" }[m[2]] || esc(m[2])}`, tip)
+            .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${{ s: "standing", c: "crouched", p: "prone", v: "in a vehicle", u: "unconscious" }[m[2]] || esc(m[2])}`, tip)
             .on("click", () => this.pick(key)).addTo(g.units);
         }
         const cls = `tm ${esc(t.side)}${atk ? "" : " hold"}${home ? " home" : ""}${mine ? " on" : ""}${sel && !mine ? " dim" : ""}`;

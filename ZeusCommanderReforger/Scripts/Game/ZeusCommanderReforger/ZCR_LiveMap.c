@@ -103,8 +103,11 @@ class ZCR_LiveMap
 				if (teamWpKinds.IsEmpty())
 					teamWpKinds = "-";
 				// Each living member (4 Nov, Martin: "map should show individual units maybe no?"): x,z,stance - s stand,
-				// c crouch, p prone, v in a vehicle - e.g. mp=2210,2905,p;2214,2901,s;
+				// c crouch, p prone, v in a vehicle, u unconscious (5 Nov - Martin: "maybe some soldiers are unconscious?") - e.g.
+				// mp=2210,2905,p;2214,2901,s; and what each one's AI is doing now (Martin: "i see soviet soldier inside building why
+				// dont they push close to point now?"): acts=<behaviour>:<men>,... (its class, SCR_AI / Behavior cut).
 				string members;
+				map<string, int> acts = new map<string, int>();
 				array<AIAgent> memberAgents = {};
 				slot.GetGroup().GetAgents(memberAgents);
 				foreach (AIAgent memberAgent : memberAgents)
@@ -115,7 +118,17 @@ class ZCR_LiveMap
 					if (!mc || !AICF_GroupRuntime.IsAliveCharacter(mc))
 						continue;
 					string stance = "s";
-					if (mc.IsInVehicle())
+					SCR_AIUtilityComponent memberUtility = ZCR_DroneThreat.UtilityOf(mc);
+					if (memberUtility && memberUtility.GetCurrentAction())
+					{
+						string actName = memberUtility.GetCurrentAction().ClassName();
+						actName.Replace("SCR_AI", "");
+						actName.Replace("Behavior", "");
+						acts.Set(actName, acts.Get(actName) + 1);
+					}
+					if (mc.GetCharacterController() && mc.GetCharacterController().IsUnconscious())
+						stance = "u";
+					else if (mc.IsInVehicle())
 						stance = "v";
 					else if (mc.GetCharacterController())
 					{
@@ -130,7 +143,13 @@ class ZCR_LiveMap
 				}
 				if (members.IsEmpty())
 					members = "-";
-				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4 wpk=%5 mp=%6", posture, wp, teamWps, Math.Round(wpLevel), teamWpKinds, members);
+				string actText;
+				foreach (string actKey, int actMen : acts)
+					actText += string.Format("%1:%2,", actKey, actMen);
+				if (actText.IsEmpty())
+					actText = "-";
+				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4 wpk=%5 mp=%6", posture, wp, teamWps, Math.Round(wpLevel), teamWpKinds, members) +
+					string.Format(" acts=%1", actText);
 				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
 				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}
