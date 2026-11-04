@@ -33,6 +33,8 @@ class ZCR_WatchTapHandler : ScriptedWidgetEventHandler
 {
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
+		if (button == 0)
+			ZCR_WatchControls.OnPress();
 		if (button == 1)
 			ZCR_WatchControls.s_bRight = true;
 		return true;
@@ -172,8 +174,36 @@ class ZCR_WatchControls
 		s_Instance.Labels();
 	}
 
+	// A mouse press acts at once (5 Nov - Martin: "why does button react on mouse release not on mouse click?"): the release and
+	// the 0.3 s wait for the cursor to rest are for a phone's touch over Moonlight / Artemis, whose click can come before the
+	// finger's position. A press with no touch jump just before it is a mouse: resolved where the cursor is, and its release
+	// (both ways in - the catcher and the listener) is ignored.
+	protected bool m_bDownHandled;
+	protected int m_iDownAt;
+
+	static void OnPress()
+	{
+		if (!s_Instance)
+			return;
+		int nowMs = System.GetTickCount();
+		s_Instance.m_bDownHandled = false;
+		s_Instance.m_iDownAt = nowMs;
+		if (nowMs - s_Instance.m_iJumpSeenAt < 1500 || s_Instance.m_bJumpCandidate || nowMs - s_Instance.m_iLastClickMs < 500)
+			return;
+		int x, y;
+		WidgetManager.GetMousePos(x, y);
+		s_Instance.m_bDownHandled = true;
+		s_Instance.m_iLastClickMs = nowMs;
+		s_Instance.m_bJumpPending = false;
+		Print(string.Format("[ZCR][CAMUI] press at=%1,%2", x, y), LogLevel.NORMAL);
+		s_Instance.Resolve(x, y);
+	}
+
 	static void OnClick()
 	{
+		// The release of a press already acted on.
+		if (s_Instance && s_Instance.m_bDownHandled && System.GetTickCount() - s_Instance.m_iDownAt < 5000)
+			return;
 		// One tap arrives twice (the catcher and the mouse-up listener): the second within 0.5 s of real time is the same
 		// tap. It was 0.3 s on the watch clock, which runs at the game's speed - at 2x the window was 0.15 s (28 Oct:
 		// SPEED went 1x -> 2x -> 3x within 0.32 s, Martin watching).
