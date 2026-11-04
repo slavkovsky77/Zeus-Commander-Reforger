@@ -192,7 +192,8 @@ VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffo
                            "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
 # -fpvaiKeepStations (4 Nov night): both crashes of the watched town battles came 1-4 s after the FPV mod deleted a used-up
 # drone station - the empty stations stay, to see whether the crashes go.
-VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR -fpvaiKeepStations",
+# -zcrStormRelentless (5 Nov, Martin: "they should definitely move"): DCO's aggressive posture for attack squads near the point.
+VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR -fpvaiKeepStations -zcrStormRelentless",
                            "farm-brains for the battle of a city: Gemini commands both sides, no stored plans, the second wave - Farm a Soviet base")
 VARIANTS["town-vs-rules"] = (VARIANTS["town-brains"][0],
                              "the battle of the city, Gemini commands one side (--live-side: harbour or south), the code's rules the other - same routes, drops, danger zones")

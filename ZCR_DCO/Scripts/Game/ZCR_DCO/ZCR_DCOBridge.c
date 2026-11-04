@@ -78,8 +78,58 @@ modded class ZCR_Tactical
 		}
 	}
 
+	// Relentless near the point (5 Nov - Martin, watching the town battle: "what I am still missing: infantry to push from one
+	// building to another and gradually storming the point - i saw them stuck in one house; they should react to drones ...
+	// but they should definitely move"; -zcrStormRelentless): in DCO's attack logic a soldier in cover in the balanced posture
+	// waits 10-20 s x cover_hold_mul 2 between bounds and never bounds while endangered in the last 4 s - under fire and
+	// drones, never. An attack squad within RELENTLESS_M of the one-point battle's point gets DCO's aggressive posture
+	// (DCO_SetPostureOverride - relentless: it bounds from cover every 0.5 s, its drills and cover choice still DCO's), back to
+	// automatic when it leaves.   [ZCR][RELENTLESS] t= faction= on= off=      (every 60 s)
+	static const float RELENTLESS_M = 500;
+	protected ref map<string, int> m_mRelentlessLogAt = new map<string, int>();
+
+	protected void Relentless(string faction, AICF_FactionState state)
+	{
+		SCR_CampaignMilitaryBaseComponent point = ZCR_OnePoint.Base();
+		if (!point || !point.GetOwner())
+			return;
+		vector at = point.GetOwner().GetOrigin();
+		int on, off;
+		for (int i; i < state.GetSlotCount(); i++)
+		{
+			AICF_GroupSlot slot = state.GetSlot(i);
+			if (!slot || !slot.GetGroup())
+				continue;
+			SCR_AIGroup g = slot.GetGroup();
+			SCR_AIGroupUtilityComponent gu = SCR_AIGroupUtilityComponent.Cast(g.FindComponent(SCR_AIGroupUtilityComponent));
+			if (!gu)
+				continue;
+			IEntity leader = AICF_GroupRuntime.ResolveAliveLeader(g);
+			bool want = leader && slot.GetRole() == AICF_EGroupRole.ATTACK && vector.DistanceXZ(leader.GetOrigin(), at) <= RELENTLESS_M;
+			if (want)
+			{
+				on++;
+				if (gu.DCO_GetPostureOverride() != DCO_GroupTactics.AGGRESIVE)
+					gu.DCO_SetPostureOverride(DCO_GroupTactics.AGGRESIVE);
+			}
+			else if (gu.DCO_GetPostureOverride() == DCO_GroupTactics.AGGRESIVE)
+			{
+				gu.DCO_SetPostureOverride(DCO_GroupTactics.AUTOMATIC);
+				off++;
+			}
+		}
+		int now = ZCR_LossLog.Seconds();
+		if (now >= m_mRelentlessLogAt.Get(faction))
+		{
+			m_mRelentlessLogAt.Set(faction, now + 60);
+			Print(string.Format("[ZCR][RELENTLESS] t=%1 faction=%2 on=%3 off=%4", now, faction, on, off), LogLevel.NORMAL);
+		}
+	}
+
 	override void Tend(string faction, AICF_FactionState state)
 	{
+		if (state && System.IsCLIParam("zcrStormRelentless"))
+			Relentless(faction, state);
 		if (state && System.IsCLIParam("zcrRideStayMounted"))
 			StayMounted(faction, state);
 		if (!state || System.IsCLIParam("zcrNoDcoLod"))
