@@ -54,6 +54,7 @@ class ZCR_WatchButton
 	TextWidget m_wText;
 	string m_sCmd;
 	float m_fFlashUntil;
+	bool m_bPad;            // a camera pad button (shown while the pad is open)
 }
 
 class ZCR_WatchControls
@@ -96,6 +97,25 @@ class ZCR_WatchControls
 	{
 		if (s_Instance)
 			s_Instance.Update(clock);
+	}
+
+	// The overlays shown or hidden (ZCR_Watch.ToggleHud): every button but HIDE UI / SHOW UI.
+	static void SetHud(bool on)
+	{
+		if (!s_Instance)
+			return;
+		s_Instance.m_bHudOn = on;
+		foreach (ZCR_WatchButton b : s_Instance.m_aButtons)
+		{
+			if (b.m_sCmd == "ui")
+			{
+				if (on)
+					b.m_wText.SetText("HIDE UI");
+				else
+					b.m_wText.SetText("SHOW UI");
+			}
+		}
+		s_Instance.SetPadShown(s_Instance.m_bPadOpen);
 	}
 
 	static bool IsHost(MenuBase menu)
@@ -180,7 +200,84 @@ class ZCR_WatchControls
 		Add("REPORT", "report", 7, 1);
 		Add("DETAILS: OFF", "details", 8, 0);
 		Add("SPEED 3x", "speed", 8, 1);
+		// 4 Nov (Martin: "there should be button to hide those gui elements in the game so we can watch it nice"): every
+		// overlay off but this button (ZCR_Watch.ToggleHud); the lab app's camera bar does the same.
+		Add("HIDE UI", "ui", 0, 2);
+		// The camera pad (4 Nov - Martin: "do camera controller in game maybe for phone i could hide it or open it make it like
+		// rotation of camera and zoom i guess and wasd?", "something standard i dont know make it nice"): CAM PAD opens it -
+		// a move pad bottom left, a look pad bottom right, the other buttons out of the way - and closes it again.
+		Add("CAM PAD", "pad", 1, 2);
+		float px = 0.02;
+		float py = 0.70;
+		float pw = 0.062;
+		float ph = 0.075;
+		float pg = 0.006;
+		AddPad("FWD", "fwd", px + pw + pg, py);
+		AddPad("LEFT", "left", px, py + ph + pg);
+		AddPad("BACK", "back", px + pw + pg, py + ph + pg);
+		AddPad("RIGHT", "right", px + 2 * (pw + pg), py + ph + pg);
+		AddPad("UP", "up", px + 3 * (pw + pg) + pg, py);
+		AddPad("DOWN", "down", px + 3 * (pw + pg) + pg, py + ph + pg);
+		float rx = 0.98 - 3 * pw - 2 * pg;
+		AddPad("TILT UP", "tiltup", rx + pw + pg, py);
+		AddPad("TURN <", "turnl", rx, py + ph + pg);
+		AddPad("TILT DN", "tiltdn", rx + pw + pg, py + ph + pg);
+		AddPad("TURN >", "turnr", rx + 2 * (pw + pg), py + ph + pg);
+		AddPad("ZOOM +", "zin", rx, py);
+		AddPad("ZOOM -", "zout", rx + 2 * (pw + pg), py);
+		SetPadShown(false);
 		Labels();
+	}
+
+	protected bool m_bPadOpen;
+	protected bool m_bHudOn = true;
+
+	// A camera pad button at a screen spot (fractions of the screen).
+	protected void AddPad(string text, string cmd, float x0, float y0)
+	{
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		ZCR_WatchButton b = new ZCR_WatchButton();
+		b.m_sCmd = "cam-" + cmd;
+		b.m_bPad = true;
+		b.m_wBack = ImageWidget.Cast(ws.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, new Color(0.05, 0.08, 0.12, 0.72), 1010, null));
+		b.m_wText = TextWidget.Cast(ws.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), 1011, null));
+		if (!b.m_wBack || !b.m_wText)
+			return;
+		FrameSlot.SetAnchorMin(b.m_wBack, x0, y0);
+		FrameSlot.SetAnchorMax(b.m_wBack, x0 + 0.062, y0 + 0.075);
+		FrameSlot.SetOffsets(b.m_wBack, 0, 0, 0, 0);
+		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.006, y0 + 0.024);
+		FrameSlot.SetAnchorMax(b.m_wText, x0 + 0.062, y0 + 0.075);
+		FrameSlot.SetOffsets(b.m_wText, 0, 0, 0, 0);
+		b.m_wText.SetFont(FONT_BOLD);
+		b.m_wText.SetExactFontSize(17);
+		b.m_wText.SetText(text);
+		m_aButtons.Insert(b);
+	}
+
+	// The pad open: its buttons in, the others (but HIDE UI and CAM PAD) out of the way; closed: the other way round.
+	protected void SetPadShown(bool open)
+	{
+		m_bPadOpen = open;
+		foreach (ZCR_WatchButton b : m_aButtons)
+		{
+			bool show = m_bHudOn && (b.m_bPad == open);
+			if (b.m_sCmd == "ui" || b.m_sCmd == "pad")
+				show = true;
+			if (b.m_sCmd == "ui" && !m_bHudOn)
+				show = true;
+			if (b.m_sCmd == "pad" && !m_bHudOn)
+				show = false;
+			b.m_wBack.SetVisible(show);
+			b.m_wText.SetVisible(show);
+			if (b.m_sCmd == "pad")
+			{
+				if (open)
+					b.m_wText.SetText("CLOSE PAD");
+				else
+					b.m_wText.SetText("CAM PAD");
+			}
+		}
 	}
 
 	protected void Add(string text, string cmd, int row, int col)
@@ -322,12 +419,25 @@ class ZCR_WatchControls
 		WidgetManager.GetMousePos(x, y);
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
+			if (!b.m_wBack.IsVisible())
+				continue;
 			float bx, by, bw, bh;
 			b.m_wBack.GetScreenPos(bx, by);
 			b.m_wBack.GetScreenSize(bw, bh);
 			if (x >= bx && x <= bx + bw && y >= by && y <= by + bh)
 			{
 				b.m_fFlashUntil = m_fClock + 0.25;
+				if (b.m_sCmd == "pad")
+				{
+					SetPadShown(!m_bPadOpen);
+					return;
+				}
+				if (b.m_sCmd.StartsWith("cam-"))
+				{
+					string step = b.m_sCmd.Substring(4, b.m_sCmd.Length() - 4);
+					ZCR_Watch.Nudge(step);
+					return;
+				}
 				if (b.m_sCmd == "lock")
 					m_bLocked = !m_bLocked;
 				if (b.m_sCmd == "auto")

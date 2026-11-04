@@ -38,6 +38,7 @@ import sublab  # noqa: E402
 import scorecard  # noqa: E402
 
 RUNTIME = ROOT / ".runtime"
+RUNS_DIR = RUNTIME / "runs"   # each game run's folder (the camera commands go into the running one's profile)
 INBOX = RUNTIME / "inbox.jsonl"
 PAGES = RUNTIME / "app_pages"
 VIDEOS = ROOT / "videos"
@@ -390,6 +391,41 @@ def inbox(n: int = 30) -> list:
     return rows[-n:][::-1]
 
 
+CAMERA_CMDS = {"auto", "lock", "next", "prev", "closer", "wider", "action", "overview", "point+", "point-", "report", "ui",
+               "group+", "group-"}
+
+
+def camera_command(cmd: str) -> dict:
+    """The camera of the game being watched, from the lab app (4 Nov - Martin watches over Moonlight on his phone, where a
+    touch turns the camera): one line "<n> <cmd> [args]" into the running game's profile/zcr/camera.txt, n counting up -
+    the director runs each new one (ZCR_Director.LabCamera). cmd: one of CAMERA_CMDS, "follow <US|USSR> <team id>",
+    "goto <x> <z>"."""
+    parts = cmd.split()
+    ok = bool(parts) and (parts[0] in CAMERA_CMDS and len(parts) == 1
+                          or parts[0] == "follow" and len(parts) == 3 and parts[1] in ("US", "USSR") and parts[2].isdigit()
+                          or parts[0] == "goto" and len(parts) == 3 and all(re.fullmatch(r"-?\d+(\.\d+)?", v) for v in parts[1:]))
+    if not ok:
+        return {"error": f"unknown camera command {cmd!r}"}
+    runs = [r for r in RUNS_DIR.iterdir() if r.is_dir()] if RUNS_DIR.exists() else []
+    live = None
+    for r in sorted(runs, key=lambda r: r.stat().st_mtime, reverse=True)[:12]:
+        logs = sorted(r.glob("logs/*/console.log"))
+        if logs and time.time() - logs[-1].stat().st_mtime < 90 and (r / "profile").exists():
+            live = r
+            break
+    if not live:
+        return {"error": "no game running"}
+    f = live / "profile" / "zcr" / "camera.txt"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    try:
+        n = int(f.read_text(encoding="utf-8").split()[0])
+    except (OSError, ValueError, IndexError):
+        pass
+    f.write_text(f"{n + 1} {cmd}" + chr(10), encoding="utf-8")
+    return {"ok": True, "run": live.name, "cmd": cmd}
+
+
 def add_remark(kind: str, text: str, typing_s: float = 0, unit=None) -> dict:
     """A remark into the inbox. seen_at: the moment it is about - when the owner started typing it (typing_s before now).
     unit: the map's clicked unit it is about (3 Nov, note 532) - side, team, men, what it does, where, the run, the game second."""
@@ -544,6 +580,12 @@ class Handler(BaseHTTPRequestHandler):
                 left -= len(chunk)
 
     def do_POST(self):
+        if urlparse(self.path).path == "/api/camera":
+            try:
+                body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2000)) or b"{}")
+                return self.json(camera_command(str(body.get("cmd", ""))))
+            except Exception as e:
+                return self.json({"error": str(e)}, 400)
         if urlparse(self.path).path != "/api/inbox":
             return self.send(404, b"not found", "text/plain")
         try:

@@ -179,6 +179,72 @@ class ZCR_Watch
 		return true;
 	}
 
+	// Every overlay off and on again (4 Nov - Martin: "there should be button to hide those gui elements in the game so we can
+	// watch it nice"): the panels, the caption, the tags and the buttons but a small UI button (ZCR_WatchControls);
+	// from the lab app's camera bar too (ZCR_Director.LabCamera).
+	protected bool m_bHudHidden;
+
+	// The camera pad's taps (4 Nov - Martin: "do camera controller in game maybe for phone i could hide it or open it make it
+	// like rotation of camera and zoom i guess and wasd?", "something standard"): one step a tap in free look, starting from
+	// the view on screen - move 20 m, up / down 8 m, turn 20 degrees, tilt 10, zoom 40 m along the view. AUTO gives the
+	// camera back to the director.
+	static void Nudge(string what)
+	{
+		if (!s_Instance || !s_Instance.m_Camera)
+			return;
+		if (!s_Instance.m_bFree)
+			SetFree(true);
+		float y = s_Instance.m_fYaw * Math.DEG2RAD;
+		float p = s_Instance.m_fPitch * Math.DEG2RAD;
+		vector flat = Vector(Math.Sin(y), 0, Math.Cos(y));
+		vector right = Vector(Math.Cos(y), 0, -Math.Sin(y));
+		vector view = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
+		if (what == "fwd")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos + flat * 20;
+		else if (what == "back")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos - flat * 20;
+		else if (what == "left")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos - right * 20;
+		else if (what == "right")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos + right * 20;
+		else if (what == "up")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos + Vector(0, 8, 0);
+		else if (what == "down")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos - Vector(0, 8, 0);
+		else if (what == "turnl")
+			s_Instance.m_fYaw = s_Instance.m_fYaw - 20;
+		else if (what == "turnr")
+			s_Instance.m_fYaw = s_Instance.m_fYaw + 20;
+		else if (what == "tiltup")
+			s_Instance.m_fPitch = Math.Clamp(s_Instance.m_fPitch + 10, -85, 85);
+		else if (what == "tiltdn")
+			s_Instance.m_fPitch = Math.Clamp(s_Instance.m_fPitch - 10, -85, 85);
+		else if (what == "zin")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos + view * 40;
+		else if (what == "zout")
+			s_Instance.m_vFreePos = s_Instance.m_vFreePos - view * 40;
+		if (s_Instance.m_Caption)
+			s_Instance.m_Caption.SetText("CAMERA PAD - a tap a step; AUTO ON gives the camera back to the director");
+	}
+
+	// The gamepad's toggle-UI button (the Game Master camera's ManualCameraToggleUI) hides / shows the overlays.
+	protected void GamepadUi(InputManager im)
+	{
+		if (im && !im.IsUsingMouseAndKeyboard() && im.GetActionTriggered("ManualCameraToggleUI"))
+			ToggleHud();
+	}
+
+	static void ToggleHud()
+	{
+		if (!s_Instance)
+			return;
+		s_Instance.m_bHudHidden = !s_Instance.m_bHudHidden;
+		if (s_Instance.m_Root)
+			s_Instance.m_Root.SetVisible(!s_Instance.m_bHudHidden);
+		ZCR_WatchControls.SetHud(!s_Instance.m_bHudHidden);
+		Print(string.Format("[ZCR][CAMUI] overlays %1", !s_Instance.m_bHudHidden), LogLevel.NORMAL);
+	}
+
 	static bool IsFree()
 	{
 		return s_Instance && s_Instance.m_bFree;
@@ -241,6 +307,14 @@ class ZCR_Watch
 		}
 		else
 			m_iMouseX = -1;
+		// A gamepad (4 Nov - Martin: "maybe camera gamepad in the game for phone lol?" - Moonlight's on-screen gamepad): the
+		// right stick looks round (the left one moves - the camera actions above), its toggle-UI button hides the overlays.
+		if (!im.IsUsingMouseAndKeyboard())
+		{
+			m_fYaw += im.GetActionValue("ManualCameraRotateYaw") * 90 * dt;
+			m_fPitch = Math.Clamp(m_fPitch + im.GetActionValue("ManualCameraRotatePitch") * 60 * dt, -85, 85);
+		}
+		GamepadUi(im);
 		float y = m_fYaw * Math.DEG2RAD;
 		float p = m_fPitch * Math.DEG2RAD;
 		vector forward = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
@@ -597,7 +671,16 @@ class ZCR_Watch
 				ground = fp[1] - 2;
 		}
 		// Orbit (Martin: "free look on locked units - rotation"): the right mouse button held and dragged
-		// turns the camera round what it shows, up and down too; it stays until AUTO.
+		// turns the camera round what it shows, up and down too; it stays until AUTO. A gamepad's right stick too (4 Nov).
+		InputManager orbitIm = GetGame().GetInputManager();
+		orbitIm.ActivateContext("ManualCameraContext");
+		if (!orbitIm.IsUsingMouseAndKeyboard())
+		{
+			float orbitDt = 1.0 / 60;
+			m_fOrbitYaw += orbitIm.GetActionValue("ManualCameraRotateYaw") * 90 * orbitDt;
+			m_fOrbitLift = Math.Clamp(m_fOrbitLift - orbitIm.GetActionValue("ManualCameraRotatePitch") * 0.6 * orbitDt, 0.2, 3);
+		}
+		GamepadUi(orbitIm);
 		int mx, my;
 		WidgetManager.GetMousePos(mx, my);
 		if (ZCR_WatchControls.RightDown())

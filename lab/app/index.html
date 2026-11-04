@@ -71,6 +71,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 16px max(16px, env(safe-area-
 /* A remark about the clicked unit (3 Nov, Martin: "when clicking on unit I should be able to annotate question/bad/good"). */
 .mapnote { margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--panel); display: grid; gap: 8px; }
 .mapnote textarea { width: 100%; box-sizing: border-box; min-height: 52px; }
+/* The game camera from the lab (4 Nov - over Moonlight a touch on the game window turns the camera). */
+.cambar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font: 600 13px var(--f-body); }
+.cambar button, #map-follow { font: 600 13px var(--f-body); padding: 6px 10px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
 .mapfs { font: 600 13px var(--f-body); padding: 6px 10px; background: var(--panel); color: var(--ink); border: 2px solid rgba(0,0,0,.25); border-radius: 6px; cursor: pointer; }
 .wpnum { width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 700 11px/16px var(--f-body); text-align: center; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .leaflet-container { font: 13px var(--f-body); }
@@ -400,7 +403,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
       </div>
       <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
-      <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-selwrap"><div id="map-sel"></div>
+      <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-selwrap"><div id="cambar" class="cambar" title="The game window's camera - for watching over Moonlight, where a touch turns it">Camera:
+          <button type="button" data-cam="auto">Auto</button><button type="button" data-cam="point+">Next point</button><button type="button" data-cam="group+">Next team</button><button type="button" data-cam="closer">Closer</button><button type="button" data-cam="wider">Wider</button><button type="button" data-cam="ui">Game UI on/off</button><span class="muted" id="cam-msg"></span></div><div id="map-sel"></div>
         <form id="map-note" class="mapnote" hidden>
           <div class="kinds" role="radiogroup" aria-label="Kind">
             <label><input type="radio" name="mapkind" value="question" checked>Question</label>
@@ -408,7 +412,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
             <label><input type="radio" name="mapkind" value="good">Good</label>
           </div>
           <textarea id="map-note-text" rows="2" placeholder="About this one - what you see or want to know" aria-label="Remark about the selected unit"></textarea>
-          <div class="row"><button class="go" type="submit">Send about <span id="map-note-who">it</span></button><span class="muted" id="map-note-msg"></span></div>
+          <div class="row"><button class="go" type="submit">Send about <span id="map-note-who">it</span></button><button type="button" id="map-follow">Camera: follow it</button><span class="muted" id="map-note-msg"></span></div>
         </form></div></div>
       <div class="legend">
         <div><span class="dot" style="background:var(--good)"></span>Depot spot: most vans got out</div>
@@ -487,6 +491,22 @@ video { width: 100%; border-radius: 8px; background: #000; }
       }
       try { this.sel = new URLSearchParams(location.search).get("sel"); } catch (_) {}   // a link to one van: ?sel=van:7#map
       $("map-l-live").addEventListener("change", () => this.live());
+      // The game window's camera (4 Nov - Martin watches over Moonlight on his phone, where a touch turns the camera):
+      // the director's commands through POST /api/camera; 'follow' puts it on the clicked team.
+      const cam = async (cmd) => {
+        $("cam-msg").textContent = "…";
+        try {
+          const r = await (await fetch("/api/camera", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cmd }) })).json();
+          $("cam-msg").textContent = r.ok ? `sent: ${cmd}` : (r.error || "not sent");
+        } catch (_) { $("cam-msg").textContent = "not sent - is the PC on?"; }
+      };
+      for (const b of document.querySelectorAll("[data-cam]")) b.addEventListener("click", () => cam(b.dataset.cam));
+      $("map-follow").addEventListener("click", () => {
+        const u = this.selUnit;
+        if (!u) return;
+        if (u.kind === "team" && u.side && u.id !== undefined) cam(`follow ${u.side} ${u.id}`);
+        else if (u.x !== undefined && u.z !== undefined) cam(`goto ${Math.round(u.x)} ${Math.round(u.z)}`);
+      });
       // A remark about the clicked unit (3 Nov, note 532 - Martin: "when clicking on unit I should be able to annotate
       // question/bad/good"): into the inbox with the unit (side, team, men, what it does, where, the run, the game second)
       // and the moment he started typing. The box sits outside the redrawn selection, so typing survives the refresh.

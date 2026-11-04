@@ -179,6 +179,7 @@ class ZCR_Director
 		if (System.IsCLIParam("zcrNoDirector"))
 			return;
 		int now = ZCR_LossLog.Seconds();
+		LabCamera();
 		WatchCaptures(now);
 		// The soldier list on its own clock: it was refreshed only at a new shot, so with the camera locked
 		// from the first seconds (no one deployed yet) the panels said "0 soldiers" all match (Martin, 28 Oct).
@@ -1094,6 +1095,61 @@ class ZCR_Director
 	}
 
 	// A watcher's button or tap (ZCR_WatchControls on his game, through his player controller).
+	// The camera from the lab app (4 Nov - Martin, watching over Moonlight on his phone: "when i watch it from phone ... i
+	// basically cannot use [the buttons] because of moonlight artemis free mode rotations", "there should be button to hide
+	// those gui elements in the game so we can watch it nice"): lab/app/server.py writes $profile:zcr/camera.txt -
+	// "<n> <cmd> [args]", n counting up - and the director runs each new one: the buttons' commands (auto, lock, next, prev,
+	// closer, wider, action, overview, point+, point-, report), ui (hide / show every overlay), follow <side> <team id>
+	// (the camera on that team), goto <x> <z> (flies there).
+	protected int m_iLabCamSeq = -1;
+
+	protected void LabCamera()
+	{
+		FileHandle f = FileIO.OpenFile("$profile:zcr/camera.txt", FileMode.READ);
+		if (!f)
+			return;
+		string line;
+		f.ReadLine(line);
+		f.Close();
+		line.TrimInPlace();
+		array<string> v = {};
+		line.Split(" ", v, true);
+		if (v.Count() < 2 || v[0].ToInt() == m_iLabCamSeq)
+			return;
+		bool first = m_iLabCamSeq < 0;
+		m_iLabCamSeq = v[0].ToInt();
+		if (first && v[1] != "ui")
+			return;      // a command left from before this match
+		string cmd = v[1];
+		vector pos;
+		if (cmd == "ui")
+		{
+			ZCR_Watch.ToggleHud();
+			return;
+		}
+		if (cmd == "goto" && v.Count() >= 4)
+		{
+			pos = Vector(v[2].ToFloat(), 0, v[3].ToFloat());
+			pos[1] = GetGame().GetWorld().GetSurfaceY(pos[0], pos[2]);
+			DoCommand("tap", pos);
+			return;
+		}
+		if (cmd == "follow" && v.Count() >= 4)
+		{
+			AICF_FactionState state = ZCR_Strategist.s_mStates.Get(v[2]);
+			AICF_GroupSlot slot;
+			if (state)
+				slot = state.GetSlot(v[3].ToInt());
+			IEntity leader;
+			if (slot && slot.GetGroup())
+				leader = AICF_GroupRuntime.ResolveAliveLeader(slot.GetGroup());
+			if (leader)
+				DoCommand("tap", leader.GetOrigin());
+			return;
+		}
+		DoCommand(cmd, vector.Zero);
+	}
+
 	static void Command(int playerId, string cmd, vector pos)
 	{
 		if (s_Instance && s_Instance.m_aWatchers.Contains(playerId))
@@ -1205,6 +1261,8 @@ class ZCR_Director
 			Report(now);
 		else if (cmd == "tap")
 			Tap(now, pos);
+		else if (cmd == "ui")
+			ZCR_Watch.ToggleHud();
 	}
 
 	// Lab tests (the drive track, the guns test, the traffic and supply runs): PREV / NEXT step through the test's own
