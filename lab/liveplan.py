@@ -308,6 +308,7 @@ class Situation:
         self.lost = {"US": 0, "USSR": 0}
         self.own_losses = []    # (t, kind, x, z) of the side's own losses in the last DANGER_S
         self.sites = []         # (x, z, name) of the enemy drone sites the side has located
+        self.armour = []        # the side's fighting vehicles: dicts unit, prefab, phase, x, z, health
         self.known_n = 0
         self.droneplan = {}     # the side's drone plan's last decision ([ZCR][DRONEPLAN])
         self.nodes = {}         # base name -> graph node id; "enemy_hq" -> the enemy main base's
@@ -336,6 +337,7 @@ class LogReader:
         self.losses = []        # (t, side, kind "man"|"vehicle", x, z) - every loss (danger zones, note 541)
         self.sites = []         # [side, x, z, name] - every drone site set up ([ZCR][DRONESITE] set_up)
         self.located = {"US": set(), "USSR": set()}   # side -> indexes of ENEMY drone sites it has located (note 542)
+        self.armour = {"US": {}, "USSR": {}}  # side -> unit -> its last [ZCR][ARMOUR] STATUS (note 544)
         self.first_round = {}
         self.droneplan = {}     # side -> the drone plan's last decision (teams wanted, tempo, teams it has, why)
         self.buf = ""
@@ -379,6 +381,20 @@ class LogReader:
                         self.first_round[side] = list(self.rounds[side][k].values())
                     del self.rounds[side][k]
                 self.last_round[side] = t
+            return
+        if "[ZCR][ARMOUR]" in line and (" event=STATUS " in line or " event=LOST " in line):
+            d = dict(kv.split("=", 1) for kv in line.split("[ZCR][ARMOUR]", 1)[1].split() if "=" in kv)
+            side, unit = d.get("side"), d.get("unit")
+            if side in self.armour and unit:
+                if d.get("event") == "LOST":
+                    self.armour[side].pop(unit, None)
+                else:
+                    try:
+                        self.armour[side][unit] = {"unit": int(unit), "prefab": d.get("prefab", "?"), "phase": d.get("phase", "?"),
+                                                   "x": float(d["x"]), "z": float(d["z"]), "health": int(float(d.get("health", 100))),
+                                                   "aboard": d.get("aboard", "?"), "t": int(d.get("t", 0))}
+                    except (KeyError, ValueError):
+                        pass
             return
         if "[ZCR][DRONESITE]" in line and " set_up " in line:
             d = dict(kv.split("=", 1) for kv in line.split("[ZCR][DRONESITE]", 1)[1].split() if "=" in kv)
@@ -872,6 +888,7 @@ class Commander:
         self.version = int(time.time()) % 100000 * 10
         self.lines = []         # this side's lines of the plan file (team/drones), for a shared file
         self.strategy = None    # {"stance", "why"} - the model's battle strategy (note 542)
+        self.armour_orders = {}  # unit -> {"order", "xz", "why"} - the model's orders for its fighting vehicles (note 544)
         self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
@@ -944,7 +961,7 @@ class Commander:
                           "from_obj_m": round(math.hypot(sx - g.ox, sz - g.oz)), "dir": compass(ang)})
         known = observers_from(s.known)
         pic = {"t": s.t, "nodes": s.nodes, "threat": threat, "costs": costs, "D_obj": D_obj, "drops": drops, "support": sup, "teams": teams,
-               "zones": zones, "sites": sites,
+               "zones": zones, "sites": sites, "armour": list(s.armour),
                "status": status, "starts": starts, "routes": routes, "known": known, "owner": s.owner, "lost": dict(s.lost),
                "hq": hq, "seconds": round(time.time() - t0, 1)}
         self.last = pic
@@ -1113,6 +1130,19 @@ class Commander:
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
                   "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
                   "next team dies the same way - pick another drop point or route unless there is no other way in."]
+        if pic.get("armour"):
+            kinds = {"LAV25": "LAV-25 APC (25 mm autocannon and MG)", "BTR70": "BTR-70 APC (14.5 mm HMG and MG)",
+                     "M2A2": "M2A2 Bradley IFV", "BMP": "BMP IFV", "M1A1": "M1A1 tank", "T72": "T-72 tank"}
+            doing = {"APPROACH": "moving up", "ASSAULT": "attacking at Farm", "OVERWATCH": "on overwatch", "HOLD": "holding",
+                     "RECREW": "back for a new crew", "REMOUNT": "crew boarding", "GIVEWAY": "giving way"}
+            lines += ["", "Your fighting vehicles (crewed, they fight from the vehicle; strong against infantry in the open and light "
+                      "vehicles at 200-800 m, weak against drones and AT rockets up close - an APC driven into Farm gets lost, one "
+                      "watching from cover 200-400 m out keeps the enemy's heads down while your infantry goes in):"]
+            for a_ in pic["armour"]:
+                kind = next((v for k, v in kinds.items() if k in a_["prefab"]), a_["prefab"])
+                lines.append(f"  A{a_['unit']}: {kind}, {round(math.hypot(a_['x'] - g.ox, a_['z'] - g.oz))} m "
+                             f"{compass(math.degrees(math.atan2(a_['x'] - g.ox, a_['z'] - g.oz)))} of Farm, health {a_['health']}%, "
+                             f"now {doing.get(a_['phase'], a_['phase'].lower() or 'waiting for orders')}")
         lines += ["", "Your strategy - think about the battle, not only the next move, and choose one: 'assault' (take Farm), "
                   "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers, sandbags and MG nests "
                   "there first), 'counter_drone' (enemy drones are killing your men: twice as many of your soldiers fire at "
@@ -1120,11 +1150,13 @@ class Commander:
                   "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
                   "often the way in."]
         raid = ', "site": "H1" or null' if pic.get("sites") else ""
+        armour = (', "armour": [{"unit": <A number>, "order": "overwatch"|"assault"|"hold", "support": "P1" or null (for '
+                  'overwatch: the support position it fires from), "why": "few words"}]') if pic.get("armour") and pic.get("support") else ""
         lines += ["", 'Answer JSON only: {"reason": "one line: your plan", "strategy": {"stance": "assault"|"fortify"|"counter_drone", '
                   '"why": "few words"}, "teams": [{"team": <id>, "drop": "D1" or null, '
                   '"route": "<start>-L|C|R", "order": "go"|"wait"|"support"' + ('|"raid"' if raid else '') + ', "support": "P1" or null'
                   + raid + ', "why": "few words"}]'
-                  + drones + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
+                  + drones + armour + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
                   "in a vehicle keeps its drop point). route: one of the routes listed from the team's start (for a team at the "
                   "HQ, from the drop point you give it)."]
         return "\n".join(lines)
@@ -1190,6 +1222,26 @@ class Commander:
                 else:
                     o["support_xz"] = (sp["x"], sp["z"])
             out[tid] = o
+        if isinstance(ans, dict) and isinstance(ans.get("armour"), list):
+            units = {a_["unit"]: a_ for a_ in pic.get("armour") or []}
+            for e in ans["armour"]:
+                try:
+                    unit = int(str(e.get("unit", "")).lstrip("Aa"))
+                except (ValueError, AttributeError):
+                    problems.append(f"armour unit {e!r}")
+                    continue
+                order = str(e.get("order", "")).lower()
+                if unit not in units or order not in ("overwatch", "assault", "hold"):
+                    problems.append(f"armour A{unit}: {order!r}")
+                    continue
+                xz = (self.p.g.ox, self.p.g.oz)
+                if order == "overwatch":
+                    sp = sup_by.get(str(e.get("support")))
+                    if sp is None:
+                        problems.append(f"armour A{unit}: support {e.get('support')!r}")
+                        continue
+                    xz = (sp["x"], sp["z"])
+                self.armour_orders[unit] = {"order": order, "xz": xz, "why": str(e.get("why", ""))[:120]}
         if isinstance(ans, dict) and isinstance(ans.get("strategy"), dict):
             stance = str(ans["strategy"].get("stance", "")).lower()
             if stance in STANCES:
@@ -1276,6 +1328,10 @@ class Commander:
         lines = []
         if self.strategy:
             lines.append(f"strategy {self.side} {self.strategy['stance']}")
+        alive = {a_["unit"] for a_ in pic.get("armour") or []}
+        for unit, o in sorted(self.armour_orders.items()):
+            if unit in alive:
+                lines.append(f"armour {self.side} {unit} {o['order']} {o['xz'][0]:.1f} {o['xz'][1]:.1f}")
         if self.drones_on and self.drones:
             nodes = pic.get("nodes") or {}
             node = {"farm": nodes.get(OBJECTIVE, -1), "enemy_hq": nodes.get("enemy_hq", -1)}.get(self.drones["target"], -1)
@@ -1334,6 +1390,7 @@ class Commander:
             entry["drones"] = self.drones
             entry["droneplan"] = s.droneplan
         entry["strategy"] = self.strategy
+        entry["armour"] = {"units": pic.get("armour") or [], "orders": {str(k): v for k, v in self.armour_orders.items()}}
         entry["sites"] = [{k: v for k, v in sp_.items() if k != "cell"} for sp_ in pic.get("sites") or []]
         entry["orders"] = {tid: {k: v for k, v in o.items()} for tid, o in self.orders.items() if tid in entries}
         entry["entries"] = {tid: {"route": e["route"]["id"], "go": e["go"], "drop": e["drop"], "hold": e["hold"], "hold_s": e["hold_s"],
@@ -1511,6 +1568,7 @@ def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) ->
     s.lost = dict(reader.lost)
     s.own_losses = [(lt, k, x, z) for lt, sd, k, x, z in reader.losses if sd == side and reader.t - lt <= DANGER_S]
     s.sites = [(reader.sites[k][1], reader.sites[k][2], reader.sites[k][3]) for k in sorted(reader.located.get(side, ()))]
+    s.armour = sorted(reader.armour.get(side, {}).values(), key=lambda a_: a_["unit"])
     s.droneplan = dict(reader.droneplan.get(side, {}))
     s.nodes = base_nodes(reader, side)
     return s

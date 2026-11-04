@@ -487,6 +487,10 @@ class ZCR_Armour
 			return "moving up to";
 		if (phase == "ASSAULT")
 			return "attacking";
+		if (phase == "OVERWATCH")
+			return "on overwatch over";
+		if (phase == "HOLD")
+			return "holding, front";
 		if (phase == "REMOUNT")
 			return "crew boarding, front";
 		if (phase == "RECREW")
@@ -1323,6 +1327,44 @@ class ZCR_Armour
 			return;
 		vector at = unit.m_Vehicle.GetOrigin();
 		float dist = vector.DistanceXZ(at, front);
+		// The live general's order for this vehicle (4 Nov, note 544 - Martin: "i notice us apc not being maybe used properly
+		// do they even know how to shoot?": 2 kills by an APC in a 74-minute battle, 415 autocannon rounds, hit or lost 7
+		// times, ~20 minutes to the front): overwatch - to a covered spot that sees the objective (the planner's support
+		// positions), off the road, and fight from there; hold - stay; assault - as below, in with the infantry.
+		string liveMode;
+		vector liveAt;
+		if (AICF_ZcrAttackPlan.LiveArmour(unit.m_sSide, unit.m_iNo, liveMode, liveAt) && (liveMode == "overwatch" || liveMode == "hold"))
+		{
+			vector post = liveAt;
+			string livePhase = "OVERWATCH";
+			if (liveMode == "hold")
+			{
+				post = at;
+				livePhase = "HOLD";
+			}
+			bool samePost = unit.m_sPhase == livePhase && unit.m_Waypoint && vector.DistanceXZ(unit.m_vOrder, post) < 30;
+			if (liveMode == "hold" && unit.m_sPhase == "HOLD" && unit.m_Waypoint)
+				samePost = true;
+			if (samePost)
+				return;
+			post[1] = GetGame().GetWorld().GetSurfaceY(post[0], post[2]);
+			EntitySpawnParams postParams = new EntitySpawnParams();
+			postParams.TransformMode = ETransformMode.WORLD;
+			postParams.Transform[3] = post;
+			AIWaypoint postWaypoint = AIWaypoint.Cast(GetGame().SpawnEntityPrefabEx("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", false, params: postParams));
+			if (!postWaypoint)
+				return;
+			postWaypoint.SetCompletionRadius(25);
+			ReplaceWaypoint(unit, postWaypoint);
+			unit.m_Waypoint = postWaypoint;
+			unit.m_vOrder = post;
+			unit.m_sPhase = livePhase;
+			unit.m_vFront = front;
+			unit.m_iOrderedAt = now;
+			Log(unit, now, "ORDER", string.Format("prefab=%1 phase=%2 front=%3 dist=%4 goal_x=%5 goal_z=%6 by=general", unit.m_sPrefab, unit.m_sPhase,
+				FrontName(front), Math.Round(dist), Math.Round(post[0]), Math.Round(post[2])));
+			return;
+		}
 		// One order per front: the support point is fixed when the front is set (recomputing it as the
 		// vehicle moved re-ordered the Bradley every tick in the first test). The assault follows once the
 		// vehicle is within SHORT_M + 100 of the front.

@@ -102,7 +102,35 @@ class ZCR_LiveMap
 					teamWps = "-";
 				if (teamWpKinds.IsEmpty())
 					teamWpKinds = "-";
-				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4 wpk=%5", posture, wp, teamWps, Math.Round(wpLevel), teamWpKinds);
+				// Each living member (4 Nov, Martin: "map should show individual units maybe no?"): x,z,stance - s stand,
+				// c crouch, p prone, v in a vehicle - e.g. mp=2210,2905,p;2214,2901,s;
+				string members;
+				array<AIAgent> memberAgents = {};
+				slot.GetGroup().GetAgents(memberAgents);
+				foreach (AIAgent memberAgent : memberAgents)
+				{
+					if (!memberAgent || members.Length() >= 300)
+						continue;
+					ChimeraCharacter mc = ChimeraCharacter.Cast(memberAgent.GetControlledEntity());
+					if (!mc || !AICF_GroupRuntime.IsAliveCharacter(mc))
+						continue;
+					string stance = "s";
+					if (mc.IsInVehicle())
+						stance = "v";
+					else if (mc.GetCharacterController())
+					{
+						ECharacterStance cs = mc.GetCharacterController().GetStance();
+						if (cs == ECharacterStance.PRONE)
+							stance = "p";
+						else if (cs == ECharacterStance.CROUCH)
+							stance = "c";
+					}
+					vector mp = mc.GetOrigin();
+					members += string.Format("%1,%2,%3;", Math.Round(mp[0]), Math.Round(mp[2]), stance);
+				}
+				if (members.IsEmpty())
+					members = "-";
+				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4 wpk=%5 mp=%6", posture, wp, teamWps, Math.Round(wpLevel), teamWpKinds, members);
 				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
 				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}
