@@ -700,7 +700,9 @@
     },
     items() {
       const out = this.labs.map((l) => ({ key: l.name, label: cap(l.title || l.name), n: (l.all || []).filter((r) => !r.watched).length }));
-      if (this.prog) out.push({ key: "matches", label: "Matches", n: this.prog.rows.filter((r) => r.kind !== "probe" && r.family !== "control").length });
+      // 5 Nov (Martin: "what about overall progress why did we drop that? ... it seemed important there was a lot a features"):
+      // the whole matches' ~30 measures first in the picker, as on the old page.
+      if (this.prog) out.unshift({ key: "matches", label: "Overall progress", n: this.prog.rows.filter((r) => r.kind !== "probe" && r.family !== "control").length });
       return out;
     },
     pick(key, push = true) {
@@ -754,7 +756,7 @@
       if (!P) { body.innerHTML = '<div class="empty">Measuring the matches - ready in a minute.</div>'; return; }
       const rows = P.rows.filter((r) => r.kind !== "probe" && r.family !== "control").sort((a, b) => String(a.started).localeCompare(String(b.started)));
       const blds = Object.fromEntries((P.builds || []).map((b) => [b.n, b.name]));
-      body.innerHTML = `<div class="card"><h2 class="pg">Matches</h2>
+      body.innerHTML = `<div class="card"><h2 class="pg">Overall progress - whole matches</h2>
           <p class="lead">The engine page's measures over every watched and headless match, ${esc(shortAt(rows[0] && rows[0].started))} to ${esc(shortAt(rows[rows.length - 1] && rows[rows.length - 1].started))}. No whole matches since then - the work moved to the integration tests.</p>
           <p class="muted" style="margin:0;font-size:13.5px"><a class="plain" href="/#progress">per build and every match on the old page</a></p></div>
         <div class="curves" id="pg-curves"></div>`;
