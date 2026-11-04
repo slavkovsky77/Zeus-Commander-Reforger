@@ -437,6 +437,44 @@ def live_plans(run: Path) -> tuple:
     return list(groups.values()), intents, zones
 
 
+FIELD_PLACED = re.compile(r"\[ZCR\]\[FORTPLAN\] event=placed .*?side=(\w+) .*?x=(-?[\d.]+) z=(-?[\d.]+).*?source=field")
+
+
+def live_forts(run: Path, tail: str) -> dict:
+    """Each side's field fortifications (4 Nov, note 538): the spots its general ordered in its latest round of
+    lab/liveplan.py, each built or not ([ZCR][FORTPLAN] event=placed source=field within 15 m), plus any built ones it no
+    longer orders. {side: [{"x", "z", "facing", "built"}]}"""
+    f = run / "profile" / "zcr" / "liveplan.jsonl"
+    latest = {}
+    if f.exists():
+        with open(f, "rb") as fh:
+            fh.seek(max(0, f.stat().st_size - 300_000))
+            for line in reversed(fh.read().decode("utf-8", "replace").splitlines()):
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if row.get("side") and "forts" in row and row["side"] not in latest:
+                    latest[row["side"]] = row["forts"] or []
+                if len(latest) == 2:
+                    break
+    built = [(m.group(1), float(m.group(2)), float(m.group(3))) for m in FIELD_PLACED.finditer(tail)]
+    out = {}
+    for side in ("US", "USSR"):
+        spots = [{"x": f_["x"], "z": f_["z"], "facing": f_.get("facing", 0), "built": False} for f_ in latest.get(side, [])]
+        for s_, x, z in built:
+            if s_ != side:
+                continue
+            near = next((sp for sp in spots if math.hypot(sp["x"] - x, sp["z"] - z) <= 15), None)
+            if near:
+                near["built"] = True
+            else:
+                spots.append({"x": x, "z": z, "facing": None, "built": True})
+        if spots:
+            out[side] = spots
+    return out
+
+
 def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
     test vans - with each van's planned route and the game's current path (lab app /api/map/live).
@@ -569,5 +607,5 @@ def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -
         intents.update(gemini_intents)
         return {"run": run.name, "live": time.time() - logs[-1].stat().st_mtime <= 90, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
                 "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents,
-                "attack_plans": attack_plans, "danger": danger}
+                "attack_plans": attack_plans, "danger": danger, "forts": live_forts(run, tail)}
     return {"live": False}

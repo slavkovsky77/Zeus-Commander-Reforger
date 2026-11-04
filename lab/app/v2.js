@@ -358,6 +358,21 @@
           }
         }
       }
+      // Field fortifications (4 Nov, note 538 - Martin: "llm general could actually build defense lines (bunkers) where it needs"):
+      // the spots each general ordered outside any base - a hollow square, solid once built - with a tick the way it faces.
+      if (this.layers.plans) {
+        for (const [s, forts] of Object.entries(d.forts || {})) {
+          const c = col[s] || css("--muted");
+          for (const f of forts || []) {
+            const t = `<b>${esc(s)} field fortification</b><br>${f.built ? "built" : "ordered by its general, the builders on the way"}`;
+            L.rectangle([[f.z - 9, f.x - 9], [f.z + 9, f.x + 9]], { color: c, weight: 3, fillColor: c, fillOpacity: f.built ? .75 : .08, bubblingMouseEvents: false }).bindTooltip(t, tip).addTo(g.plans);
+            if (f.facing != null) {
+              const r = f.facing * Math.PI / 180;
+              L.polyline([[f.z, f.x], [f.z + 26 * Math.cos(r), f.x + 26 * Math.sin(r)]], { color: c, weight: 3, interactive: false }).addTo(g.plans);
+            }
+          }
+        }
+      }
 
       // Teams: a tag with the team's number - solid when attacking, white when defending or guarding, faded for a last
       // man going home; its soldiers as dots (filled standing or crouched, hollow prone, a ring in a vehicle).
