@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - Martin plays AoE; the next Farm battle to watch is farm-brains (Gemini commands both sides).",
+    "Running now": "Martin watches the battle for Beauregard in the window (Gemini commands both sides, 60 min) with the new phone camera.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin's review of farm-brains in the window; then Gemini's waits that never end (a general held its lead teams 180 m out for 10 minutes), home-defence teams stuck at their HQ, and the full map.",
+    "Being built next": "Overnight: Gemini v Gemini and Gemini v the rules on the town battle (headless), field fortification lines the general places where it needs them (538), men who stay in the houses they are sent to.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r73", "The battle for Beauregard: Farm is Soviet, both generals fight for the town",
+     "Martin: 'can we change farm to battle for boulevard', 'farm can be soviet now', 'make it connected - there is battle of the city'. Scenario beauregard: Farm starts Soviet (-zcrBaseTo), the point is Beauregard, both sides Gemini with the town's cover scan. 3 watched battles: the Soviets took the town at 15:46 and at 16:42, the US at 12:22; losses 20-45 a side, about 25 a side by drones."),
+    ("design", "r73", "Each general knows where its side gets killed, and picks a strategy",
+     "Martin: 'llm general should be aware of danger routes', 'soviet (holds the points) should build bunkers, us side should try to clear drone operators, both sides should target drones'. The planner groups the side's own losses of the last 10 minutes (men and vehicles) into danger zones, prices routes through them and tells Gemini; Gemini picks a stance per side - assault, fortify (fortifications first at the held point, up to 8) or counter_drone (every drone goes for a known enemy drone site, raids on the sites, anti-drone fire out to 180 m with 6 shooters)."),
+    ("design", "r73", "Houses at the point, typed waypoints, the general's armour",
+     "Martin: 'I would expect at farm ai to hide and clear house as priority', 'those waypoints dont have type like move, defense, hold, clear building, enter building', 'us apc ... do they even know how to shoot?'. Men on foot at the point are sent to interior spots of its houses; a route's points carry a kind (move, cover stop, enter buildings) and the map shows it; Gemini orders each APC to overwatch, assault or hold. Measured at Beauregard: only 14-34% of the men at the point were inside a house - 704 runs to a spot in one battle, the squad pulls them out again. APCs fired 415 autocannon rounds for 2 kills."),
+    ("design", "r73", "Watching from the phone: eight buttons and a stick for each thumb",
+     "Martin: 'two modes locked and free, in free you can do wasd, in locked only rotation', 'mimic two joysticks with +- also for zoom, all on right side', 'optimize number of buttons to basically next/prev type free and details', 'sides were important, details too', 'speed game', 'good to have those pad on left and right so i can use my thumbs', 'why do i have to tap two times in moonlight artemis'. Left: PREV / NEXT, TYPE, CAMERA (auto, locked, free), SIDE, DETAILS, HIDE UI, SPEED; bottom left the move stick (free only), bottom right the look stick with zoom; gamepad sticks too. A tap is read once the cursor rests (0.35 s): in the 03:18 battle all 29 taps that reached the game were read at the finger. Not watched yet."),
+
     ("design", "r72", "Both generals think: Gemini commands both sides, routes as chains of cover",
      "Martin: 'two sides battle over the farm but general actually uses brain, not hardcoded shit', 'llm general should actually plan axis of attack based on covers'. No stored plans any more: both sides get only the target and Gemini decides drop points, routes, go/wait/support and drone teams every 2.5 min. Each route is described as its chain of cover ('open 94 m -> trees 206 m out -> trees 184 m out -> open 90 m -> trees 81 m out -> Farm') with the doctrine - buildings nearest Farm first, then the closest tree line, then Farm, fast, never stop in the open - and the team walks it cover to cover. 3 battles: Farm changed hands in 2 (Soviets then US); in the third the Soviet general waited for a joint push that never came."),
     ("design", "r72", "The side that lost Farm comes back: a second wave",
@@ -372,10 +381,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin to watch: farm-brains (Gemini both sides, cover chains, second wave) in the window.",
-    "Gemini's waits that are renewed every round (a general held its lead teams 180 m out from minute 8 to the end).",
-    "Home-defence teams in retry loops at their HQ (NO_REACHABLE_LEG); some attack teams' rebuilt order ending early again and again.",
-    "Then the full map with both generals thinking (Martin: 'later on we will test it over the full map').",
+    "Martin to watch: the phone camera (eight buttons, a stick for each thumb) and the lab app's /v2 page next to a battle.",
+    "Overnight, headless: Gemini v Gemini and Gemini v the rules on the battle for Beauregard; the morning report as curves.",
+    "Field fortification lines anywhere the general needs them - a building vehicle or field spots (538).",
+    "Men who stay in the houses at the point (14-34% inside now); APCs that hit what they shoot at.",
+    "Then the full map with both generals thinking.",
 ]
 
 FACTS = [
@@ -395,6 +405,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (73, "The battle for Beauregard: houses, danger zones, a strategy per side, armour orders, the phone camera", "4 Nov 01:14 - 03:16",
+     ["ZCR (4c7e674, 1f59802): ZCR_HouseHold - men on foot at the point go to interior spots of its houses, and teams stopping near houses go in; the live team line carries waypoint kinds (wpk=) and every soldier (mp=); ccefed8: -zcrBaseTo (Farm Soviet), anti-drone fire 180 m / 6 shooters under counter_drone; fd0dfca: the general's armour orders (overwatch / assault / hold); 1f59802: under counter_drone every drone launch goes for a known enemy drone site.",
+      "AI Conflict fork (5d3ac2b): 'fortify' puts fortifications first at the held point (up to 8); af234c9: armour orders in the live plan; bdfff22: typed route points (cover stop c, enter-buildings stop e) with pauses of 15 / 25 s.",
+      "Lab (4121bdd, ccefed8, 1f59802): danger zones from each side's losses, a stance per side, drone-site raids, --objective / --scan, town-brains and town-vs-rules (Gemini v the rules); the lab map: waypoint kind and status, danger zones, every soldier as a dot (68d995b, dc4fd96, 0cab82a); e5c984f, cfb5fa5, 8ae7e13: the lab app /v2 (the live map first, curves, remarks).",
+      "Watching (a89347c, 98b3bf0): HIDE UI, the camera from the lab app's camera bar, eight buttons and a stick for each thumb in the game (9779445), the gamepad's sticks and zoom, a tap read once the cursor rests (the Moonlight double tap)."],
+     "Martin, 4 Nov 01:50-03:20 (watching): 'I would expect at farm ai to hide and clear house as priority'; 'battle is muuuuuch better now its actually cool to watch'; 'llm general could actually build defense lines (bunkers)'; 'waypoints dont have type like move, defense, hold, clear building'; 'llm general should be aware of danger routes'; 'soviet should build bunkers, us side should clear drone operators'; 'change farm to battle for boulevard'; 'us apc ... do they even know how to shoot?'; 'map should show individual units'; 'two modes locked and free'; 'optimize number of buttons to basically next/prev type free and details'.",
+     "Battle for Beauregard, watched: Soviets took it at 15:46 (25.6 min, lost US 20 / USSR 37), US at 12:22 (43 min, 30 / 45), Soviets at 16:42 (30 min, 36 / 34; ~25 losses a side to drones). Men at the point inside a house: 14% (US) and 34% (USSR) of samples. 0 script errors of ours (one DCO null pointer in DCO_ArmorPair)."),
+
     (72, "Both generals think, a second wave, teams that storm instead of freezing", "3 Nov 22:05 - 4 Nov 01:06",
      ["AI Conflict fork (7414817): -aicfZcrSecondWave - home-defence teams join the attack when it is down to half; 87e02eb: an attack team whose leg ended short of its objective gets a leg toward it and its replan keeps the target (was a hold on its own spot for good); 8303fa1: live routes walked cover to cover (a leg per point 40 m+ along).",
       "ZCR (8aece93): storm legs are run (-zcrStormSpeed); 2e713a8: storming men run on under drones - no prone, no spreading in the open (-zcrStormDroneRun 0).",
