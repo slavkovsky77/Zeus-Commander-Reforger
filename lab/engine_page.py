@@ -23,14 +23,21 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - Martin plays AoE; the next Farm test waits for the choice on the second wave (below).",
+    "Running now": "Nothing - Martin plays AoE; the next Farm battle to watch is farm-brains (Gemini commands both sides).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "A second attack wave, so the side that lost Farm comes back: each side has ~58 soldiers but only 17-28 attack Farm (20 guard a home base nobody attacks, ~21 are drone operators, drivers and builders), and weakened teams are never refilled - Martin's call on which way.",
+    "Being built next": "Martin's review of farm-brains in the window; then Gemini's waits that never end (a general held its lead teams 180 m out for 10 minutes), home-defence teams stuck at their HQ, and the full map.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r72", "Both generals think: Gemini commands both sides, routes as chains of cover",
+     "Martin: 'two sides battle over the farm but general actually uses brain, not hardcoded shit', 'llm general should actually plan axis of attack based on covers'. No stored plans any more: both sides get only the target and Gemini decides drop points, routes, go/wait/support and drone teams every 2.5 min. Each route is described as its chain of cover ('open 94 m -> trees 206 m out -> trees 184 m out -> open 90 m -> trees 81 m out -> Farm') with the doctrine - buildings nearest Farm first, then the closest tree line, then Farm, fast, never stop in the open - and the team walks it cover to cover. 3 battles: Farm changed hands in 2 (Soviets then US); in the third the Soviet general waited for a joint push that never came."),
+    ("design", "r72", "The side that lost Farm comes back: a second wave",
+     "In 6 battles nobody retook Farm: the losing side's attack teams were whittled and never refilled, while 20 of its 50 soldiers guarded a home base nobody attacked. Now, when a side's attack teams are down to half, its home-defence teams (all but one) join the attack, at least two at a time. With the fixes below: Farm changed hands in 3 of 4 battles (0 of 6 before)."),
+    ("design", "r72", "Blue teams frozen 300 m out, and storming",
+     "Martin: 'blur units are stuck lets fix that', 'both side inatry seems pretty static'. Two causes. AI Conflict put a team whose leg ended short of Farm on a hold on its own spot and replanned excluding the target it failed - the only one - so US A3/A5/A6 stood 300 m south of Farm for 20+ minutes; now it gets a leg toward Farm. And our drone reaction put every man in the open within 150 m of a drone prone for 15 s and spread the rest away from it - teams closed on Farm by ~0 m a minute; now storming teams run on (a building within 15 m, else keep going), and storm legs are run. Closing on Farm within 300 m: 6-24 m a minute."),
+
     ("design", "r71", "Attack teams go into Farm instead of standing 200 m out",
      "Martin: 'continue developing so farm is actually captured'. Teams near Farm stood 120-300 m out for 20 minutes. Two causes in AI Conflict's stuck check: after three checks it parked a team for good on its own spot (15 parked in front of Farm in 3 battles), and after each check it gave the team a new leg to a random point up to 140 m away, often beside it - a plain move, so the storm order (keep advancing under fire) was lost and the team stopped to trade shots. Now near its target a team is never parked, its new leg ends up to 80 m closer to Farm and keeps the storm order. Farm taken in 3 of 3 battles at 10:45-12:00 (before: 2 of 3 at 15:00 and 17:45); 19-23 soldiers at Farm by minute 12 (9-13)."),
 
@@ -365,10 +372,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "A second wave for the side that lost Farm (530): after the capture nobody retook it in 6 battles - the losing side's attack teams are whittled to 1-2 men and never refilled, the cap of 50 is full.",
-    "Martin to watch: Farm taken with the new legs; the drones that don't stop; the map's waypoints; the rock unstick.",
-    "Drone teams and the cap - 'everybody is drone operator' (529).",
-    "Forward drone trucks too far back (514), drivers leaving during boarding (505).",
+    "Martin to watch: farm-brains (Gemini both sides, cover chains, second wave) in the window.",
+    "Gemini's waits that are renewed every round (a general held its lead teams 180 m out from minute 8 to the end).",
+    "Home-defence teams in retry loops at their HQ (NO_REACHABLE_LEG); some attack teams' rebuilt order ending early again and again.",
+    "Then the full map with both generals thinking (Martin: 'later on we will test it over the full map').",
 ]
 
 FACTS = [
@@ -388,6 +395,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (72, "Both generals think, a second wave, teams that storm instead of freezing", "3 Nov 22:05 - 4 Nov 01:06",
+     ["AI Conflict fork (7414817): -aicfZcrSecondWave - home-defence teams join the attack when it is down to half; 87e02eb: an attack team whose leg ended short of its objective gets a leg toward it and its replan keeps the target (was a hold on its own spot for good); 8303fa1: live routes walked cover to cover (a leg per point 40 m+ along).",
+      "ZCR (8aece93): storm legs are run (-zcrStormSpeed); 2e713a8: storming men run on under drones - no prone, no spreading in the open (-zcrStormDroneRun 0).",
+      "Lab (5c586c7, ba369fc, 541c0d9): lab/liveplan.py --side both (a general per side, one plan file); farm-brains (Gemini both sides, no stored plans); routes as chains of cover in the plan and the prompt, with the doctrine; the lab map - a question/bad/good about the clicked unit, both sides' live plans, 'this match' = the game being played."],
+     "Martin, 3 Nov night (watching): 'i would like to test more like those two sides battle over the farm but general actually uses brain, not hardcoded shit'; 'blur units are stuck lets fix that'; 'both side inatry seems pretty static'; 'push from closes building to closest tree line and thoe the points'; 'llm general should actually plan axis of attack based on covers'; 'movement from cover to cover should be fast'; 'when clicking on unit I should be able to annotate question/bad/good'; 'i see battle its fucking cool'; 'I love the drone usage'.",
+     "Farm battles, 20 min, headless: Farm changed hands in 3 of 4 (br_1 Soviets 9:39 -> US ~19:08; br_2 Soviets 10:55 -> US 15:53; sw_1 US 11:19 -> Soviets 15:28 -> US 19:07; br_3 US 7:31, the Soviet general waited); before: 0 of 6 retaken. Watched 23:20 (before the fixes): nobody took Farm in 44 game minutes, US teams frozen 300 m out. 0 script errors of ours."),
+
     (71, "Attack teams near Farm keep the storm order and go in", "3 Nov 18:49 - 21:57",
      ["AI Conflict fork (cd75849): within -aicfZcrNoHoldNearM (450 m) of its target an attack team is never parked for good by the stuck check (FIELD_HOLD); 8abb8fb: its new leg after a stuck check ends up to 80 m closer on the line to the objective (the objective inside 100 m) instead of a random reachable point (-aicfZcrTowardLeg 0 = the old leg; STUCK_ROUTE_ENDPOINT_SELECTED toward=).",
       "ZCR (a89ce8d): the storm priority (25) also on AI Conflict's stuck-route legs; the live team line gets wplevel= (the waypoint's priority level).",
