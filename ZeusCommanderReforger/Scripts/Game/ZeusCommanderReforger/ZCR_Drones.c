@@ -844,8 +844,11 @@ class ZCR_Drones
 				why = "hunt";
 			}
 		}
-		// Counter-drone: every third launch at an enemy drone site this side has seen (ZCR_DroneSites).
-		if (ZCR_DroneSites.On() && s_mLaunches.Get(side) % 3 == 2)
+		// Counter-drone: every third launch at an enemy drone site this side has seen (ZCR_DroneSites) - every launch while
+		// the live general's strategy is counter_drone (4 Nov, note 542 - Martin: "us side should maybe try to clear drone
+		// operators", "both side should target also drones").
+		bool huntSites = AICF_ZcrAttackPlan.LiveStrategy(side) == "counter_drone";
+		if (ZCR_DroneSites.On() && (s_mLaunches.Get(side) % 3 == 2 || huntSites))
 		{
 			vector site;
 			string siteName;

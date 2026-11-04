@@ -19,6 +19,12 @@ class ZCR_HouseHold
 	protected ref map<IEntity, int> m_mNextAt = new map<IEntity, int>();
 	protected int m_iRuns;
 	protected int m_iLogAt;
+	// Stops on the way (4 Nov, note 540 - Martin: "those waypoints dont have type like ... clear building, enter building"):
+	// an attack team on a defend leg outside the core (a live route's 'e' point, the hold line) with houses within STOP_M
+	// of it - its men go inside them, a spot each. Spots per stop point (10-m key), searched once.
+	static const float STOP_M = 25;
+	protected ref map<string, ref array<vector>> m_mStopSpots = new map<string, ref array<vector>>();
+	protected int m_iStopRuns;
 
 	static void Start()
 	{
@@ -97,6 +103,7 @@ class ZCR_HouseHold
 			m_mNextAt.Set(c, now + AGAIN_S);
 			m_iRuns++;
 		}
+		Stops(at, radius, now);
 		if (now < m_iLogAt || (inCore.Get("US") + inCore.Get("USSR")) == 0)
 			return;
 		m_iLogAt = now + 30;
@@ -104,13 +111,71 @@ class ZCR_HouseHold
 		if (m_aSpots)
 			spots = m_aSpots.Count();
 		Print(string.Format("[ZCR][HOUSE] t=%1 spots=%2 taken=%3 us_core=%4 us_inside=%5 ussr_core=%6 ussr_inside=%7 runs=%8", now, spots,
-			m_mManAt.Count(), inCore.Get("US"), inHouse.Get("US"), inCore.Get("USSR"), inHouse.Get("USSR"), m_iRuns), LogLevel.NORMAL);
+			m_mManAt.Count(), inCore.Get("US"), inHouse.Get("US"), inCore.Get("USSR"), inHouse.Get("USSR"), m_iRuns) + string.Format(" stop_runs=%1", m_iStopRuns), LogLevel.NORMAL);
 	}
 
 	// Interior spots of the houses within the core, on the navmesh (found with this man's pathfinding), SPOT_STEP apart.
 	protected void FindSpots(ChimeraCharacter c, vector at, float radius)
 	{
-		m_aSpots = {};
+		m_aSpots = SearchSpots(c, at, radius);
+		Print(string.Format("[ZCR][HOUSE] t=%1 event=spots found=%2 radius_m=%3", ZCR_LossLog.Seconds(), m_aSpots.Count(), Math.Round(radius)), LogLevel.NORMAL);
+	}
+
+	// A team stopped on its way near houses: its men inside them (see STOP_M).
+	protected void Stops(vector core, float coreRadius, int now)
+	{
+		foreach (FactionKey faction, AICF_FactionState state : ZCR_Strategist.s_mStates)
+		{
+			for (int s; state && s < state.GetSlotCount(); s++)
+			{
+				AICF_GroupSlot slot = state.GetSlot(s);
+				if (!slot || !slot.GetGroup() || slot.GetRole() != AICF_EGroupRole.ATTACK)
+					continue;
+				SCR_DefendWaypoint stop = SCR_DefendWaypoint.Cast(slot.GetGroup().GetCurrentWaypoint());
+				if (!stop)
+					continue;
+				vector sp = stop.GetOrigin();
+				if (vector.DistanceXZ(sp, core) <= coreRadius + 20)
+					continue;
+				array<AIAgent> members = {};
+				slot.GetGroup().GetAgents(members);
+				int k;
+				foreach (AIAgent member : members)
+				{
+					ChimeraCharacter mc;
+					if (member)
+						mc = ChimeraCharacter.Cast(member.GetControlledEntity());
+					if (!mc || !Alive(mc) || mc.IsInVehicle() || vector.DistanceXZ(mc.GetOrigin(), sp) > 60)
+						continue;
+					string key = string.Format("%1_%2", Math.Round(sp[0] / 10), Math.Round(sp[2] / 10));
+					array<vector> spots;
+					if (!m_mStopSpots.Find(key, spots))
+					{
+						spots = SearchSpots(mc, sp, STOP_M);
+						m_mStopSpots.Set(key, spots);
+					}
+					if (spots.IsEmpty())
+						break;
+					vector mine = spots[k % spots.Count()];
+					k++;
+					if (vector.Distance(mc.GetOrigin(), mine) <= 2.5 || now < m_mNextAt.Get(mc))
+						continue;
+					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(mc);
+					if (!utility)
+						continue;
+					ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, mine,
+						SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
+					m_mNextAt.Set(mc, now + AGAIN_S);
+					m_iStopRuns++;
+				}
+			}
+		}
+	}
+
+	// Interior spots of the houses within 'radius' of 'at', on the navmesh (with this man's pathfinding), SPOT_STEP apart.
+	protected array<vector> SearchSpots(ChimeraCharacter c, vector at, float radius)
+	{
+		array<vector> found = {};
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
 		AIPathfindingComponent pathfinding;
 		if (control && control.GetControlAIAgent())
@@ -132,16 +197,16 @@ class ZCR_HouseHold
 				if (!ZCR_DroneThreat.IsInside(nav + Vector(0, 0.2, 0), c))
 					continue;
 				bool near;
-				foreach (vector q : m_aSpots)
+				foreach (vector q : found)
 				{
 					if (vector.DistanceXZ(q, nav) < SPOT_STEP - 0.5)
 						near = true;
 				}
 				if (!near)
-					m_aSpots.Insert(nav);
+					found.Insert(nav);
 			}
 		}
-		Print(string.Format("[ZCR][HOUSE] t=%1 event=spots found=%2 radius_m=%3", ZCR_LossLog.Seconds(), m_aSpots.Count(), Math.Round(radius)), LogLevel.NORMAL);
+		return found;
 	}
 
 	protected int NearestFree(vector from)

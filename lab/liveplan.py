@@ -87,6 +87,9 @@ WAIT_S, SUPPORT_S = 180, 480
 RAID_S = 150            # a raid team fights at the enemy drone site up to this long, then goes on to the objective
 SITE_SEEN_M = 100       # an enemy drone site is located once one of the side's known enemies stood this close to it
 STANCES = ("assault", "fortify", "counter_drone")
+# What a team does at each point of its route (note 540 - Martin: "those waypoints dont have type like move, defense, hold,
+# clear building, enter building ... cover?"): stop briefly in cover at a tree line, go into the buildings, or move on.
+POINT_ACTION = {"edge of trees": "c", "edge of buildings": "e", "in buildings": "e"}
 GROUP_M = 80            # teams on foot this close share their routes
 AT_OBJ_M = 150          # a team this close to the objective fights there - no live entry
 HQ_M = 350              # a team this close to its HQ, not riding, waits for a ride (gets a drop point)
@@ -1126,7 +1129,8 @@ class Commander:
             drones = ', "drones": {"teams": 1-6, "target": "farm"|"enemy_hq"|"none", "why": "few words"}'
         lines += ["", "How to win (modern infantry against drones): plan an axis of attack through cover - take the buildings "
                   "nearest Farm first, from there the closest tree line, then Farm itself; teams move fast from cover to cover "
-                  "and never stop in the open (a team lying in a field is what an FPV kills); choose routes with short open "
+                  "and never stop in the open (a team lying in a field is what an FPV kills) - they stop ~15 s in cover at each tree "
+                  "line's edge and go into the buildings on their way; choose routes with short open "
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
                   "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
                   "next team dies the same way - pick another drop point or route unless there is no other way in."]
@@ -1146,7 +1150,7 @@ class Commander:
         lines += ["", "Your strategy - think about the battle, not only the next move, and choose one: 'assault' (take Farm), "
                   "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers, sandbags and MG nests "
                   "there first), 'counter_drone' (enemy drones are killing your men: twice as many of your soldiers fire at "
-                  "drones, out to 180 m). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
+                  "drones, out to 180 m, and every one of your FPVs goes for the enemy drone sites you have located). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
                   "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
                   "often the way in."]
         raid = ', "site": "H1" or null' if pic.get("sites") else ""
@@ -1341,7 +1345,11 @@ class Commander:
             dx, dz = e["drop"] if e["drop"] else (0, 0)
             lines.append(f"team {self.side} {tid} {g.ox:.1f} {g.oz:.1f} {dx:.1f} {dz:.1f} {e['go']} {e['hold'][0]:.1f} {e['hold'][1]:.1f} "
                          f"{e['hold_s']} {e['route']['id']} {len(wps)}")
-            lines += [f"{x:.1f} {z:.1f}" for x, z in wps]
+            # Each point's action (note 540): a short stop in cover at a tree line's edge (c), the men into the buildings (e),
+            # else on (m) - AICF_ZcrPlanLane.m_aActions.
+            kinds = e["route"].get("wp_kinds") or []
+            acts = [POINT_ACTION.get(kinds[k] if k < len(kinds) else "", "m") for k in range(len(wps))]
+            lines += [f"{x:.1f} {z:.1f} {a_}" for (x, z), a_ in zip(wps, acts)]
         self.lines = lines
         if self.sink:   # both sides planned (3 Nov, --side both): one file with both generals' orders
             self.sink(profile_zcr)
@@ -1678,19 +1686,24 @@ def live(a):
         if not cmds and reader.t >= 30:
             hqs = hq_positions(run_dir, reader)
             both = a.side == "both"
+            # 4 Nov night (Martin: "over night you can test both gemini vs gemini but also gemini vs rule based"): with
+            # --rules-side, that side's general picks by the code's rules (the same routes, drops, danger zones), the other
+            # by Gemini.
+            rules_side = resolve_side(a.rules_side, hqs, planner) if a.rules_side else ""
             for spec in (["US", "USSR"] if both else [a.side]):
                 side = resolve_side(spec, hqs, planner)
                 if not side or side not in hqs:
                     continue
-                cmd = Commander(planner, side, a.picker, zcr, llm, log, a.drones)
+                picker = "code" if side == rules_side else a.picker
+                cmd = Commander(planner, side, picker, zcr, llm, log, a.drones)
                 if both:
                     cmd.sink = sink
                 cmds[side] = cmd
                 g = planner.g
-                log(f"plans for {side} (HQ {hqs.get(side)}, {math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz):.0f} m from Farm); "
+                log(f"plans for {side} by {picker} (HQ {hqs.get(side)}, {math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz):.0f} m from the objective); "
                     + ("both sides planned live" if both else "the other side plays the rules"))
                 with open(zcr / "liveplan.jsonl", "a", encoding="utf-8") as f:
-                    f.write(json.dumps({"event": "side", "side": side, "spec": a.side, "picker": a.picker, "hqs": hqs,
+                    f.write(json.dumps({"event": "side", "side": side, "spec": a.side, "picker": picker, "hqs": hqs,
                                         "drones": bool(a.drones and a.picker == "gemini"),
                                         "hq_m": round(math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz)),
                                         "model": llm.model if llm else None}) + "\n")
@@ -1757,6 +1770,7 @@ def main() -> int:
     ap.add_argument("--run", default="", help="the run folder (instead of --label)")
     ap.add_argument("--side", default="harbour", help="US, USSR, harbour (the side whose HQ is nearer Farm), south, or both (a general for each side)")
     ap.add_argument("--picker", default="code", choices=["code", "gemini"])
+    ap.add_argument("--rules-side", default="", help="with --side both: this side (US, USSR, harbour, south) picks by the rules, the other by --picker")
     ap.add_argument("--objective", default="Farm", help="the base fought over (its name as in the log, underscores for spaces)")
     ap.add_argument("--scan", default="", help="its 10 m ground scan (-zcrAttackScan; default .runtime/attack/farm_scan.jsonl)")
     ap.add_argument("--drones", action="store_true", help="with --picker gemini: the model also decides the drone teams and target")

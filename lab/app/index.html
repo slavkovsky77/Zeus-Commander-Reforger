@@ -676,8 +676,8 @@ video { width: 100%; border-radius: 8px; background: #000; }
             const ahead = onLane ? lane.slice(first) : [...pre, ...lane];
             route = ahead.length ? [[t.x, t.z], ...ahead] : null;
             const whose = pl.by ? esc(pl.by) + "'s" : "Planned";
-            const coverWord = (w) => ({ "edge of trees": "edge of a tree line - cover, jump-off to the next", "edge of buildings": "by buildings - cover, jump-off to the next",
-              "in trees": "inside woods", "in buildings": "among buildings", "open": "open ground - a dash", "Farm": "Farm - the objective", "route": "on the route" }[w] || w);
+            const coverWord = (w) => ({ "edge of trees": "COVER: a tree line's edge - stops ~15 s in cover, then the next bound", "edge of buildings": "ENTER: buildings - the men go inside ~25 s, then on",
+              "in trees": "inside woods - moves on", "in buildings": "ENTER: among buildings - the men go inside ~25 s", "open": "open ground - a dash, no stop", "Farm": "the objective", "route": "on the route - moves on" }[w] || w);
             if (onLane) lane.slice(0, first).forEach((q, k) => markers.push(wpNum(q, "✓", "#9a9a9a", `Passed: ${whose} waypoint ${k + 1} - ${esc(coverWord(kinds[k] || "route"))}`)));
             ahead.forEach((q, k) => {
               const li = onLane ? first + k : k - pre.length;
