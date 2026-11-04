@@ -826,6 +826,20 @@ video { width: 100%; border-radius: 8px; background: #000; }
       // having lines of attack"): each plan the side's teams play now (AICF_ZcrAttackPlan, lab/attackplan.py) - its drive
       // (thin dashes), the assembly point hidden from the objective where the teams get out (ring), one lane per team
       // through cover with an arrowhead at the objective, the hold line on each lane (bar).
+      // Danger zones (4 Nov, note 541 - Martin: "llm general should be aware of danger routes"): where each side lost
+      // soldiers or vehicles in the last 10 game minutes, as its general is told (lab/liveplan.py) - a ring in the side's
+      // colour, crossed, with what was lost.
+      if ($("map-l-plans").checked && d.danger) {
+        for (const [s, zones] of Object.entries(d.danger)) {
+          const c = side[s] || this.css("--muted");
+          for (const zn of zones || []) {
+            const tip = `${esc(s)} danger zone ${esc(zn.id)}: ${zn.men} soldiers and ${zn.vehicles} vehicles lost here, the last ${Math.floor(zn.newest_s / 60)} min ago - its general keeps away`;
+            extra.push(L.circle([zn.z, zn.x], { radius: 70, color: c, weight: 3, dashArray: "4 4", fillColor: c, fillOpacity: .12 }).bindTooltip(tip));
+            extra.push(L.polyline([[zn.z - 35, zn.x - 35], [zn.z + 35, zn.x + 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
+            extra.push(L.polyline([[zn.z - 35, zn.x + 35], [zn.z + 35, zn.x - 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
+          }
+        }
+      }
       if ($("map-l-plans").checked && d.attack_plans && d.attack_plans.length) {
         for (const p of d.attack_plans) {
           const c = side[p.side] || this.css("--muted");

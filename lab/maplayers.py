@@ -380,7 +380,7 @@ def live_plans(run: Path) -> tuple:
     zcr = run / "profile" / "zcr"
     f = zcr / "liveplan.jsonl"
     if not f.exists():
-        return [], {}
+        return [], {}, {}
     with open(f, "rb") as fh:
         fh.seek(max(0, f.stat().st_size - 400_000))
         rows = fh.read().decode("utf-8", "replace").splitlines()
@@ -396,7 +396,9 @@ def live_plans(run: Path) -> tuple:
         if len(latest) == 2:
             break
     if not latest:
-        return [], {}
+        return [], {}, {}
+    # Each side's danger zones (4 Nov, note 541): where it lost men or vehicles lately, as its general was told.
+    zones = {side: last.get("zones") or [] for side, last in latest.items()}
     groups = {}
     for side, last in latest.items():
         orders = last.get("orders") or {}
@@ -429,7 +431,7 @@ def live_plans(run: Path) -> tuple:
                 m = LIVE_INTENT.search(line)
                 if m:
                     intents[m.group(1)] = "Gemini: " + m.group(2)
-    return list(groups.values()), intents
+    return list(groups.values()), intents, zones
 
 
 def live(map_slug: str) -> dict:
@@ -548,13 +550,13 @@ def live(map_slug: str) -> dict:
             attack_plans = []
         # A side Gemini commands: its live plan replaces the stored one it started with.
         try:
-            gemini, gemini_intents = live_plans(run)
+            gemini, gemini_intents, danger = live_plans(run)
         except OSError:
-            gemini, gemini_intents = [], {}
+            gemini, gemini_intents, danger = [], {}, {}
         if gemini:
             attack_plans = [p for p in attack_plans if p["side"] not in {g["side"] for g in gemini}] + gemini
         intents.update(gemini_intents)
         return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
                 "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents,
-                "attack_plans": attack_plans}
+                "attack_plans": attack_plans, "danger": danger}
     return {"live": False}
