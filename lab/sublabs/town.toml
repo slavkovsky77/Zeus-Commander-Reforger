@@ -1,0 +1,89 @@
+# Sub-lab "town" - the battle for Beauregard as an integration test (4 Nov night, review notes 543, 547-549). Rows from lab/towntest.py.
+name = "town"
+question = "Who wins the battle for Beauregard - Gemini commanding a side, or the code's rules on the same live plans - and does Gemini against Gemini make a battle that goes back and forth?"
+issue = "4 Nov, Martin: 'over night you can test both gemini vs gemini but also gemini vs rule based', 'bro that battle is spectacular now', 'develop during night llm general more'"
+pass_rule = "over 6+ battles from each HQ, Gemini's side takes Beauregard at least as often and loses fewer soldiers than the code from the same HQ; Gemini against Gemini: the town changes hands in most battles; then Martin watches it in the game window"
+runner = "lab/towntest.py"
+minutes = 30.0
+units = 0
+scenarios = ["gemini-v-gemini", "gemini-v-code", "code-v-gemini"]
+variants = ["harbour", "south"]
+baseline = "harbour"
+candidate = "south"
+score = "took_pct / 10 + killed - lost"
+higher_is_better = true
+keys = ["lost", "killed", "took_pct", "held_min", "at_obj_12", "drone_kills", "forts_field", "inside_pct", "waits_ended", "model_calls"]
+title = "Battle for Beauregard"
+main = "lost"
+split_average = true
+score_words = "10 points for taking Beauregard, plus the enemy soldiers taken out, minus its own soldiers lost"
+baseline_words = "the side whose HQ is nearer Beauregard"
+candidate_words = "the side whose HQ is farther from Beauregard"
+history_note = "One dot = one side of one battle; the colour is who commanded it against whom, the line its average over its last 5 battles. Farm starts Soviet (-zcrBaseTo); both sides fight for the town. Gemini-v-gemini battles were watched by Martin from 4 Nov 02:27; gemini-v-code battles are headless and not yet watched."
+
+[scenario_labels]
+"gemini-v-gemini" = "Gemini against Gemini"
+"gemini-v-code" = "Gemini against the code"
+"code-v-gemini" = "The code against Gemini"
+
+[scenario_words]
+"gemini-v-gemini" = "town-brains: lab/liveplan.py plans both sides from the same threat maps, drop points and cover routes; Gemini decides each side's team orders, strategy, drones, armour and field fortifications every ~2.5 min"
+"gemini-v-code" = "town-vs-rules: Gemini commands this side, the code's rules pick the other side's orders from the same live plans (the lowest-exposure route, no model)"
+"code-v-gemini" = "town-vs-rules seen from the code's side"
+
+[variant_labels]
+harbour = "from the nearer HQ"
+south = "from the farther HQ"
+
+[[questions]]
+key = "took_pct"
+title = "Took Beauregard"
+short = "% of battles it took the town"
+better = "higher"
+axis = "100 when the side took Beauregard in the battle, else 0 - the line is the share of its last 5 battles"
+quote = "make it connected in a way in this scenario there is battle of the city (4 Nov)"
+
+[[questions]]
+key = "lost"
+title = "Soldiers lost"
+short = "soldiers lost a battle"
+better = "lower"
+axis = "the side's soldiers killed in the battle"
+
+[[questions]]
+key = "killed"
+title = "Enemy soldiers taken out"
+short = "enemy soldiers a battle"
+better = "higher"
+axis = "the other side's soldiers killed in the battle"
+
+[[questions]]
+key = "held_min"
+title = "Minutes holding Beauregard"
+short = "game minutes"
+better = "higher"
+axis = "game minutes the side held the town"
+
+[[questions]]
+key = "forts_field"
+title = "Field fortifications built"
+short = "bunkers and MG nests outside any base"
+better = "higher"
+axis = "fortifications the side's builders put where its general wanted them, outside any base"
+quote = "llm general could actually build defense lines (bunkers and shit) where it needs (4 Nov)"
+
+[[questions]]
+key = "inside_pct"
+title = "Men in the houses at the point"
+short = "% of its men at the point inside a house"
+better = "higher"
+axis = "of the side's men within 60 m of the point (sampled every 30 s), the share inside a house"
+quote = "I would expect at farm ai to hide and clear house as priority (4 Nov)"
+
+[[questions]]
+key = "drone_kills"
+title = "Enemy soldiers taken out by its drones"
+short = "kills by its FPV drones"
+better = "higher"
+axis = "enemy soldiers its FPV drones killed in the battle"
+quote = "also those drones jesus christ it really looks fucking great (4 Nov)"

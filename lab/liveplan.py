@@ -1512,6 +1512,8 @@ class Commander:
         entry["armour"] = {"units": pic.get("armour") or [], "orders": {str(k): v for k, v in self.armour_orders.items()}}
         entry["sites"] = [{k: v for k, v in sp_.items() if k != "cell"} for sp_ in pic.get("sites") or []]
         entry["orders"] = {tid: {k: v for k, v in o.items()} for tid, o in self.orders.items() if tid in entries}
+        entry["field_spots"] = pic.get("forts") or []
+        entry["forts"] = [dict(f) for f in self.forts]
         entry["entries"] = {tid: {"route": e["route"]["id"], "go": e["go"], "drop": e["drop"], "hold": e["hold"], "hold_s": e["hold_s"],
                                   "waypoints": e["route"]["waypoints"], "wp_kinds": e["route"].get("wp_kinds"),
                                   "chain": e["route"].get("chain")} for tid, e in entries.items()}
