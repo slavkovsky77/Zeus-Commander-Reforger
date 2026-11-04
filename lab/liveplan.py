@@ -64,6 +64,12 @@ EYE_M, TARGET_M = 1.7, 1.4
 BUILDING_M = 6          # a roof without trees around: a building this high
 WOOD_BLOCK_M = 30       # this much dense wood on a sight line hides
 THREAT_COST = 3.0       # walking a cell one close known enemy sees costs 4x a hidden one
+# Danger zones (note 541): where the side lost men or vehicles lately - each loss counts 1 (a man) or 3 (a vehicle),
+# fading to 0 over DANGER_S; grouped within DANGER_GROUP_M; a route or drive near one (DANGER_R_M) costs more.
+DANGER_S = 600
+DANGER_GROUP_M = 80
+DANGER_R_M = 70
+DANGER_COST = 2.0       # per unit of faded weight, on top of the cell cost
 THREAT_CAP = 3.0
 NO_COVER_COST = 0.6     # ... more with no roof, canopy or dense trees within COVER_REACH_M (drones)
 COVER_REACH_M = 40
@@ -297,6 +303,7 @@ class Situation:
         self.teams = []         # dicts: id, role, men, ride, x, z, to
         self.known = []         # (x, z) the side knows
         self.lost = {"US": 0, "USSR": 0}
+        self.own_losses = []    # (t, kind, x, z) of the side's own losses in the last DANGER_S
         self.known_n = 0
         self.droneplan = {}     # the side's drone plan's last decision ([ZCR][DRONEPLAN])
         self.nodes = {}         # base name -> graph node id; "enemy_hq" -> the enemy main base's
@@ -322,6 +329,7 @@ class LogReader:
         self.owner = "FIA"
         self.owner_t = 0
         self.lost = {"US": 0, "USSR": 0}
+        self.losses = []        # (t, side, kind "man"|"vehicle", x, z) - every loss (danger zones, note 541)
         self.first_round = {}
         self.droneplan = {}     # side -> the drone plan's last decision (teams wanted, tempo, teams it has, why)
         self.buf = ""
@@ -386,6 +394,18 @@ class LogReader:
         m = self.LOSS.search(line)
         if m and m.group(2) in self.lost:
             self.lost[m.group(2)] += 1
+        if "[ZCR][LOSS]" in line:
+            # A man: his side. A vehicle: its side is gone once it burns - the game credits a drone's hit to an occupant
+            # who died with it (killer_dead=1), so his side is the vehicle's.
+            d = dict(kv.split("=", 1) for kv in line.split("[ZCR][LOSS]", 1)[1].split() if "=" in kv)
+            kind, side = d.get("kind"), d.get("side", "")
+            if kind == "vehicle" and side not in self.lost and d.get("killer_dead") == "1":
+                side = d.get("killer_side", "")
+            try:
+                if kind in ("man", "vehicle") and side in self.lost:
+                    self.losses.append((int(d["t"]), side, kind, float(d["x"]), float(d["z"])))
+            except (KeyError, ValueError):
+                pass
             return
         m = self.DRONEPLAN.search(line)
         if m:
@@ -446,6 +466,43 @@ class Planner:
         static = STATIC_COST if owner not in (side, "FIA", "") else (0.0 if owner == side else STATIC_COST_OPEN)
         c = 1 + THREAT_COST * threat + static * g.seen / 9 + NO_COVER_COST * (g.cover_m > COVER_REACH_M)
         return np.where(g.valid, c, np.inf)
+
+    def danger(self, s: Situation):
+        """The side's danger field from its own recent losses: per cell, the faded weight of the losses within DANGER_R_M."""
+        g = self.g
+        D = np.zeros(g.X.shape, np.float32)
+        for lt, kind, x, z in s.own_losses:
+            w = (3.0 if kind == "vehicle" else 1.0) * max(0.0, 1.0 - (s.t - lt) / DANGER_S)
+            if w <= 0:
+                continue
+            r2 = (g.X - x) ** 2 + (g.Z - z) ** 2
+            D += np.where(r2 <= DANGER_R_M ** 2, w, 0.0).astype(np.float32)
+        return D
+
+    @staticmethod
+    def zones(s: Situation, ox, oz):
+        """The side's danger zones: its recent losses grouped within DANGER_GROUP_M (Z1, Z2, ... heaviest first)."""
+        groups = []
+        for lt, kind, x, z in sorted(s.own_losses, key=lambda l: -l[0]):
+            for gr_ in groups:
+                if math.hypot(gr_["x"] - x, gr_["z"] - z) <= DANGER_GROUP_M:
+                    n = gr_["men"] + gr_["vehicles"]
+                    gr_["x"] += (x - gr_["x"]) / (n + 1)
+                    gr_["z"] += (z - gr_["z"]) / (n + 1)
+                    gr_["vehicles" if kind == "vehicle" else "men"] += 1
+                    gr_["weight"] += (3.0 if kind == "vehicle" else 1.0) * max(0.0, 1.0 - (s.t - lt) / DANGER_S)
+                    break
+            else:
+                groups.append({"x": x, "z": z, "men": int(kind == "man"), "vehicles": int(kind == "vehicle"), "newest_s": s.t - lt,
+                               "weight": (3.0 if kind == "vehicle" else 1.0) * max(0.0, 1.0 - (s.t - lt) / DANGER_S)})
+        zones = [gr_ for gr_ in groups if gr_["weight"] >= 1.5]
+        zones.sort(key=lambda gr_: -gr_["weight"])
+        for k, zn in enumerate(zones):
+            zn["id"] = f"Z{k + 1}"
+            zn["x"], zn["z"], zn["weight"] = round(zn["x"]), round(zn["z"]), round(zn["weight"], 1)
+            zn["from_obj_m"] = round(math.hypot(zn["x"] - ox, zn["z"] - oz))
+            zn["dir"] = compass(math.degrees(math.atan2(zn["x"] - ox, zn["z"] - oz)))
+        return zones
 
     def threat(self, s: Situation):
         T = threat_map(self.g, observers_from(s.known))
@@ -808,10 +865,14 @@ class Commander:
         p, g = self.p, self.p.g
         t0 = time.time()
         threat = p.threat(s)
-        cost = p.costs(threat, s.owner, s.side)
+        danger = p.danger(s)
+        cost = p.costs(threat, s.owner, s.side) + DANGER_COST * danger
         costs = Costs(g, cost)
         D_obj = field(costs, p.goal)
-        drops = p.drops(s, threat, D_obj)
+        drops = p.drops(s, np.minimum(THREAT_CAP, threat + 0.5 * danger), D_obj)
+        zones = p.zones(s, g.ox, g.oz)
+        for d in drops:
+            d["zones"] = [zn["id"] for zn in zones if math.hypot(zn["x"] - d["x"], zn["z"] - d["z"]) <= DANGER_R_M + 30]
         sup = p.support(s, threat)
         teams = [tm for tm in s.teams if tm["men"] > 0 and tm["role"] == "ATTACK" and tm["to"] == OBJECTIVE]
         hq = s.hq.get(s.side)
@@ -852,8 +913,11 @@ class Commander:
         for key, st in starts.items():
             for side_, info in p.routes_from(key, st["xz"], costs, D_obj, threat).items():
                 routes[info["id"]] = info
+        for info in routes.values():
+            info["zones"] = [zn["id"] for zn in zones if any(math.hypot(zn["x"] - x, zn["z"] - z) <= DANGER_R_M for x, z in info["pts"])]
         known = observers_from(s.known)
         pic = {"t": s.t, "nodes": s.nodes, "threat": threat, "costs": costs, "D_obj": D_obj, "drops": drops, "support": sup, "teams": teams,
+               "zones": zones,
                "status": status, "starts": starts, "routes": routes, "known": known, "owner": s.owner, "lost": dict(s.lost),
                "hq": hq, "seconds": round(time.time() - t0, 1)}
         self.last = pic
@@ -975,16 +1039,25 @@ class Commander:
                 sp = self.match_support(pic, o.get("support_xz")) if o.get("order") == "support" else None
                 prev = f"; current order: route {start}-{o.get('route')}, {o.get('order')}" + (f" at {sp['id']}" if sp else "")
             lines.append(f"  T{tm['id']}: {tm['men']} men, {where}, {round(d)} m from Farm" + (f", routes from {start}" if start and st != "at_farm" else "") + prev)
+        zones = pic.get("zones") or []
+        if zones:
+            lines += ["", f"Danger zones - where your side lost soldiers or vehicles in the last {DANGER_S // 60} minutes (drones, mines, "
+                      "fire; the enemy is likely still watching them; the routes and drives listed avoid them where they can):"]
+            for zn in zones:
+                lines.append(f"  {zn['id']}: {zn['from_obj_m']} m {zn['dir']} of Farm - {zn['men']} soldiers and {zn['vehicles']} vehicles lost, "
+                             f"the last {zn['newest_s'] // 60} min {zn['newest_s'] % 60:02d} s ago")
         lines += ["", "Drop points (where a vehicle lets a team out; all hidden from the enemies you know and from Farm):"]
         for d in pic["drops"]:
             lines.append(f"  {d['id']}: {d['from_obj_m']} m {d['dir']} of Farm, drive {d['drive_m']} m from the HQ, "
-                         f"{d['drive_seen_pts']} road points of the drive in known enemies' view")
+                         f"{d['drive_seen_pts']} road points of the drive in known enemies' view"
+                         + (f", IN DANGER ZONE {', '.join(d['zones'])}" if d.get("zones") else ""))
         lines += ["", "Routes into Farm (L/C/R from each start), each as its chain of cover - the buildings and tree lines a team "
                   "bounds between, the open stretches it must cross - then its numbers:"]
         for rid, r in sorted(pic["routes"].items()):
             lines.append(f"  {rid}: {r.get('chain', '?')}; {r['length_m']} m ({r['minutes']} min on foot), longest open stretch "
                          f"{r.get('open_max_m', '?')} m, in known enemies' view {r['known_enemy_view_pct']}%, in Farm's view "
-                         f"{r['farm_view_pct']}%, cover within 40 m {r['cover_in_reach_pct']}%, cost {r['cost']}")
+                         f"{r['farm_view_pct']}%, cover within 40 m {r['cover_in_reach_pct']}%, cost {r['cost']}"
+                         + (f", THROUGH DANGER ZONE {', '.join(r['zones'])}" if r.get("zones") else ""))
         if pic["support"]:
             lines += ["", "Support positions (see Farm, in reach of cover):"]
             for sp in pic["support"]:
@@ -1007,7 +1080,8 @@ class Commander:
                   "nearest Farm first, from there the closest tree line, then Farm itself; teams move fast from cover to cover "
                   "and never stop in the open (a team lying in a field is what an FPV kills); choose routes with short open "
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
-                  "teams in cover for a joint push."]
+                  "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
+                  "next team dies the same way - pick another drop point or route unless there is no other way in."]
         lines += ["", 'Answer JSON only: {"reason": "one line: your plan", "teams": [{"team": <id>, "drop": "D1" or null, '
                   '"route": "<start>-L|C|R", "order": "go"|"wait"|"support", "support": "P1" or null, "why": "few words"}]'
                   + drones + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
@@ -1163,7 +1237,8 @@ class Commander:
         entry = {"t": s.t, "side": s.side, "owner": s.owner, "lost": s.lost, "known": len(s.known), "known_groups": len(pic["known"]),
                  "teams": {tm["id"]: pic["status"][tm["id"]] for tm in pic["teams"]}, "drops": [{k: v for k, v in d.items() if k != "cell"} for d in pic["drops"]],
                  "routes": {rid: {k: v for k, v in r.items() if k not in ("cells", "pts")} for rid, r in pic["routes"].items()},
-                 "support": [{k: v for k, v in p_.items() if k != "cell"} for p_ in pic["support"]], "picture_s": pic["seconds"]}
+                 "support": [{k: v for k, v in p_.items() if k != "cell"} for p_ in pic["support"]], "picture_s": pic["seconds"],
+                 "zones": pic.get("zones") or []}
         # New teams and the code arm: the code's pick; the model when due.
         fresh = {tm["id"] for tm in pic["teams"] if tm["id"] not in self.orders and pic["status"][tm["id"]] != "at_farm"}
         if self.picker == "code":
@@ -1242,6 +1317,11 @@ def draw(p: Planner, pic, s: Situation, half=1050, px_out=1200):
     img = Image.alpha_composite(img, layer)
     d = ImageDraw.Draw(img)
     f_s, f_m, f_b = mapimage.font(13), mapimage.font(15, True), mapimage.font(20, True)
+    for zn in pic.get("zones") or []:
+        zx, zy = px(zn["x"], zn["z"])
+        rr = DANGER_R_M / mpp * sc
+        d.ellipse([zx - rr, zy - rr, zx + rr, zy + rr], outline=(200, 0, 0), width=4)
+        d.text((zx + rr + 3, zy - 9), f"{zn['id']} danger: {zn['men']} men, {zn['vehicles']} veh lost", fill=(160, 0, 0), font=f_m)
     palette = [(25, 110, 220), (230, 120, 20), (140, 60, 190), (0, 150, 150), (200, 30, 120), (120, 90, 30), (60, 60, 60)]
     starts = sorted({rid.rsplit("-", 1)[0] for rid in pic["routes"]})
     for k, st in enumerate(starts):
@@ -1359,6 +1439,7 @@ def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) ->
             if e["men"] > 0 and any(math.hypot(e["x"] - m["x"], e["z"] - m["z"]) <= 400 for m in mine):
                 s.known += [(e["x"], e["z"])] * min(e["men"], 3)
     s.lost = dict(reader.lost)
+    s.own_losses = [(lt, k, x, z) for lt, sd, k, x, z in reader.losses if sd == side and reader.t - lt <= DANGER_S]
     s.droneplan = dict(reader.droneplan.get(side, {}))
     s.nodes = base_nodes(reader, side)
     return s
