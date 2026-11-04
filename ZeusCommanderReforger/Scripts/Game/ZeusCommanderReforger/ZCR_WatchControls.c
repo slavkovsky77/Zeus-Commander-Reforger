@@ -101,6 +101,7 @@ class ZCR_WatchControls
 	protected int m_iJumpAt;
 	protected int m_iJumpX;
 	protected int m_iJumpY;
+	protected int m_iJumpSeenAt = -100000;   // the last cursor jump (a touch moved it)
 
 	static void Create()
 	{
@@ -487,6 +488,7 @@ class ZCR_WatchControls
 		if (Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY) >= JUMP_PX)
 		{
 			m_bJumpPending = true;
+			m_iJumpSeenAt = now;
 			m_iJumpAt = now;
 			m_iJumpX = x;
 			m_iJumpY = y;
@@ -508,6 +510,23 @@ class ZCR_WatchControls
 		m_iLastClickMs = now;
 		Print(string.Format("[ZCR][CAMUI] touch-tap at=%1,%2", x, y), LogLevel.NORMAL);
 		Resolve(x, y);
+	}
+
+	// After a touch on a button the cursor goes to the picture's upper middle (4 Nov 03:45 - Martin: "still double tap issue"):
+	// a single tap brings only the cursor to the finger, so a second tap on the same button, the cursor already on it, brought
+	// nothing at all (the 03:37 battle: 3 clicks and 1 touch tap in 3 minutes of tapping). Parked, every tap is a jump.
+	protected void Park()
+	{
+		if (!m_Catcher)
+			return;
+		float w, h;
+		m_Catcher.GetScreenSize(w, h);
+		int px = w * 0.5;
+		int py = h * 0.3;
+		GetGame().GetInputManager().GetMouseDeviceHandler().SetCursorPosition(px, py);
+		m_iMouseX = px;
+		m_iMouseY = py;
+		m_bJumpPending = false;
 	}
 
 	protected bool OnButton(int x, int y)
@@ -538,6 +557,8 @@ class ZCR_WatchControls
 			if (x < bx || x > bx + bw || y < by || y > by + bh)
 				continue;
 			b.m_fFlashUntil = m_fClock + 0.25;
+			if (System.GetTickCount() - m_iJumpSeenAt < 1500)
+				Park();
 			string cmd = b.m_sCmd;
 			if (cmd.StartsWith("cam-"))
 			{
