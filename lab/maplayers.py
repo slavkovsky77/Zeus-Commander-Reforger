@@ -487,6 +487,11 @@ def live(map_slug: str) -> dict:
                     u.pop("wpk", None)
             else:
                 u.pop("wps", None)
+            # Each living soldier of a team (ZCR_LiveMap mp=x,z,stance; 4 Nov, note 545): [[x, z, "s"|"c"|"p"|"v"], ...].
+            if u.get("mp", "-") != "-":
+                u["mp"] = [[float(a), float(b), c] for a, b, c in (m.split(",") for m in u["mp"].split(";") if m.count(",") == 2)]
+            else:
+                u.pop("mp", None)
             for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route", "sx", "sz"):
                 if k in u:
                     try:

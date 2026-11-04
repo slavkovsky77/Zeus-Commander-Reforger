@@ -707,6 +707,15 @@ video { width: 100%; border-radius: 8px; background: #000; }
             + (planTxt || (route ? "" : "<br>Not on a planned route - AI Conflict's own waypoint (ring)"))
             + (queue ? `<br>The game's order now: ${esc(wpWord[((t.wpk || [])[0] || {}).kind] || "move")}${Number(((t.wpk || [])[0] || {}).level) > 0 ? " (storm)" : ""} · ${t.wps.length} waypoint${t.wps.length === 1 ? "" : "s"} in its queue (white dashes)` : "");
         } else if (goal && !sel) extra.push(L.polyline([[t.z, t.x], [goal[1], goal[0]]], { color: home ? this.css("--muted") : c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
+        // Each soldier (4 Nov, note 545 - Martin: "map should show individual units maybe no?"): a small dot in the side's
+        // colour, hollow when prone, a ring when in a vehicle; the clicked team's men larger.
+        const stanceWord = { s: "standing", c: "crouched", p: "prone", v: "in a vehicle" };
+        for (const m of t.mp || []) {
+          const mine = key === sel;
+          markers.push(L.circleMarker([m[1], m[0]], { bubblingMouseEvents: false, radius: mine ? 4 : 2.5, color: c, weight: m[2] === "p" || m[2] === "v" ? 1.5 : 0,
+            fill: m[2] !== "p" && m[2] !== "v", fillColor: c, fillOpacity: .9 * dim(key), opacity: dim(key) })
+            .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${stanceWord[m[2]] || m[2]}`).on("click", () => this.pick(key)));
+        }
         markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: home ? this.css("--muted") : "#fff", weight: 1.5, fillColor: c, fillOpacity: (home ? .45 : .95) * dim(key), opacity: dim(key) }))
           .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " · assigned " + esc(t.to) : ""}`)
           .on("click", () => this.pick(key)));
