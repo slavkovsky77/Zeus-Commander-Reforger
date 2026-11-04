@@ -10,7 +10,7 @@
 // 4 Nov night: they didn't stay - in the town battles only 14-34% of the men at the point were inside, with 704 runs in one
 // battle (the move ends on arrival and the squad takes them out again). Now the run is a move-and-hold (the game's
 // move-and-investigate behaviour: to the spot, then HOLD_S there within 2 m), renewed every RENEW_S while the man is at his
-// spot. -zcrHouseHoldStay 0: the plain move as before.
+// spot - at the point only; the stops on the way keep the plain move. -zcrHouseHoldStay 0: the plain move as before.
 class ZCR_HouseHold
 {
 	static const float SPOT_STEP = 3;
@@ -182,7 +182,10 @@ class ZCR_HouseHold
 					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(mc);
 					if (!utility)
 						continue;
-					ZCR_Reserved.Add(utility, Run(utility, mine));
+					// A stop on the way: the plain move, no hold (4 Nov night - a 40-s hold kept men in the houses after their team
+					// moved on; the first night battle had nobody in Beauregard in 30 minutes).
+					ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, mine,
+						SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
 					m_mNextAt.Set(mc, now + AGAIN_S);
 					m_iStopRuns++;
 				}
