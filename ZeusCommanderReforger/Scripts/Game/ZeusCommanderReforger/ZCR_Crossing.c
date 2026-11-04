@@ -36,7 +36,7 @@ class ZCR_Crossing
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrCrossing") || System.IsCLIParam("zcrNoCrossing"))
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Has("zcrCrossing") || AICF_Launch.Has("zcrNoCrossing"))
 			return;
 		s_Instance = new ZCR_Crossing();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);

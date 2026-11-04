@@ -23,7 +23,7 @@ class ZCR_WorkCrew
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoWorkCrew"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoWorkCrew"))
 			return;
 		s_Instance = new ZCR_WorkCrew();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 3000, true);

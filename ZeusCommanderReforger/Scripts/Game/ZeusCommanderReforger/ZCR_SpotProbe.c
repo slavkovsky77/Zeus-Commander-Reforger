@@ -19,7 +19,7 @@ class ZCR_SpotProbe
 	static void DryPathProbe()
 	{
 		string spec;
-		if (s_bDryPathDone || ZCR_LossLog.Seconds() < 30 || !System.GetCLIParam("zcrDryPathProbe", spec))
+		if (s_bDryPathDone || ZCR_LossLog.Seconds() < 30 || !AICF_Launch.Get("zcrDryPathProbe", spec))
 			return;
 		s_bDryPathDone = true;
 		array<string> pairs = {};
@@ -61,7 +61,7 @@ class ZCR_SpotProbe
 		int at = 60;
 		if (s_iDepotProbes > 0)
 			at = 360;
-		if (!System.IsCLIParam("zcrDepotProbe") || s_iDepotProbes > 1 || ZCR_LossLog.Seconds() < at)
+		if (!AICF_Launch.Has("zcrDepotProbe") || s_iDepotProbes > 1 || ZCR_LossLog.Seconds() < at)
 			return;
 		s_iDepotProbes++;
 		foreach (SCR_CatalogEntitySpawnerComponent production : SCR_CatalogEntitySpawnerComponent.INSTANCES)
@@ -92,7 +92,7 @@ class ZCR_SpotProbe
 
 	static void SupplyProbe()
 	{
-		if (!System.IsCLIParam("zcrSupplyProbe") || ZCR_LossLog.Seconds() < s_iNextSupplyProbe)
+		if (!AICF_Launch.Has("zcrSupplyProbe") || ZCR_LossLog.Seconds() < s_iNextSupplyProbe)
 			return;
 		s_iNextSupplyProbe = ZCR_LossLog.Seconds() + 10;
 		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
@@ -139,7 +139,7 @@ class ZCR_SpotProbe
 	// -zcrProbeRoads: once, 20 s in, each base's radius and its nearest road point (any road within 400 m).
 	static void Roads()
 	{
-		if (s_bRoads || !System.IsCLIParam("zcrProbeRoads") || ZCR_LossLog.Seconds() < 20)
+		if (s_bRoads || !AICF_Launch.Has("zcrProbeRoads") || ZCR_LossLog.Seconds() < 20)
 			return;
 		s_bRoads = true;
 		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
@@ -166,14 +166,14 @@ class ZCR_SpotProbe
 
 	static void Tick()
 	{
-		if (s_iDone >= 2 || !System.IsCLIParam("zcrProbeSpots"))
+		if (s_iDone >= 2 || !AICF_Launch.Has("zcrProbeSpots"))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		if ((s_iDone == 0 && now < 20) || (s_iDone == 1 && now < 120))
 			return;
 		s_iDone++;
 		string value;
-		System.GetCLIParam("zcrProbeSpots", value);
+		AICF_Launch.Get("zcrProbeSpots", value);
 		array<string> spots = {};
 		value.Split(";", spots, true);
 		BaseWorld world = GetGame().GetWorld();

@@ -19,7 +19,7 @@ class ZCR_BuildTest
 	static void Start()
 	{
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrBuildTest", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrBuildTest", spec) || spec.IsEmpty())
 			return;
 		s_Instance = new ZCR_BuildTest();
 		GetGame().GetCallqueue().CallLater(s_Instance.Give, 8000, false, spec);

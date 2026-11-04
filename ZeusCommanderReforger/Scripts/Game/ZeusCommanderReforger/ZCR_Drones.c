@@ -48,7 +48,7 @@ class ZCR_Drones
 	protected static int CliInt(string name, int fallback)
 	{
 		string value;
-		if (System.GetCLIParam(name, value) && !value.IsEmpty())
+		if (AICF_Launch.Get(name, value) && !value.IsEmpty())
 			return value.ToInt();
 		return fallback;
 	}
@@ -57,7 +57,7 @@ class ZCR_Drones
 	// main effort when it is a base we don't hold.
 	static void OnPlan(FactionKey side, ZCR_StrategicPlan plan, bool fromStrategist, bool skyEmpty = false)
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrDrones") || !fromStrategist)
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrDrones") || !fromStrategist)
 			return;
 		int target = -1;
 		foreach (int t : plan.GetDroneTargets())
@@ -442,7 +442,7 @@ class ZCR_Drones
 	// its attack squads are sent to.
 	static void Baseline(FactionKey side, AICF_FactionState state, AICF_ObjectiveGraph graph)
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrDrones") || !state || !graph)
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrDrones") || !state || !graph)
 			return;
 		int now = ZCR_LossLog.Seconds();
 		int next;
@@ -505,7 +505,7 @@ class ZCR_Drones
 		// A launch between plan rounds (26 Oct night: a launch was tried only when a new plan came, every 40-90 s, and an
 		// operator not ready at that moment waited for the next round - 14-16 drones a side in 30 minutes).
 		ZCR_StrategicPlan current = ZCR_StrategicPlan.Get(side);
-		bool planned = System.IsCLIParam("zcrDrones") && !current.IsEmpty() && current.GetSource() != "doctrine-fallback" && current.GetSource() != "no_answer";
+		bool planned = AICF_Launch.Has("zcrDrones") && !current.IsEmpty() && current.GetSource() != "doctrine-fallback" && current.GetSource() != "no_answer";
 		if (planned)
 			Decide(side, Objective(current, side), current.GetSurgeMax());     // the drone plan, every DECIDE_S
 		int due;

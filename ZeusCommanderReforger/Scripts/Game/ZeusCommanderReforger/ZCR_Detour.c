@@ -58,7 +58,7 @@ class ZCR_Detour
 
 	static void Unreachable(IEntity vehicle, vector goal)
 	{
-		if (!vehicle || !Replication.IsServer() || System.IsCLIParam("zcrNoDetour") || ZCR_Armour.IsUnit(vehicle))
+		if (!vehicle || !Replication.IsServer() || AICF_Launch.Has("zcrNoDetour") || ZCR_Armour.IsUnit(vehicle))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		if (s_mCount.Get(vehicle) >= 3 || (s_mAt.Contains(vehicle) && now - s_mAt.Get(vehicle) < 60))
@@ -185,7 +185,7 @@ class ZCR_GateAhead
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoGateAhead"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoGateAhead"))
 			return;
 		s_Instance = new ZCR_GateAhead();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
@@ -278,7 +278,7 @@ class ZCR_ProbeAt
 
 	static void Start()
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrProbeAt"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrProbeAt"))
 			return;
 		GetGame().GetCallqueue().CallLater(Run, 5000, false);
 	}
@@ -293,7 +293,7 @@ class ZCR_ProbeAt
 	protected static void Run()
 	{
 		string spec;
-		System.GetCLIParam("zcrProbeAt", spec);
+		AICF_Launch.Get("zcrProbeAt", spec);
 		array<string> v = {};
 		spec.Split(",", v, true);
 		if (v.Count() < 3)
@@ -303,7 +303,7 @@ class ZCR_ProbeAt
 		float r = v[2].ToFloat();
 		s_aFound.Clear();
 		GetGame().GetWorld().QueryEntitiesBySphere(at, r, Add, null, EQueryEntitiesFlags.ALL);
-		bool clear = System.IsCLIParam("zcrClearTrees");
+		bool clear = AICF_Launch.Has("zcrClearTrees");
 		int n, cleared;
 		foreach (IEntity e : s_aFound)
 		{
@@ -335,7 +335,7 @@ class ZCR_RoadsAt
 {
 	static void Start()
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrRoadsAt"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrRoadsAt"))
 			return;
 		GetGame().GetCallqueue().CallLater(Run, 6000, false);
 	}
@@ -343,7 +343,7 @@ class ZCR_RoadsAt
 	protected static void Run()
 	{
 		string spec;
-		System.GetCLIParam("zcrRoadsAt", spec);
+		AICF_Launch.Get("zcrRoadsAt", spec);
 		array<string> v = {};
 		spec.Split(",", v, true);
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
@@ -404,7 +404,7 @@ class ZCR_RoadFirst
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoRoadFirst"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoRoadFirst"))
 			return;
 		s_Instance = new ZCR_RoadFirst();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
@@ -526,7 +526,7 @@ class ZCR_RenavAt
 
 	static void Start()
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrRenavAt"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrRenavAt"))
 			return;
 		GetGame().GetCallqueue().CallLater(Run, 3000, false);
 	}
@@ -534,7 +534,7 @@ class ZCR_RenavAt
 	protected static void Run()
 	{
 		string spec;
-		System.GetCLIParam("zcrRenavAt", spec);
+		AICF_Launch.Get("zcrRenavAt", spec);
 		array<string> v = {};
 		spec.Split(",", v, true);
 		AIWorld aiWorld = GetGame().GetAIWorld();

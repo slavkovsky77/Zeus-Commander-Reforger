@@ -13,7 +13,7 @@ modded class SCR_BaseGameMode
 	override void OnPlayerConnected(int playerId)
 	{
 		super.OnPlayerConnected(playerId);
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrWatchServer"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrWatchServer"))
 			return;
 		PlayerController controller = GetGame().GetPlayerManager().GetPlayerController(playerId);
 		if (controller)
@@ -395,7 +395,7 @@ class ZCR_Watch
 		{
 			s_bChecked = true;
 			// -zcrWatch: the game on screen (joining a lab server, or hosting a solo match itself).
-			if (!System.IsCLIParam("zcrWatch"))
+			if (!AICF_Launch.Has("zcrWatch"))
 				return;
 			s_Instance = new ZCR_Watch();
 			s_Instance.m_FollowId = RplId.Invalid();
@@ -446,7 +446,7 @@ class ZCR_Watch
 		if (s_fSpeedOverride > 0)
 			return s_fSpeedOverride;
 		string value;
-		if (!System.GetCLIParam("zcrSpeed", value) || value.IsEmpty())
+		if (!AICF_Launch.Get("zcrSpeed", value) || value.IsEmpty())
 			return 0;
 		return Math.Clamp(value.ToFloat(), 0.1, 10);
 	}

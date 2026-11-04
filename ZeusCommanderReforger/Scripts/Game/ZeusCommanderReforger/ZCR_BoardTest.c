@@ -60,7 +60,7 @@ class ZCR_BoardTest
 	static void Start()
 	{
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrBoardTest", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrBoardTest", spec) || spec.IsEmpty())
 			return;
 		array<string> f = {};
 		spec.Split(";", f, true);

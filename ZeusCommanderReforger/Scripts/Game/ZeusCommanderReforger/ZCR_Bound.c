@@ -31,7 +31,7 @@ class ZCR_Bound
 	// Hill and Arleville taken); -zcrNoBound turns it off for an A/B.
 	static bool On()
 	{
-		return !System.IsCLIParam("zcrNoBound");
+		return !AICF_Launch.Has("zcrNoBound");
 	}
 
 	// In the half that covers: the game's attack logic keeps him where he is.

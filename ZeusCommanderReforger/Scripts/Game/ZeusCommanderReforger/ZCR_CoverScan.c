@@ -12,7 +12,7 @@ class ZCR_CoverScan
 	static void Start()
 	{
 		string spec;
-		if (!Replication.IsServer() || !System.GetCLIParam("zcrCoverScan", spec) || spec.IsEmpty())
+		if (!Replication.IsServer() || !AICF_Launch.Get("zcrCoverScan", spec) || spec.IsEmpty())
 			return;
 		GetGame().GetCallqueue().CallLater(Scan, 5000, false, spec);
 	}

@@ -26,9 +26,9 @@ class ZCR_Setup
 			return;
 		int perMinute;
 		string value;
-		if (System.GetCLIParam("zcrSupplyIncome", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrSupplyIncome", value) && !value.IsEmpty())
 			perMinute = value.ToInt();
-		else if (System.IsCLIParam("zcrNoFIA"))
+		else if (AICF_Launch.Has("zcrNoFIA"))
 			perMinute = 180;
 		int now = ZCR_LossLog.Seconds();
 		if (perMinute <= 0 || now < s_iNextIncome)
@@ -87,11 +87,11 @@ class ZCR_Setup
 			return;
 		int target;
 		string value;
-		if (System.GetCLIParam("zcrStartSupplies", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrStartSupplies", value) && !value.IsEmpty())
 			target = value.ToInt();
-		else if (System.IsCLIParam("zcrNoFIA"))
+		else if (AICF_Launch.Has("zcrNoFIA"))
 			target = 1200;
-		if (target <= 0 || (System.IsCLIParam("zcrNoFIA") && !s_bDone))
+		if (target <= 0 || (AICF_Launch.Has("zcrNoFIA") && !s_bDone))
 			return;
 		SCR_MilitaryBaseSystem system = SCR_MilitaryBaseSystem.GetInstance();
 		if (!system)
@@ -121,7 +121,7 @@ class ZCR_Setup
 
 	static void NoFIA()
 	{
-		if (s_bDone || !Replication.IsServer() || !System.IsCLIParam("zcrNoFIA"))
+		if (s_bDone || !Replication.IsServer() || !AICF_Launch.Has("zcrNoFIA"))
 			return;
 		FactionManager fm = GetGame().GetFactionManager();
 		if (!fm)
@@ -168,7 +168,7 @@ class ZCR_Setup
 		// -zcrAllBasesTo US (the transport test, 31 Oct - Martin: "it seems fucking retarded that soviet side has a lot of
 		// points"): every base but the other side's HQ goes to that side.
 		string allTo;
-		System.GetCLIParam("zcrAllBasesTo", allTo);
+		AICF_Launch.Get("zcrAllBasesTo", allTo);
 		foreach (int k, SCR_CampaignMilitaryBaseComponent base : fia)
 		{
 			SCR_CampaignFaction side = ussr;
@@ -181,7 +181,7 @@ class ZCR_Setup
 			// -zcrBaseTo "Farm:USSR,..." (4 Nov - Martin: "keep farm scenario but lets just do different city, farm can be soviet
 			// now I guess", "make it connected in a way in this scenario there is battle of the city"): those bases to that side.
 			string baseTo;
-			if (System.GetCLIParam("zcrBaseTo", baseTo) && !baseTo.IsEmpty())
+			if (AICF_Launch.Get("zcrBaseTo", baseTo) && !baseTo.IsEmpty())
 			{
 				array<string> pairs = {};
 				baseTo.Split(",", pairs, true);
@@ -227,7 +227,7 @@ modded class SCR_AmbientPatrolSpawnPointComponent
 {
 	override void SpawnPatrol()
 	{
-		if (System.IsCLIParam("zcrNoFIA"))
+		if (AICF_Launch.Has("zcrNoFIA"))
 		{
 			SCR_FactionAffiliationComponent comp = SCR_FactionAffiliationComponent.Cast(GetOwner().FindComponent(SCR_FactionAffiliationComponent));
 			Faction f;

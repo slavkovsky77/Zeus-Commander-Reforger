@@ -54,7 +54,7 @@ class ZCR_AntiDrone
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoAntiDrone"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoAntiDrone"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_AntiDrone();

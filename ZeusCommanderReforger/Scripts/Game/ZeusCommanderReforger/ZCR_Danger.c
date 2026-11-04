@@ -23,7 +23,7 @@ class ZCR_Danger
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoDanger"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoDanger"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_Danger();
@@ -116,7 +116,7 @@ class ZCR_Danger
 
 	protected int Level(ChimeraCharacter c, string side, vector p, SCR_AIUtilityComponent utility, int now)
 	{
-		if (System.IsCLIParam("zcrDangerDronesOnly"))
+		if (AICF_Launch.Has("zcrDangerDronesOnly"))
 		{
 			float near = DroneDist(side, p);
 			if (near < 150)

@@ -83,7 +83,7 @@ class ZCR_Driving
 			return;
 		s_Instance = new ZCR_Driving();
 		string value;
-		if (System.GetCLIParam("zcrCruiseSpeed", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrCruiseSpeed", value) && !value.IsEmpty())
 			s_Instance.m_fLimit = value.ToFloat();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 2000, true);
 		ZCR_VehicleGuns.Start();   // [ZCR][VEHGUNS]: shots from vehicle turrets
@@ -346,7 +346,7 @@ class ZCR_Driving
 		}
 		int stillS = now - s_mMarkAt.Get(v);
 		if (stillS >= EARLY_S && stillS < STUCK_S && s_mStuck.Get(v).IsEmpty() && s_mEarly.Get(v) != s_mMarkAt.Get(v)
-			&& !System.IsCLIParam("zcrNoEarlyUnjam") && !System.IsCLIParam("zcrNoUnjam"))
+			&& !AICF_Launch.Has("zcrNoEarlyUnjam") && !AICF_Launch.Has("zcrNoUnjam"))
 		{
 			IEntity early = OtherVehicleNear(v, JAM_M);
 			if (early)
@@ -368,7 +368,7 @@ class ZCR_Driving
 				if (still)
 					Unjam(v, still, side, now, driver);
 			}
-			else if (now - s_mMarkAt.Get(v) >= UNSTICK_S && !System.IsCLIParam("zcrNoUnjam"))
+			else if (now - s_mMarkAt.Get(v) >= UNSTICK_S && !AICF_Launch.Has("zcrNoUnjam"))
 			{
 				if (!OntoRoad(v, driver, side, now))
 					BackOff(v, side, now, v, null);
@@ -399,7 +399,7 @@ class ZCR_Driving
 		// 22 Oct 08:20: OFF unless -zcrFollow. With the hand moves and following both on, 6 of 18 watched matches
 		// crashed; moves without following 6 of 6 clean (100 moves), following without moves 4 of 4 clean - and no
 		// clear gain in jams to set against the risk.
-		if (m_fLimit > 0 || !System.IsCLIParam("zcrFollow") || System.IsCLIParam("zcrNoFollow") || ZCR_Armour.IsUnit(v))
+		if (m_fLimit > 0 || !AICF_Launch.Has("zcrFollow") || AICF_Launch.Has("zcrNoFollow") || ZCR_Armour.IsUnit(v))
 			return;
 		// 22 Oct 07:35: the watched matches crashed with hand moves and following both on (6 of 18), not with either
 		// alone - Watch can move a vehicle and Follow then change its cruise speed in the same frame. Not within
@@ -465,7 +465,7 @@ class ZCR_Driving
 	// The jammed pair: which one backs off, then back it.
 	protected static void Unjam(IEntity v, IEntity other, string side, int now, AIAgent driver)
 	{
-		if (System.IsCLIParam("zcrNoUnjam"))
+		if (AICF_Launch.Has("zcrNoUnjam"))
 			return;
 		IEntity yielder = v;
 		bool otherDriven = s_mSeen.Contains(other) && now - s_mSeen.Get(other) < 10;
@@ -629,7 +629,7 @@ class ZCR_Driving
 	{
 		// 22 Oct 05:31: OFF - w14, w16 and w19 crashed 7 s, 1.6 s and 0.6 s after a road recovery (LAV-25, LAV-25, an
 		// unarmed UAZ-452 moved 28 m); back-off and park-aside ran for hours without one. -zcrRoadRecovery: on (to test).
-		if (!System.IsCLIParam("zcrRoadRecovery"))
+		if (!AICF_Launch.Has("zcrRoadRecovery"))
 			return false;
 		Vehicle vehicle = Vehicle.Cast(v);
 		SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
@@ -789,7 +789,7 @@ class ZCR_Driving
 		// 35 times in 24 minutes without a crash where the watched matches crashed three times.
 		vector previous = vehicle.GetOrigin();
 		// 22 Oct evening: a physics push (ZCR_Push, JMVehicleAI's way) instead of the teleport; -zcrTeleportMoves for the old way.
-		if (!System.IsCLIParam("zcrTeleportMoves"))
+		if (!AICF_Launch.Has("zcrTeleportMoves"))
 		{
 			if (!ZCR_Push.Start(vehicle, at, why))
 				return false;
@@ -824,7 +824,7 @@ class ZCR_Driving
 	// BTR-70 back-off); with them kept out 0 of 13. -zcrMoveTurrets moves them (to test).
 	protected static bool HasTurret(Vehicle vehicle)
 	{
-		if (System.IsCLIParam("zcrMoveTurrets"))
+		if (AICF_Launch.Has("zcrMoveTurrets"))
 			return false;
 		BaseCompartmentManagerComponent manager = BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(BaseCompartmentManagerComponent));
 		if (!manager)

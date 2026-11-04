@@ -28,7 +28,7 @@ class ZCR_HouseHold
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || ZCR_OnePoint.Name().IsEmpty() || System.IsCLIParam("zcrNoFarmHouses"))
+		if (s_bStarted || !Replication.IsServer() || ZCR_OnePoint.Name().IsEmpty() || AICF_Launch.Has("zcrNoFarmHouses"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_HouseHold();

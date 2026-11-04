@@ -25,7 +25,7 @@ class ZCR_Dodge
 
 	static void Tick(array<IEntity> cars, int now)
 	{
-		if (now == s_iLastTick || System.IsCLIParam("zcrNoDodge"))
+		if (now == s_iLastTick || AICF_Launch.Has("zcrNoDodge"))
 			return;
 		s_iLastTick = now;
 		// Give-ways that are over.

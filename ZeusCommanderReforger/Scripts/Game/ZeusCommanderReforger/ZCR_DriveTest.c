@@ -117,7 +117,7 @@ class ZCR_DriveTest
 		if (s_Instance || !Replication.IsServer())
 			return;
 		string spec;
-		if (!System.GetCLIParam("zcrDriveTest", spec) || spec.IsEmpty())
+		if (!AICF_Launch.Get("zcrDriveTest", spec) || spec.IsEmpty())
 			return;
 		array<string> parts = {};
 		spec.Split(";", parts, true);
@@ -130,7 +130,7 @@ class ZCR_DriveTest
 		if (starts.Count() > 1)
 			s_Instance.m_vA2 = Point(starts[1]);
 		s_Instance.m_vB = Point(parts[1]);
-		if (System.IsCLIParam("zcrRoutes"))
+		if (AICF_Launch.Has("zcrRoutes"))
 			s_Instance.LoadRoutes();
 		if (parts.Count() > 2)
 			s_Instance.m_iCount = Math.Max(1, parts[2].ToInt());
@@ -1376,7 +1376,7 @@ modded class SCR_BaseGameMode
 	protected override void OnGameStart()
 	{
 		super.OnGameStart();
-		if (Replication.IsServer() && (System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim") || System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrBuildTest") || System.IsCLIParam("zcrLosScan") || System.IsCLIParam("zcrCoverScan") || System.IsCLIParam("zcrMapDump") || System.IsCLIParam("zcrAttackScan") || System.IsCLIParam("zcrBoardTest")))
+		if (Replication.IsServer() && (AICF_Launch.Has("zcrDriveTest") || AICF_Launch.Has("zcrTrafficSim") || AICF_Launch.Has("zcrGunTest") || AICF_Launch.Has("zcrBuildTest") || AICF_Launch.Has("zcrLosScan") || AICF_Launch.Has("zcrCoverScan") || AICF_Launch.Has("zcrMapDump") || AICF_Launch.Has("zcrAttackScan") || AICF_Launch.Has("zcrBoardTest")))
 			ZCR_Driving.Start();
 	}
 }

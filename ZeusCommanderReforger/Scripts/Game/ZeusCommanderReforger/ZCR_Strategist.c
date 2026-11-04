@@ -47,13 +47,13 @@ class ZCR_Strategist
 	{
 		m_sFaction = faction;
 		string value;
-		if (System.GetCLIParam("zcrPlanSeconds", value) && value.ToInt() >= 20)
+		if (AICF_Launch.Get("zcrPlanSeconds", value) && value.ToInt() >= 20)
 			m_iIntervalMs = value.ToInt() * 1000;
-		if (System.GetCLIParam("zcrBridge", value))
+		if (AICF_Launch.Get("zcrBridge", value))
 			m_sBridge = value;
 		// One side only, for head-to-head lab matches: -zcrBridgeUS=<url> / -zcrBridgeUSSR=<url>
 		// ("none" = this side runs on AI Conflict alone).
-		if (System.GetCLIParam("zcrBridge" + faction, value))
+		if (AICF_Launch.Get("zcrBridge" + faction, value))
 			m_sBridge = value;
 		if (m_sBridge == "none")
 			m_sBridge = "";
@@ -91,7 +91,16 @@ class ZCR_Strategist
 		if (m_sFaction == "US")
 			LogScore(graph);
 		if (m_sBridge.IsEmpty())
+		{
+			// No bridge: AI Conflict's own commander, or - in a scenario that asks for it - the in-game point general.
+			if (AICF_Launch.Has("zcrPointGeneral"))
+			{
+				string answer = PointAnswer(faction, graph);
+				if (!answer.IsEmpty())
+					ApplyAnswer(answer);
+			}
 			return;
+		}
 		RestContext context = GetGame().GetRestApi().GetContext(m_sBridge);
 		if (!context)
 		{
@@ -290,8 +299,61 @@ class ZCR_Strategist
 	protected void OnAnswer(RestCallback callback)
 	{
 		m_bWaiting = false;
+		ApplyAnswer(callback.GetData());
+	}
+
+	// The in-game point general (the alpha, 4 Nov 2026: players run no Python bridge beside the game). With
+	// -zcrPointGeneral and no bridge address, each round this side answers itself with the lab's 'point' general
+	// (lab/assault.py Point, turned into lines as lab/plan.py does): the one-point battle's point (-zcrOnePoint) is the main
+	// effort - heavy (score +80, a demand of 35), two defender teams along (commit 2), stormed and the drones on it while it
+	// isn't ours; once ours, held (+40 more); up to four other bases that aren't ours avoided (-60). Its intent uses the
+	// lab's words ("Assault test: everything at <point> (base <id>)"), so the lab's tools read alpha runs as they read
+	// lab battles. Off without the parameter: the lab's runs never use it.
+	protected string PointAnswer(SCR_CampaignFaction faction, AICF_ObjectiveGraph graph)
+	{
+		AICF_ObjectiveNode point;
+		for (int i; i < graph.GetNodeCount(); i++)
+		{
+			AICF_ObjectiveNode node = graph.GetNode(i);
+			if (node && node.GetBase() && ZCR_OnePoint.Is(node.GetBase()))
+			{
+				point = node;
+				break;
+			}
+		}
+		if (!point)
+			return string.Empty;
+		bool ours = point.GetBase().GetFaction() == faction;
+		int id = point.GetId();
+		string lines = "ok source=point-ingame\n";
+		lines += string.Format("intent Assault test: everything at %1 (base %2)\n", Clean(BaseName(point.GetBase())), id);
+		float score = 80;
+		if (ours)
+			score += 40;
+		lines += string.Format("priority %1 %2\n", id, score);
+		int avoided;
+		for (int j; j < graph.GetNodeCount() && avoided < 4; j++)
+		{
+			AICF_ObjectiveNode other = graph.GetNode(j);
+			if (!other || !other.GetBase() || other == point || other.GetBase().GetFaction() == faction)
+				continue;
+			lines += string.Format("priority %1 -60\n", other.GetId());
+			avoided++;
+		}
+		lines += string.Format("demand %1 35\n", id);
+		lines += "commit 2\n";
+		if (!ours)
+		{
+			lines += string.Format("storm %1\n", id);
+			lines += string.Format("drone %1\n", id);
+		}
+		return lines;
+	}
+
+	protected void ApplyAnswer(string data)
+	{
 		array<string> lines = {};
-		callback.GetData().Split("\n", lines, true);
+		data.Split("\n", lines, true);
 		if (lines.IsEmpty() || !lines[0].StartsWith("ok"))
 		{
 			OnNoAnswer("BAD_ANSWER");

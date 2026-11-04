@@ -66,7 +66,7 @@ class ZCR_Armour
 	static float ShortM()
 	{
 		string value;
-		if (System.GetCLIParam("zcrArmourShortM", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrArmourShortM", value) && !value.IsEmpty())
 			return Math.Clamp(value.ToFloat(), 80, 600);
 		return SHORT_M;
 	}
@@ -81,7 +81,7 @@ class ZCR_Armour
 	static void Tick(FactionKey side, SCR_CampaignFaction faction, vector front)
 	{
 		GunnersLog();
-		if (!Replication.IsServer() || System.IsCLIParam("zcrNoArmour") || !faction)
+		if (!Replication.IsServer() || AICF_Launch.Has("zcrNoArmour") || !faction)
 			return;
 		int now = ZCR_LossLog.Seconds();
 		if (!s_bGuard)
@@ -118,7 +118,7 @@ class ZCR_Armour
 			{
 				if (Lost(unit, now))
 					continue;
-				if (!System.IsCLIParam("zcrArmourHold") && !GivingWay(unit, now) && !Recrewing(unit, now) && !Remounting(unit, now))
+				if (!AICF_Launch.Has("zcrArmourHold") && !GivingWay(unit, now) && !Recrewing(unit, now) && !Remounting(unit, now))
 					Order(unit, front, now);
 				Status(unit, front, now);
 			}
@@ -370,7 +370,7 @@ class ZCR_Armour
 	static int Max()
 	{
 		string value;
-		if (System.GetCLIParam("zcrArmourMax", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrArmourMax", value) && !value.IsEmpty())
 			return Math.ClampInt(value.ToInt(), 0, 6);
 		if (Stress())
 			return 6;
@@ -379,7 +379,7 @@ class ZCR_Armour
 
 	static bool Stress()
 	{
-		return System.IsCLIParam("zcrArmourStress");
+		return AICF_Launch.Has("zcrArmourStress");
 	}
 
 	protected static int StartS()
@@ -452,7 +452,7 @@ class ZCR_Armour
 	// burning off below it.
 	static bool KeepAboard(IEntity vehicle)
 	{
-		if (!vehicle || System.IsCLIParam("zcrArmourLetOut"))
+		if (!vehicle || AICF_Launch.Has("zcrArmourLetOut"))
 			return false;
 		IEntity root = vehicle.GetRootParent();
 		if (!root)
@@ -554,7 +554,7 @@ class ZCR_Armour
 
 	static bool FriendsNearTarget(IEntity gunner, vector target)
 	{
-		if (!gunner || target == vector.Zero || System.IsCLIParam("zcrArmourFreeFire") || !IsCrew(gunner))
+		if (!gunner || target == vector.Zero || AICF_Launch.Has("zcrArmourFreeFire") || !IsCrew(gunner))
 			return false;
 		int now = System.GetTickCount();
 		int at;
@@ -693,7 +693,7 @@ class ZCR_Armour
 	protected static void Choices(FactionKey side, int no, array<string> prefabs, array<string> kinds, array<int> costs)
 	{
 		bool us = side == "US";
-		if (System.IsCLIParam("zcrArmourVanilla"))
+		if (AICF_Launch.Has("zcrArmourVanilla"))
 		{
 			prefabs.Insert(Pick(us, "{590E677BBCD1D26E}Prefabs/Vehicles/Wheeled/Conflict_Variants/LAV25_Conflict.et", "{BD75A18920BD1278}Prefabs/Vehicles/Wheeled/Conflict_Variants/BTR70_Conflict.et"));
 			kinds.Insert("APC");
@@ -705,22 +705,22 @@ class ZCR_Armour
 		// crashed in 8-10 game minutes, with or without our APC typing; IFVs only ran 40 minutes clean, and the
 		// game's own LAV-25 / BTR-70 too). -zcrArmourTankSide US|USSR: tanks for that side only (which tank is it).
 		string only;
-		System.GetCLIParam("zcrArmourOnly", only);
+		AICF_Launch.Get("zcrArmourOnly", only);
 		bool tank = no == 1 || (Stress() && no % 2 == 1);
 		if (only == "TANK")
 			tank = true;
 		else if (only == "IFV")
 			tank = false;
 		string tankSide;
-		if (System.GetCLIParam("zcrArmourTankSide", tankSide) && !tankSide.IsEmpty())
+		if (AICF_Launch.Get("zcrArmourTankSide", tankSide) && !tankSide.IsEmpty())
 			tank = tank && side == tankSide;
-		else if (!System.IsCLIParam("zcrArmourTanks") && only != "TANK")
+		else if (!AICF_Launch.Has("zcrArmourTanks") && only != "TANK")
 			tank = false;
 		// -zcrArmourSet CIE (Martin, 21 Oct 21:35: "maybe another vehicle mod?"): another author's vehicles with
 		// nothing from WCS / SpaceCore, for the crash test - CIE T-72B for the USSR, CIE Leopard 2A6 as the US
 		// tank, the Marder 1A3 as both sides' IFV (the only non-WCS IFV downloaded). lab/stress.py --variant cie.
 		string armourSet;
-		System.GetCLIParam("zcrArmourSet", armourSet);
+		AICF_Launch.Get("zcrArmourSet", armourSet);
 		if (armourSet == "CIE")
 		{
 			if (tank)
@@ -810,7 +810,7 @@ class ZCR_Armour
 			// sub-lab: bought at the HQ the APCs stood on its one exit road at game second 120, while the rides left;
 			// every match since 29 Oct evening, Martin: "continue fixing").
 			vector spotCentre = hq.GetOwner().GetOrigin();
-			if (!System.IsCLIParam("zcrArmourAtHq"))
+			if (!AICF_Launch.Has("zcrArmourAtHq"))
 			{
 				vector toFront = front - spotCentre;
 				toFront[1] = 0;
@@ -841,7 +841,7 @@ class ZCR_Armour
 		// Typed APC: the game keeps gunners of APCs in their turret when they can't hit what they see; the
 		// mods' tanks and IFVs aren't, and with no driver aboard their gunners got out to look (21 Oct test).
 		string typeWas = typename.EnumToString(EVehicleType, vehicle.m_eVehicleType);
-		if (!System.IsCLIParam("zcrArmourKeepType"))
+		if (!AICF_Launch.Has("zcrArmourKeepType"))
 			vehicle.m_eVehicleType = EVehicleType.APC;
 		hq.AddSupplies(-costs[pick]);
 		unit.m_Vehicle = vehicle;
@@ -1063,7 +1063,7 @@ class ZCR_Armour
 
 	protected static bool Relocate(ZCR_ArmourUnit unit, vector front, int now)
 	{
-		if (System.IsCLIParam("zcrArmourNoRelocate") || unit.m_iRelocations >= 2 || Health(unit) < 0.35)
+		if (AICF_Launch.Has("zcrArmourNoRelocate") || unit.m_iRelocations >= 2 || Health(unit) < 0.35)
 			return false;
 		if (s_ShownVehicle == unit.m_Vehicle && now - s_iShownAt < 40)
 			return false;
@@ -1169,7 +1169,7 @@ class ZCR_Armour
 
 	protected static bool Recrewing(ZCR_ArmourUnit unit, int now)
 	{
-		if (System.IsCLIParam("zcrNoRecrew") || !unit.m_Group || !unit.m_Vehicle)
+		if (AICF_Launch.Has("zcrNoRecrew") || !unit.m_Group || !unit.m_Vehicle)
 			return false;
 		if (unit.m_sPhase == "RECREW")
 		{

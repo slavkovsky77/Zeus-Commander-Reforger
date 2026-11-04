@@ -16,7 +16,7 @@ class ZCR_MapDump
 
 	static void Start()
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrMapDump"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrMapDump"))
 			return;
 		GetGame().GetCallqueue().CallLater(Run, 5000, false);
 	}

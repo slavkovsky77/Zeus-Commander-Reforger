@@ -1,0 +1,12 @@
+MetaFileClass
+{
+	Name "{E035D09029D235F6}Missions/ZCR_Alpha_Beauregard.conf"
+	Configurations
+	{
+		CONFResourceClass PC {}
+		CONFResourceClass HEADLESS : PC {}
+		CONFResourceClass XBOX_ONE : PC {}
+		CONFResourceClass XBOX_SERIES : PC {}
+		CONFResourceClass PS4 : PC {}
+	}
+}

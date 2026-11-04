@@ -22,7 +22,7 @@ class ZCR_Oncoming
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoOncoming"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoOncoming"))
 			return;
 		s_Instance = new ZCR_Oncoming();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);

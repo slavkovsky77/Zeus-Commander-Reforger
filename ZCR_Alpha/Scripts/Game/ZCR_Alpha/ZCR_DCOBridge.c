@@ -10,7 +10,7 @@ modded class ZCR_Tactical
 
 	override string Layer()
 	{
-		if (System.IsCLIParam("zcrStormPush"))
+		if (AICF_Launch.Has("zcrStormPush"))
 			return "dco-push";
 		return "dco";
 	}
@@ -80,9 +80,9 @@ modded class ZCR_Tactical
 
 	override void Tend(string faction, AICF_FactionState state)
 	{
-		if (state && System.IsCLIParam("zcrRideStayMounted"))
+		if (state && AICF_Launch.Has("zcrRideStayMounted"))
 			StayMounted(faction, state);
-		if (!state || System.IsCLIParam("zcrNoDcoLod"))
+		if (!state || AICF_Launch.Has("zcrNoDcoLod"))
 			return;
 		int lightOff = DCO_GroupFeatures.PresetOff(DCO_EGroupDetail.LIGHT);
 		int light, full;
@@ -105,7 +105,7 @@ modded class ZCR_Tactical
 			}
 			else
 				full++;
-			if (System.IsCLIParam("zcrStormPush") && (g.DCO_GetFeatureOff() & STORM_OFF) == STORM_OFF)
+			if (AICF_Launch.Has("zcrStormPush") && (g.DCO_GetFeatureOff() & STORM_OFF) == STORM_OFF)
 				want = want | STORM_OFF;
 			if (g.DCO_GetFeatureOff() != want)
 				g.DCO_SetFeatureOff(want, "zeus_commander_lod");
@@ -133,7 +133,7 @@ modded class ZCR_Tactical
 	// open, 1 of 4 positions taken), so matches run plain DCO; the hook stays for the next idea.
 	override void SetStorming(SCR_AIGroup group, bool storming)
 	{
-		if (!group || !System.IsCLIParam("zcrStormPush"))
+		if (!group || !AICF_Launch.Has("zcrStormPush"))
 			return;
 		int off = group.DCO_GetFeatureOff();
 		if (storming)

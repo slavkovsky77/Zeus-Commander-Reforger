@@ -78,10 +78,10 @@ class ZCR_GunTest
 	{
 		ZCR_LosScan.Start();   // lab: open ground for the guns test (-zcrLosScan)
 		ZCR_CoverScan.Start(); // lab: buildings, trees and walls on the ground, for the infantry tests (-zcrCoverScan)
-		if (System.IsCLIParam("zcrSoldierLayer"))
+		if (AICF_Launch.Has("zcrSoldierLayer"))
 			ZCR_Danger.Start();   // infantry tests' "ours": never standing in danger, as in matches (the commander starts it there)
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrGunTest", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrGunTest", spec) || spec.IsEmpty())
 			return;
 		ZCR_GunTest test = new ZCR_GunTest();
 		array<string> sides = {};
@@ -288,7 +288,7 @@ class ZCR_GunTest
 
 	protected void EndWhenDecided(int now)
 	{
-		if (m_bEnded || !System.IsCLIParam("zcrEndWhenDecided") || now < 30)
+		if (m_bEnded || !AICF_Launch.Has("zcrEndWhenDecided") || now < 30)
 			return;
 		int us = AliveMen("US", now);
 		int ussr = AliveMen("USSR", now);
@@ -451,7 +451,7 @@ class ZCR_GunTest
 		// -zcrCrewPerception N: the crew recognise what they see N times faster (the game's SCR_AICombatComponent
 		// perception factor, 1 normally) - on the airfield they noticed enemy vehicles only at ~490 m with a clear view from 750-800 m.
 		string factor;
-		if (!u.m_bPerceptionSet && System.GetCLIParam("zcrCrewPerception", factor) && !factor.IsEmpty())
+		if (!u.m_bPerceptionSet && AICF_Launch.Get("zcrCrewPerception", factor) && !factor.IsEmpty())
 		{
 			// Done once a crewman has it - the crew is seated 1.5 s after the vehicle appears (23 Oct: marked done before
 			// anyone was aboard, the factor never reached them; the integration test spot-far caught it).
@@ -630,7 +630,7 @@ class ZCR_GunTest
 			else if (unit.m_Group && spec.m_sRole == "attack")
 			{
 				Waypoint(unit, target, "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et", 30);
-				if (System.IsCLIParam("zcrStormPush"))
+				if (AICF_Launch.Has("zcrStormPush"))
 					ZCR_Tactical.Storming(unit.m_Group, true);   // the tactical layer lets it push (DCO: its contact drills off)
 			}
 		}
@@ -952,7 +952,7 @@ class ZCR_LosScan
 	static void Start()
 	{
 		string spec;
-		if (!Replication.IsServer() || !System.GetCLIParam("zcrLosScan", spec) || spec.IsEmpty())
+		if (!Replication.IsServer() || !AICF_Launch.Get("zcrLosScan", spec) || spec.IsEmpty())
 			return;
 		GetGame().GetCallqueue().CallLater(Scan, 5000, false, spec);
 	}

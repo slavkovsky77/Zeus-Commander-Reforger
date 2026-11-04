@@ -32,14 +32,14 @@ class ZCR_ProjWatch
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoProjWatch"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoProjWatch"))
 			return;
 		s_bStarted = true;
 		s_Self = new ZCR_ProjWatch();
 		string value;
-		if (System.GetCLIParam("zcrProjSweepAt", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrProjSweepAt", value) && !value.IsEmpty())
 			s_iSweepAt = value.ToInt();
-		s_bSweepEvery = System.IsCLIParam("zcrProjSweep");
+		s_bSweepEvery = AICF_Launch.Has("zcrProjSweep");
 		GetGame().GetCallqueue().CallLater(Tick, 2000, true);
 	}
 

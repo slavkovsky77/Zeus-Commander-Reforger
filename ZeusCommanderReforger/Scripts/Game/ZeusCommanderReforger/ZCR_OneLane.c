@@ -64,11 +64,11 @@ class ZCR_OneLane
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoOneLane"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoOneLane"))
 			return;
 		s_Instance = new ZCR_OneLane();
 		string holdM;
-		if (System.GetCLIParam("zcrOneLaneHoldM", holdM) && holdM.ToFloat() > 10)
+		if (AICF_Launch.Get("zcrOneLaneHoldM", holdM) && holdM.ToFloat() > 10)
 			s_fApproachM = holdM.ToFloat();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);
 		GetGame().GetCallqueue().CallLater(s_Instance.Brake, 100, true);

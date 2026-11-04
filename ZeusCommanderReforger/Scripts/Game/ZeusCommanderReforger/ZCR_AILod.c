@@ -13,7 +13,7 @@ class ZCR_AILod
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || !System.IsCLIParam("zcrAILod"))
+		if (s_bStarted || !Replication.IsServer() || !AICF_Launch.Has("zcrAILod"))
 			return;
 		s_bStarted = true;
 		GetGame().GetCallqueue().CallLater(Tick, 2000, true);

@@ -176,7 +176,7 @@ class ZCR_Director
 	{
 		ZCR_CostScope cost = new ZCR_CostScope("director");   // ZCR_Cost: our scripts' share of the frame time
 		// Lab (22 Oct, crash hunt): -zcrNoDirector - the camera stays where it starts, no shots across the map.
-		if (System.IsCLIParam("zcrNoDirector"))
+		if (AICF_Launch.Has("zcrNoDirector"))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		LabCamera();
@@ -315,7 +315,7 @@ class ZCR_Director
 			// No plan yet: our doctrine before its first plan (a minute in), or AI Conflict alone
 			// (Martin, 23:17: "AI Conflict alone vs AI Conflict alone? wtf" - it was the first minute).
 			string bridge;
-			if (System.GetCLIParam("zcrBridge" + side, bridge) && bridge.StartsWith("http"))
+			if (AICF_Launch.Get("zcrBridge" + side, bridge) && bridge.StartsWith("http"))
 			{
 				source = "phased";
 				intent = "first plan a minute into the match";
@@ -359,14 +359,14 @@ class ZCR_Director
 	// watching the DCO storm: "what is that? AI Conflict alone against AI Conflict alone?").
 	protected static bool LabTest()
 	{
-		return System.IsCLIParam("zcrBuildTest") || (System.IsCLIParam("aicfOff") && (System.IsCLIParam("zcrGunTest") || System.IsCLIParam("zcrDriveTest") || System.IsCLIParam("zcrTrafficSim")));
+		return AICF_Launch.Has("zcrBuildTest") || (AICF_Launch.Has("aicfOff") && (AICF_Launch.Has("zcrGunTest") || AICF_Launch.Has("zcrDriveTest") || AICF_Launch.Has("zcrTrafficSim")));
 	}
 
 	// -zcrTestTitle from the runner: the sub-lab's names for the track and the setup (underscores for spaces).
 	protected static string TestTitle()
 	{
 		string title;
-		if (!System.GetCLIParam("zcrTestTitle", title) || title.IsEmpty())
+		if (!AICF_Launch.Get("zcrTestTitle", title) || title.IsEmpty())
 			return "a small test scenario";
 		title.Replace("_", " ");
 		return title;
@@ -522,7 +522,7 @@ class ZCR_Director
 		// The crash sub-lab's mass-boarding test seen from a client joined to the dedicated server it crashes on (27 Oct,
 		// Martin: "can you show it to me"): the test runs on the server, so the camera looks at its pads from the spec.
 		string boardSpec;
-		if (!Replication.IsServer() && System.GetCLIParam("zcrBoardTest", boardSpec) && !boardSpec.IsEmpty())
+		if (!Replication.IsServer() && AICF_Launch.Get("zcrBoardTest", boardSpec) && !boardSpec.IsEmpty())
 		{
 			array<string> boardXz = {};
 			boardSpec.Split(";", boardXz, true);
@@ -603,7 +603,7 @@ class ZCR_Director
 		// and follows the ride nearest to it (within 450 m), so Martin sees what stops the harbour side's trucks on the
 		// airfield edge west of Farm.
 		string camSpot;
-		if (System.GetCLIParam("zcrCamSpot", camSpot) && !camSpot.IsEmpty())
+		if (AICF_Launch.Get("zcrCamSpot", camSpot) && !camSpot.IsEmpty())
 		{
 			array<string> spotParts = {};
 			camSpot.Split(",", spotParts, true);

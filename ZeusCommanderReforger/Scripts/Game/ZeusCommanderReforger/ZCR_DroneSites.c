@@ -99,7 +99,7 @@ class ZCR_DroneSites
 
 	static bool On()
 	{
-		return !System.IsCLIParam("zcrNoDroneSites");
+		return !AICF_Launch.Has("zcrNoDroneSites");
 	}
 
 	// The command truck for every site (18:21: the transport truck didn't drive either - the truck wasn't the problem - and
@@ -597,7 +597,7 @@ class ZCR_DroneSites
 	// the truck's own driver takes it there when it is more than SUPPORT_NEAR_M off.
 	protected static void PlanTruck(ZCR_DroneSite s, vector front, int now)
 	{
-		if (s.m_bMain || s.m_bShared || !s.m_Truck || front == vector.Zero || System.IsCLIParam("zcrStaticDroneSites"))
+		if (s.m_bMain || s.m_bShared || !s.m_Truck || front == vector.Zero || AICF_Launch.Has("zcrStaticDroneSites"))
 			return;                            // a shared team's truck is its host's to plan
 		vector back = s.m_vHome - front;
 		back[1] = 0;
@@ -743,7 +743,7 @@ class ZCR_DroneSites
 		// The operators no longer ride the truck (17:58: boarding went in/out, in/out - and Martin: the operators walk out on
 		// sorties with drones in their bags and resupply at the truck; Zeus Commander plans where the truck goes). The hops
 		// stay behind -zcrSiteHops.
-		if (!System.IsCLIParam("zcrSiteHops") || s.m_bMain || s.m_bShared || System.IsCLIParam("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
+		if (!AICF_Launch.Has("zcrSiteHops") || s.m_bMain || s.m_bShared || AICF_Launch.Has("zcrStaticDroneSites") || !s.m_Truck || !s.m_Operators)
 			return;                            // the main base's site is the static one
 		if (s.m_iMove == 0)
 		{

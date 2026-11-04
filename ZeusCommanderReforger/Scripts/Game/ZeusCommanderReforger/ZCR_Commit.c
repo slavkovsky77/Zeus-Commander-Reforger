@@ -89,7 +89,7 @@ modded class AICF_MatchController
 		if (!Replication.IsServer() || !faction || !state)
 			return;
 		AICF_EGroupUnitType ride = AICF_EGroupUnitType.MOTORIZED_LIGHT;
-		if (System.IsCLIParam("zcrMotorizeTruck"))
+		if (AICF_Launch.Has("zcrMotorizeTruck"))
 			ride = AICF_EGroupUnitType.MOTORIZED_TRUCK;
 		vector home;
 		if (faction.GetMainBase() && faction.GetMainBase().GetOwner())

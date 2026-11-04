@@ -17,7 +17,7 @@ class ZCR_Dismount
 
 	static bool ActiveFor(string faction)
 	{
-		if (System.IsCLIParam("zcrNoCoveredDismount") || faction.IsEmpty())
+		if (AICF_Launch.Has("zcrNoCoveredDismount") || faction.IsEmpty())
 			return false;
 		return !ZCR_StrategicPlan.Get(faction).IsEmpty();
 	}

@@ -8,7 +8,7 @@ class ZCR_OnePoint
 	static string Name()
 	{
 		string v;
-		if (!System.GetCLIParam("zcrOnePoint", v) || v.IsEmpty())
+		if (!AICF_Launch.Get("zcrOnePoint", v) || v.IsEmpty())
 			return string.Empty;
 		v.Replace("_", " ");
 		return v;
@@ -89,7 +89,7 @@ class ZCR_PointSeize
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || ZCR_OnePoint.Name().IsEmpty() || System.IsCLIParam("zcrNoPointSeize"))
+		if (s_bStarted || !Replication.IsServer() || ZCR_OnePoint.Name().IsEmpty() || AICF_Launch.Has("zcrNoPointSeize"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_PointSeize();

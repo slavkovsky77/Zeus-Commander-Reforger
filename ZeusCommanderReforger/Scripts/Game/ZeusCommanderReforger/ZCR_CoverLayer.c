@@ -29,7 +29,7 @@ class ZCR_CoverLayer
 	static float Standoff()
 	{
 		string value;
-		if (System.GetCLIParam("zcrStandoff", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrStandoff", value) && !value.IsEmpty())
 			return value.ToFloat();
 		return 60;
 	}
@@ -58,7 +58,7 @@ class ZCR_CoverLayer
 
 	static void Tick(FactionKey side, AICF_FactionState state)
 	{
-		if (!Replication.IsServer() || !state || System.IsCLIParam("zcrNoCoverLayer"))
+		if (!Replication.IsServer() || !state || AICF_Launch.Has("zcrNoCoverLayer"))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		int engaged, open, moved, prone, inGame, asked, found, nocover;

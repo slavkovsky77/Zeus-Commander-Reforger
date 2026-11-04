@@ -13,7 +13,7 @@ class ZCR_Trace
 
 	static bool On()
 	{
-		return !System.IsCLIParam("zcrNoTrace");
+		return !AICF_Launch.Has("zcrNoTrace");
 	}
 
 	// What our script is about to do to an entity: op = spawn, delete, destroy, move, crew, kick, board.

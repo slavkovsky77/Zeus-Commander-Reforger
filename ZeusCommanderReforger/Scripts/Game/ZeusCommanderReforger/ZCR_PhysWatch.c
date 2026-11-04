@@ -30,7 +30,7 @@ class ZCR_PhysWatch
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoPhysWatch"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoPhysWatch"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_PhysWatch();
@@ -105,7 +105,7 @@ class ZCR_PhysWatch
 		else if (p[1] < ground - FALL_M)
 		{
 			Report(e, kind, "falling", v, av, ground);
-			if (kind == "item" && System.IsCLIParam("zcrPhysFix"))
+			if (kind == "item" && AICF_Launch.Has("zcrPhysFix"))
 				m_aDelete.Insert(e);
 		}
 		else if (p[1] > ground + HIGH_M)

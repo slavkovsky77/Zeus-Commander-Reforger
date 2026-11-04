@@ -14,7 +14,7 @@ class ZCR_NavProbe
 	static void Start()
 	{
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrNavProbe", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrNavProbe", spec) || spec.IsEmpty())
 			return;
 		s_Instance = new ZCR_NavProbe();
 		array<string> parts = {};
@@ -50,7 +50,7 @@ class ZCR_NavProbe
 			return;
 		}
 		BaseWorld world = GetGame().GetWorld();
-		bool load = System.IsCLIParam("zcrLoadTiles");
+		bool load = AICF_Launch.Has("zcrLoadTiles");
 		for (int i = 0; i < m_aPoints.Count(); i++)
 		{
 			vector p = m_aPoints[i];

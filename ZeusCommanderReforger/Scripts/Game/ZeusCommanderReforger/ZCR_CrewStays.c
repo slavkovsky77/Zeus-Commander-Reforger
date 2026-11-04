@@ -25,7 +25,7 @@ class ZCR_CrewStays
 		if (s_iOff < 0)
 		{
 			s_iOff = 0;
-			if (System.IsCLIParam("zcrCrewsLeave"))
+			if (AICF_Launch.Has("zcrCrewsLeave"))
 				s_iOff = 1;
 		}
 		if (s_iOff == 1 || !soldier || !vehicle)
@@ -67,7 +67,7 @@ class ZCR_CrewStays
 		if (s_iOff < 0)
 		{
 			s_iOff = 0;
-			if (System.IsCLIParam("zcrCrewsLeave"))
+			if (AICF_Launch.Has("zcrCrewsLeave"))
 				s_iOff = 1;
 		}
 		if (s_iOff == 1 || !vehicle)

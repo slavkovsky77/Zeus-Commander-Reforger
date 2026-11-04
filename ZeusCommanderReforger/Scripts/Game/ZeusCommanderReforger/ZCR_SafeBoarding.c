@@ -35,7 +35,7 @@ class ZCR_SafeBoarding
 			return s_fLimit;
 		s_fLimit = 8;
 		string value;
-		if (System.GetCLIParam("zcrSafeBoardDeg", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrSafeBoardDeg", value) && !value.IsEmpty())
 			s_fLimit = Math.Clamp(value.ToFloat(), 0, 90);
 		return s_fLimit;
 	}
@@ -47,7 +47,7 @@ class ZCR_SafeBoarding
 			s_aAlways = {};
 			string value = "LAV25";
 			string given;
-			if (System.GetCLIParam("zcrSafeBoardAlways", given) && !given.IsEmpty())
+			if (AICF_Launch.Get("zcrSafeBoardAlways", given) && !given.IsEmpty())
 				value = given;
 			if (value != "none")
 				value.Split(",", s_aAlways, true);

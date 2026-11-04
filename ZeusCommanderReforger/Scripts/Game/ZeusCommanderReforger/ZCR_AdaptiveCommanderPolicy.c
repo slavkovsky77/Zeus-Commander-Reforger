@@ -34,7 +34,7 @@ modded class AICF_AdaptiveCommanderPolicy
 	// every team's list while the team has something else to do.
 	protected void Bind(AICF_GroupSlot slot, ZCR_StrategicPlan plan, array<ref AICF_AdaptiveCandidate> candidates)
 	{
-		if (!System.IsCLIParam("zcrBindMainEffort") || !slot)
+		if (!AICF_Launch.Has("zcrBindMainEffort") || !slot)
 			return;
 		int left;
 		foreach (AICF_AdaptiveCandidate c : candidates)

@@ -11,7 +11,7 @@ class ZCR_Wrecks
 
 	static void Add(IEntity vehicle)
 	{
-		if (!vehicle || !Replication.IsServer() || System.IsCLIParam("zcrKeepWrecks"))
+		if (!vehicle || !Replication.IsServer() || AICF_Launch.Has("zcrKeepWrecks"))
 			return;
 		if (!s_Instance)
 		{

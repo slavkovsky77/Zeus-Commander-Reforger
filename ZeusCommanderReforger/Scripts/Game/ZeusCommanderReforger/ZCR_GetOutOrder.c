@@ -18,7 +18,7 @@ class ZCR_GetOutOrder
 		if (s_iOn < 0)
 		{
 			s_iOn = 0;
-			if (System.IsCLIParam("zcrGetOutOrder"))
+			if (AICF_Launch.Has("zcrGetOutOrder"))
 				s_iOn = 1;
 		}
 		return s_iOn == 1;

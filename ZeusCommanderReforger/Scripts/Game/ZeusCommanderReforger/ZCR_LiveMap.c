@@ -13,7 +13,7 @@ class ZCR_LiveMap
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoLiveMap"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoLiveMap"))
 			return;
 		s_bStarted = true;
 		GetGame().GetCallqueue().CallLater(Tick, LIVE_S * 1000, true);

@@ -14,7 +14,7 @@ class ZCR_OpenGates
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrOpenGates"))
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Has("zcrOpenGates"))
 			return;
 		s_Instance = new ZCR_OpenGates();
 		GetGame().GetCallqueue().CallLater(s_Instance.Find, 3000, false);
@@ -92,7 +92,7 @@ modded class SCR_AIGoalReaction_OpenNavlinkDoor
 			Print(string.Format("[ZCR][GATEMSG] t=%1 door=%2 x=%3 z=%4 in_vehicle=%5", ZCR_LossLog.Seconds(), ZCR_LossLog.ShortName(msg.m_DoorEntity),
 				Math.Round(d[0]), Math.Round(d[2]), soldier && soldier.IsInVehicle()), LogLevel.NORMAL);
 		}
-		if (!msg || !msg.m_DoorEntity || !soldier || !soldier.IsInVehicle() || !System.IsCLIParam("zcrAutoGate"))
+		if (!msg || !msg.m_DoorEntity || !soldier || !soldier.IsInVehicle() || !AICF_Launch.Has("zcrAutoGate"))
 		{
 			super.PerformReaction(utility, message);
 			return;
@@ -142,7 +142,7 @@ class ZCR_GateNudge
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrGateNudge"))
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Has("zcrGateNudge"))
 			return;
 		s_Instance = new ZCR_GateNudge();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
@@ -199,7 +199,7 @@ class ZCR_GateNudge
 		vector forward = v.GetTransformAxis(2);
 		forward[1] = 0;
 		forward.Normalize();
-		bool verbose = System.IsCLIParam("zcrGateDebug");
+		bool verbose = AICF_Launch.Has("zcrGateDebug");
 		foreach (IEntity e : m_aDoors)
 		{
 			DoorComponent door = DoorComponent.Cast(e.FindComponent(DoorComponent));
@@ -277,7 +277,7 @@ class ZCR_GateNudge
 				m_mNudged.Set(gate, now);
 				vector g = gate.GetOrigin();
 				string name = PrefabTail(gate);
-				bool self = System.IsCLIParam("zcrGateSelfOpen");
+				bool self = AICF_Launch.Has("zcrGateSelfOpen");
 				Print(string.Format("[ZCR][GATENUDGE] t=%1 vehicle=%2 gate=%3 m=%4 waited_s=%5 action=%6 self=%7 x=%8 z=%9", now, ZCR_LossLog.ShortName(v), name,
 					Math.Round(vector.DistanceXZ(g, v.GetOrigin())), now - since, action != null, self, Math.Round(g[0]), Math.Round(g[2])), LogLevel.NORMAL);
 				if (self)

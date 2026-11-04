@@ -33,7 +33,7 @@ class ZCR_AttackScan
 	static void Start()
 	{
 		string spec;
-		if (s_Scan || !Replication.IsServer() || !System.GetCLIParam("zcrAttackScan", spec) || spec.IsEmpty())
+		if (s_Scan || !Replication.IsServer() || !AICF_Launch.Get("zcrAttackScan", spec) || spec.IsEmpty())
 			return;
 		array<string> p = {};
 		spec.Split(",", p, true);

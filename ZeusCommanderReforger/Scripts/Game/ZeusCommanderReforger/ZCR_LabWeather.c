@@ -7,7 +7,7 @@ class ZCR_LabWeather
 
 	static void Apply()
 	{
-		if (!Replication.IsServer() || !System.IsCLIParam("zcrLabWeather"))
+		if (!Replication.IsServer() || !AICF_Launch.Has("zcrLabWeather"))
 			return;
 		int now = ZCR_LossLog.Seconds();
 		if (s_iNextAt >= 0 && now < s_iNextAt)

@@ -8,7 +8,7 @@ class ZCR_FortList
 
 	static void Tick()
 	{
-		if (s_bDone || !System.IsCLIParam("zcrListFortifications") || ZCR_LossLog.Seconds() < 20)
+		if (s_bDone || !AICF_Launch.Has("zcrListFortifications") || ZCR_LossLog.Seconds() < 20)
 			return;
 		s_bDone = true;
 		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());

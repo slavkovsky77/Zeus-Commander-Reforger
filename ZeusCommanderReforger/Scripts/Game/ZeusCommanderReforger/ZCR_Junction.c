@@ -38,7 +38,7 @@ class ZCR_Junction
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoJunction"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoJunction"))
 			return;
 		s_Instance = new ZCR_Junction();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 500, true);

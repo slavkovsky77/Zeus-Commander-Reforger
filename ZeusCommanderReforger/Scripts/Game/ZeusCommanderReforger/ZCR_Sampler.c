@@ -609,7 +609,7 @@ class ZCR_Sampler
 			Print(string.Format("[ZCR][KNOWN] t=%1 side=%2 n=%3 at=%4", now, xs, n, list), LogLevel.NORMAL);
 		}
 		// Drones up per side (Martin: "0 drones in the sky"), and the enemies their eyes found since the last.
-		if (System.IsCLIParam("zcrDrones"))
+		if (AICF_Launch.Has("zcrDrones"))
 		{
 			foreach (string ds : sides)
 			{

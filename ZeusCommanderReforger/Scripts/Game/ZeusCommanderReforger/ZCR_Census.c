@@ -27,7 +27,7 @@ class ZCR_Census
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoCensus"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoCensus"))
 			return;
 		s_bStarted = true;
 		GetGame().GetCallqueue().CallLater(Tick, CENSUS_S * 1000, true);

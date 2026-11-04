@@ -15,7 +15,7 @@ class ZCR_GetOutProbe
 		if (s_iDamage < 0)
 		{
 			s_iDamage = 0;
-			if (System.IsCLIParam("zcrDamageProbe"))
+			if (AICF_Launch.Has("zcrDamageProbe"))
 				s_iDamage = 1;
 		}
 		return s_iDamage == 1;
@@ -26,7 +26,7 @@ class ZCR_GetOutProbe
 		if (s_iOn < 0)
 		{
 			s_iOn = 0;
-			if (System.IsCLIParam("zcrGetOutProbe"))
+			if (AICF_Launch.Has("zcrGetOutProbe"))
 				s_iOn = 1;
 		}
 		return s_iOn == 1;
@@ -58,7 +58,7 @@ class ZCR_DoorProbe
 	static void Start()
 	{
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrDoorProbe", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrDoorProbe", spec) || spec.IsEmpty())
 			return;
 		s_Instance = new ZCR_DoorProbe();
 		array<string> parts = {};
@@ -106,7 +106,7 @@ class ZCR_DoorProbe
 					name = name.Substring(slash + 1, name.Length() - slash - 1);
 				Print(string.Format("[ZCR][DOOR] t=%1 at=%2,%3 door=%4 x=%5 z=%6 open=%7", ZCR_LossLog.Seconds(), Math.Round(p[0]), Math.Round(p[2]),
 					name, Math.Round(at[0]), Math.Round(at[2]), Math.Round(door.GetNormalizedDoorState() * 100) / 100), LogLevel.NORMAL);
-				if (System.IsCLIParam("zcrOpenDoors") && Math.AbsFloat(door.GetNormalizedDoorState()) < 0.5)
+				if (AICF_Launch.Has("zcrOpenDoors") && Math.AbsFloat(door.GetNormalizedDoorState()) < 0.5)
 					door.SetControlValue(1, RplId.Invalid());
 			}
 		}

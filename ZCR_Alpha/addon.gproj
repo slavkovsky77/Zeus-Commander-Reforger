@@ -1,13 +1,18 @@
 GameProject
 {
-	ID "ZCR_DCO"
-	GUID "5978896A4BD28E5C"
-	TITLE "Zeus Commander Reforger x DCO_AI bridge"
+	ID "ZCR_Alpha"
+	GUID "CF67CCE40B62DA50"
+	TITLE "Zeus Commander Reforger: The Battle for Beauregard (Alpha)"
 	Dependencies
 	{
 		"58D0FB3206B6F859"
+		"CF39E4A7CCBBF845"
+		"ACAA98B674F022BB"
 		"CA2CA4E14BB55417"
 		"5EDAAE0D3CC60D6B"
+		"68FCF11534562F2E"
+		"3257E44260058CE5"
+		"65AD60E204191D37"
 	}
 	Configurations
 	{

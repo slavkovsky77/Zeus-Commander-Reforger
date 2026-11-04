@@ -41,7 +41,7 @@ class ZCR_Storm
 	static float Priority()
 	{
 		string value;
-		if (System.GetCLIParam("zcrStormPriority", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrStormPriority", value) && !value.IsEmpty())
 			return value.ToFloat();
 		return CAREFUL;
 	}
@@ -55,7 +55,7 @@ class ZCR_Storm
 			return;
 		scripted.SetPriorityLevel(Priority());
 		string value = "run";
-		System.GetCLIParam("zcrStormSpeed", value);
+		AICF_Launch.Get("zcrStormSpeed", value);
 		if (value == "game")
 			return;
 		EMovementType speed = EMovementType.RUN;

@@ -54,7 +54,7 @@ class ZCR_Traffic
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || System.IsCLIParam("zcrNoTraffic"))
+		if (s_Instance || !Replication.IsServer() || AICF_Launch.Has("zcrNoTraffic"))
 			return;
 		s_Instance = new ZCR_Traffic();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, TICK_MS, true);
@@ -165,10 +165,10 @@ class ZCR_Traffic
 		int now = ZCR_LossLog.Seconds();
 		array<IEntity> cars = {};
 		ZCR_Driving.DrivenNow(cars);
-		if (!System.IsCLIParam("zcrNoSpacing"))
+		if (!AICF_Launch.Has("zcrNoSpacing"))
 			Spacing(cars, now);
 		ZCR_Dodge.Tick(cars, now);          // two drivers dodging each other: one gives way (24 Oct, report 27)
-		if (!System.IsCLIParam("zcrNoBoardHold"))
+		if (!AICF_Launch.Has("zcrNoBoardHold"))
 			BoardHold(cars);
 		float lab = ZCR_Driving.CruiseLimit();
 		if (lab > 0)
@@ -315,7 +315,7 @@ class ZCR_Traffic
 				boarding = step == "BOARDING" || step == "SPAWN_COMMIT" || step == "DISMOUNT";
 			// 2 Nov, note 504: in AI Conflict's boarding step the hold no longer ends at 100 m - Soviet jeeps drove off towards
 			// a last man further out, and his seat fallback can't act on a moving vehicle (400-900 deferrals a run).
-			bool anyDistance = (step == "BOARDING" || step == "SPAWN_COMMIT") && !System.IsCLIParam("zcrBoardHoldNear");
+			bool anyDistance = (step == "BOARDING" || step == "SPAWN_COMMIT") && !AICF_Launch.Has("zcrBoardHoldNear");
 			float far = -1;
 			int outside;
 			if (boarding)
@@ -381,7 +381,7 @@ class ZCR_Traffic
 	{
 		float was;
 		bool have = s_mGearHeld.Find(v, was);
-		if ((on && System.IsCLIParam("zcrNoBoardGear")) || (!on && !have))
+		if ((on && AICF_Launch.Has("zcrNoBoardGear")) || (!on && !have))
 			return;
 		CarControllerComponent car = CarControllerComponent.Cast(v.FindComponent(CarControllerComponent));
 		VehicleWheeledSimulation sim;

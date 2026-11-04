@@ -19,7 +19,7 @@ class ZCR_ShuttleTest
 
 	static bool On()
 	{
-		return System.IsCLIParam("zcrShuttleTest");
+		return AICF_Launch.Has("zcrShuttleTest");
 	}
 
 	// Called last in the commander's candidate list for a team (ZCR_AdaptiveCommanderPolicy): only the team's base of the

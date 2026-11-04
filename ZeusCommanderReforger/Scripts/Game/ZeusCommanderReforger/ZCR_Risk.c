@@ -47,7 +47,7 @@ class ZCR_Risk
 
 	static void Start()
 	{
-		if (s_Instance || !Replication.IsServer() || !System.IsCLIParam("zcrRisk"))
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Has("zcrRisk"))
 			return;
 		s_Instance = new ZCR_Risk();
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, TICK_MS, true);

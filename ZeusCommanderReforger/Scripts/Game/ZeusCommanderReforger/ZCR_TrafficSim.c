@@ -75,7 +75,7 @@ class ZCR_TrafficSim
 	static void Start()
 	{
 		string spec;
-		if (s_Instance || !Replication.IsServer() || !System.GetCLIParam("zcrTrafficSim", spec) || spec.IsEmpty())
+		if (s_Instance || !Replication.IsServer() || !AICF_Launch.Get("zcrTrafficSim", spec) || spec.IsEmpty())
 			return;
 		ZCR_TrafficSim sim = new ZCR_TrafficSim();
 		array<string> parts = {};
@@ -88,10 +88,10 @@ class ZCR_TrafficSim
 				sim.m_aStops.Insert(Vector(xz[0].ToFloat(), 0, xz[1].ToFloat()));
 		}
 		string value;
-		if (System.GetCLIParam("zcrTrafficCars", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrTrafficCars", value) && !value.IsEmpty())
 			sim.m_iCount = Math.Max(1, value.ToInt());
 		string kinds = "uaz,ural,uralsupply";
-		if (System.GetCLIParam("zcrTrafficKinds", value) && !value.IsEmpty())
+		if (AICF_Launch.Get("zcrTrafficKinds", value) && !value.IsEmpty())
 			kinds = value;
 		kinds.Split(",", sim.m_aKinds, true);
 		if (sim.m_aStops.Count() < 2 || sim.m_aKinds.IsEmpty())
@@ -99,7 +99,7 @@ class ZCR_TrafficSim
 			Print("[ZCR][TRAFFICSIM] needs two stops or more", LogLevel.WARNING);
 			return;
 		}
-		sim.m_bShuttle = System.IsCLIParam("zcrTrafficShuttle");
+		sim.m_bShuttle = AICF_Launch.Has("zcrTrafficShuttle");
 		s_Instance = sim;
 		GetGame().GetCallqueue().CallLater(s_Instance.Tick, 1000, true);
 	}

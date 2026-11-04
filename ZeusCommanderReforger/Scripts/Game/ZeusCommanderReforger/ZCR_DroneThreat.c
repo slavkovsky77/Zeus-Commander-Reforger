@@ -60,7 +60,7 @@ class ZCR_DroneThreat
 
 	static void Start()
 	{
-		if (s_bStarted || !Replication.IsServer() || System.IsCLIParam("zcrNoDroneReact"))
+		if (s_bStarted || !Replication.IsServer() || AICF_Launch.Has("zcrNoDroneReact"))
 			return;
 		s_bStarted = true;
 		s_Instance = new ZCR_DroneThreat();
@@ -420,7 +420,7 @@ class ZCR_DroneThreat
 	protected static bool Storming(ChimeraCharacter c)
 	{
 		string value;
-		if (System.GetCLIParam("zcrStormDroneRun", value) && value == "0")
+		if (AICF_Launch.Get("zcrStormDroneRun", value) && value == "0")
 			return false;
 		AIControlComponent control = AIControlComponent.Cast(c.FindComponent(AIControlComponent));
 		if (!control || !control.GetControlAIAgent())
