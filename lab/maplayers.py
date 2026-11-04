@@ -419,6 +419,9 @@ def live_plans(run: Path) -> tuple:
                 g["by"] = "Gemini"
             if o.get("why") and o["why"] not in g["why"]:
                 g["why"].append(o["why"])
+            # Each team's own order and reason (the /v2 map's clicked team, 4 Nov): who picked it (model / code / kept).
+            g.setdefault("team_orders", {})[str(tid)] = {"order": o.get("order") or ("go" if e.get("go", 1) else "wait"),
+                                                         "why": o.get("why") or "", "source": o.get("source") or ""}
     for g in groups.values():
         g["teams"].sort()
         g["why"] = "; ".join(g["why"])
@@ -434,13 +437,15 @@ def live_plans(run: Path) -> tuple:
     return list(groups.values()), intents, zones
 
 
-def live(map_slug: str) -> dict:
+def live(map_slug: str, max_age_s: float = 90, scan: int = 15) -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
-    test vans - with each van's planned route and the game's current path (lab app /api/map/live)."""
-    runs = sorted((r for r in RUNS.iterdir() if r.is_dir()), key=run_time, reverse=True)[:15]
+    test vans - with each van's planned route and the game's current path (lab app /api/map/live).
+    max_age_s/scan larger (the /v2 map, 4 Nov): the newest game on this map even when it has ended - its last round, with
+    live=False - so the map shows the last battle rather than an empty screen between battles."""
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir()), key=run_time, reverse=True)[:scan]
     for run in runs:
         logs = sorted(run.glob("logs/*/console.log"))
-        if not logs or time.time() - logs[-1].stat().st_mtime > 90:
+        if not logs or time.time() - logs[-1].stat().st_mtime > max_age_s:
             continue
         log = logs[-1]
         # The run's map, read once it is in the log (25 Oct: a run seen in its first seconds, before the world line,
@@ -561,7 +566,7 @@ def live(map_slug: str) -> dict:
         if gemini:
             attack_plans = [p for p in attack_plans if p["side"] not in {g["side"] for g in gemini}] + gemini
         intents.update(gemini_intents)
-        return {"run": run.name, "live": True, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
+        return {"run": run.name, "live": time.time() - logs[-1].stat().st_mtime <= 90, "t": last, "teams": units["team"], "trucks": units["truck"], "vans": units["van"], "builders": units["builder"],
                 "paths": paths, "routes": routes, "trails": trails, "efforts": efforts, "bases_now": bases_now, "intents": intents,
                 "attack_plans": attack_plans, "danger": danger}
     return {"live": False}

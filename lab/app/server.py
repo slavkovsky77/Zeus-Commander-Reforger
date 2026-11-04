@@ -12,6 +12,7 @@ graphs over the match - and the remark box), Goals, Loop (each iteration, before
 recordings), Crashes (lab/crashes.py and the armour stress test, lab/stress.py), Progress / Changelog / Plan (the
 engine, changelog and plan pages, rebuilt every 10 minutes).
 Remarks go to .runtime/inbox.jsonl; the improve skill files them at the start of each iteration.
+/v2: the same lab with only what is used - the live map full screen, progress curves, remarks (lab/app/v2.html, v2data.py).
 """
 import json
 import re
@@ -434,6 +435,20 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path in ("/", "/index.html"):
                 return self.send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
+            # The cleaner page (4 Nov, Martin: "a lot of things I dont actually use ... create parallel version"): the live
+            # map first, progress curves, remarks with their replies - lab/app/v2.html; this page stays as it is.
+            if path in ("/v2", "/v2/"):
+                return self.send(200, (HERE / "v2.html").read_bytes(), "text/html; charset=utf-8")
+            if path in ("/v2.js", "/v2.css"):
+                return self.send(200, (HERE / path[1:]).read_bytes(),
+                                 "application/javascript; charset=utf-8" if path.endswith(".js") else "text/css; charset=utf-8")
+            if path == "/api/v2/live":
+                import v2data
+                q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
+                name = q.get("map", "auto")
+                return self.json(v2data.live(name if name in ("arland", "everon") else "auto"))
+            if path == "/api/inbox":   # the remarks and their replies, read-only (POST adds one)
+                return self.json({"remarks": inbox(80), "at": now_iso()})
             if path == "/api/live":
                 return self.json({**live(), "servers": servers(), "tests": tests_now(), "inbox": inbox(12), "at": now_iso()})
             if path == "/api/slow":
