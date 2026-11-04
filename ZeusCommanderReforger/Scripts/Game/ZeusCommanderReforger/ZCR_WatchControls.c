@@ -1,13 +1,13 @@
 // Phone controls for watch mode, as on Arma 3 (ac-lab lab/director.sqf; review notes 70, 79-83):
-// Martin watches the match over a phone stream and can only tap. Two columns of big buttons on the
-// left: PREV / NEXT SHOT, PREV / NEXT GROUP (the squads around, nearest first, following the
-// leader), LOCK (stay on this scene; AUTO goes off), ACTION (the best fight now), CLOSER / WIDER
-// (zoom every shot from now on), OVERVIEW (the hot zone), AUTO (the director picks again). A tap on
-// a soldier or vehicle follows it; anywhere else the camera flies there for 30 s.
-// Over the stream a tap clicks before the cursor has moved (Arma 3, note 80), so one catcher takes
-// every click and reads where the cursor is a moment later. A hidden menu stays open so the game
-// shows the cursor. Commands go to the server's director (ZCR_Director.Command) through the
-// watcher's own player controller.
+// Martin watches the match over a phone stream and can only tap. Six buttons on the left (4 Nov - Martin: "optimize number
+// of buttons to basically next/prev type free and details"): PREV / NEXT through what TYPE says (AUTO: the director's shots;
+// teams, vehicles, drones, points, fights), CAMERA (AUTO -> LOCKED on what it shows -> FREE, flown by the sticks), DETAILS
+// (the full label texts) and HIDE UI. On the right two sticks: the move stick (FREE only) over the look stick with ZOOM.
+// A tap on a soldier or vehicle follows it; anywhere else the camera flies there for 30 s. The side to keep to, the game
+// speed and REPORT are on the lab app's camera bar (ZCR_Director.LabCamera).
+// Over the stream a tap clicks before the cursor has moved (Arma 3, note 80), so one catcher takes every click and reads
+// where the cursor is once it has come to rest. A hidden menu stays open so the game shows the cursor. Commands go to the
+// server's director (ZCR_Director.Command) through the watcher's own player controller.
 
 modded class SCR_PlayerController
 {
@@ -55,6 +55,7 @@ class ZCR_WatchButton
 	string m_sCmd;
 	float m_fFlashUntil;
 	bool m_bPad;            // a camera pad button (shown while the pad is open)
+	bool m_bMove;           // ... of the move stick (shown in FREE only)
 }
 
 class ZCR_WatchControls
@@ -78,12 +79,18 @@ class ZCR_WatchControls
 	protected ref array<ref ZCR_WatchButton> m_aButtons = {};
 	protected MenuBase m_Host;
 	protected bool m_bLocked;
-	protected string m_sFocus;          // the side the camera keeps to: "" both, "US", "USSR"
 	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
+	protected string m_sType = "auto";  // TYPE: auto (the director's shots), teams, vehicles, drones, points, fights
 	protected bool m_bAutoOff;
 	protected float m_fClock;
 	protected int m_iLastClickMs = -10000;   // real time: the watch clock runs at the game's speed
 	protected bool m_bListening;
+	protected bool m_bWasFree;
+	protected bool m_bSettling;         // a tap waiting for the cursor to come to rest
+	protected int m_iClickX;
+	protected int m_iClickY;
+	protected int m_iSampleX;
+	protected int m_iSampleY;
 
 	static void Create()
 	{
@@ -115,7 +122,7 @@ class ZCR_WatchControls
 					b.m_wText.SetText("SHOW UI");
 			}
 		}
-		s_Instance.SetPadShown(s_Instance.m_bPadOpen);
+		s_Instance.Visibility();
 	}
 
 	static bool IsHost(MenuBase menu)
@@ -160,8 +167,47 @@ class ZCR_WatchControls
 		int nowMs = System.GetTickCount();
 		if (!s_Instance || nowMs - s_Instance.m_iLastClickMs < 500)
 			return;
+		// A tap still waiting: taken where the cursor rested last (this new click came before the cursor moved on).
+		if (s_Instance.m_bSettling)
+		{
+			s_Instance.m_bSettling = false;
+			GetGame().GetCallqueue().Remove(s_Instance.Settle);
+			s_Instance.Resolve(s_Instance.m_iSampleX, s_Instance.m_iSampleY);
+		}
 		s_Instance.m_iLastClickMs = nowMs;
-		GetGame().GetCallqueue().CallLater(s_Instance.Resolve, 120, false);
+		// Over Moonlight / Artemis the click reaches the game before the finger's position does (4 Nov - Martin: "buttons on
+		// Artemis are not responsive on first touch", "why do i have to tap two times in moonlight artemis to touch button"):
+		// the cursor was still where the last tap had been, so the tap was read there and lost; the second one was right.
+		// Now it is read once the cursor has come to rest: sampled every 0.1 s from 0.15 s, taken at the first still sample
+		// after 0.3 s (0.9 s at most). [ZCR][CAMUI] click from=... at=... ms=... says how far and how late it came.
+		int cx, cy;
+		WidgetManager.GetMousePos(cx, cy);
+		s_Instance.m_iClickX = cx;
+		s_Instance.m_iClickY = cy;
+		s_Instance.m_iSampleX = cx;
+		s_Instance.m_iSampleY = cy;
+		s_Instance.m_bSettling = true;
+		GetGame().GetCallqueue().CallLater(s_Instance.Settle, 150, false);
+	}
+
+	protected void Settle()
+	{
+		if (!m_bSettling)
+			return;
+		int x, y;
+		WidgetManager.GetMousePos(x, y);
+		int waited = System.GetTickCount() - m_iLastClickMs;
+		bool still = Math.AbsFloat(x - m_iSampleX) <= 2 && Math.AbsFloat(y - m_iSampleY) <= 2;
+		m_iSampleX = x;
+		m_iSampleY = y;
+		if ((!still || waited < 300) && waited < 900)
+		{
+			GetGame().GetCallqueue().CallLater(Settle, 100, false);
+			return;
+		}
+		m_bSettling = false;
+		Print(string.Format("[ZCR][CAMUI] click from=%1,%2 at=%3,%4 ms=%5", m_iClickX, m_iClickY, x, y, waited), LogLevel.NORMAL);
+		Resolve(x, y);
 	}
 
 	protected void OnMouseLeft(float value = 0, EActionTrigger reason = 0)
@@ -182,101 +228,89 @@ class ZCR_WatchControls
 			m_Handler = new ZCR_WatchTapHandler();
 			m_Catcher.AddHandler(m_Handler);
 		}
-		Add("PREV SHOT", "prev", 0, 0);
-		Add("NEXT SHOT", "next", 0, 1);
-		Add("PREV TEAM", "group-", 1, 0);
-		Add("NEXT TEAM", "group+", 1, 1);
-		Add("LOCK", "lock", 2, 0);
-		Add("ACTION", "action", 2, 1);
-		Add("CLOSER", "closer", 3, 0);
-		Add("WIDER", "wider", 3, 1);
-		Add("OVERVIEW", "overview", 4, 0);
-		Add("AUTO ON", "auto", 4, 1);
-		Add("PREV POINT", "point-", 5, 0);
-		Add("NEXT POINT", "point+", 5, 1);
-		Add("BOTH SIDES", "side", 6, 0);
-		Add("TEAMS", "kind", 6, 1);
-		Add("FREE LOOK", "free", 7, 0);
-		Add("REPORT", "report", 7, 1);
-		Add("DETAILS: OFF", "details", 8, 0);
-		Add("SPEED 3x", "speed", 8, 1);
-		// 4 Nov (Martin: "there should be button to hide those gui elements in the game so we can watch it nice"): every
-		// overlay off but this button (ZCR_Watch.ToggleHud); the lab app's camera bar does the same.
-		Add("HIDE UI", "ui", 0, 2);
-		// The camera pad (4 Nov - Martin: "do camera controller in game maybe for phone i could hide it or open it make it like
-		// rotation of camera and zoom i guess and wasd?", "something standard i dont know make it nice"): CAM PAD opens it -
-		// a move pad bottom left, a look pad bottom right, the other buttons out of the way - and closes it again.
-		Add("CAM PAD", "pad", 1, 2);
-		float px = 0.02;
-		float py = 0.70;
-		float pw = 0.062;
-		float ph = 0.075;
-		float pg = 0.006;
-		AddPad("FWD", "fwd", px + pw + pg, py);
-		AddPad("LEFT", "left", px, py + ph + pg);
-		AddPad("BACK", "back", px + pw + pg, py + ph + pg);
-		AddPad("RIGHT", "right", px + 2 * (pw + pg), py + ph + pg);
-		AddPad("UP", "up", px + 3 * (pw + pg) + pg, py);
-		AddPad("DOWN", "down", px + 3 * (pw + pg) + pg, py + ph + pg);
-		float rx = 0.98 - 3 * pw - 2 * pg;
-		AddPad("TILT UP", "tiltup", rx + pw + pg, py);
-		AddPad("TURN <", "turnl", rx, py + ph + pg);
-		AddPad("TILT DN", "tiltdn", rx + pw + pg, py + ph + pg);
-		AddPad("TURN >", "turnr", rx + 2 * (pw + pg), py + ph + pg);
-		AddPad("ZOOM +", "zin", rx, py);
-		AddPad("ZOOM -", "zout", rx + 2 * (pw + pg), py);
-		SetPadShown(false);
+		// Six buttons (4 Nov - Martin: "optimize number of buttons to basically next/prev type free and details").
+		Add("PREV", "step-", 0, 0);
+		Add("NEXT", "step+", 0, 1);
+		Add("TYPE: AUTO", "type", 1, 0);
+		Add("CAMERA: AUTO", "mode", 1, 1);
+		Add("DETAILS: OFF", "details", 2, 0);
+		Add("HIDE UI", "ui", 2, 1);
+		// The two sticks, on the right under the USSR panel (Martin: "two modes locked and free, in free you can do wasd in
+		// locked only rotation", "mimic two joysticks with +- also for zoom, all on right side"): the move stick (FREE only:
+		// forward, back, sideways, UP / DN) over the look stick (turn, tilt, ZOOM + / -; round what the camera shows, in FREE
+		// the view itself).
+		float sw = 0.05;
+		float sh = 0.068;
+		float sg = 0.006;
+		float c2 = 0.985 - sw;
+		float c1 = c2 - sw - sg;
+		float c0 = c1 - sw - sg;
+		float m0 = 0.50;
+		AddPad("^", "cam-fwd", c1, m0, true);
+		AddPad("<", "cam-left", c0, m0 + sh + sg, true);
+		AddPad(">", "cam-right", c2, m0 + sh + sg, true);
+		AddPad("v", "cam-back", c1, m0 + 2 * (sh + sg), true);
+		AddPad("UP", "cam-up", c2, m0, true);
+		AddPad("DN", "cam-down", c2, m0 + 2 * (sh + sg), true);
+		float l0 = 0.73;
+		AddPad("^", "look-tiltup", c1, l0, false);
+		AddPad("<", "look-turnl", c0, l0 + sh + sg, false);
+		AddPad(">", "look-turnr", c2, l0 + sh + sg, false);
+		AddPad("v", "look-tiltdn", c1, l0 + 2 * (sh + sg), false);
+		AddPad("+", "look-zin", c0, l0, false);
+		AddPad("-", "look-zout", c0, l0 + 2 * (sh + sg), false);
+		Visibility();
 		Labels();
 	}
 
-	protected bool m_bPadOpen;
 	protected bool m_bHudOn = true;
 
+	// The camera's mode: free (the watcher flies it), locked (on what it shows - a pick, a tap, LOCK), else auto.
+	protected string CameraMode()
+	{
+		if (ZCR_Watch.IsFree())
+			return "free";
+		if (m_bLocked || m_bAutoOff)
+			return "locked";
+		return "auto";
+	}
+
 	// A camera pad button at a screen spot (fractions of the screen).
-	protected void AddPad(string text, string cmd, float x0, float y0)
+	protected void AddPad(string text, string cmd, float x0, float y0, bool move)
 	{
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 		ZCR_WatchButton b = new ZCR_WatchButton();
-		b.m_sCmd = "cam-" + cmd;
+		b.m_sCmd = cmd;
 		b.m_bPad = true;
+		b.m_bMove = move;
 		b.m_wBack = ImageWidget.Cast(ws.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, new Color(0.05, 0.08, 0.12, 0.72), 1010, null));
 		b.m_wText = TextWidget.Cast(ws.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(Color.WHITE), 1011, null));
 		if (!b.m_wBack || !b.m_wText)
 			return;
 		FrameSlot.SetAnchorMin(b.m_wBack, x0, y0);
-		FrameSlot.SetAnchorMax(b.m_wBack, x0 + 0.062, y0 + 0.075);
+		FrameSlot.SetAnchorMax(b.m_wBack, x0 + 0.05, y0 + 0.068);
 		FrameSlot.SetOffsets(b.m_wBack, 0, 0, 0, 0);
-		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.006, y0 + 0.024);
-		FrameSlot.SetAnchorMax(b.m_wText, x0 + 0.062, y0 + 0.075);
+		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.017, y0 + 0.016);
+		FrameSlot.SetAnchorMax(b.m_wText, x0 + 0.05, y0 + 0.068);
 		FrameSlot.SetOffsets(b.m_wText, 0, 0, 0, 0);
 		b.m_wText.SetFont(FONT_BOLD);
-		b.m_wText.SetExactFontSize(17);
+		b.m_wText.SetExactFontSize(24);
 		b.m_wText.SetText(text);
 		m_aButtons.Insert(b);
 	}
 
-	// The pad open: its buttons in, the others (but HIDE UI and CAM PAD) out of the way; closed: the other way round.
-	protected void SetPadShown(bool open)
+	// What shows: every button while the overlays are on (hidden: HIDE UI alone, as SHOW UI), the move stick in FREE only.
+	protected void Visibility()
 	{
-		m_bPadOpen = open;
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
-			bool show = m_bHudOn && (b.m_bPad == open);
-			if (b.m_sCmd == "ui" || b.m_sCmd == "pad")
-				show = true;
-			if (b.m_sCmd == "ui" && !m_bHudOn)
-				show = true;
-			if (b.m_sCmd == "pad" && !m_bHudOn)
+			bool show = m_bHudOn;
+			if (b.m_bMove && !ZCR_Watch.IsFree())
 				show = false;
+			if (b.m_sCmd == "ui")
+				show = true;
 			b.m_wBack.SetVisible(show);
 			b.m_wText.SetVisible(show);
-			if (b.m_sCmd == "pad")
-			{
-				if (open)
-					b.m_wText.SetText("CLOSE PAD");
-				else
-					b.m_wText.SetText("CAM PAD");
-			}
 		}
 	}
 
@@ -307,62 +341,42 @@ class ZCR_WatchControls
 	{
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
-			if (b.m_sCmd == "lock")
-			{
-				if (m_bLocked)
-					b.m_wText.SetText("UNLOCK");
-				else
-					b.m_wText.SetText("LOCK");
-			}
-			else if (b.m_sCmd == "auto")
-			{
-				if (m_bAutoOff)
-					b.m_wText.SetText("AUTO OFF");
-				else
-					b.m_wText.SetText("AUTO ON");
-			}
-			else if (b.m_sCmd == "side")
-			{
-				if (m_sFocus == "US")
-					b.m_wText.SetText("US ONLY");
-				else if (m_sFocus == "USSR")
-					b.m_wText.SetText("USSR ONLY");
-				else
-					b.m_wText.SetText("BOTH SIDES");
-			}
-			else if (b.m_sCmd == "details")
+			if (b.m_sCmd == "details")
 			{
 				if (ZCR_Watch.Details())
 					b.m_wText.SetText("DETAILS: ON");
 				else
 					b.m_wText.SetText("DETAILS: OFF");
 			}
-			else if (b.m_sCmd == "free")
+			else if (b.m_sCmd == "mode")
 			{
-				if (ZCR_Watch.IsFree())
-					b.m_wText.SetText("FREE: ON");
-				else
-					b.m_wText.SetText("FREE LOOK");
+				string modeText = CameraMode();
+				modeText.ToUpper();
+				b.m_wText.SetText("CAMERA: " + modeText);
 			}
-			else if (b.m_sCmd == "speed")
-				b.m_wText.SetText(ZCR_Watch.SpeedLabel());
-			else if (b.m_sCmd == "kind")
+			else if (b.m_sCmd == "type")
 			{
-				string kind = m_sKind;
-				kind.ToUpper();
-				b.m_wText.SetText(kind);
+				string typeText = m_sType;
+				typeText.ToUpper();
+				b.m_wText.SetText("TYPE: " + typeText);
 			}
-			else if (b.m_sCmd == "group-" || b.m_sCmd == "group+")
+			else if (b.m_sCmd == "step-" || b.m_sCmd == "step+")
 			{
-				string what = "TEAM";
-				if (m_sKind == "vehicles")
-					what = "VEHICLE";
-				else if (m_sKind == "drones")
-					what = "DRONE";
-				if (b.m_sCmd == "group-")
-					b.m_wText.SetText("PREV " + what);
+				string stepWhat = "SHOT";
+				if (m_sType == "teams")
+					stepWhat = "TEAM";
+				else if (m_sType == "vehicles")
+					stepWhat = "VEHICLE";
+				else if (m_sType == "drones")
+					stepWhat = "DRONE";
+				else if (m_sType == "points")
+					stepWhat = "POINT";
+				else if (m_sType == "fights")
+					stepWhat = "FIGHT";
+				if (b.m_sCmd == "step-")
+					b.m_wText.SetText("PREV " + stepWhat);
 				else
-					b.m_wText.SetText("NEXT " + what);
+					b.m_wText.SetText("NEXT " + stepWhat);
 			}
 		}
 		Colours();
@@ -373,29 +387,26 @@ class ZCR_WatchControls
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
 			Color c = new Color(0, 0, 0, 0.6);
+			if (b.m_bPad)
+				c = new Color(0.05, 0.08, 0.12, 0.72);
 			if (m_fClock < b.m_fFlashUntil)
 				c = new Color(1, 1, 1, 0.7);              // the tap was taken
-			else if (b.m_sCmd == "lock" && m_bLocked)
+			else if (b.m_sCmd == "mode" && CameraMode() == "auto")
+				c = new Color(0.15, 0.55, 0.22, 0.8);
+			else if (b.m_sCmd == "mode" && CameraMode() == "locked")
 				c = new Color(0.75, 0.15, 0.12, 0.8);
-			else if (b.m_sCmd == "auto")
-			{
-				if (m_bAutoOff)
-					c = new Color(0.75, 0.15, 0.12, 0.8);
-				else
-					c = new Color(0.15, 0.55, 0.22, 0.8);
-			}
-			else if (b.m_sCmd == "side" && m_sFocus == "US")
+			else if (b.m_sCmd == "mode" && CameraMode() == "free")
 				c = new Color(0.18, 0.35, 0.75, 0.85);
-			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
-				c = new Color(0.7, 0.18, 0.15, 0.85);
 			else if (b.m_sCmd == "details" && ZCR_Watch.Details())
 				c = new Color(0.15, 0.55, 0.22, 0.8);
-			else if (b.m_sCmd == "free" && ZCR_Watch.IsFree())
-				c = new Color(0.15, 0.55, 0.22, 0.8);
-			else if (b.m_sCmd == "kind" && m_sKind == "vehicles")
+			else if (b.m_sCmd == "type" && m_sType == "vehicles")
 				c = new Color(0.55, 0.42, 0.12, 0.85);
-			else if (b.m_sCmd == "kind" && m_sKind == "drones")
+			else if (b.m_sCmd == "type" && m_sType == "drones")
 				c = new Color(0.45, 0.2, 0.6, 0.85);
+			else if (b.m_sCmd == "type" && m_sType == "points")
+				c = new Color(0.12, 0.45, 0.45, 0.85);
+			else if (b.m_sCmd == "type" && m_sType == "fights")
+				c = new Color(0.7, 0.3, 0.1, 0.85);
 			b.m_wBack.SetColor(c);
 		}
 	}
@@ -409,14 +420,20 @@ class ZCR_WatchControls
 			GetGame().GetInputManager().AddActionListener("MouseLeft", EActionTrigger.UP, OnMouseLeft);
 			m_bListening = true;
 		}
+		// Free look switched on or off elsewhere too (a tap on the picture, AUTO from the lab app): the move stick follows.
+		bool free = ZCR_Watch.IsFree();
+		if (free != m_bWasFree)
+		{
+			m_bWasFree = free;
+			Visibility();
+			Labels();
+		}
 		Colours();
 	}
 
-	// Where the tap really was: a button, else the picture.
-	protected void Resolve()
+	// Where the tap really was (x, y: the cursor at rest): a button, else the picture.
+	protected void Resolve(int x, int y)
 	{
-		int x, y;
-		WidgetManager.GetMousePos(x, y);
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
 			if (!b.m_wBack.IsVisible())
@@ -424,78 +441,107 @@ class ZCR_WatchControls
 			float bx, by, bw, bh;
 			b.m_wBack.GetScreenPos(bx, by);
 			b.m_wBack.GetScreenSize(bw, bh);
-			if (x >= bx && x <= bx + bw && y >= by && y <= by + bh)
+			if (x < bx || x > bx + bw || y < by || y > by + bh)
+				continue;
+			b.m_fFlashUntil = m_fClock + 0.25;
+			string cmd = b.m_sCmd;
+			if (cmd.StartsWith("cam-"))
 			{
-				b.m_fFlashUntil = m_fClock + 0.25;
-				if (b.m_sCmd == "pad")
+				ZCR_Watch.Nudge(cmd.Substring(4, cmd.Length() - 4));
+				return;
+			}
+			if (cmd.StartsWith("look-"))
+			{
+				ZCR_Watch.Look(cmd.Substring(5, cmd.Length() - 5));
+				return;
+			}
+			if (cmd == "ui")
+			{
+				ZCR_Watch.ToggleHud();
+				return;
+			}
+			if (cmd == "details")
+			{
+				ZCR_Watch.ToggleDetails();
+				Labels();
+				return;
+			}
+			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look.
+			if (cmd == "mode")
+			{
+				string mode = CameraMode();
+				if (mode == "free")
+					ZCR_Watch.SetFree(false);
+				else if (mode == "locked")
+					ZCR_Watch.SetFree(true);
+				else
 				{
-					SetPadShown(!m_bPadOpen);
-					return;
+					Send("lock", vector.Zero);
+					m_bLocked = true;
+					m_bAutoOff = true;
 				}
-				if (b.m_sCmd.StartsWith("cam-"))
-				{
-					string step = b.m_sCmd.Substring(4, b.m_sCmd.Length() - 4);
-					ZCR_Watch.Nudge(step);
-					return;
-				}
-				if (b.m_sCmd == "lock")
-					m_bLocked = !m_bLocked;
-				if (b.m_sCmd == "auto")
+				Visibility();
+				Labels();
+				return;
+			}
+			// What is picked is shown, so a pick ends free look.
+			if (ZCR_Watch.IsFree())
+				ZCR_Watch.SetFree(false);
+			// TYPE: auto -> teams -> vehicles -> drones -> points -> fights; each tap shows one of the new kind at once
+			// (AUTO gives the camera back to the director).
+			if (cmd == "type")
+			{
+				if (m_sType == "auto")
+					m_sType = "teams";
+				else if (m_sType == "teams")
+					m_sType = "vehicles";
+				else if (m_sType == "vehicles")
+					m_sType = "drones";
+				else if (m_sType == "drones")
+					m_sType = "points";
+				else if (m_sType == "points")
+					m_sType = "fights";
+				else
+					m_sType = "auto";
+				if (m_sType == "auto")
 				{
 					m_bLocked = false;
 					m_bAutoOff = false;
 					ZCR_Watch.ResetOrbit();
+					Send("auto", vector.Zero);
 				}
-				// One side or both (Martin: "a button to switch between the factions"): BOTH -> US -> USSR.
-				string cmd = b.m_sCmd;
-				if (cmd == "side")
+				else if (m_sType == "points")
+					Send("point+", vector.Zero);
+				else if (m_sType == "fights")
+					Send("action", vector.Zero);
+				else
 				{
-					if (m_sFocus.IsEmpty())
-						m_sFocus = "US";
-					else if (m_sFocus == "US")
-						m_sFocus = "USSR";
-					else
-						m_sFocus = "";
-					cmd = "side-" + m_sFocus;
-				}
-				// DETAILS: the full label texts on this screen (short ones otherwise).
-				if (cmd == "details")
-				{
-					ZCR_Watch.ToggleDetails();
-					Labels();
-					return;
-				}
-				// Free look: the camera is the watcher's (on this machine only; the director keeps going).
-				if (cmd == "free")
-				{
-					ZCR_Watch.SetFree(!ZCR_Watch.IsFree());
-					Labels();
-					return;
-				}
-				// The game speed from the screen (Martin: "can I set the speed? maybe it affects the crazy
-				// driving"): 3x -> 1x -> 2x -> 3x; the game's own time multiplier, solo matches only.
-				if (cmd == "speed")
-				{
-					ZCR_Watch.CycleSpeed();
-					Labels();
-					return;
-				}
-				// What PREV / NEXT steps through (Martin: "switch between infantry groups, vehicles and
-				// drones - what if I want to follow drones"): TEAMS -> VEHICLES -> DRONES.
-				if (cmd == "kind")
-				{
-					if (m_sKind == "teams")
-						m_sKind = "vehicles";
-					else if (m_sKind == "vehicles")
-						m_sKind = "drones";
-					else
-						m_sKind = "teams";
-					cmd = "kind-" + m_sKind;
+					m_sKind = m_sType;
+					Send("kind-" + m_sType, vector.Zero);
 				}
 				Labels();
-				Send(cmd, vector.Zero);
 				return;
 			}
+			// PREV / NEXT: through what TYPE says.
+			if (cmd == "step-" || cmd == "step+")
+			{
+				bool back = cmd == "step-";
+				if (m_sType == "auto")
+					cmd = "next";
+				else if (m_sType == "points")
+					cmd = "point+";
+				else if (m_sType == "fights")
+					cmd = "action";
+				else
+					cmd = "group+";
+				if (back && cmd == "next")
+					cmd = "prev";
+				else if (back && cmd != "action")
+					cmd.Replace("+", "-");
+			}
+			Labels();
+			Send(cmd, vector.Zero);
+			return;
 		}
 		// The picture: the ground under the tap.
 		BaseWorld world = GetGame().GetWorld();

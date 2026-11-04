@@ -1099,7 +1099,8 @@ class ZCR_Director
 	// basically cannot use [the buttons] because of moonlight artemis free mode rotations", "there should be button to hide
 	// those gui elements in the game so we can watch it nice"): lab/app/server.py writes $profile:zcr/camera.txt -
 	// "<n> <cmd> [args]", n counting up - and the director runs each new one: the buttons' commands (auto, lock, next, prev,
-	// closer, wider, action, overview, point+, point-, report), ui (hide / show every overlay), follow <side> <team id>
+	// closer, wider, action, overview, point+, point-, report, side-US / side-USSR / side- for both), ui (hide / show every
+	// overlay), speed (the game speed, 3x -> 1x -> 2x), follow <side> <team id>
 	// (the camera on that team), goto <x> <z> (flies there).
 	protected int m_iLabCamSeq = -1;
 
@@ -1125,6 +1126,12 @@ class ZCR_Director
 		if (cmd == "ui")
 		{
 			ZCR_Watch.ToggleHud();
+			return;
+		}
+		// The game speed (4 Nov: off the in-game buttons, which keep six): 3x -> 1x -> 2x -> 3x.
+		if (cmd == "speed")
+		{
+			ZCR_Watch.CycleSpeed();
 			return;
 		}
 		if (cmd == "goto" && v.Count() >= 4)

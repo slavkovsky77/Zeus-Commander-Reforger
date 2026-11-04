@@ -133,6 +133,7 @@ class ZCR_Watch
 	protected bool m_bFree;
 	protected float m_fOrbitYaw;          // the watcher's turn round the shot (right mouse), 0 = from the south
 	protected float m_fOrbitLift = 1;     // and up or down (height factor)
+	protected float m_fOrbitZoom = 1;     // and nearer or farther (distance factor; the camera pad's / gamepad's zoom, 4 Nov)
 	protected int m_iOrbitX = -1;
 	protected int m_iOrbitY = -1;
 
@@ -143,6 +144,7 @@ class ZCR_Watch
 			return;
 		s_Instance.m_fOrbitYaw = 0;
 		s_Instance.m_fOrbitLift = 1;
+		s_Instance.m_fOrbitZoom = 1;
 	}
 	protected vector m_vFreePos;
 	protected float m_fYaw;
@@ -188,6 +190,32 @@ class ZCR_Watch
 	// like rotation of camera and zoom i guess and wasd?", "something standard"): one step a tap in free look, starting from
 	// the view on screen - move 20 m, up / down 8 m, turn 20 degrees, tilt 10, zoom 40 m along the view. AUTO gives the
 	// camera back to the director.
+	// The look stick and the zoom (4 Nov - Martin: "two modes locked and free, in free you can do wasd in locked only
+	// rotation", "mimic two joysticks with +- also for zoom, all on right side"): not in free look, they turn the camera
+	// round what it shows (20 degrees a tap), lift it and bring it nearer or farther; in free look as below.
+	static void Look(string what)
+	{
+		if (!s_Instance || !s_Instance.m_Camera)
+			return;
+		if (s_Instance.m_bFree)
+		{
+			Nudge(what);
+			return;
+		}
+		if (what == "turnl")
+			s_Instance.m_fOrbitYaw = s_Instance.m_fOrbitYaw - 20;
+		else if (what == "turnr")
+			s_Instance.m_fOrbitYaw = s_Instance.m_fOrbitYaw + 20;
+		else if (what == "tiltup")
+			s_Instance.m_fOrbitLift = Math.Clamp(s_Instance.m_fOrbitLift + 0.2, 0.2, 3);
+		else if (what == "tiltdn")
+			s_Instance.m_fOrbitLift = Math.Clamp(s_Instance.m_fOrbitLift - 0.2, 0.2, 3);
+		else if (what == "zin")
+			s_Instance.m_fOrbitZoom = Math.Clamp(s_Instance.m_fOrbitZoom * 0.75, 0.3, 3);
+		else if (what == "zout")
+			s_Instance.m_fOrbitZoom = Math.Clamp(s_Instance.m_fOrbitZoom / 0.75, 0.3, 3);
+	}
+
 	static void Nudge(string what)
 	{
 		if (!s_Instance || !s_Instance.m_Camera)
@@ -224,7 +252,7 @@ class ZCR_Watch
 		else if (what == "zout")
 			s_Instance.m_vFreePos = s_Instance.m_vFreePos - view * 40;
 		if (s_Instance.m_Caption)
-			s_Instance.m_Caption.SetText("CAMERA PAD - a tap a step; AUTO ON gives the camera back to the director");
+			s_Instance.m_Caption.SetText("FREE CAMERA - the upper stick moves, the lower one looks; CAMERA gives it back");
 	}
 
 	// The gamepad's toggle-UI button (the Game Master camera's ManualCameraToggleUI) hides / shows the overlays.
@@ -313,6 +341,13 @@ class ZCR_Watch
 		{
 			m_fYaw += im.GetActionValue("ManualCameraRotateYaw") * 90 * dt;
 			m_fPitch = Math.Clamp(m_fPitch + im.GetActionValue("ManualCameraRotatePitch") * 60 * dt, -85, 85);
+			float zoomAxis = im.GetActionValue("ManualCameraZoom");
+			if (zoomAxis != 0)
+			{
+				float zy = m_fYaw * Math.DEG2RAD;
+				float zp = m_fPitch * Math.DEG2RAD;
+				m_vFreePos = m_vFreePos + Vector(Math.Sin(zy) * Math.Cos(zp), Math.Sin(zp), Math.Cos(zy) * Math.Cos(zp)) * zoomAxis * 40 * dt;
+			}
 		}
 		GamepadUi(im);
 		float y = m_fYaw * Math.DEG2RAD;
@@ -679,6 +714,7 @@ class ZCR_Watch
 			float orbitDt = 1.0 / 60;
 			m_fOrbitYaw += orbitIm.GetActionValue("ManualCameraRotateYaw") * 90 * orbitDt;
 			m_fOrbitLift = Math.Clamp(m_fOrbitLift - orbitIm.GetActionValue("ManualCameraRotatePitch") * 0.6 * orbitDt, 0.2, 3);
+			m_fOrbitZoom = Math.Clamp(m_fOrbitZoom - orbitIm.GetActionValue("ManualCameraZoom") * 0.8 * orbitDt, 0.3, 3);
 		}
 		GamepadUi(orbitIm);
 		int mx, my;
@@ -695,7 +731,8 @@ class ZCR_Watch
 		}
 		else
 			m_iOrbitX = -1;
-		height = height * m_fOrbitLift;
+		height = height * m_fOrbitLift * m_fOrbitZoom;
+		back = back * m_fOrbitZoom;
 		float oy = m_fOrbitYaw * Math.DEG2RAD;
 		vector eye = Vector(spot[0] - Math.Sin(oy) * back, ground + height, spot[2] - Math.Cos(oy) * back);
 		float eyeGround = world.GetSurfaceY(eye[0], eye[2]);
