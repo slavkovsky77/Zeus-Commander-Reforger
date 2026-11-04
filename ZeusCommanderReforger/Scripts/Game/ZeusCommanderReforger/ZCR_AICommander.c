@@ -30,6 +30,7 @@ modded class AICF_AICommander
 			ZCR_DroneThreat.Start();     // soldiers react to enemy drones (both sides)
 			ZCR_Danger.Start();       // danger awareness: no standing in danger (-zcrNoDanger)
 			ZCR_PointSeize.Start();   // the one-point sub-lab: the point is taken by being there, alike for both sides
+			ZCR_HouseHold.Start();    // ... and its houses taken first (-zcrNoFarmHouses)
 			ZCR_AntiDrone.Start();    // small-arms fire at enemy drones (-zcrNoAntiDrone)
 			ZCR_Driving.Start();      // AI drivers' cruise speed (-zcrCruiseSpeed, km/h) and [ZCR][DRIVE]
 			ZCR_Logistics.Log();      // [ZCR][SUPPLY] each base's stock and storage, every minute

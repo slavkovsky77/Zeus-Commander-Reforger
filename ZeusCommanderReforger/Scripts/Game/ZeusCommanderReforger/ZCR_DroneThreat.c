@@ -698,6 +698,12 @@ class ZCR_DroneThreat
 		return false;
 	}
 
+	// Inside a building at p (a low roof, walls on 5 of 8 sides) - for ZCR_HouseHold.
+	static bool IsInside(vector p, IEntity self)
+	{
+		return Inside(GetGame().GetWorld(), p, self);
+	}
+
 	protected static bool Inside(BaseWorld world, vector p, IEntity self)
 	{
 		if (!s_Trace)

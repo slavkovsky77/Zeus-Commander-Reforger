@@ -73,16 +73,36 @@ class ZCR_LiveMap
 				// The group's whole waypoint queue (3 Nov, Martin: "in commander lab map when i click unit I should see its way
 				// points !!"), for the map's click-a-team view.
 				string teamWps;
+				// ... and what each is (4 Nov, Martin: "we could have type of waypoint and status maybe like next or whatever like
+				// more details when I click on them"): kind/storm level/completion radius m, e.g. move/25/20;search/0/20.
+				string teamWpKinds;
 				array<AIWaypoint> teamQueue = {};
 				slot.GetGroup().GetWaypoints(teamQueue);
 				foreach (AIWaypoint qw : teamQueue)
 				{
-					if (qw && teamWps.Length() < 400)
-						teamWps += string.Format("%1,%2;", Math.Round(qw.GetOrigin()[0]), Math.Round(qw.GetOrigin()[2]));
+					if (!qw || teamWps.Length() >= 400)
+						continue;
+					teamWps += string.Format("%1,%2;", Math.Round(qw.GetOrigin()[0]), Math.Round(qw.GetOrigin()[2]));
+					string qwKind = "move";
+					if (SCR_SearchAndDestroyWaypoint.Cast(qw))
+						qwKind = "search";
+					else if (SCR_DefendWaypoint.Cast(qw))
+						qwKind = "defend";
+					else if (SCR_SmartActionWaypoint.Cast(qw))
+						qwKind = "action";
+					else if (SCR_TimedWaypoint.Cast(qw))
+						qwKind = "hold";
+					float qwLevel;
+					SCR_AIWaypoint qwScripted = SCR_AIWaypoint.Cast(qw);
+					if (qwScripted)
+						qwLevel = qwScripted.GetPriorityLevel();
+					teamWpKinds += string.Format("%1/%2/%3;", qwKind, Math.Round(qwLevel), Math.Round(qw.GetCompletionRadius()));
 				}
 				if (teamWps.IsEmpty())
 					teamWps = "-";
-				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4", posture, wp, teamWps, Math.Round(wpLevel));
+				if (teamWpKinds.IsEmpty())
+					teamWpKinds = "-";
+				string tail = string.Format(" posture=%1 wp=%2 wps=%3 wplevel=%4 wpk=%5", posture, wp, teamWps, Math.Round(wpLevel), teamWpKinds);
 				// Print of a plain variable writes "string line = '...'" (28 Oct); a Format call prints the text alone.
 				Print(string.Format("%1%2", head, tail), LogLevel.NORMAL);
 			}
