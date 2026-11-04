@@ -351,7 +351,7 @@
         for (const [s, zones] of Object.entries(d.danger || {})) {
           const c = col[s] || css("--muted");
           for (const z of zones || []) {
-            const t = `<b>${esc(s)} danger zone ${esc(z.id || "")}</b><br>${z.men} soldiers${z.vehicles ? ` and ${z.vehicles} vehicles` : ""} lost here, the last ${Math.max(0, Math.floor((z.newest_s || 0) / 60))} min ago - its general keeps away`;
+            const t = `<b>${esc(s)} danger zone ${esc(z.id || "")}</b><br>${z.men} soldiers${z.vehicles ? ` and ${z.vehicles} vehicles` : ""} lost here, the last ${Math.max(0, Math.floor((z.newest_s || 0) / 60))} min ago - a risk its general weighs, not a wall`;
             L.circle([z.z, z.x], { radius: 70, color: c, weight: 3, dashArray: "4 4", fillColor: c, fillOpacity: .12, bubblingMouseEvents: false }).bindTooltip(t, tip).addTo(g.danger);
             L.polyline([[z.z - 35, z.x - 35], [z.z + 35, z.x + 35]], { color: c, weight: 2.5, opacity: .85, interactive: false }).addTo(g.danger);
             L.polyline([[z.z - 35, z.x + 35], [z.z + 35, z.x - 35]], { color: c, weight: 2.5, opacity: .85, interactive: false }).addTo(g.danger);
@@ -652,7 +652,7 @@
         <div class="it">${sw(`<path d="M2 10h17" style="stroke:var(--us);stroke-width:5"/><path d="M18 3l10 7-10 7z" style="fill:var(--us);stroke:#fff"/>`)}<span>A side's attack; thick, labelled: its main effort ("4/28 there" = soldiers within 300 m)</span></div>
         <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:none;stroke:var(--ussr);stroke-width:2;stroke-dasharray:4 3"/>`)}<span>A base the side defends</span></div>
         <div class="it">${sw(`<path d="M2 15c8-2 14-10 26-8" style="fill:none;stroke:#fff;stroke-width:6"/><path d="M2 15c8-2 14-10 26-8" style="fill:none;stroke:var(--us);stroke-width:3"/>`)}<span>A line of attack through cover; ring: where the teams get out; black bar: the hold line</span></div>
-        <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:var(--ussr);fill-opacity:.15;stroke:var(--ussr);stroke-width:2;stroke-dasharray:3 3"/><path d="M10 5l10 10M20 5L10 15" style="stroke:var(--ussr);stroke-width:2"/>`)}<span>Danger zone: the side lost soldiers or vehicles here lately - its general keeps away</span></div>
+        <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:var(--ussr);fill-opacity:.15;stroke:var(--ussr);stroke-width:2;stroke-dasharray:3 3"/><path d="M10 5l10 10M20 5L10 15" style="stroke:var(--ussr);stroke-width:2"/>`)}<span>Danger zone: the side lost soldiers or vehicles here lately - a risk its general weighs, not a wall</span></div>
         <h3>The clicked team</h3>
         <div class="it"><span><span class="wp next" style="display:inline-grid;width:24px;height:24px">3</span></span><span>Its NEXT waypoint; dark: the ones after; grey ✓: passed</span></div>
         <div class="it"><span><span class="wp game cur" style="display:inline-grid">1</span></span><span>The game's own waypoints (white dashes): move, search and destroy, defend, hold, storm</span></div>

@@ -70,6 +70,12 @@ DANGER_S = 600
 DANGER_GROUP_M = 80
 DANGER_R_M = 70
 DANGER_COST = 2.0       # per unit of faded weight, on top of the cell cost
+# A risk, not a wall (5 Nov - Martin, watching: "general keeps them away but should it really be like that? maybe it should be
+# just danger risk, sometimes they probably have to go through killzone anyway"): the weight per cell is capped at DANGER_CAP
+# (20 losses at the town's edge had made it 40x dearer - every way in a wall), and none counts within DANGER_FREE_M of the
+# objective - the fight is there, the teams must go in.
+DANGER_CAP = 1.5
+DANGER_FREE_M = 150
 THREAT_CAP = 3.0
 NO_COVER_COST = 0.6     # ... more with no roof, canopy or dense trees within COVER_REACH_M (drones)
 COVER_REACH_M = 40
@@ -538,6 +544,8 @@ class Planner:
                 continue
             r2 = (g.X - x) ** 2 + (g.Z - z) ** 2
             D += np.where(r2 <= DANGER_R_M ** 2, w, 0.0).astype(np.float32)
+        D = np.minimum(D, DANGER_CAP)
+        D[g.robj <= DANGER_FREE_M] = 0
         return D
 
     @staticmethod
@@ -1195,7 +1203,8 @@ class Commander:
         zones = pic.get("zones") or []
         if zones:
             lines += ["", f"Danger zones - where your side lost soldiers or vehicles in the last {DANGER_S // 60} minutes (drones, mines, "
-                      "fire; the enemy is likely still watching them; the routes and drives listed avoid them where they can):"]
+                      "fire; the enemy is likely still watching them). A risk to weigh, not a wall: the routes listed go round them when "
+                      "that costs little, and through them when it's the way in - then fast and in cover:"]
             for zn in zones:
                 lines.append(f"  {zn['id']}: {zn['from_obj_m']} m {zn['dir']} of Farm - {zn['men']} soldiers and {zn['vehicles']} vehicles lost, "
                              f"the last {zn['newest_s'] // 60} min {zn['newest_s'] % 60:02d} s ago")
@@ -1238,8 +1247,9 @@ class Commander:
                   "and never stop in the open (a team lying in a field is what an FPV kills) - they stop ~15 s in cover at each tree "
                   "line's edge and go into the buildings on their way; choose routes with short open "
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
-                  "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
-                  "next team dies the same way - pick another drop point or route unless there is no other way in."]
+                  "teams in cover for a joint push; weigh the danger zones - where you just lost men or vehicles the next team may "
+                  "die the same way, so take another drop point or route when one is about as good, but don't give up the attack "
+                  "for them: sometimes the way in runs through a killzone, then go through it fast, in cover, with several teams."]
         if pic.get("armour"):
             kinds = {"LAV25": "LAV-25 APC (25 mm autocannon and MG)", "BTR70": "BTR-70 APC (14.5 mm HMG and MG)",
                      "M2A2": "M2A2 Bradley IFV", "BMP": "BMP IFV", "M1A1": "M1A1 tank", "T72": "T-72 tank"}

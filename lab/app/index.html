@@ -862,7 +862,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
         for (const [s, zones] of Object.entries(d.danger)) {
           const c = side[s] || this.css("--muted");
           for (const zn of zones || []) {
-            const tip = `${esc(s)} danger zone ${esc(zn.id)}: ${zn.men} soldiers and ${zn.vehicles} vehicles lost here, the last ${Math.floor(zn.newest_s / 60)} min ago - its general keeps away`;
+            const tip = `${esc(s)} danger zone ${esc(zn.id)}: ${zn.men} soldiers and ${zn.vehicles} vehicles lost here, the last ${Math.floor(zn.newest_s / 60)} min ago - a risk its general weighs, not a wall`;
             extra.push(L.circle([zn.z, zn.x], { radius: 70, color: c, weight: 3, dashArray: "4 4", fillColor: c, fillOpacity: .12 }).bindTooltip(tip));
             extra.push(L.polyline([[zn.z - 35, zn.x - 35], [zn.z + 35, zn.x + 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
             extra.push(L.polyline([[zn.z - 35, zn.x + 35], [zn.z + 35, zn.x - 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
