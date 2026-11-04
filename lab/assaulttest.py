@@ -190,7 +190,9 @@ VARIANTS["farm-now-staymounted-wave"] = (VARIANTS["farm-now-staymounted"][0] + "
 # plan file, the second wave on, riders stay mounted to the drop point.
 VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrRideStayMounted -aicfZcrSecondWave 1").replace(" -aicfNoHiddenSeat", ""),
                            "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
-VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR",
+# -fpvaiKeepStations (4 Nov night): both crashes of the watched town battles came 1-4 s after the FPV mod deleted a used-up
+# drone station - the empty stations stay, to see whether the crashes go.
+VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR -fpvaiKeepStations",
                            "farm-brains for the battle of a city: Gemini commands both sides, no stored plans, the second wave - Farm a Soviet base")
 VARIANTS["town-vs-rules"] = (VARIANTS["town-brains"][0],
                              "the battle of the city, Gemini commands one side (--live-side: harbour or south), the code's rules the other - same routes, drops, danger zones")
