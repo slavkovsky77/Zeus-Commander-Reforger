@@ -502,7 +502,8 @@ class ZCR_Drones
 	// Drones that stopped (5 Nov - Martin, watching: "for some reason now there are 0 drones"): a drone that hasn't moved 2 m in
 	// STALE_S is not flying any more (lost by the drone mod on a roof or a tree, or frozen far from the watch camera) but it
 	// held its team's launch slot for good - the watched battle of 00:08: 6 'in the air' a side, 0 spotted, no launch for the
-	// last 9 minutes. It leaves the count (the entity stays; the drone mod may still hold it). [ZCR][DRONES] ... stale.
+	// last 9 minutes. It leaves the count and is brought down like a drone shot down (Martin: "when they're stuck we should do
+	// something about"): it falls, its team's slot free for a new launch. [ZCR][DRONES] ... stale.
 	static const int STALE_S = 90;
 	protected static ref map<IEntity, vector> s_mDronePos = new map<IEntity, vector>();
 	protected static ref map<IEntity, int> s_mDroneMovedAt = new map<IEntity, int>();
@@ -531,6 +532,7 @@ class ZCR_Drones
 			s_mDronePos.Remove(d);
 			s_mDroneMovedAt.Remove(d);
 			s_mDroneTeam.Remove(d);
+			ZCR_AntiDrone.Destroy(d, "stuck");
 		}
 	}
 

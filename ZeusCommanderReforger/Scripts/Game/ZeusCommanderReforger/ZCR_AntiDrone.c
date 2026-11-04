@@ -295,18 +295,19 @@ class ZCR_AntiDrone
 		return f >= 0.97 || (m_Trace.TraceEnt && m_Trace.TraceEnt.GetRootParent() == drone);
 	}
 
-	// Brought down: its damage component destroys it (the drone's own code sees it), else it is removed.
-	protected static void Destroy(IEntity drone)
+	// Brought down: its damage component destroys it (the drone's own code sees it), else it is removed. why: shot_down, or
+	// stuck (ZCR_Drones.Sweep - a drone that stopped in the air).
+	static void Destroy(IEntity drone, string why = "shot_down")
 	{
 		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(drone.FindComponent(SCR_DamageManagerComponent));
 		if (damage && !damage.IsDestroyed())
 		{
-			ZCR_Trace.Ent("destroy", drone, "shot_down");
+			ZCR_Trace.Ent("destroy", drone, why);
 			damage.SetHealthScaled(0);
 			if (damage.IsDestroyed())
 				return;
 		}
-		ZCR_Trace.Ent("delete", drone, "shot_down");
+		ZCR_Trace.Ent("delete", drone, why);
 		RplComponent.DeleteRplEntity(drone, false);
 	}
 }
