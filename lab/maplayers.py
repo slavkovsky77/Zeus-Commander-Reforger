@@ -437,12 +437,13 @@ def live_plans(run: Path) -> tuple:
     return list(groups.values()), intents, zones
 
 
-def live(map_slug: str, max_age_s: float = 90, scan: int = 15) -> dict:
+def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -> dict:
     """The running game on this map (its log written in the last 90 s): the last [ZCR][LIVE] round - teams, supply trucks,
     test vans - with each van's planned route and the game's current path (lab app /api/map/live).
     max_age_s/scan larger (the /v2 map, 4 Nov): the newest game on this map even when it has ended - its last round, with
-    live=False - so the map shows the last battle rather than an empty screen between battles."""
-    runs = sorted((r for r in RUNS.iterdir() if r.is_dir()), key=run_time, reverse=True)[:scan]
+    live=False - so the map shows the last battle rather than an empty screen between battles. only: that run alone (the
+    /v2 map picks the battle itself: a watched one first, never a compile check)."""
+    runs = sorted((r for r in RUNS.iterdir() if r.is_dir() and (not only or r.name == only)), key=run_time, reverse=True)[:scan]
     for run in runs:
         logs = sorted(run.glob("logs/*/console.log"))
         if not logs or time.time() - logs[-1].stat().st_mtime > max_age_s:

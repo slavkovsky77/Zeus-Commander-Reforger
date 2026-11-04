@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#18201e">
+<title>Commander Lab</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%232c5a86%22/%3E%3Cpath d=%22M3 11l4-6 3 4 3-3%22 stroke=%22white%22 stroke-width=%221.6%22 fill=%22none%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/v2.css">
+</head>
+<body>
+<!-- Commander Lab v2 (4 Nov 2026): the three things Martin uses - the live map, progress as training curves, his remarks
+     with their replies. Everything else stays on the old page (More). -->
+<header class="top">
+  <nav class="views" aria-label="Views">
+    <a href="#map" data-view="map">Map</a>
+    <a href="#progress" data-view="progress">Progress</a>
+    <a href="#remarks" data-view="remarks">Remarks<span class="badge-n" id="waiting-n" hidden></span></a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="status" id="status"><span class="dot" id="status-dot"></span><span class="when" id="status-when"></span></span>
+  <a class="more" href="/" title="The full lab page: goals, loop, matches, crashes, decisions, integration test tables">More</a>
+</header>
+
+<main>
+  <!-- ============================================================ Map -->
+  <section class="view" id="v-map" aria-label="Live map">
+    <div class="battle" id="battle" role="button" tabindex="0" aria-expanded="false" title="Tap for the full plans">
+      <div class="l1"><span class="muted">Looking for the battle…</span></div>
+    </div>
+    <!-- The game camera from here (4 Nov: over Moonlight on the phone a touch on the game window turns the camera). -->
+    <div class="cambar" id="cambar" role="group" aria-label="Game camera" hidden>
+      <span class="cam-l" title="The game window's camera"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5h11v8H2zM13 9l5-3v9l-5-3"/></svg><span class="cam-w">Camera</span></span>
+      <button type="button" data-cam="auto" title="The director picks the shots">Auto</button>
+      <button type="button" data-cam="point+" title="Look at the next point">Next point</button>
+      <button type="button" data-cam="group+" title="Look at the next team">Next team</button>
+      <button type="button" data-cam="closer">Closer</button>
+      <button type="button" data-cam="wider">Wider</button>
+      <span class="cam-msg" id="cam-msg" aria-live="polite"></span>
+    </div>
+    <div class="mapbox">
+      <div id="map" role="region" aria-label="Map"></div>
+      <div class="layers" role="group" aria-label="Layers">
+        <button type="button" class="chipbtn" data-layer="plans" aria-pressed="true">Plans</button>
+        <button type="button" class="chipbtn" data-layer="danger" aria-pressed="true">Danger</button>
+        <button type="button" class="chipbtn" data-layer="soldiers" aria-pressed="true">Soldiers</button>
+        <button type="button" class="chipbtn" data-layer="trucks" aria-pressed="false">Trucks</button>
+      </div>
+      <div class="banner" id="banner" hidden></div>
+      <div class="empty-card" id="nobattle" hidden><div>
+        <b>No battle on the map</b>
+        <span class="muted">Nothing has been played on Arland or Everon lately. The map comes alive when a battle starts.</span>
+      </div></div>
+      <aside class="sheet" id="sheet" hidden aria-label="The selected unit">
+        <div class="sh-head" id="sh-head">
+          <h2 id="sh-title"></h2>
+          <button type="button" class="mn" id="sh-min" aria-label="Fold the panel away" title="Fold">▾</button>
+          <button type="button" class="x" id="sh-close" aria-label="Close">×</button>
+          <span class="sub" id="sh-sub"></span>
+        </div>
+        <div class="sh-body">
+          <div id="sh-info"></div>
+          <!-- Outside the redrawn part: what is typed survives the 5-s refresh. -->
+          <form class="note" id="sh-note">
+            <div class="kinds" role="radiogroup" aria-label="Kind of remark">
+              <label><input type="radio" name="unitkind" value="question" checked>Question</label>
+              <label><input type="radio" name="unitkind" value="bad">Bad</label>
+              <label><input type="radio" name="unitkind" value="good">Good</label>
+            </div>
+            <textarea id="sh-text" rows="2" placeholder="About this one - what you see or want to know" aria-label="Remark about the selected unit"></textarea>
+            <div class="row"><button class="go" type="submit">Send about <span id="sh-who">it</span></button><span class="sent" id="sh-sent"></span></div>
+          </form>
+        </div>
+      </aside>
+      <div class="tools">
+        <button type="button" class="roundbtn" id="btn-full" aria-label="Full screen" title="Full screen">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg></button>
+        <button type="button" class="roundbtn" id="btn-fit" aria-label="Back to the fight" title="Back to the fight (the point and the teams near it)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><path d="M10 1v4M10 15v4M1 10h4M15 10h4"/></svg></button>
+        <button type="button" class="roundbtn" id="btn-legend" aria-label="What the marks mean" title="What the marks mean" aria-expanded="false">?</button>
+      </div>
+      <div class="legend" id="legend" hidden></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ Progress -->
+  <section class="view scroll" id="v-progress" hidden aria-label="Progress">
+    <div class="page">
+      <div><h1 class="pg">Progress</h1>
+        <p class="lead">Each question as a training curve: a dot per run, the line the average of the last runs, the green dashed line the target, dotted lines where a new build started.</p></div>
+      <div class="picker" id="pg-picker" role="group" aria-label="Which test"></div>
+      <div id="pg-body"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ Remarks -->
+  <section class="view scroll" id="v-remarks" hidden aria-label="Remarks">
+    <div class="page">
+      <div class="card">
+        <h1 class="pg">Tell the loop</h1>
+        <form id="rm-form" style="display:grid;gap:9px">
+          <div class="kinds" role="radiogroup" aria-label="Kind of remark">
+            <label><input type="radio" name="rmkind" value="wish" checked>Wish</label>
+            <label><input type="radio" name="rmkind" value="bad">Bad</label>
+            <label><input type="radio" name="rmkind" value="good">Good</label>
+            <label><input type="radio" name="rmkind" value="question">Question</label>
+          </div>
+          <textarea id="rm-text" placeholder="What you want, or what you see in the battle (team, place)" aria-label="Your remark"></textarea>
+          <div class="row"><button class="go" type="submit">Send to the loop</button><span class="sent" id="rm-sent"></span></div>
+        </form>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h2 class="pg">Your remarks and the replies</h2><span class="mono muted" id="rm-count"></span></div>
+        <div id="rm-list"><div class="empty">Loading…</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/vendor/leaflet.js"></script>
+<script src="/v2.js"></script>
+</body>
+</html>

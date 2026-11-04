@@ -89,6 +89,12 @@ def _generals(run: Path) -> dict:
     head = LP_HEAD.search(text[:2000])
     model = head.group(2) if head and head.group(2) else ""
     out = {}
+    # Its first line says which sides it plans and who picks ("side both, picker gemini"): a side is Gemini's from the
+    # start, before its first answer (the first round comes about a minute in).
+    first = re.search(r"side (\w+), picker (\w+)", text[:2000])
+    if first:
+        for s in (("US", "USSR") if first.group(1) == "both" else (first.group(1),)):
+            out[s] = {"calls": 0, "failed": 0, "source": "code" if first.group(2) == "code" else "waiting"}
     for line in text.splitlines():
         m = LP_ANSWER.search(line)
         if m:
@@ -128,7 +134,6 @@ def battle(run: Path, d: dict) -> dict:
         owner = caps[-1]["to"] if caps else None
     title = _flag(extra, "zcrTestTitle").replace("_", " ").strip()
     name = run.name
-    watched = bool(re.match(r"w\d+-", name)) or "-watch-" in name
     m = re.search(r"-(\d{8})-(\d{6})$", name)
     started = f"{m.group(2)[:2]}:{m.group(2)[2:4]}" if m else ""
     if not title:
@@ -144,7 +149,9 @@ def battle(run: Path, d: dict) -> dict:
             # the bridge says so in its source.
             src = plan.get("source", "")
             g = {"by": "Gemini" if re.search(r"model|llm|gemini|bridge", src, re.I) else "rules", "doctrine": src}
-        if g.get("by") == "rules" or not g.get("reason"):
+        if g.get("by") == "Gemini" and not g.get("reason"):
+            g["intent"] = f"no answer yet - the last call failed: {g.get('fail', '')}" if g.get("failed") else "waiting for its first answer"
+        elif not g.get("reason"):
             g.setdefault("intent", plan.get("intent", ""))
         if g.get("answer_t") is not None:
             g["ago_s"] = max(0, t - g["answer_t"])
@@ -155,7 +162,7 @@ def battle(run: Path, d: dict) -> dict:
                          "there": (main or {}).get("there")}
         sides[s] = g
     log_at = logs[-1].stat().st_mtime if logs else 0
-    return {"run": name, "live": bool(d.get("live")), "title": title, "watched": watched, "started": started,
+    return {"run": name, "live": bool(d.get("live")), "title": title, "watched": watched(name), "started": started,
             "ended_at": None if d.get("live") else time.strftime("%H:%M", time.localtime(log_at)),
             "ended_ago_min": None if d.get("live") else round((time.time() - log_at) / 60),
             "t": t, "length_min": args.get("minutes"), "speed": _flag(extra, "zcrSpeed") or None,
@@ -163,24 +170,53 @@ def battle(run: Path, d: dict) -> dict:
             "captures": st["captures"][-6:], "sides": sides}
 
 
+NOT_BATTLES = ("compilecheck-",)   # a compile check loads Arland for a minute and writes live rows: never the battle shown
+
+
+def watched(name: str) -> bool:
+    return bool(re.match(r"w\d+-", name)) or "-watch-" in name
+
+
+def _runs():
+    """The newest runs that may be battles, newest first, with the age of their log in seconds."""
+    runs = sorted((r for r in maplayers.RUNS.iterdir() if r.is_dir() and not r.name.startswith(NOT_BATTLES)),
+                  key=maplayers.run_time, reverse=True)[:40]
+    out = []
+    for r in runs:
+        logs = sorted(r.glob("logs/*/console.log"))
+        if logs:
+            out.append((r, time.time() - logs[-1].stat().st_mtime))
+    return out
+
+
 def live(map_name: str = "auto") -> dict:
-    """The battle being played (on either map for "auto"), else the newest finished one; cached 3 s live, 30 s otherwise."""
+    """The battle being played (on either map for "auto") - a watched one before a headless one - else the newest finished
+    one; cached 3 s live, 30 s otherwise."""
     key = map_name
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < (3 if hit[1].get("live") else 30):
         return hit[1]
     maps = ("arland", "everon") if map_name == "auto" else (map_name,)
+    runs = _runs()
     found = None
-    for m in maps:
-        d = maplayers.live(m)
-        if d.get("live"):
-            found = (m, d)
+    playing = sorted((r for r, age in runs if age <= 90), key=lambda r: (not watched(r.name), -maplayers.run_time(r)))
+    for r in playing:
+        for m in maps:
+            d = maplayers.live(m, scan=40, only=r.name)
+            if d.get("live"):
+                found = (m, d)
+                break
+        if found:
             break
     if not found:
-        for m in maps:
-            d = maplayers.live(m, max_age_s=14 * 86400, scan=40)
-            if d.get("run") and (not found or maplayers.run_time(maplayers.RUNS / d["run"]) > maplayers.run_time(maplayers.RUNS / found[1]["run"])):
-                found = (m, d)
+        for r, age in runs:
+            for m in maps:
+                d = maplayers.live(m, max_age_s=14 * 86400, scan=40, only=r.name)
+                if d.get("run"):
+                    found = (m, d)
+                    break
+            if found:
+                break
     if not found:
         out = {"map": maps[0], "live": False, "battle": None}
     else:
