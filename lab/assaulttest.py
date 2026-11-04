@@ -184,6 +184,10 @@ VARIANTS["farm-now-staymounted-wave"] = (VARIANTS["farm-now-staymounted"][0] + "
 VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrRideStayMounted -aicfZcrSecondWave 1").replace(" -aicfNoHiddenSeat", ""),
                            "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
 LIVE_BOTH = {"farm-brains"}   # variants whose live planner plans both sides
+# 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
+# ratio right? and it provides defense?"): DCO's defend and idle positions indoors first (coverPreference 1; Recommended:
+# 0 = balanced) and several teams may share a building (Farm has few).
+DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}}
 LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
@@ -222,6 +226,15 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int, watc
             seed = ROOT / ".runtime" / "attack" / f"seed_{SEEDS[variant][1:]}"
         if not (seed / "zcr" / "attackplan.txt").exists():
             raise SystemExit(f"no plan file {seed / 'zcr' / 'attackplan.txt'} - run lab/attackplan.py --export first")
+        argv += ["--seed-profile", str(seed)]
+    elif variant in DCO_CFG:
+        # DCO's settings file for this variant: DCO's Recommended file with the variant's keys on top (as lab/inftest.py).
+        seed = ROOT / ".runtime" / "seeds" / f"assault-{variant}"
+        (seed / "DCO").mkdir(parents=True, exist_ok=True)
+        rec = ROOT / ".runtime" / "seeds" / "dco_recommended.json"
+        base = json.loads(rec.read_text(encoding="utf-8-sig")) if rec.exists() else {}
+        base.update(DCO_CFG[variant])
+        (seed / "DCO" / "DCO_GlobalConfig.json").write_text(json.dumps(base, indent=1), encoding="utf-8")
         argv += ["--seed-profile", str(seed)]
     if play:
         # 2 Nov (Martin: "could you prepare version of farm battle that I could as soldier for one side?", "I would like to
