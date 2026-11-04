@@ -252,7 +252,7 @@ class ZCR_Watch
 		else if (what == "zout")
 			s_Instance.m_vFreePos = s_Instance.m_vFreePos - view * 40;
 		if (s_Instance.m_Caption)
-			s_Instance.m_Caption.SetText("FREE CAMERA - the upper stick moves, the lower one looks; CAMERA gives it back");
+			s_Instance.m_Caption.SetText("FREE CAMERA - the left stick moves, the right one looks; CAMERA gives it back");
 	}
 
 	// The gamepad's toggle-UI button (the Game Master camera's ManualCameraToggleUI) hides / shows the overlays.

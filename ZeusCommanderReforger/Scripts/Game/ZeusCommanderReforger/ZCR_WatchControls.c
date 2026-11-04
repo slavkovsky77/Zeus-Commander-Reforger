@@ -1,10 +1,10 @@
 // Phone controls for watch mode, as on Arma 3 (ac-lab lab/director.sqf; review notes 70, 79-83):
-// Martin watches the match over a phone stream and can only tap. Six buttons on the left (4 Nov - Martin: "optimize number
-// of buttons to basically next/prev type free and details"): PREV / NEXT through what TYPE says (AUTO: the director's shots;
-// teams, vehicles, drones, points, fights), CAMERA (AUTO -> LOCKED on what it shows -> FREE, flown by the sticks), DETAILS
-// (the full label texts) and HIDE UI. On the right two sticks: the move stick (FREE only) over the look stick with ZOOM.
-// A tap on a soldier or vehicle follows it; anywhere else the camera flies there for 30 s. The side to keep to, the game
-// speed and REPORT are on the lab app's camera bar (ZCR_Director.LabCamera).
+// Martin watches the match over a phone stream and can only tap. Eight buttons on the left (4 Nov - Martin: "optimize number
+// of buttons to basically next/prev type free and details", then "sides were important, details too"): PREV / NEXT through
+// what TYPE says (AUTO: the director's shots; teams, vehicles, drones, points, fights), CAMERA (AUTO -> LOCKED on what it
+// shows -> FREE, flown by the sticks), SIDE, DETAILS (the full label texts), HIDE UI and SPEED. Two sticks for the thumbs: the move
+// stick bottom left (FREE only), the look stick with ZOOM bottom right. A tap on a soldier or vehicle follows it; anywhere
+// else the camera flies there for 30 s. REPORT is on the lab app's camera bar (ZCR_Director.LabCamera).
 // Over the stream a tap clicks before the cursor has moved (Arma 3, note 80), so one catcher takes every click and reads
 // where the cursor is once it has come to rest. A hidden menu stays open so the game shows the cursor. Commands go to the
 // server's director (ZCR_Director.Command) through the watcher's own player controller.
@@ -79,6 +79,7 @@ class ZCR_WatchControls
 	protected ref array<ref ZCR_WatchButton> m_aButtons = {};
 	protected MenuBase m_Host;
 	protected bool m_bLocked;
+	protected string m_sFocus;          // the side the camera keeps to: "" both, "US", "USSR"
 	protected string m_sKind = "teams"; // what PREV / NEXT steps through: teams, vehicles, drones
 	protected string m_sType = "auto";  // TYPE: auto (the director's shots), teams, vehicles, drones, points, fights
 	protected bool m_bAutoOff;
@@ -228,31 +229,35 @@ class ZCR_WatchControls
 			m_Handler = new ZCR_WatchTapHandler();
 			m_Catcher.AddHandler(m_Handler);
 		}
-		// Six buttons (4 Nov - Martin: "optimize number of buttons to basically next/prev type free and details").
+		// Eight buttons (4 Nov - Martin: "next/prev type free and details", "sides were important, details too", "speed game").
 		Add("PREV", "step-", 0, 0);
 		Add("NEXT", "step+", 0, 1);
 		Add("TYPE: AUTO", "type", 1, 0);
 		Add("CAMERA: AUTO", "mode", 1, 1);
-		Add("DETAILS: OFF", "details", 2, 0);
-		Add("HIDE UI", "ui", 2, 1);
-		// The two sticks, on the right under the USSR panel (Martin: "two modes locked and free, in free you can do wasd in
-		// locked only rotation", "mimic two joysticks with +- also for zoom, all on right side"): the move stick (FREE only:
-		// forward, back, sideways, UP / DN) over the look stick (turn, tilt, ZOOM + / -; round what the camera shows, in FREE
-		// the view itself).
+		Add("BOTH SIDES", "side", 2, 0);
+		Add("DETAILS: OFF", "details", 2, 1);
+		Add("HIDE UI", "ui", 3, 0);
+		Add("SPEED 3x", "speed", 3, 1);
+		// The two sticks, one for each thumb (Martin: "two modes locked and free, in free you can do wasd in locked only
+		// rotation", "mimic two joysticks with +- also for zoom", "good to have those pad on left and right so i can use my
+		// thumbs"): bottom left the move stick (FREE only: forward, back, sideways, UP / DN), bottom right the look stick
+		// (turn, tilt, ZOOM + / -; round what the camera shows, in FREE the view itself). Corners toward the middle.
 		float sw = 0.05;
 		float sh = 0.068;
 		float sg = 0.006;
+		float l0 = 0.73;
+		float m0 = 0.012;
+		float m1 = m0 + sw + sg;
+		float m2 = m1 + sw + sg;
+		AddPad("^", "cam-fwd", m1, l0, true);
+		AddPad("<", "cam-left", m0, l0 + sh + sg, true);
+		AddPad(">", "cam-right", m2, l0 + sh + sg, true);
+		AddPad("v", "cam-back", m1, l0 + 2 * (sh + sg), true);
+		AddPad("UP", "cam-up", m2, l0, true);
+		AddPad("DN", "cam-down", m2, l0 + 2 * (sh + sg), true);
 		float c2 = 0.985 - sw;
 		float c1 = c2 - sw - sg;
 		float c0 = c1 - sw - sg;
-		float m0 = 0.50;
-		AddPad("^", "cam-fwd", c1, m0, true);
-		AddPad("<", "cam-left", c0, m0 + sh + sg, true);
-		AddPad(">", "cam-right", c2, m0 + sh + sg, true);
-		AddPad("v", "cam-back", c1, m0 + 2 * (sh + sg), true);
-		AddPad("UP", "cam-up", c2, m0, true);
-		AddPad("DN", "cam-down", c2, m0 + 2 * (sh + sg), true);
-		float l0 = 0.73;
 		AddPad("^", "look-tiltup", c1, l0, false);
 		AddPad("<", "look-turnl", c0, l0 + sh + sg, false);
 		AddPad(">", "look-turnr", c2, l0 + sh + sg, false);
@@ -348,6 +353,17 @@ class ZCR_WatchControls
 				else
 					b.m_wText.SetText("DETAILS: OFF");
 			}
+			else if (b.m_sCmd == "speed")
+				b.m_wText.SetText(ZCR_Watch.SpeedLabel());
+			else if (b.m_sCmd == "side")
+			{
+				if (m_sFocus == "US")
+					b.m_wText.SetText("US ONLY");
+				else if (m_sFocus == "USSR")
+					b.m_wText.SetText("USSR ONLY");
+				else
+					b.m_wText.SetText("BOTH SIDES");
+			}
 			else if (b.m_sCmd == "mode")
 			{
 				string modeText = CameraMode();
@@ -399,6 +415,10 @@ class ZCR_WatchControls
 				c = new Color(0.18, 0.35, 0.75, 0.85);
 			else if (b.m_sCmd == "details" && ZCR_Watch.Details())
 				c = new Color(0.15, 0.55, 0.22, 0.8);
+			else if (b.m_sCmd == "side" && m_sFocus == "US")
+				c = new Color(0.18, 0.35, 0.75, 0.85);
+			else if (b.m_sCmd == "side" && m_sFocus == "USSR")
+				c = new Color(0.7, 0.18, 0.15, 0.85);
 			else if (b.m_sCmd == "type" && m_sType == "vehicles")
 				c = new Color(0.55, 0.42, 0.12, 0.85);
 			else if (b.m_sCmd == "type" && m_sType == "drones")
@@ -464,6 +484,26 @@ class ZCR_WatchControls
 			{
 				ZCR_Watch.ToggleDetails();
 				Labels();
+				return;
+			}
+			// The game speed (Martin: "can I set the speed?"): 3x -> 1x -> 2x -> 3x; the game's own time multiplier, solo only.
+			if (cmd == "speed")
+			{
+				ZCR_Watch.CycleSpeed();
+				Labels();
+				return;
+			}
+			// One side or both (Martin: "a button to switch between the factions"): BOTH -> US -> USSR.
+			if (cmd == "side")
+			{
+				if (m_sFocus.IsEmpty())
+					m_sFocus = "US";
+				else if (m_sFocus == "US")
+					m_sFocus = "USSR";
+				else
+					m_sFocus = "";
+				Labels();
+				Send("side-" + m_sFocus, vector.Zero);
 				return;
 			}
 			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look.
