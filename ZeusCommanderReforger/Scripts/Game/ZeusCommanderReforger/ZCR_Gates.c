@@ -96,6 +96,10 @@ modded class SCR_AIGoalReaction_OpenNavlinkDoor
 			Print(string.Format("[ZCR][GATEMSG] t=%1 door=%2 x=%3 z=%4 in_vehicle=%5", ZCR_LossLog.Seconds(), ZCR_LossLog.ShortName(msg.m_DoorEntity),
 				Math.Round(d[0]), Math.Round(d[2]), soldier && soldier.IsInVehicle()), LogLevel.NORMAL);
 		}
+		// -zcrNoDoorReaction: no reaction at all, as in every battle from 23 Oct to 4 Nov (the class didn't load) - for an A/B
+		// (5 Nov: the town fell at 9-16 min in 5 of 6 battles before the fix, in 1 of the last 5 after it).
+		if (System.IsCLIParam("zcrNoDoorReaction"))
+			return;
 		if (!msg || !msg.m_DoorEntity || !soldier || !soldier.IsInVehicle() || !System.IsCLIParam("zcrAutoGate"))
 		{
 			super.PerformReaction(utility, message);
