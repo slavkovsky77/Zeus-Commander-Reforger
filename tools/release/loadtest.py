@@ -91,8 +91,17 @@ def summary(run: Path) -> dict:
         f = logs[-1].parent / extra
         if f.exists():
             err_lines += f.read_text(encoding="utf-8", errors="replace").splitlines()
-    ours = [l for l in lines + err_lines if ("(E)" in l or "ERROR" in l) and (SCRIPT_ERRORS.search(l) or OUR_FILES.search(l))
-            and "[AICF]" not in l]
+    # A failed AI move is reported as a "Virtual Machine Exception" with "Reason: Failed move ..." - the game's behaviour
+    # tree giving up a path (noise, as AI Conflict's own ERROR reports); every other exception counts.
+    noise = set()
+    for src in (lines, err_lines):
+        for i, l in enumerate(src):
+            if "Virtual Machine Exception" in l and any("Reason: Failed move" in x for x in src[i + 1:i + 4]):
+                noise.add(l)
+                noise.update(x for x in src[i + 1:i + 4] if "Reason:" in x)
+    ours = [l for l in lines + err_lines if ("(E)" in l or "ERROR" in l or "Reason:" in l) and (SCRIPT_ERRORS.search(l) or OUR_FILES.search(l))
+            and "[AICF]" not in l and l not in noise]
+    ours = list(dict.fromkeys(ours))   # console.log and script.log repeat the same lines
     lost = {"US": 0, "USSR": 0}
     for m in re.finditer(r"\[ZCR\]\[LOSS\] t=\d+ victim=\S+ side=(\w+) kind=man", text):
         if m.group(1) in lost:
@@ -125,6 +134,7 @@ def summary(run: Path) -> dict:
         "drone_launches": len(re.findall(r"\[ZCR\]\[DRONES\] t=\d+ side=\w+ .*?kind=", text)),
         "efforts": efforts,
         "fps_median": sorted(fps)[len(fps) // 2] if fps else None,
+        "failed_moves": len([l for l in noise if "Virtual Machine Exception" in l]),
         "script_errors_ours": ours[:30],
         "script_errors_ours_count": len(ours),
         "bridge_lines": len(re.findall(r"\[ZCR\]\[BRIDGE_SEND\]", text)),
