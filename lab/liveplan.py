@@ -343,6 +343,7 @@ class LogReader:
         self.lost = {"US": 0, "USSR": 0}
         self.losses = []        # (t, side, kind "man"|"vehicle", x, z) - every loss (danger zones, note 541)
         self.sites = []         # [side, x, z, name] - every drone site set up ([ZCR][DRONESITE] set_up)
+        self.field_built = {"US": [], "USSR": []}   # (x, z) of each field fortification built ([ZCR][FORTPLAN] source=field)
         self.located = {"US": set(), "USSR": set()}   # side -> indexes of ENEMY drone sites it has located (note 542)
         self.armour = {"US": {}, "USSR": {}}  # side -> unit -> its last [ZCR][ARMOUR] STATUS (note 544)
         self.first_round = {}
@@ -402,6 +403,14 @@ class LogReader:
                                                    "aboard": d.get("aboard", "?"), "t": int(d.get("t", 0))}
                     except (KeyError, ValueError):
                         pass
+            return
+        if "[ZCR][FORTPLAN]" in line and " event=placed " in line and "source=field" in line:
+            d = dict(kv.split("=", 1) for kv in line.split("[ZCR][FORTPLAN]", 1)[1].split() if "=" in kv)
+            try:
+                if d.get("side") in self.field_built:
+                    self.field_built[d["side"]].append((float(d["x"]), float(d["z"])))
+            except ValueError:
+                pass
             return
         if "[ZCR][DRONESITE]" in line and " set_up " in line:
             d = dict(kv.split("=", 1) for kv in line.split("[ZCR][DRONESITE]", 1)[1].split() if "=" in kv)
@@ -1234,6 +1243,11 @@ class Commander:
             for f in pic["forts"]:
                 lines.append(f"  {f['id']}: {f['from_obj_m']} m {f['dir']} of Farm, facing {compass(f['facing'])}, a {f['role']} position"
                              f", cover {f['cover_m']} m away" + (f", sees Farm from {f['sees']}/9 eye points" if f['role'] != "hold" else ""))
+            built = getattr(s, "field_built", [])
+            if built:
+                lines.append(f"  Built so far: {len(built)} - " + ", ".join(
+                    f"{round(math.hypot(x - g.ox, z - g.oz))} m {compass(math.degrees(math.atan2(x - g.ox, z - g.oz)))} of Farm"
+                    for x, z in built[-6:]) + " (your men can fight from them).")
             if self.forts:
                 lines.append("  Already ordered: " + ", ".join(f"{round(math.hypot(f['x'] - g.ox, f['z'] - g.oz))} m "
                                                              f"{compass(math.degrees(math.atan2(f['x'] - g.ox, f['z'] - g.oz)))} of Farm"
@@ -1690,6 +1704,7 @@ def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) ->
     s.own_losses = [(lt, k, x, z) for lt, sd, k, x, z in reader.losses if sd == side and reader.t - lt <= DANGER_S]
     s.sites = [(reader.sites[k][1], reader.sites[k][2], reader.sites[k][3]) for k in sorted(reader.located.get(side, ()))]
     s.armour = sorted(reader.armour.get(side, {}).values(), key=lambda a_: a_["unit"])
+    s.field_built = list(reader.field_built.get(side, []))
     s.droneplan = dict(reader.droneplan.get(side, {}))
     s.nodes = base_nodes(reader, side)
     return s
