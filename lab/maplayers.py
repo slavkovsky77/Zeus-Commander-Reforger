@@ -408,6 +408,7 @@ def live_plans(run: Path) -> tuple:
             drop = e.get("drop")
             key = (side, e.get("route", "?"), round(drop[0]) if drop else None, round(drop[1]) if drop else None)
             g = groups.setdefault(key, {"id": key[1], "side": side, "teams": [], "lanes": [wps], "holds": [e.get("hold")],
+                                        "lane_kinds": [e.get("wp_kinds") or []], "chain": e.get("chain") or "",
                                         "assembly": drop or wps[0], "assembly_m": from_obj.get((key[2], key[3])), "drive": [],
                                         "approach": "", "from_name": "", "by": "rules", "why": [], "go": e.get("go", 1)})
             g["teams"].append(int(tid))
@@ -477,6 +478,11 @@ def live(map_slug: str) -> dict:
             # A truck's road route still ahead (ZCR_LiveMap wps=x,z;x,z).
             if u.get("wps", "-") != "-":
                 u["wps"] = [[float(v) for v in xy.split(",")] for xy in u["wps"].split(";") if "," in xy]
+                # Each one's kind/storm level/radius (ZCR_LiveMap wpk=, 4 Nov).
+                if u.get("wpk", "-") != "-":
+                    u["wpk"] = [dict(zip(("kind", "level", "radius"), k.split("/"))) for k in u["wpk"].split(";") if k]
+                else:
+                    u.pop("wpk", None)
             else:
                 u.pop("wps", None)
             for k in ("x", "z", "men", "cargo", "cap", "kmh", "ride", "route", "sx", "sz"):

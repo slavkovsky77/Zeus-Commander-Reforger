@@ -663,24 +663,49 @@ video { width: 100%; border-radius: 8px; background: #000; }
           const pl = (d.attack_plans || []).find(p => p.side === t.side && p.teams.includes(Number(t.id)));
           let route = null, planTxt = "";
           if (pl && pl.lanes.length) {
-            const lane = pl.lanes[pl.by ? 0 : Number(t.id) % pl.lanes.length];
+            const laneIdx = pl.by ? 0 : Number(t.id) % pl.lanes.length;
+            const lane = pl.lanes[laneIdx];
+            // What each planned point is and where the team stands with it (4 Nov, Martin: "we could have type of waypoint
+            // and status maybe like next or whatever like more details when I click on them"): passed (grey, ticked), NEXT
+            // (dark purple), then; each with its cover (edge of trees / buildings, in trees, open dash, Farm).
+            const kinds = (pl.lane_kinds && pl.lane_kinds[laneIdx]) || [];
             const near = lane.reduce((best, q, k) => { const m = Math.hypot(q[0] - t.x, q[1] - t.z); return m < best[0] ? [m, k] : best; }, [1e9, -1]);
-            const ahead = near[0] < 60 ? lane.slice(near[1] + 1) : [...(t.ride && pl.go !== 0 ? [pl.assembly] : []), ...lane];
+            const onLane = near[0] < 60;
+            const pre = !onLane && t.ride && pl.go !== 0 ? [pl.assembly] : [];
+            const first = onLane ? near[1] + 1 : 0;
+            const ahead = onLane ? lane.slice(first) : [...pre, ...lane];
             route = ahead.length ? [[t.x, t.z], ...ahead] : null;
-            ahead.forEach((q, k) => markers.push(wpNum(q, k + 1, "#7a3fd1",
-              `${pl.by ? esc(pl.by) + "'s" : "Planned"} waypoint ${k + 1} of ${ahead.length}${t.ride && pl.go !== 0 && near[0] >= 60 && k === 0 ? " - get out here" : ""}`)));
-            const h = pl.holds[pl.by ? 0 : Number(t.id) % pl.lanes.length];
+            const whose = pl.by ? esc(pl.by) + "'s" : "Planned";
+            const coverWord = (w) => ({ "edge of trees": "edge of a tree line - cover, jump-off to the next", "edge of buildings": "by buildings - cover, jump-off to the next",
+              "in trees": "inside woods", "in buildings": "among buildings", "open": "open ground - a dash", "Farm": "Farm - the objective", "route": "on the route" }[w] || w);
+            if (onLane) lane.slice(0, first).forEach((q, k) => markers.push(wpNum(q, "✓", "#9a9a9a", `Passed: ${whose} waypoint ${k + 1} - ${esc(coverWord(kinds[k] || "route"))}`)));
+            ahead.forEach((q, k) => {
+              const li = onLane ? first + k : k - pre.length;
+              const what = li < 0 ? "drop point - get out of the vehicle here" : coverWord(kinds[li] || "route");
+              const n = li + 1;
+              markers.push(wpNum(q, li < 0 ? "D" : n, k === 0 ? "#4a148c" : "#7a3fd1",
+                `${k === 0 ? "NEXT" : "then"}: ${whose} waypoint ${li < 0 ? "(drop)" : n} of ${lane.length} - ${esc(what)}${k === 0 ? ` - ${this.km(Math.hypot(q[0] - t.x, q[1] - t.z))} away` : ""}`));
+            });
+            const h = pl.holds[laneIdx];
             if (h) markers.push(L.circleMarker([h[1], h[0]], opts({ radius: 7, color: "#111", weight: 3, fillColor: "#fff", fillOpacity: 1 })).bindTooltip(pl.go === 0 ? "its support position" : "hold point on its lane"));
-            planTxt = `<br>${pl.by ? esc(pl.by) + "'s" : "Stored"} plan ${esc(pl.id)}: ${ahead.length} waypoint${ahead.length === 1 ? "" : "s"} ahead, ${route ? this.km(this.len(route)) : "0 m"} (purple)${pl.why ? ` - "${esc(pl.why)}"` : ""}`;
+            const nextWhat = ahead.length ? (pre.length ? "the drop point" : coverWord(kinds[first] || "route")) : "";
+            planTxt = `<br>${whose === "Planned" ? "Stored" : whose} plan ${esc(pl.id)}: ${ahead.length} waypoint${ahead.length === 1 ? "" : "s"} ahead, ${route ? this.km(this.len(route)) : "0 m"} (purple)`
+              + (nextWhat ? ` · next: ${esc(nextWhat)}` : "") + (pl.chain ? `<br>Its cover chain: ${esc(pl.chain)}` : "") + (pl.why ? `<br>Why: "${esc(pl.why)}"` : "");
           }
           const queue = t.wps && t.wps.length ? [[t.x, t.z], ...t.wps] : null;
-          if (queue) t.wps.forEach((q, k) => markers.push(wpNum(q, k + 1, "#222", `The game's waypoint ${k + 1} of ${t.wps.length} (AI Conflict's order to the team)`)));
+          // The game's own orders, each with its kind (ZCR_LiveMap wpk=): move, search and destroy, defend, hold; storm level.
+          const wpWord = { move: "move there", search: "search and destroy - clear the area", defend: "defend - hold the area", hold: "hold - wait there", action: "action (relay)" };
+          if (queue) t.wps.forEach((q, k) => {
+            const wk = (t.wpk || [])[k] || {};
+            const storm = Number(wk.level) > 0 ? " - storm: keeps moving under fire, runs" : "";
+            markers.push(wpNum(q, k + 1, "#222", `${k === 0 ? "CURRENT" : "queued"}: the game's waypoint ${k + 1} of ${t.wps.length} - ${esc(wpWord[wk.kind] || wk.kind || "order")}${storm}${wk.radius ? `, done within ${wk.radius} m` : ""}`));
+          });
           const tr = drawSel(key, t.x, t.z, c, route, queue, goal);
           selUnit = { who: `${t.side} team ${t.id}`, kind: "team", side: t.side, id: t.id, role: t.role, men: t.men, ride: t.ride,
             doing: what, to: t.to, posture: t.posture, x: Math.round(t.x), z: Math.round(t.z), wp: t.wp, run: d.run, t: d.t };
           info = `<b>${esc(t.side)} team ${esc(t.id)}</b> - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ", on foot"}${t.to && t.to !== "-" ? ` · assigned ${esc(t.to)}` : ""}${goal ? ` · ${this.km(Math.hypot(goal[0] - t.x, goal[1] - t.z))} to its current waypoint (ring)` : ""} · moved ${this.km(this.len(tr))} on this map so far`
             + (planTxt || (route ? "" : "<br>Not on a planned route - AI Conflict's own waypoint (ring)"))
-            + (queue ? ` · the game's waypoints: ${t.wps.length} (white dashes)` : "");
+            + (queue ? `<br>The game's order now: ${esc(wpWord[((t.wpk || [])[0] || {}).kind] || "move")}${Number(((t.wpk || [])[0] || {}).level) > 0 ? " (storm)" : ""} · ${t.wps.length} waypoint${t.wps.length === 1 ? "" : "s"} in its queue (white dashes)` : "");
         } else if (goal && !sel) extra.push(L.polyline([[t.z, t.x], [goal[1], goal[0]]], { color: home ? this.css("--muted") : c, weight: 1, opacity: .45, dashArray: "2 6", interactive: false }));
         markers.push(L.circleMarker([t.z, t.x], opts({ radius: 4 + Math.min(4, t.men || 0), color: home ? this.css("--muted") : "#fff", weight: 1.5, fillColor: c, fillOpacity: (home ? .45 : .95) * dim(key), opacity: dim(key) }))
           .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${t.men} men, ${esc(what)}${t.ride ? ", riding" : ""}${t.to && t.to !== "-" ? " · assigned " + esc(t.to) : ""}`)

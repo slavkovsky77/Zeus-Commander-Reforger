@@ -607,12 +607,12 @@ class Planner:
         cover_pct = round(100 * sum(1 for c in cells if g.cover_m[c] <= COVER_REACH_M) / n)
         obj_pct = round(100 * sum(1 for c in cells if g.seen[c] > 0) / n)
         cost = sum(costs.w(a, b) for a, b in zip(cells, cells[1:]))
-        wps, chain, open_max = cover_bounds(g, cells)   # was thin_cells (a point every 50 m) - now cover to cover
+        wps, chain, open_max, wp_kinds = cover_bounds(g, cells)   # was thin_cells (a point every 50 m) - now cover to cover
         hold = hold_point(g, cells, threat)
         return {"id": rid, "cells": cells, "pts": pts, "length_m": round(length), "minutes": round(length / WALK_MPS / 60, 1),
                 "known_enemy_view_pct": seen_pct, "max_threat": round(max(thr), 2), "cover_in_reach_pct": cover_pct,
                 "farm_view_pct": obj_pct, "cost": round(cost), "waypoints": wps, "hold": hold,
-                "chain": chain_text(chain), "open_max_m": open_max}
+                "chain": chain_text(chain), "open_max_m": open_max, "wp_kinds": wp_kinds}
 
     def route_via(self, rid, start_xz, via_cell, costs, D_obj, threat):
         """From a start through a point (a support position) into the objective."""
@@ -692,6 +692,7 @@ def cover_bounds(g: Grid, cells):
         return hi
 
     idx, chain, longest = [], [], 0.0
+    kind_at = {}   # waypoint index -> what it is (the map shows it: 4 Nov, "type of waypoint and status")
     i = 0
     while i < n:
         j = i
@@ -699,13 +700,15 @@ def cover_bounds(g: Grid, cells):
             j += 1
         span = cum[j] - cum[i]
         if near[i]:
+            what = "buildings" if any(building_near(q) for q in range(i, j + 1)) else "trees"
             k = i
             while cum[j] - cum[k] > BOUND_IN_COVER_M + 20:
                 k = index_at(cum[k] + BOUND_IN_COVER_M, k + 1, j)
                 idx.append(k)
+                kind_at[k] = "in " + what
             idx.append(j)
-            chain.append({"kind": "buildings" if any(building_near(q) for q in range(i, j + 1)) else "trees",
-                          "from_obj_m": round(float(g.robj[cells[j]])), "len_m": round(span)})
+            kind_at[j] = "edge of " + what
+            chain.append({"kind": what, "from_obj_m": round(float(g.robj[cells[j]])), "len_m": round(span)})
         else:
             gap = cum[min(j + 1, n - 1)] - cum[max(i - 1, 0)]
             longest = max(longest, gap)
@@ -714,17 +717,20 @@ def cover_bounds(g: Grid, cells):
                 while cum[j] - cum[k] > BOUND_OPEN_M + 20:
                     k = index_at(cum[k] + BOUND_OPEN_M, k + 1, j)
                     idx.append(k)
+                    kind_at[k] = "open"
             chain.append({"kind": "open", "from_obj_m": round(float(g.robj[cells[j]])), "len_m": round(gap)})
         i = j + 1
     idx.append(n - 1)
+    kind_at[n - 1] = "Farm"
     out, last = [], None
     for k in sorted(set(idx)):
         if k == 0 or (last is not None and cum[k] - cum[last] < 30 and k != n - 1):
             continue
         out.append(k)
         last = k
-    wps = []
+    wps, kinds = [], []
     for k in out:
+        kinds.append(kind_at.get(k, "route"))
         x, z = pts[k]
         if g.building[cells[k]]:
             c2 = g.nearest_valid(x, z, 25, avoid_building=True)
@@ -732,8 +738,8 @@ def cover_bounds(g: Grid, cells):
                 x, z = g.xz(c2)
         wps.append((round(x, 1), round(z, 1)))
     if not wps:
-        wps = [(round(pts[-1][0], 1), round(pts[-1][1], 1))]
-    return wps, chain, round(longest)
+        wps, kinds = [(round(pts[-1][0], 1), round(pts[-1][1], 1))], ["Farm"]
+    return wps, chain, round(longest), kinds
 
 
 def chain_text(chain):
@@ -1191,7 +1197,8 @@ class Commander:
             entry["droneplan"] = s.droneplan
         entry["orders"] = {tid: {k: v for k, v in o.items()} for tid, o in self.orders.items() if tid in entries}
         entry["entries"] = {tid: {"route": e["route"]["id"], "go": e["go"], "drop": e["drop"], "hold": e["hold"], "hold_s": e["hold_s"],
-                                  "waypoints": e["route"]["waypoints"]} for tid, e in entries.items()}
+                                  "waypoints": e["route"]["waypoints"], "wp_kinds": e["route"].get("wp_kinds"),
+                                  "chain": e["route"].get("chain")} for tid, e in entries.items()}
         if write:
             self.write(pic, entries, profile_zcr)
             entry["version"] = self.version
