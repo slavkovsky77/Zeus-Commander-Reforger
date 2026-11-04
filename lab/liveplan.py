@@ -84,6 +84,10 @@ WALK_MPS, DRIVE_MPS = 1.5, 8.0
 HOLD_M = 180
 WAYPOINT_M = 50
 WAIT_S, SUPPORT_S = 180, 480
+# Waits that never end (4 Nov night - in the town battles Gemini renewed a team's 'wait' for 8-12 minutes: US T0 stood 4+
+# minutes 75 m short of its waypoint): a team kept waiting WAIT_MAX_S in a row goes on, for RELEASED_S before a wait holds
+# it again; the prompt says so.
+WAIT_MAX_S, RELEASED_S = 240, 300
 RAID_S = 150            # a raid team fights at the enemy drone site up to this long, then goes on to the objective
 SITE_SEEN_M = 100       # an enemy drone site is located once one of the side's known enemies stood this close to it
 STANCES = ("assault", "fortify", "counter_drone")
@@ -688,7 +692,7 @@ class Planner:
         ok = (g.valid & ~g.roof & (g.trees < 2) & (g.slope_cell <= self.FORT_SLOPE) & (g.robj >= lo) & (g.robj <= hi)
               & (off <= width) & (danger < 0.5) & (g.cover_m <= 40))
         if not holding:
-            ok &= (g.seen >= 3) & (threat < 0.3)
+            ok &= threat < 0.5     # 4 Nov night: a town hides the point - no cell 150-400 m out sees Beauregard; sight only scores
         mid = (lo + hi) / 2
         score = -off * 0.15 - np.abs(g.robj - mid) / 15 + 8 * (g.cover_m <= 15) - 20 * danger
         if not holding:
@@ -953,6 +957,8 @@ class Commander:
         self.strategy = None    # {"stance", "why"} - the model's battle strategy (note 542)
         self.armour_orders = {}  # unit -> {"order", "xz", "why"} - the model's orders for its fighting vehicles (note 544)
         self.forts = []         # [{"x", "z", "facing", "t", "why"}] - the field fortifications the model wants built (note 538)
+        self.wait_since = {}    # team id -> game second its present run of 'wait' orders began
+        self.released = {}      # team id -> game second it was sent on after waiting WAIT_MAX_S
         self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
@@ -1147,6 +1153,12 @@ class Commander:
             if o:
                 sp = self.match_support(pic, o.get("support_xz")) if o.get("order") == "support" else None
                 prev = f"; current order: route {start}-{o.get('route')}, {o.get('order')}" + (f" at {sp['id']}" if sp else "")
+                if o.get("order") == "wait" and tm["id"] in self.wait_since:
+                    waited = s.t - self.wait_since[tm["id"]]
+                    if s.t - self.released.get(tm["id"], -1e9) < RELEASED_S:
+                        prev += f" (it waited {waited // 60} min, so it is going on now whatever you say)"
+                    elif waited >= 60:
+                        prev += f" (waiting {waited // 60} min so far; at {WAIT_MAX_S // 60} min it goes on)"
             lines.append(f"  T{tm['id']}: {tm['men']} men, {where}, {round(d)} m from Farm" + (f", routes from {start}" if start and st != "at_farm" else "") + prev)
         zones = pic.get("zones") or []
         if zones:
@@ -1384,8 +1396,18 @@ class Commander:
                 continue
             go, hold, hold_s = 1, route["hold"], 0
             if o.get("order") == "wait":
-                go, hold_s = 0, WAIT_S
-            elif o.get("order") == "raid" and o.get("site_xz"):
+                since = self.wait_since.setdefault(tid, pic["t"])
+                last = self.released.get(tid, -1e9)
+                if pic["t"] - last < RELEASED_S:
+                    pass
+                elif pic["t"] - since >= WAIT_MAX_S:
+                    self.released[tid] = pic["t"]
+                    self.log(f"t={pic['t']} {self.side} T{tid} waited {pic['t'] - since} s - goes on")
+                else:
+                    go, hold_s = 0, WAIT_S
+            else:
+                self.wait_since.pop(tid, None)
+            if o.get("order") == "raid" and o.get("site_xz"):
                 cell = g.nearest_valid(o["site_xz"][0], o["site_xz"][1], 40, avoid_building=True)
                 if cell is not None:
                     from_xz = drop_xz if (st in ("at_hq", "riding") and drop_xz) else (tm["x"], tm["z"])
