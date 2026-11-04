@@ -151,7 +151,9 @@ class ZCR_Setup
 				continue;
 			// -zcrOnePoint: the point stays neutral; the other bases are dealt as usual (29 Oct: all of them neutral was
 			// tried once - Martin: "no now everything is FIA, fuck that").
-			if (ZCR_OnePoint.Is(base))
+			// ... unless -zcrBaseTo names it (4 Nov evening: the field fortification test gives Beauregard to the US at the start).
+			string pointTo;
+			if (ZCR_OnePoint.Is(base) && !(System.GetCLIParam("zcrBaseTo", pointTo) && pointTo.Contains(ZCR_Strategist.BaseName(base) + ":")))
 				continue;
 			vector at = base.GetOwner().GetOrigin();
 			float l = vector.DistanceXZ(at, homeUS) - vector.DistanceXZ(at, homeUSSR);
