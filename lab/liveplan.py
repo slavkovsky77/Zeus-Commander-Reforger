@@ -653,6 +653,66 @@ class Planner:
                 break
         return out
 
+    # Field fortifications (4 Nov, note 538 - Martin: "llm general could actually build defense lines (bunkers and shit)
+    # where it needs like who told that some position outside of the base could not set up?"): places outside any base
+    # where the side's builders can put a bunker or MG nest (AICF_ZcrFortPlan builds the ones the general picks - 'fort'
+    # lines). Open flat ground (no roof, under 2 trees, slope <= FORT_SLOPE), cover in reach. The side holding the objective:
+    # a ring FORT_HOLD_M out toward the enemy's side, facing outward; the other side: places FORT_ATTACK_M out on its own
+    # side that see the objective, facing it - a base of fire. Not in the side's danger zones nor (attacking) the enemy's view.
+    FORT_SLOPE = 0.15
+    FORT_HOLD_M = (50, 220)
+    FORT_ATTACK_M = (150, 400)
+    FORT_SPACING_M = 50
+    FORT_CANDIDATES = 5
+
+    def field_forts(self, s: Situation, threat, danger):
+        g = self.g
+        hq = s.hq.get(s.side)
+        enemy_hq = s.hq.get(s.enemy)
+        holding = s.owner == s.side
+        if not hasattr(g, "slope_cell"):
+            gx, gz = np.gradient(g.H, g.step)
+            g.slope_cell = np.hypot(gx, gz)
+        ang = np.degrees(np.arctan2(g.X - g.ox, g.Z - g.oz))
+        if holding and enemy_hq:
+            to_deg = math.degrees(math.atan2(enemy_hq[0] - g.ox, enemy_hq[1] - g.oz))
+            lo, hi = self.FORT_HOLD_M
+            width = 80
+        elif hq:
+            to_deg = math.degrees(math.atan2(hq[0] - g.ox, hq[1] - g.oz))
+            lo, hi = self.FORT_ATTACK_M
+            width = 80
+        else:
+            return []
+        off = np.abs((ang - to_deg + 180) % 360 - 180)
+        ok = (g.valid & ~g.roof & (g.trees < 2) & (g.slope_cell <= self.FORT_SLOPE) & (g.robj >= lo) & (g.robj <= hi)
+              & (off <= width) & (danger < 0.5) & (g.cover_m <= 40))
+        if not holding:
+            ok &= (g.seen >= 3) & (threat < 0.3)
+        mid = (lo + hi) / 2
+        score = -off * 0.15 - np.abs(g.robj - mid) / 15 + 8 * (g.cover_m <= 15) - 20 * danger
+        if not holding:
+            score += g.seen * 1.5 - 20 * threat
+        score = np.where(ok, score, -np.inf)
+        out = []
+        for k in np.argsort(score, axis=None)[::-1][:6000]:
+            c = np.unravel_index(k, score.shape)
+            if not np.isfinite(score[c]):
+                break
+            x, z = g.xz(c)
+            if any(math.hypot(x - f["x"], z - f["z"]) < self.FORT_SPACING_M for f in out):
+                continue
+            if holding:
+                facing = math.degrees(math.atan2(x - g.ox, z - g.oz)) % 360        # outward, the way the enemy comes
+            else:
+                facing = math.degrees(math.atan2(g.ox - x, g.oz - z)) % 360        # at the objective
+            out.append({"id": f"F{len(out) + 1}", "x": round(x, 1), "z": round(z, 1), "facing": round(facing),
+                        "from_obj_m": round(float(g.robj[c])), "dir": compass(math.degrees(math.atan2(x - g.ox, z - g.oz))),
+                        "cover_m": round(float(g.cover_m[c])), "sees": int(g.seen[c]), "role": "hold" if holding else "fire base"})
+            if len(out) >= self.FORT_CANDIDATES:
+                break
+        return out
+
     # -- routes -------------------------------------------------------------------------------------------------------
     def routes_from(self, key, start_xz, costs, D_obj, threat):
         """C: the cheapest way in; L / R: the best ones through a gate left / right of it."""
@@ -892,6 +952,7 @@ class Commander:
         self.lines = []         # this side's lines of the plan file (team/drones), for a shared file
         self.strategy = None    # {"stance", "why"} - the model's battle strategy (note 542)
         self.armour_orders = {}  # unit -> {"order", "xz", "why"} - the model's orders for its fighting vehicles (note 544)
+        self.forts = []         # [{"x", "z", "facing", "t", "why"}] - the field fortifications the model wants built (note 538)
         self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
@@ -913,6 +974,7 @@ class Commander:
         for d in drops:
             d["zones"] = [zn["id"] for zn in zones if math.hypot(zn["x"] - d["x"], zn["z"] - d["z"]) <= DANGER_R_M + 30]
         sup = p.support(s, threat)
+        forts = p.field_forts(s, threat, danger)
         teams = [tm for tm in s.teams if tm["men"] > 0 and tm["role"] == "ATTACK" and tm["to"] == OBJECTIVE]
         hq = s.hq.get(s.side)
         status = {}
@@ -964,7 +1026,7 @@ class Commander:
                           "from_obj_m": round(math.hypot(sx - g.ox, sz - g.oz)), "dir": compass(ang)})
         known = observers_from(s.known)
         pic = {"t": s.t, "nodes": s.nodes, "threat": threat, "costs": costs, "D_obj": D_obj, "drops": drops, "support": sup, "teams": teams,
-               "zones": zones, "sites": sites, "armour": list(s.armour),
+               "zones": zones, "sites": sites, "armour": list(s.armour), "forts": forts,
                "status": status, "starts": starts, "routes": routes, "known": known, "owner": s.owner, "lost": dict(s.lost),
                "hq": hq, "seconds": round(time.time() - t0, 1)}
         self.last = pic
@@ -1153,6 +1215,17 @@ class Commander:
                   "drones, out to 180 m, and every one of your FPVs goes for the enemy drone sites you have located). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
                   "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
                   "often the way in."]
+        if pic.get("forts"):
+            lines += ["", "Field positions where your builders can put a bunker or MG nest outside any base - they walk out from "
+                      "your nearest base and build it in a few minutes; it is cover your men can fight from (drones and fire "
+                      "kill men in the open). Pick up to 3, or none:"]
+            for f in pic["forts"]:
+                lines.append(f"  {f['id']}: {f['from_obj_m']} m {f['dir']} of Farm, facing {compass(f['facing'])}, a {f['role']} position"
+                             f", cover {f['cover_m']} m away" + (f", sees Farm from {f['sees']}/9 eye points" if f['role'] != "hold" else ""))
+            if self.forts:
+                lines.append("  Already ordered: " + ", ".join(f"{round(math.hypot(f['x'] - g.ox, f['z'] - g.oz))} m "
+                                                             f"{compass(math.degrees(math.atan2(f['x'] - g.ox, f['z'] - g.oz)))} of Farm"
+                                                             for f in self.forts) + " (they stay ordered unless you pick others).")
         raid = ', "site": "H1" or null' if pic.get("sites") else ""
         armour = (', "armour": [{"unit": <A number>, "order": "overwatch"|"assault"|"hold", "support": "P1" or null (for '
                   'overwatch: the support position it fires from), "why": "few words"}]') if pic.get("armour") and pic.get("support") else ""
@@ -1160,7 +1233,8 @@ class Commander:
                   '"why": "few words"}, "teams": [{"team": <id>, "drop": "D1" or null, '
                   '"route": "<start>-L|C|R", "order": "go"|"wait"|"support"' + ('|"raid"' if raid else '') + ', "support": "P1" or null'
                   + raid + ', "why": "few words"}]'
-                  + drones + armour + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
+                  + drones + armour + (', "forts": ["F1", ...] (up to 3 field positions to fortify, [] for none)' if pic.get("forts") else "")
+                  + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
                   "in a vehicle keeps its drop point). route: one of the routes listed from the team's start (for a team at the "
                   "HQ, from the drop point you give it)."]
         return "\n".join(lines)
@@ -1246,6 +1320,19 @@ class Commander:
                         continue
                     xz = (sp["x"], sp["z"])
                 self.armour_orders[unit] = {"order": order, "xz": xz, "why": str(e.get("why", ""))[:120]}
+        if isinstance(ans, dict) and isinstance(ans.get("forts"), list) and pic.get("forts") is not None:
+            by_id = {f["id"]: f for f in pic.get("forts") or []}
+            chosen = []
+            for fid in ans["forts"][:3]:
+                f = by_id.get(str(fid).strip().upper())
+                if not f:
+                    problems.append(f"fort {fid!r}")
+                    continue
+                # The same place as one ordered before (within 30 m): its spot as given then, so the game keeps its tries.
+                same = next((o for o in self.forts if math.hypot(o["x"] - f["x"], o["z"] - f["z"]) <= 30), None)
+                chosen.append(same or {"x": f["x"], "z": f["z"], "facing": f["facing"], "t": pic["t"]})
+            if chosen or ans["forts"] == []:
+                self.forts = chosen
         if isinstance(ans, dict) and isinstance(ans.get("strategy"), dict):
             stance = str(ans["strategy"].get("stance", "")).lower()
             if stance in STANCES:
@@ -1332,6 +1419,8 @@ class Commander:
         lines = []
         if self.strategy:
             lines.append(f"strategy {self.side} {self.strategy['stance']}")
+        for f in self.forts:
+            lines.append(f"fort {self.side} {f['x']:.1f} {f['z']:.1f} {f['facing']:.0f}")
         alive = {a_["unit"] for a_ in pic.get("armour") or []}
         for unit, o in sorted(self.armour_orders.items()):
             if unit in alive:
@@ -1734,7 +1823,9 @@ def cmd_hqs(run_dir, reader):
 
 def replay(a):
     """Offline: the picture at game second --t of an old run, the image, the code's (and optionally the model's) pick."""
-    planner = Planner()
+    global OBJECTIVE
+    OBJECTIVE = a.objective
+    planner = Planner(scan=Path(a.scan) if a.scan else None)
     run_dir = Path(a.replay)
     console = sorted(run_dir.glob("logs/*/console.log"))[-1]
     reader = LogReader(console)
@@ -1756,6 +1847,10 @@ def replay(a):
         print(f"  route {rid}: {r['length_m']} m, view {r['known_enemy_view_pct']}%, farm view {r['farm_view_pct']}%, cover {r['cover_in_reach_pct']}%, cost {r['cost']}")
     for tid, o in sorted(e["entries"].items()):
         print(f"  T{tid} ({e['teams'][tid]}): {o['route']} go={o['go']} drop={o['drop']} hold={o['hold']} ({len(o['waypoints'])} waypoints)")
+    for f in (cmd.last or {}).get("forts") or []:
+        print("  field spot", f)
+    for f in cmd.forts:
+        print("  fort ordered", f)
     if e.get("reason"):
         print("  model:", e["reason"], e.get("problems"))
     draw(planner, cmd.last, s).save(out / f"replay_t{s.t}.jpg", quality=85)
