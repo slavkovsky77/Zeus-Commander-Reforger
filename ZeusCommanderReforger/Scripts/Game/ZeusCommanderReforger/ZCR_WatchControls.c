@@ -92,6 +92,15 @@ class ZCR_WatchControls
 	protected int m_iClickY;
 	protected int m_iSampleX;
 	protected int m_iSampleY;
+	// A touch that came without a click (see Update): the cursor jumped there, no click followed.
+	protected static const int JUMP_PX = 40;
+	protected static const int TOUCH_WAIT_MS = 350;
+	protected int m_iMouseX = -1;
+	protected int m_iMouseY = -1;
+	protected bool m_bJumpPending;
+	protected int m_iJumpAt;
+	protected int m_iJumpX;
+	protected int m_iJumpY;
 
 	static void Create()
 	{
@@ -166,8 +175,15 @@ class ZCR_WatchControls
 		// tap. It was 0.3 s on the watch clock, which runs at the game's speed - at 2x the window was 0.15 s (28 Oct:
 		// SPEED went 1x -> 2x -> 3x within 0.32 s, Martin watching).
 		int nowMs = System.GetTickCount();
-		if (!s_Instance || nowMs - s_Instance.m_iLastClickMs < 500)
+		if (!s_Instance)
 			return;
+		// A click came: the touch that moved the cursor was a real tap (no touch tap from it, see Update).
+		s_Instance.m_bJumpPending = false;
+		if (nowMs - s_Instance.m_iLastClickMs < 500)
+		{
+			Print(string.Format("[ZCR][CAMUI] click dropped gap_ms=%1", nowMs - s_Instance.m_iLastClickMs), LogLevel.NORMAL);
+			return;
+		}
 		// A tap still waiting: taken where the cursor rested last (this new click came before the cursor moved on).
 		if (s_Instance.m_bSettling)
 		{
@@ -440,6 +456,7 @@ class ZCR_WatchControls
 			GetGame().GetInputManager().AddActionListener("MouseLeft", EActionTrigger.UP, OnMouseLeft);
 			m_bListening = true;
 		}
+		TouchTap();
 		// Free look switched on or off elsewhere too (a tap on the picture, AUTO from the lab app): the move stick follows.
 		bool free = ZCR_Watch.IsFree();
 		if (free != m_bWasFree)
@@ -449,6 +466,63 @@ class ZCR_WatchControls
 			Labels();
 		}
 		Colours();
+	}
+
+	// A single tap over Moonlight / Artemis on Android reaches the game as the cursor jumping to the finger with no click; only
+	// a double tap brings a click (4 Nov - Martin: "button react only when i doubletap"; the 03:25 battle logged 50 clicks,
+	// every one read at the finger - the single taps never came as clicks). So: the cursor jumping JUMP_PX+ in one frame onto
+	// a button and resting there, with no click within TOUCH_WAIT_MS, is a tap on that button. Buttons only - a mouse moved
+	// over the picture never flies the camera. [ZCR][CAMUI] touch-tap / touch no-button logs each.
+	protected void TouchTap()
+	{
+		int x, y;
+		WidgetManager.GetMousePos(x, y);
+		int now = System.GetTickCount();
+		if (m_iMouseX < 0)
+		{
+			m_iMouseX = x;
+			m_iMouseY = y;
+			return;
+		}
+		if (Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY) >= JUMP_PX)
+		{
+			m_bJumpPending = true;
+			m_iJumpAt = now;
+			m_iJumpX = x;
+			m_iJumpY = y;
+		}
+		m_iMouseX = x;
+		m_iMouseY = y;
+		if (!m_bJumpPending || now - m_iJumpAt < TOUCH_WAIT_MS)
+			return;
+		m_bJumpPending = false;
+		if (m_bSettling || now - m_iLastClickMs < 500)
+			return;
+		if (Math.AbsFloat(x - m_iJumpX) > 4 || Math.AbsFloat(y - m_iJumpY) > 4)
+			return;      // the cursor moved on: a mouse, not a touch
+		if (!OnButton(x, y))
+		{
+			Print(string.Format("[ZCR][CAMUI] touch no-button at=%1,%2", x, y), LogLevel.NORMAL);
+			return;
+		}
+		m_iLastClickMs = now;
+		Print(string.Format("[ZCR][CAMUI] touch-tap at=%1,%2", x, y), LogLevel.NORMAL);
+		Resolve(x, y);
+	}
+
+	protected bool OnButton(int x, int y)
+	{
+		foreach (ZCR_WatchButton b : m_aButtons)
+		{
+			if (!b.m_wBack.IsVisible())
+				continue;
+			float bx, by, bw, bh;
+			b.m_wBack.GetScreenPos(bx, by);
+			b.m_wBack.GetScreenSize(bw, bh);
+			if (x >= bx && x <= bx + bw && y >= by && y <= by + bh)
+				return true;
+		}
+		return false;
 	}
 
 	// Where the tap really was (x, y: the cursor at rest): a button, else the picture.
