@@ -499,8 +499,11 @@ def hq_positions(run_dir: Path, reader: LogReader) -> dict:
 
 class Planner:
     def __init__(self, slug="arland", scan=None):
-        self.g = Grid(scan or ATTACK / "farm_scan.jsonl", slug)
+        self.scan_path = scan or ATTACK / "farm_scan.jsonl"
+        self.g = Grid(self.scan_path, slug)
         roads = [json.loads(l) for l in (MAPS / slug / "map_roads.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        self.roads = roads
+        self._fort_terrain = None
         self.graph = roadgraph.Graph(roads, [])
         g = self.g
         self.goal = g.valid & (g.robj <= GOAL_M)
@@ -673,10 +676,19 @@ class Planner:
     # a ring FORT_HOLD_M out toward the enemy's side, facing outward; the other side: places FORT_ATTACK_M out on its own
     # side that see the objective, facing it - a base of fire. Not in the side's danger zones nor (attacking) the enemy's view.
     FORT_SLOPE = 0.15
-    FORT_HOLD_M = (50, 220)
+    FORT_HOLD_M = (110, 240)     # 4 Nov night: from 50 m - spots inside the town's base failed its access corridors
     FORT_ATTACK_M = (150, 400)
     FORT_SPACING_M = 50
     FORT_CANDIDATES = 5
+    FORT_ROAD_M = 12     # from a road's edge (the game's ROAD_OR_ACCESS_CORRIDOR: 10 of the first test's 21 tries)
+    FORT_OBJECT_M = 7    # no wall, fence or rock 0.4 m+ this close (PHYSICAL_OBSTRUCTION: 8 of 21) - lab/fortplan.py's checks
+
+    def fort_terrain(self):
+        """lab/fortplan.py's ground around the objective (its objects on a 2 m grid), loaded once."""
+        if self._fort_terrain is None:
+            import fortplan
+            self._fort_terrain = fortplan.Terrain({"scan": Path(self.scan_path), "x": self.g.ox, "z": self.g.oz})
+        return self._fort_terrain
 
     def field_forts(self, s: Situation, threat, danger):
         g = self.g
@@ -714,6 +726,9 @@ class Planner:
                 break
             x, z = g.xz(c)
             if any(math.hypot(x - f["x"], z - f["z"]) < self.FORT_SPACING_M for f in out):
+                continue
+            import fortplan
+            if fortplan.road_gap(x, z, self.roads) < self.FORT_ROAD_M or self.fort_terrain().object_near(x, z, self.FORT_OBJECT_M) >= 0.4:
                 continue
             if holding:
                 facing = math.degrees(math.atan2(x - g.ox, z - g.oz)) % 360        # outward, the way the enemy comes
