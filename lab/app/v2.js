@@ -781,7 +781,7 @@
       const lastOf = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
       const meets = (v) => o.target == null || v == null ? null : o.better === "higher" ? v >= o.target : v <= o.target;
       const unit = o.unit ? String(o.unit).replace(/^ /, "") : "";
-      const tgtWords = o.target == null ? "" : o.targetLabel && !/^\d/.test(o.targetLabel) ? "target: " + o.targetLabel : `target ${o.better === "higher" ? "≥" : "≤"} ${o.target}${unit && unit !== "%" ? " " + unit : unit}`;
+      const tgtWords = o.target == null ? "" : o.targetLabel && !/^\d/.test(o.targetLabel) ? (/^(target|limit)\b/i.test(o.targetLabel) ? o.targetLabel : "target: " + o.targetLabel) : `target ${o.better === "higher" ? "≥" : "≤"} ${o.target}${unit && unit !== "%" ? " " + unit : unit}`;
       const nowHtml = split
         ? lines.map((ln) => { const v = lastOf(ln.data), ok = meets(v); return `<span class="grp"><i style="background:${ln.gr.color}"></i>${esc(ln.gr.name)} <b class="mono">${fmt1(v)}${esc(unit === "%" ? "%" : "")}</b>${ok === true ? " ✓" : ""}</span>`; }).join("")
         : (() => { const v = lastOf(lines[0].data), ok = meets(v); return `<span class="v">${fmt1(v)}${esc(unit === "%" ? "%" : "")}</span><span class="lab">now - the average of the last ${o.avgN}</span>${ok == null ? "" : `<span class="pill ${ok ? "ok" : "no"}">${ok ? "meets" : "misses"} ${esc(tgtWords)}</span>`}`; })();
@@ -812,7 +812,8 @@
       lines.forEach((ln, i) => {
         series.push({ name: ln.gr.name, type: "line", data: ln.data, connectNulls: true, showSymbol: false, smooth: 0.25, z: 4,
           lineStyle: { width: o.big ? 2.5 : 2, color: ln.gr.color }, itemStyle: { color: ln.gr.color },
-          endLabel: { show: true, formatter: (p) => fmt1(p.value), color: ink, fontSize: 11, fontFamily: '"JetBrains Mono", Consolas, monospace', distance: 4 },
+          // Lines that end close together would stack their labels: with a line per group the row above carries the values.
+          endLabel: { show: !split, formatter: (p) => fmt1(p.value), color: ink, fontSize: 11, fontFamily: '"JetBrains Mono", Consolas, monospace', distance: 4 },
           markLine: i === 0 ? { symbol: "none", silent: true, animation: false, data: [
             ...marks.map((m) => ({ xAxis: m.xAxis, name: m.name, lineStyle: { type: "dotted", color: muted, width: 1, opacity: .8 },
               label: { show: m.show, formatter: m.name, position: "end", color: muted, fontSize: 10, fontFamily: '"JetBrains Mono", Consolas, monospace' } })),
