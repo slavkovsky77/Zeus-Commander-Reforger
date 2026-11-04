@@ -40,13 +40,19 @@ def main() -> int:
     new = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", *SHIPPED], cwd=fork, capture_output=True,
                          text=True, check=True).stdout.splitlines()
     rows = sorted({tuple(l.split("\t", 1)) for l in out if "\t" in l} | {("A", n) for n in new}, key=lambda r: r[1])
-    rows = [r for r in rows if not r[1].endswith(("NOTICE.txt", "resourceDatabase.rdb"))]
+    rows = [r for r in rows if not r[1].endswith(("NOTICE.txt", "resourceDatabase.rdb", "AICF_LICENSE_NOTICE.c"))]
     body = HEAD + "\n".join(f"- {s} `{p}`" for s, p in rows) + "\n"
     (fork / "NOTICE.md").write_text(body, encoding="utf-8")
     for addon in SHIPPED:
         mine = [r for r in rows if r[1].startswith(addon + "/")]
         text = HEAD.replace("# NOTICE", "NOTICE") + "\n".join(f"- {s} {p}" for s, p in mine) + "\n"
         (fork / addon / "NOTICE.txt").write_text(text, encoding="utf-8")
+        # A packed addon carries only resources and scripts (no .txt): the licence and this notice also go in as a
+        # script file of comments only, so every Workshop copy has them (Apache-2.0 4a, 4b).
+        lic = (fork / addon / "license.txt").read_text(encoding="utf-8")
+        assert "*/" not in lic + text
+        folder = next(d for d in (fork / addon / "Scripts" / "Game").iterdir() if d.is_dir())
+        (folder / "AICF_LICENSE_NOTICE.c").write_text("/*\n" + text + "\n\n" + lic + "\n*/\n", encoding="utf-8")
     print(f"{len(rows)} files listed: {sum(r[0] == 'M' for r in rows)} changed, {sum(r[0] == 'A' for r in rows)} added")
     return 0
 

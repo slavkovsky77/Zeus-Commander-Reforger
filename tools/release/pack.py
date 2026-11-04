@@ -49,7 +49,8 @@ def pack(folder: Path, deps: str) -> dict:
     logs = LOGS / f"{pid}-{time.strftime('%Y%m%d-%H%M%S')}"
     logs.mkdir(parents=True)
     roots = [str(R2), str(R1), str(DEPS), str(GAME_ADDONS)]
-    cmd = [str(WB), "-noThrow", "-wbsilent", "-gproj", str(folder / "addon.gproj"), "-addonsDir", ",".join(roots)]
+    # No -wbsilent: in silent mode Workbench quits before its Resource Manager (where -packAddon runs) opens.
+    cmd = [str(WB), "-noThrow", "-gproj", str(folder / "addon.gproj"), "-addonsDir", ",".join(roots)]
     if deps:
         cmd += ["-addons", deps]
     cmd += ["-logsDir", str(logs), "-wbModule=ResourceManager", "-packAddon", "-packAddonDir", str(out),
