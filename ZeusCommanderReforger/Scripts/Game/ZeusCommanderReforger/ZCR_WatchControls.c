@@ -101,7 +101,9 @@ class ZCR_WatchControls
 	protected int m_iJumpAt;
 	protected int m_iJumpX;
 	protected int m_iJumpY;
-	protected int m_iJumpSeenAt = -100000;   // the last cursor jump (a touch moved it)
+	protected int m_iJumpSeenAt = -100000;   // the last cursor jump a touch made (confirmed: still before and after)
+	protected bool m_bJumpCandidate;         // a jump this frame, to confirm on the next
+	protected float m_fLastStep;             // how far the cursor moved the frame before
 
 	static void Create()
 	{
@@ -485,14 +487,27 @@ class ZCR_WatchControls
 			m_iMouseY = y;
 			return;
 		}
-		if (Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY) >= JUMP_PX)
+		// A touch teleports the cursor in one frame from rest, and it stays; a mouse moves over several frames (5 Nov 00:10 -
+		// Martin, with the mouse: "clicking on ui on computer resets mouse to middle" - a fast mouse move counted as a touch and
+		// the click parked the cursor). The jump is confirmed on the next frame if the cursor is still; else it was a mouse.
+		float step = Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY);
+		if (m_bJumpCandidate)
 		{
+			m_bJumpCandidate = false;
+			if (step <= 2)
+				m_iJumpSeenAt = m_iJumpAt;
+			else
+				m_bJumpPending = false;
+		}
+		if (step >= JUMP_PX && m_fLastStep <= 2)
+		{
+			m_bJumpCandidate = true;
 			m_bJumpPending = true;
-			m_iJumpSeenAt = now;
 			m_iJumpAt = now;
 			m_iJumpX = x;
 			m_iJumpY = y;
 		}
+		m_fLastStep = step;
 		m_iMouseX = x;
 		m_iMouseY = y;
 		if (!m_bJumpPending || now - m_iJumpAt < TOUCH_WAIT_MS)
@@ -527,6 +542,8 @@ class ZCR_WatchControls
 		m_iMouseX = px;
 		m_iMouseY = py;
 		m_bJumpPending = false;
+		m_bJumpCandidate = false;
+		m_fLastStep = 0;
 	}
 
 	protected bool OnButton(int x, int y)
