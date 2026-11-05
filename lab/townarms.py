@@ -18,7 +18,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import towntime  # noqa: E402
 
-WORDS = {"town-brains": "as now (town-brains)", "town-storm60": "storm priority 60", "town-cap70": "side cap 70",
+R76_FROM = "20261105-071500"
+WORDS = {"town-brains": "as it was (town-brains to 07:15)", "town-brains-r76": "town-brains from 07:15 (storm 60 + cleanup)", "town-storm60": "storm priority 60", "town-cap70": "side cap 70",
          "town-storm60-cap70": "storm 60 + cap 70", "town-cleanup": "drone stations cleaned up", "town-nodoor": "no door reaction",
          "town-storm60-cleanup": "storm 60 + stations cleaned up"}
 
@@ -29,6 +30,9 @@ def battles(since: str) -> list:
         b = towntime.parse(run)
         if b.get("error") or b.get("watched") or b.get("last_min", 0) < 25 or b["variant"] not in WORDS:
             continue
+        # town-brains itself runs with the storm at 60 and the stations cleaned up from 5 Nov 07:15 (lab/assaulttest.py)
+        if b["variant"] == "town-brains" and run.name[-15:] >= R76_FROM:
+            b["variant"] = "town-brains-r76"
         out.append(b)
     return out
 

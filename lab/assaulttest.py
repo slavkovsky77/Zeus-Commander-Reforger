@@ -221,6 +221,13 @@ VARIANTS["town-storm60-cap70"] = (_cap70 + " -zcrStormPriority 60", "town-storm6
 # since -fpvaiKeepStations) - is it crash-free headless, and does the AI-agent count stay flat?
 VARIANTS["town-cleanup"] = (VARIANTS["town-brains"][0] + " -zcrDroneTeamCleanup", "town-brains with used-up drone stations deleted 90 s after their team is done")
 VARIANTS["town-storm60-cleanup"] = (VARIANTS["town-storm60"][0] + " -zcrDroneTeamCleanup", "town-storm60 and town-cleanup together - the candidate for the watched battle")
+# 5 Nov 07:15 (the night A/B, lab/townarms.py): the town battle itself now runs with the storm at 60 and the drone stations
+# cleaned up - storm 60 took Beauregard at a median 13 min (2 of 3 by minute 16) with ~3x the men within 150 m, against 23 min
+# (1 of 7 by minute 16) as it was. The variants above keep the flags they were measured with (they copy town-brains as it was).
+TOWN_BRAINS_R75 = VARIANTS["town-brains"][0]
+VARIANTS["town-brains"] = (TOWN_BRAINS_R75 + " -zcrStormPriority 60 -zcrDroneTeamCleanup", VARIANTS["town-brains"][1])
+for _v in ("town-vs-rules", "town-forts"):   # the town integration test's other setups: the same storm and cleanup
+    VARIANTS[_v] = (VARIANTS[_v][0] + " -zcrStormPriority 60 -zcrDroneTeamCleanup", VARIANTS[_v][1])
 LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70", "town-cleanup", "town-storm60-cleanup"}   # variants whose live planner plans both sides
 RULES_VS = {"town-vs-rules"}   # ... one of them by the rules: the side opposite --live-side
 # 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
