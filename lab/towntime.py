@@ -77,7 +77,8 @@ def kv(line: str, key: str, cast=int, default=None):
 
 
 def meta(run: Path) -> dict:
-    d = {"run": run.name, "variant": next((v for v in ("town-brains", "town-vs-rules", "town-forts", "town-nodoor")
+    d = {"run": run.name, "variant": next((v for v in ("town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60",
+                                                     "town-cap70", "town-storm60-cap70")
                                             if f"-{v}-" in run.name), "?"), "watched": "-watch-" in run.name}
     try:
         r = json.loads((run / "run.json").read_text(encoding="utf-8"))
@@ -483,15 +484,24 @@ def digest(b: dict) -> str:
     return "\n".join(lines)
 
 
+# 5 Nov night: the A/B arms - town-brains, the door off, the storm at priority 60, the side cap at 70 (the subagent's two bets
+# for the 150-300 m stall and the fade with time), and both.
+AB_ARMS = ("town-brains", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70")
+
+
+def arm_name(b: dict) -> str:
+    return {"town-brains": "door on", "town-nodoor": "door OFF"}.get(b["variant"], b["variant"][5:])
+
+
 def ab(battles: list) -> str:
-    """Door on v off (town-brains v town-nodoor), paired by build: one row per battle, then each arm's means."""
+    """The A/B arms (AB_ARMS), paired by build: one row per battle, then each arm's means."""
     keys = [("a300 8-15", "att300", 8, 15), ("a150 8-30", "att150", 8, 30), ("a60 8-30", "att60", 8, 30),
             ("frozen 10-30", "frzN", 10, 30), ("prone 8-30", "prone", 8, 30), ("unc 8-30", "unc", 8, 30),
             ("door acts", "pact", 0, 30), ("imf/min", "imf", 0, 30), ("lost 30", "lost", 29, 30)]
-    out = [f"{'battle':46} {'build':8} door  taken  " + " ".join(f"{k[0]:>12}" for k in keys) + "   closing 150-300 / 300-700"]
+    out = [f"{'battle':46} {'build':8} {'arm':>9}  taken  " + " ".join(f"{k[0]:>12}" for k in keys) + "   closing 150-300 / 300-700"]
     arms = defaultdict(list)
     for b in battles:
-        if b["variant"] not in ("town-brains", "town-nodoor") or b.get("watched") or b.get("last_min", 0) < 25:
+        if b["variant"] not in AB_ARMS or b.get("watched") or b.get("last_min", 0) < 25:
             continue   # watched (2-3x), other setups, or still running / cut short
         ms = b["minutes"]
         vals = []
@@ -501,18 +511,18 @@ def ab(battles: list) -> str:
         cap = b["first_cap_s"] / 60 if b.get("first_cap_s") is not None else None
         clo = b.get("closing") or {}
         row = {"cap": cap, "vals": vals, "c1": (clo.get("150-300") or (None,))[0], "c2": (clo.get("300-700") or (None,))[0]}
-        arms[(b.get("scripts") or b.get("commit"), b["door"])].append(row)
-        out.append(f"{b['run'][-46:]:46} {b.get('scripts') or b.get('commit', ''):8} {'on ' if b['door'] else 'OFF'}  {fmt(round(cap, 1)) if cap else '  -':>5}  "
+        arms[(b.get("scripts") or b.get("commit"), arm_name(b))].append(row)
+        out.append(f"{b['run'][-46:]:46} {b.get('scripts') or b.get('commit', ''):8} {arm_name(b):>9}  {fmt(round(cap, 1)) if cap else '  -':>5}  "
                    + " ".join(f"{fmt(round(v, 1)) if v is not None else '.':>12}" for v in vals) + f"   {fmt(row['c1'])} / {fmt(row['c2'])}")
     out.append("")
-    for (commit, door), rows in sorted(arms.items(), key=lambda x: (str(x[0][0]), x[0][1])):
+    for (commit, arm), rows in sorted(arms.items(), key=lambda x: (str(x[0][0]), x[0][1])):
         n = len(rows)
         taken = sum(1 for r in rows if r["cap"] is not None)
         early = sum(1 for r in rows if r["cap"] is not None and r["cap"] * 60 <= EARLY_S)
         means = [sum(r["vals"][i] or 0 for r in rows) / n for i in range(len(keys))]
         c1 = [r["c1"] for r in rows if r["c1"] is not None]
         c2 = [r["c2"] for r in rows if r["c2"] is not None]
-        out.append(f"scripts {commit} door {'on ' if door else 'OFF'}: {n} battles, taken {taken} (by min 16: {early}) | "
+        out.append(f"scripts {commit} {arm:>9}: {n} battles, taken {taken} (by min 16: {early}) | "
                    + ", ".join(f"{k[0]} {fmt(round(v, 1))}" for k, v in zip(keys, means))
                    + f" | closing {fmt(round(sum(c1) / len(c1), 1)) if c1 else '.'} / {fmt(round(sum(c2) / len(c2), 1)) if c2 else '.'}")
     return "\n".join(out)

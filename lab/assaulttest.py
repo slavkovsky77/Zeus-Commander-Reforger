@@ -207,15 +207,26 @@ VARIANTS["town-forts"] = (VARIANTS["town-brains"][0].replace("-zcrBaseTo Farm:US
 # doesn't take these battles in; lab/towntime.py compares the two).
 VARIANTS["town-nodoor"] = (VARIANTS["town-brains"][0] + " -zcrNoDoorReaction",
                            "town-brains without the AI's navlink-door reaction (as before 4 Nov 04:51) - the A/B of the town captures")
-LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts", "town-nodoor"}   # variants whose live planner plans both sides
+# 5 Nov night (the subagent's study of 27 town battles, lab/towntime.py): teams reach 300 m of the point but hover 150-300 m out
+# (a soldier's formation move at storm priority 25 loses to taking fire positions and attacking) - town-storm60; and the attack
+# fades with time because supply-truck crews and drone pilots fill the side cap (squad men 96 -> 60, support 34 -> 58 by minute
+# 25; REINFORCEMENT_BLOCKED reason=FACTION_LIMIT) - town-cap70. Both: town-storm60-cap70.
+VARIANTS["town-storm60"] = (VARIANTS["town-brains"][0] + " -zcrStormPriority 60",
+                            "town-brains with the storm's legs at priority 60 (25): the men keep moving under fire rather than stopping at fire positions")
+_cap70 = VARIANTS["town-brains"][0].replace("-aicfMaxAgentsPerFaction 50", "-aicfMaxAgentsPerFaction 70")
+assert _cap70 != VARIANTS["town-brains"][0]
+VARIANTS["town-cap70"] = (_cap70, "town-brains with the side cap at 70 soldiers (50) - room for the attack teams beside the support soldiers")
+VARIANTS["town-storm60-cap70"] = (_cap70 + " -zcrStormPriority 60", "town-storm60 and town-cap70 together")
+LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70"}   # variants whose live planner plans both sides
 RULES_VS = {"town-vs-rules"}   # ... one of them by the rules: the side opposite --live-side
 # 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
 # ratio right? and it provides defense?"): DCO's defend and idle positions indoors first (coverPreference 1; Recommended:
 # 0 = balanced) and several teams may share a building (Farm has few).
 DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}, "town-brains": {"coverPreference": 1, "shareBuildings": True},
            "town-vs-rules": {"coverPreference": 1, "shareBuildings": True}, "town-forts": {"coverPreference": 1, "shareBuildings": True},
-           "town-nodoor": {"coverPreference": 1, "shareBuildings": True}}
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True), "town-forts": ("gemini", True), "town-nodoor": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+           "town-nodoor": {"coverPreference": 1, "shareBuildings": True}, "town-storm60": {"coverPreference": 1, "shareBuildings": True},
+           "town-cap70": {"coverPreference": 1, "shareBuildings": True}, "town-storm60-cap70": {"coverPreference": 1, "shareBuildings": True}}
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True), "town-forts": ("gemini", True), "town-nodoor": ("gemini", True), "town-storm60": ("gemini", True), "town-cap70": ("gemini", True), "town-storm60-cap70": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
