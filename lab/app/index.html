@@ -338,6 +338,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       </form>
       <div id="inbox" style="display:grid;gap:8px"></div>
     </div>
+    <div class="mono muted" id="llmcost"></div>
     <div class="mono muted" id="servers"></div>
   </section>
 
@@ -1333,6 +1334,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
     $("videos").innerHTML = (s.videos || []).length ? `<table><thead><tr><th>Recording</th><th></th><th>Size</th></tr></thead><tbody>` + s.videos.map((v) =>
       `<tr><td><span class="mono">${esc(v.at)}</span> <span class="muted">${esc(v.title)}</span></td><td><button class="go" data-video="${esc(v.name)}" style="padding:4px 10px">Play</button></td><td class="mono">${esc(v.mb)} MB</td></tr>`).join("") + "</tbody></table>" : '<div class="empty">No recordings.</div>';
     renderSublab(s.sublab || []);
+    // The LLM general's model spend (lab/llmcost.py): today and this week, by run kind.
+    const c = s.llmcost, kinds = (x) => Object.entries(x.by_kind || {}).map(([k, v]) => `${k} $${v.cost.toFixed(2)}`).join(", ");
+    $("llmcost").textContent = c && c.today ? `Model spend: today $${c.today.cost.toFixed(2)} (${c.today.calls} calls${kinds(c.today) ? "; " + kinds(c.today) : ""}) · this week $${c.week.cost.toFixed(2)} (${c.week.calls} calls)` : "";
   }
   let sublabSeen = "";
   // Each sub-lab reads top to bottom (Martin, 23 Oct: "make it so clear how the experiment ended - self-explanatory, hard

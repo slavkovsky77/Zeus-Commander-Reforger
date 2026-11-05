@@ -30,6 +30,7 @@ LAB = HERE.parent
 ROOT = LAB.parent
 sys.path.insert(0, str(LAB))
 import crashes  # noqa: E402
+import llmcost  # noqa: E402
 import maplayers  # noqa: E402
 import monitor  # noqa: E402
 sys.path.insert(0, str(HERE))
@@ -96,7 +97,10 @@ class Slow:
         for key, fn in (("goals", monitor.goal_rows), ("matches", lambda: monitor.match_rows(15)),
                         ("commits", monitor.commits), ("notes", lambda: monitor.notes(12)), ("videos", videos),
                         ("progress", progress_specs.progress_data), ("goal_history", progress_specs.goal_history),
-                        ("crashes", lambda: crashes.report(4)), ("sublab", sublab.app_data)):
+                        ("crashes", lambda: crashes.report(4)), ("sublab", sublab.app_data),
+                        # The LLM general's model spend (5 Nov - Martin found a $12.52 day): today / this week, from the runs'
+                        # liveplan.jsonl usage rows (lab/llmcost.py) - never OpenRouter's key endpoint.
+                        ("llmcost", lambda: llmcost.summary(7))):
             try:
                 out[key] = fn()
             except Exception as e:  # one broken source must not blank the others
@@ -482,7 +486,9 @@ class Handler(BaseHTTPRequestHandler):
                 import v2data
                 q = dict(x.split("=", 1) for x in urlparse(self.path).query.split("&") if "=" in x)
                 name = q.get("map", "auto")
-                return self.json(v2data.live(name if name in ("arland", "everon") else "auto"))
+                with Slow.lock:
+                    spend = Slow.data.get("llmcost")
+                return self.json({**v2data.live(name if name in ("arland", "everon") else "auto"), "llmcost": spend})
             if path == "/api/inbox":   # the remarks and their replies, read-only (POST adds one)
                 return self.json({"remarks": inbox(80), "at": now_iso()})
             if path == "/api/live":

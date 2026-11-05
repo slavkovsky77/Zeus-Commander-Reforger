@@ -283,6 +283,8 @@
     // ---- the top bar: which battle, the point and who holds it, the game time, the losses, each side's general
     renderBattle() {
       const d = this.d, B = d && d.battle;
+      // The general's model spend, all runs (lab/llmcost.py via the slow refresh, 5 Nov - a $12.52 day).
+      const spend = (c) => c && c.today ? `<br>Model spend: today <b>$${c.today.cost.toFixed(2)}</b> (${c.today.calls} calls) · this week $${c.week.cost.toFixed(2)}` : "";
       if (!B) { $("battle").innerHTML = `<div class="l1"><span class="state ended">NO BATTLE</span><span class="muted">Nothing played on Arland or Everon lately.</span></div>`; return; }
       if (B.error) { $("battle").innerHTML = `<div class="l1"><span class="state ${B.live ? "live" : "ended"}">${B.live ? "LIVE" : "ENDED"}</span><span class="muted">${esc(B.run)} - the summary failed: ${esc(B.error)}</span></div>`; return; }
       const own = B.owner === "FIA" ? "neutral" : B.owner ? "held by " + B.owner : "";
@@ -308,7 +310,7 @@
         ${gen("US")}${gen("USSR")}
         <div class="more-info">${esc(cap(B.title))}${B.watched ? " · watched" : " · headless"}${B.speed && B.speed !== "1" ? ` · ${esc(B.speed)}x` : ""} · started ${esc(B.started)}
           ${[effort("US"), effort("USSR")].filter(Boolean).map((x) => "<br>" + x).join("")}
-          ${caps ? `<br>Captures: ${caps}` : ""}${calls ? `<br>Gemini (${esc(g0.model || g1.model || "")}): ${calls}` : ""}
+          ${caps ? `<br>Captures: ${caps}` : ""}${calls ? `<br>Gemini (${esc(g0.model || g1.model || "")}): ${calls}` : ""}${spend(d.llmcost)}
           <br><span class="mono">${esc(B.run)}</span></div>`;
     },
 

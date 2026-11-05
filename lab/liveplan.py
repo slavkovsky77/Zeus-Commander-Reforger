@@ -31,6 +31,10 @@ $profile:zcr/liveplan.jsonl (the model's reasons too) and every model call's ima
 
     python lab/liveplan.py --label assault-city-farm-gemini-p2178 --side harbour --picker gemini   # beside the battle
     python lab/liveplan.py --replay .runtime/runs/<run> --t 420 --side USSR --picker code --known-from-live   # offline
+
+Cheaper, opt-in (5 Nov; off unless set - the environment reaches it through lab/assaulttest.py; lab/llmcost.py shows the spend):
+    LIVEPLAN_STRETCH=2                                  # no call while nothing material changed, up to 2 x GEMINI_S
+    LIVEPLAN_CHEAP_MODEL=google/gemini-3.5-flash-lite   # routine calls to it, the strong model on events and 1 call in 3
 """
 import argparse
 import base64
@@ -58,6 +62,28 @@ OBJECTIVE = "Farm"      # the battle's objective: --objective (4 Nov: Beauregard
 ROUND_S = 30            # the code redraws every this many game seconds
 GEMINI_S = 150          # the model every this many game seconds ...
 GEMINI_MIN_S = 110      # ... or on an event, but never sooner than this after the last call
+# Fewer and cheaper model calls - OPT-IN, all off by default (5 Nov - Martin: "some optimization would be nice", "they have
+# cheaper models..", "we could combine multiple models"). See COST NOTES below ask_model for what each saved on 5 Nov's calls.
+#   LIVEPLAN_STRETCH=2 (--stretch 2): when nothing material changed since the side's last call - none of STRETCH_ON
+#     (LIVEPLAN_STRETCH_ON, kinds of changes(): the objective's owner, a team gone or arrived, a known enemy group of 2+ men
+#     NEW_ENEMY_M from every one known then, a drone site located) - the side keeps its orders and the model is asked only after
+#     STRETCH x GEMINI_S. The other kinds (team_new, left, men, losses, zone, armour) can be added; "all" = every kind. The
+#     early call on 4+ losses (between GEMINI_MIN_S and GEMINI_S) stays as it was. 1 = off.
+#   LIVEPLAN_CHEAP_MODEL=google/gemini-3.5-flash-lite (--cheap-model): routine calls go to this model, the strong one (bridge's)
+#     on events (STRONG_ON: the first call, the objective changing hands, a team gone, a big new enemy group) and at least every
+#     LIVEPLAN_STRONG_EVERY-th call (default 3). A cheap answer that leaves a team out or is broken goes to the strong model
+#     (LIVEPLAN_CHEAP_FALLBACK=strong, the default) or keeps that team's previous orders (=fill). Empty = off.
+STRETCH = float(os.environ.get("LIVEPLAN_STRETCH", "1") or 1)
+STRETCH_ON = {k.strip() for k in os.environ.get("LIVEPLAN_STRETCH_ON", "owner,team_gone,arrived,enemy,enemy_big,site").split(",") if k.strip()}
+CHEAP_MODEL = os.environ.get("LIVEPLAN_CHEAP_MODEL", "").strip()
+STRONG_EVERY = max(1, int(os.environ.get("LIVEPLAN_STRONG_EVERY", "3") or 3))
+CHEAP_FALLBACK = os.environ.get("LIVEPLAN_CHEAP_FALLBACK", "strong").strip().lower()
+CHEAP_REASONING = os.environ.get("LIVEPLAN_CHEAP_REASONING", "low")
+CHANGE_LOSSES = 3       # this many of the side's soldiers lost since its last call is a change
+NEW_ENEMY_M = 150       # a known enemy group this far from every group known at the last call is new ...
+NEW_ENEMY_W = 1.5       # ... when it is 2+ men within 30 m (observers_from's weight); BIG_ENEMY_W (3+ men, its cap) wakes
+BIG_ENEMY_W = 2.0       # the strong model
+STRONG_ON = ("first", "owner", "team_gone", "enemy_big")
 GOAL_M = 50             # a route ends this close to the objective's centre
 VIEW_M = 500            # a known enemy's sight counts this far
 EYE_M, TARGET_M = 1.7, 1.4
@@ -971,6 +997,55 @@ def compass(angle):
     return names[int(((angle + 360) % 360 + 22.5) // 45) % 8]
 
 
+def digest(s: Situation, pic) -> dict:
+    """What the side's general knew at one round, as far as its orders go - changes() compares two (the skip/stretch rule
+    and the model mix, both opt-in). Plain lists and string ids, so it goes into liveplan.jsonl as it is."""
+    return {"t": s.t, "owner": s.owner, "lost": s.lost.get(s.side, 0),
+            "teams": {str(tm["id"]): [pic["status"][tm["id"]], tm["men"]] for tm in pic["teams"]},
+            "groups": [[round(x), round(z), w] for x, z, w in pic["known"]],
+            "sites": len(pic.get("sites") or []), "zones": [[zn["x"], zn["z"]] for zn in pic.get("zones") or []],
+            "armour": sorted(a_["unit"] for a_ in pic.get("armour") or [])}
+
+
+def changes(last, now) -> list:
+    """What changed materially between two digests: [(kind, text)], [] = nothing. Kinds: first, owner, team_gone,
+    team_new, arrived, left, men, losses, enemy, enemy_big, site, zone, armour."""
+    if not last:
+        return [("first", "first call")]
+    out = []
+    if now["owner"] != last["owner"]:
+        out.append(("owner", f"objective {last['owner']} -> {now['owner']}"))
+    lt, nt = last["teams"], now["teams"]
+    for tid, (st, men) in lt.items():
+        if tid not in nt:
+            out.append(("team_gone", f"T{tid} gone"))
+            continue
+        nst, nmen = nt[tid]
+        if (nst == "at_farm") != (st == "at_farm"):
+            out.append(("arrived" if nst == "at_farm" else "left", f"T{tid} {'arrived' if nst == 'at_farm' else 'out of the objective'}"))
+        if men >= 2 and nmen * 2 <= men:
+            out.append(("men", f"T{tid} {men} -> {nmen} men"))
+    for tid, (st, _) in nt.items():
+        if tid not in lt and st != "at_farm":
+            out.append(("team_new", f"T{tid} new"))
+    if now["lost"] - last["lost"] >= CHANGE_LOSSES:
+        out.append(("losses", f"{now['lost'] - last['lost']} soldiers lost"))
+    for x, z, w in now["groups"]:
+        if w >= NEW_ENEMY_W and all(math.hypot(x - a, z - b) > NEW_ENEMY_M for a, b, _ in last["groups"]):
+            out.append(("enemy_big" if w >= BIG_ENEMY_W else "enemy", f"new enemy group ({w:g}) at {x},{z}"))
+            if w >= BIG_ENEMY_W:
+                break
+    if now["sites"] > last["sites"]:
+        out.append(("site", "drone site located"))
+    for x, z in now["zones"]:
+        if all(math.hypot(x - a, z - b) > DANGER_GROUP_M for a, b in last["zones"]):
+            out.append(("zone", f"new danger zone at {x},{z}"))
+            break
+    if set(last["armour"]) - set(now["armour"]):
+        out.append(("armour", "vehicle lost"))
+    return out
+
+
 # -- orders ----------------------------------------------------------------------------------------------------------
 class Commander:
     """One side's live plan: the picture every round, the picker's orders per team, the file for the game."""
@@ -1005,6 +1080,10 @@ class Commander:
         self.last_model_lost = 0
         self.model_calls = 0
         self.last = None        # the last round's picture (for the image)
+        self.last_digest = None  # digest() at the side's last model call (the opt-in stretch rule and model mix)
+        self.cheap_run = 0      # cheap-model answers since the strong model's last (LIVEPLAN_CHEAP_MODEL)
+        self.skip_note = ""     # why this round's due call was left out (LIVEPLAN_STRETCH)
+        self.call_meta = {}     # the last call's model, tier, usages (every call billed), fallback
 
     # The picture: threat, drop points, starts and their routes, support positions.
     def picture(self, s: Situation):
@@ -1154,11 +1233,16 @@ class Commander:
         return out
 
     # -- the model --------------------------------------------------------------------------------------------------
-    def want_model(self, s: Situation):
+    def want_model(self, s: Situation, now=None):
         if self.picker != "gemini" or self.llm is None:
             return False
         since = s.t - self.last_model_t
         if since >= GEMINI_S:
+            # Opt-in (LIVEPLAN_STRETCH): nothing changed materially since the last call - the orders stand, up to STRETCH x GEMINI_S.
+            if STRETCH > 1 and now is not None and self.last_digest is not None and since < STRETCH * GEMINI_S \
+                    and not [c for c in changes(self.last_digest, now) if "all" in STRETCH_ON or c[0] in STRETCH_ON]:
+                self.skip_note = f"no change in {since} s"
+                return False
             return True
         if since < GEMINI_MIN_S:
             return False
@@ -1166,12 +1250,49 @@ class Commander:
             return True
         return s.lost.get(s.side, 0) - self.last_model_lost >= 4
 
-    def model_orders(self, pic, s: Situation, image: Path):
+    def tier(self, why) -> str:
+        """The model mix (opt-in, LIVEPLAN_CHEAP_MODEL): the strong model on an event (STRONG_ON) and at least every
+        STRONG_EVERY-th call, the cheap one for the rounds between."""
+        if not CHEAP_MODEL:
+            return "strong"
+        if any(k in STRONG_ON for k, _ in why) or self.cheap_run >= STRONG_EVERY - 1:
+            return "strong"
+        return "cheap"
+
+    @staticmethod
+    def missing_teams(ans, pic) -> list:
+        """The teams the answer should order (not fighting at the objective) and doesn't."""
+        given = set()
+        for e in (ans or {}).get("teams") or [] if isinstance(ans, dict) else []:
+            try:
+                given.add(int(str(e.get("team", "")).lstrip("Tt")))
+            except (ValueError, AttributeError):
+                continue
+        return [tm["id"] for tm in pic["teams"] if pic["status"][tm["id"]] != "at_farm" and tm["id"] not in given]
+
+    def model_orders(self, pic, s: Situation, image: Path, why=()):
         text = self.prompt_text(pic, s)
         t0 = time.time()
+        meta = self.call_meta = {"model": self.llm.model, "tier": "strong", "usages": []}
+        if self.tier(why) == "cheap":
+            # A cheap answer that leaves a team out (or is broken) goes to the strong model (CHEAP_FALLBACK=strong);
+            # with =fill the teams left out keep their previous orders (validate's "kept").
+            try:
+                ans = ask_model(self.llm, image, text, model=CHEAP_MODEL, reasoning=CHEAP_REASONING)
+                meta["usages"].append(ans.get("_usage"))
+                missing = self.missing_teams(ans, pic)
+                if not missing or CHEAP_FALLBACK == "fill":
+                    meta.update(model=CHEAP_MODEL, tier="cheap", missing=missing)
+                    self.cheap_run += 1
+                    return ans, text, round(time.time() - t0, 1)
+                meta["fallback"] = "the cheap answer left out " + ", ".join(f"T{t}" for t in missing)
+            except Exception as e:
+                meta["usages"].append(getattr(e, "usage", None))
+                meta["fallback"] = f"the cheap model failed: {type(e).__name__}: {str(e)[:160]}"
         ans = ask_model(self.llm, image, text)
-        secs = round(time.time() - t0, 1)
-        return ans, text, secs
+        meta["usages"].append(ans.get("_usage"))
+        self.cheap_run = 0
+        return ans, text, round(time.time() - t0, 1)
 
     def prompt_text(self, pic, s: Situation):
         g = self.p.g
@@ -1518,7 +1639,7 @@ class Commander:
     # -- one round ------------------------------------------------------------------------------------------------------
     def round(self, s: Situation, profile_zcr: Path, write=True):
         pic = self.picture(s)
-        entry = {"t": s.t, "side": s.side, "owner": s.owner, "lost": s.lost, "known": len(s.known), "known_groups": len(pic["known"]),
+        entry = {"at": round(time.time()), "t": s.t, "side": s.side, "owner": s.owner, "lost": s.lost, "known": len(s.known), "known_groups": len(pic["known"]),
                  "teams": {tm["id"]: pic["status"][tm["id"]] for tm in pic["teams"]}, "drops": [{k: v for k, v in d.items() if k != "cell"} for d in pic["drops"]],
                  "routes": {rid: {k: v for k, v in r.items() if k not in ("cells", "pts")} for rid, r in pic["routes"].items()},
                  "support": [{k: v for k, v in p_.items() if k != "cell"} for p_ in pic["support"]], "picture_s": pic["seconds"],
@@ -1531,14 +1652,19 @@ class Commander:
         else:
             if fresh:
                 self.orders.update(self.code_orders(pic, only=fresh))
-            if self.want_model(s) and any(pic["status"][tm["id"]] != "at_farm" for tm in pic["teams"]):
+            now = digest(s, pic)
+            self.skip_note = ""
+            if self.want_model(s, now) and any(pic["status"][tm["id"]] != "at_farm" for tm in pic["teams"]):
                 image = profile_zcr / "liveplan" / f"t{s.t:05d}.jpg"
                 image.parent.mkdir(parents=True, exist_ok=True)
                 draw(self.p, pic, s).save(image, quality=85)
+                why = changes(self.last_digest, now)
                 self.last_model_t, self.last_model_owner, self.last_model_lost = s.t, s.owner, s.lost.get(s.side, 0)
+                self.last_digest = now
                 self.model_calls += 1
+                self.call_meta = {}
                 try:
-                    ans, text, secs = self.model_orders(pic, s, image)
+                    ans, text, secs = self.model_orders(pic, s, image, why)
                     orders, problems = self.validate(ans, pic)
                     self.orders.update(orders)
                     entry.update(source="gemini", reason=ans.get("reason"), answer=ans, problems=problems, model_s=secs, prompt=text,
@@ -1546,11 +1672,25 @@ class Commander:
                     stance = f" [strategy: {self.strategy['stance']}]" if self.strategy else ""
                     self.log(f"t={s.t} {s.side} gemini ({secs} s, {len(problems)} problems): {ans.get('reason')}{stance}")
                 except Exception as e:   # the model failed: the code's pick for every team
+                    if getattr(e, "usage", None):
+                        self.call_meta.setdefault("usages", []).append(e.usage)
                     self.orders.update(self.code_orders(pic))
                     entry.update(source="code-fallback", error=f"{type(e).__name__}: {e}")
                     self.log(f"t={s.t} {s.side} model failed ({type(e).__name__}: {e}) - the code's pick")
+                # Which model answered and every call's usage (a cheap answer sent on to the strong model was billed too):
+                # lab/llmcost.py sums "usages" (or answer._usage on older rows).
+                meta = self.call_meta or {}
+                entry.update(model=meta.get("model"), tier=meta.get("tier"), usages=meta.get("usages") or [],
+                             changes=[txt for _, txt in why][:8], digest=now)
+                if meta.get("fallback"):
+                    entry["fallback"] = meta["fallback"]
+                if CHEAP_MODEL:
+                    self.log(f"t={s.t} {s.side} model {meta.get('model')} ({meta.get('tier')}"
+                             + (f"; {meta['fallback']}" if meta.get("fallback") else "") + ")")
             else:
                 entry["source"] = "kept"
+                if self.skip_note:
+                    entry["skipped"] = self.skip_note
         entries = self.entries(pic)
         if self.drones_on:
             entry["drones"] = self.drones
@@ -1683,11 +1823,30 @@ def named(text: str) -> str:
 # the model's hidden thinking (0.34 c). The map goes at IMAGE_PX (one image tile) and the thinking at REASONING (OpenRouter's
 # reasoning effort; LIVEPLAN_REASONING=default leaves the model's own, LIVEPLAN_IMAGE_PX=1200 the old size). Each call's tokens and
 # cost stay in liveplan.jsonl (answer._usage).
+#
+# COST NOTES - the opt-in savings at the top, measured offline on 5 Nov (lab/llmsavings.py calls / replay / score; the spend:
+# lab/llmcost.py). That day: 1,442 calls, $12.68 - headless 837 ($7.49, 34 battles of 30 min, 0.87 calls a game minute for
+# both sides), watched 605 ($5.19, 0.78 a game minute, the game at ~1.9x on average = ~87 calls a watched hour). Almost all on
+# the timer (GEMINI_S); 18% (headless) and 27% (watched) of the answers repeated the side's previous orders for every team.
+#   The strong model asked the same call twice (24 saved calls, reasoning low, 0.50 c a call): the same order for 85% of the
+#     teams (go/wait 98%) - its own noise; against the battle's answer with full thinking 83-85%: thinking low costs nothing seen.
+#     Call to call the orders changed for 24-27% of the teams (mostly the route side) - little more than that noise.
+#   Stretch (x2, STRETCH_ON as set): -20% calls headless, -21% watched (all change kinds: -4%/-8%; without new enemies -25%;
+#     plain 300 s: -27%/-30% - the loss event keeps calling). The calls it leaves out would have changed as many team orders as
+#     the others (27-29%, go/wait 5-6%): what changes counts can't tell the calls that matter - its quality cost is the delay.
+#   Cheap models on the same 24 calls (against both strong answers; teams left out / invalid picks fixed by validate):
+#     gemini-3.5-flash-lite 0.25 c: 77% the same order, go/wait 97%, 0 left out, invalid picks in 5 of 24 answers, drones 71%
+#     gemini-3.1-flash-lite 0.22 c: 55%, go/wait 76%, invalid in 8 of 24 (routes from another team's start), drones 54%
+#     gemini-2.5-flash-lite 0.09 c: 41%, go/wait 63%, invalid in 13 of 24 - effort low switches its thinking ON (~780 tokens)
+#   The mix (1 call in 3 strong, STRONG_ON events): 50% of the calls strong (57-58% with the stretch) - with 3.5-flash-lite
+#     0.375 c a call (-25%); stretch + mix -37%: a 30-min headless battle 13 c -> 8 c, a watched hour ~43 c -> ~27 c.
 IMAGE_PX = int(os.environ.get("LIVEPLAN_IMAGE_PX", "768"))
 REASONING = os.environ.get("LIVEPLAN_REASONING", "low")
 
 
-def ask_model(llm, image: Path, text: str) -> dict:
+def ask_model(llm, image: Path, text: str, model: str = None, reasoning: str = None) -> dict:
+    """One call: the map and the text to `model` (default: the bridge's). The answer's JSON, with the call's usage and cost
+    in "_usage" (a broken answer raises with its usage in the exception's .usage - it was billed too)."""
     import providers
     img = Image.open(image).convert("RGB")
     if max(img.size) > IMAGE_PX:
@@ -1695,21 +1854,45 @@ def ask_model(llm, image: Path, text: str) -> dict:
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=85)
     url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    body = {"model": llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
+    body = {"model": model or llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
             "usage": {"include": True},
             "messages": [{"role": "system", "content": named(SYSTEM)},
                          {"role": "user", "content": [{"type": "text", "text": named(text)},
                                                       {"type": "image_url", "image_url": {"url": url}}]}]}
-    if REASONING and REASONING != "default":
-        body["reasoning"] = {"effort": REASONING}
+    reasoning = REASONING if reasoning is None else reasoning
+    if reasoning and reasoning != "default":
+        body["reasoning"] = {"effort": reasoning}
     r = providers._post("https://openrouter.ai/api/v1/chat/completions", body,
                         {"authorization": f"Bearer {llm.key}", "x-title": "Zeus Commander Reforger"}, 60)
     if "error" in r:
         raise RuntimeError(f"openrouter: {r['error']}")
     content = r["choices"][0]["message"].get("content") or ""
-    out = providers.extract_json(content)
+    try:
+        out = providers.extract_json(content)
+        if not isinstance(out, dict):
+            raise ValueError(f"the answer is a {type(out).__name__}, not an object")
+    except ValueError as e:
+        e.usage = r.get("usage")
+        raise
     out["_usage"] = r.get("usage")
     return out
+
+
+def savings() -> dict:
+    """The opt-in call savings in force (for the side row of liveplan.jsonl); {} when all are off."""
+    out = {}
+    if STRETCH > 1:
+        out.update(stretch=STRETCH, stretch_on=sorted(STRETCH_ON))
+    if CHEAP_MODEL:
+        out.update(cheap_model=CHEAP_MODEL, strong_every=STRONG_EVERY, cheap_fallback=CHEAP_FALLBACK)
+    return out
+
+
+def savings_text() -> str:
+    sv = savings()
+    parts = ([f"stretch x{sv['stretch']:g} while nothing changes"] if "stretch" in sv else []) + \
+            ([f"cheap {sv['cheap_model']}, the strong model on events and at least 1 call in {sv['strong_every']}"] if "cheap_model" in sv else [])
+    return f"; saving: {'; '.join(parts)}" if parts else ""
 
 
 def make_llm():
@@ -1821,7 +2004,7 @@ def live(a):
         logf.write(line + "\n")
         logf.flush()
 
-    log(f"liveplan for {run_dir.name}: side {a.side}, picker {a.picker}" + (f" ({llm.model})" if llm else ""))
+    log(f"liveplan for {run_dir.name}: side {a.side}, picker {a.picker}" + (f" ({llm.model})" if llm else "") + savings_text())
     console = None
     t0 = time.time()
     while console is None:
@@ -1881,7 +2064,7 @@ def live(a):
                     f.write(json.dumps({"event": "side", "side": side, "spec": a.side, "picker": picker, "hqs": hqs,
                                         "drones": bool(a.drones and a.picker == "gemini"),
                                         "hq_m": round(math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz)),
-                                        "model": llm.model if llm else None}) + "\n")
+                                        "model": llm.model if llm else None, **savings()}) + "\n")
         for side, cmd in cmds.items():
             if reader.t - last_round_t.get(side, -1e9) < ROUND_S or not reader.teams(side):
                 continue
@@ -1959,7 +2142,17 @@ def main() -> int:
     ap.add_argument("--t", type=int, default=420, help="with --replay: the game second")
     ap.add_argument("--out", default="", help="with --replay: where to write (default .runtime/liveplan_test)")
     ap.add_argument("--known-from-live", action="store_true", help="with --replay on runs before [ZCR][KNOWN]: enemy teams near ours")
+    # Fewer / cheaper model calls, opt-in (default: the environment's LIVEPLAN_STRETCH etc., else off) - see STRETCH at the top.
+    ap.add_argument("--stretch", type=float, default=None, help="no call while nothing changed, up to this x GEMINI_S (LIVEPLAN_STRETCH; 1 = off)")
+    ap.add_argument("--cheap-model", default=None, help="routine calls to this OpenRouter model, the strong one on events (LIVEPLAN_CHEAP_MODEL)")
+    ap.add_argument("--strong-every", type=int, default=None, help="with --cheap-model: the strong model at least every Nth call (LIVEPLAN_STRONG_EVERY, 3)")
+    ap.add_argument("--cheap-fallback", default=None, choices=["strong", "fill"], help="a cheap answer leaving teams out: re-ask the strong model, or keep their orders")
     a = ap.parse_args()
+    global STRETCH, CHEAP_MODEL, STRONG_EVERY, CHEAP_FALLBACK
+    STRETCH = a.stretch if a.stretch is not None else STRETCH
+    CHEAP_MODEL = a.cheap_model.strip() if a.cheap_model is not None else CHEAP_MODEL
+    STRONG_EVERY = max(1, a.strong_every) if a.strong_every is not None else STRONG_EVERY
+    CHEAP_FALLBACK = a.cheap_fallback or CHEAP_FALLBACK
     if a.replay:
         return replay(a)
     return live(a)
