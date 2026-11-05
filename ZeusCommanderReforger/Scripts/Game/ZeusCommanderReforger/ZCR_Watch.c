@@ -310,6 +310,46 @@ class ZCR_Watch
 		return s_Instance && s_Instance.m_bPano;
 	}
 
+	// -zcrPano x,z[,distance,height[,degrees a second]] (5 Nov - Martin: "restart game with current panorama by default ... we could
+	// start on the same spot as current panorama"): the battle opens in the panorama, circling that spot, the overlays hidden.
+	protected bool m_bPanoChecked;
+
+	protected void PanoFromCli(BaseWorld world)
+	{
+		m_bPanoChecked = true;
+		string value;
+		if (!System.GetCLIParam("zcrPano", value) || value.IsEmpty())
+			return;
+		array<string> f = {};
+		value.Split(",", f, true);
+		if (f.Count() < 2)
+			return;
+		vector c = Vector(f[0].ToFloat(), 0, f[1].ToFloat());
+		c[1] = world.GetSurfaceY(c[0], c[2]);
+		m_fPanoR = 250;
+		m_fPanoH = 80;
+		if (f.Count() >= 4)
+		{
+			m_fPanoR = Math.Clamp(f[2].ToFloat(), 60, 1000);
+			m_fPanoH = Math.Clamp(f[3].ToFloat(), 20, 450);
+		}
+		m_fPanoRate = 2;
+		if (f.Count() >= 5)
+			m_fPanoRate = Math.Clamp(f[4].ToFloat(), -6, 6);
+		m_fPanoRNow = m_fPanoR;
+		m_fPanoHNow = m_fPanoH;
+		m_fPanoAngle = 0;
+		m_fPanoLift = 0;
+		m_vPanoCenter = c;
+		m_vPanoTo = c;
+		m_vSpot = c;
+		int now = System.GetTickCount();
+		m_iPanoLastMs = now;
+		m_iPanoShowMs = now + 4000;
+		m_bPano = true;
+		Print(string.Format("[ZCR][CAMUI] pano on x=%1 z=%2 r=%3 h=%4 (start, -zcrPano)", Math.Round(c[0]), Math.Round(c[2]), Math.Round(m_fPanoR), Math.Round(m_fPanoH)), LogLevel.NORMAL);
+	}
+
 	static void TogglePano()
 	{
 		if (!s_Instance || !s_Instance.m_Camera)
@@ -919,6 +959,8 @@ class ZCR_Watch
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
 		ZCR_WatchControls.Tick(m_fClock);
+		if (m_Camera && !m_bPanoChecked)
+			PanoFromCli(world);
 		if (m_Camera && m_bPano)
 		{
 			PanoMove(world);
