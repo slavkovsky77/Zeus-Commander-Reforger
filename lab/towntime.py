@@ -27,7 +27,9 @@ Per town battle (lab/assaulttest.py beauregard: town-brains, town-vs-rules, town
   mgd / sup             soldiers in AI Conflict's squads (FORCE_HEARTBEAT managed_agents) / all others (AIChar - mgd: builders,
                         truck and armour crews, drone operators) - with -aicfCapCountsAll the others count against the side cap
   rblk                  REINFORCEMENT_BLOCKED reason=FACTION_LIMIT (a dead squad not respawned: the side is at its cap)
-  pact                  attack men whose current behaviour is a PerformAction (e.g. opening a navlink door; acts=, from 5 Nov 00:57)
+  pact                  attack men whose current behaviour is a PerformAction or a door behaviour (opening a navlink door; acts=,
+                        battles from 5 Nov 00:57)
+  dtprn                 men lying prone by the drone reaction ([ZCR][DRONETHREAT] prone=, both sides)
   fh / trh              attack slots whose last SLOT_ACTIVITY says PERSISTENT_STUCK_FIELD_HOLD / TEMPORARY_ROUTE_REPLAN_HOLD
 
     python lab/towntime.py                      # every town battle since 4 Nov 02:00: a table per battle, then the summary
@@ -163,7 +165,7 @@ def parse(run: Path) -> dict:
                     a["att60"] += 1
                     a[f"att60_{side}"] += 1
             for k, n in tm["acts"].items():
-                if "PerformAction" in k:
+                if "PerformAction" in k or "Door" in k:
                     a["pact"] += n
                 acts_all[m][k] += n
             if tm["acts"] and any(math.hypot(x - OBJ[0], z - OBJ[1]) <= 300 for x, z, _ in tm["mp"]):
@@ -314,6 +316,7 @@ def parse(run: Path) -> dict:
         if r.get("fps_n"):
             r["fps_mean"] = r["fps_sum"] / r["fps_n"]
         r["react"] = r.get("react_US", 0) + r.get("react_USSR", 0)
+        r["dtprn"] = r.get("dtprone_US", 0) + r.get("dtprone_USSR", 0)
         r["air"] = r.get("air_US", 0) + r.get("air_USSR", 0)
         r["aboard"] = r.get("aboard_US", 0) + r.get("aboard_USSR", 0)
         r["stuck"] = r.get("stuck_US", 0) + r.get("stuck_USSR", 0)
@@ -337,7 +340,7 @@ def parse(run: Path) -> dict:
 
 COLS = [("att300", "a300"), ("att150", "a150"), ("att60", "a60"), ("att_men", "attm"), ("mid", "mid"), ("far", "far"),
         ("frz", "frz"), ("frzN", "frzN"), ("nowp", "nowp"), ("prone", "prn"), ("unc", "unc"),
-        ("veh", "inveh"), ("react", "react"), ("fps", "fps"), ("ai", "AI"), ("aich", "AIch"), ("vehs", "veh"), ("air", "air"),
+        ("veh", "inveh"), ("react", "react"), ("dtprn", "dtprn"), ("fps", "fps"), ("ai", "AI"), ("aich", "AIch"), ("vehs", "veh"), ("air", "air"),
         ("launched", "lnch"), ("aboard", "abrd"), ("stuck", "stk"), ("unjam", "unjam"), ("lost", "lost"),
         ("mgd", "mgd"), ("sup", "sup"), ("rblk", "rblk"), ("wpf", "wpf"), ("rec", "rec"), ("recd", "recD"), ("fcr", "fcr"), ("gsd", "gsd"), ("imf", "imf"), ("fh", "fh"), ("fhm", "fhm"), ("trh", "trh"), ("pact", "pact")]
 
@@ -432,6 +435,22 @@ def summary(battles: list) -> str:
     return "\n".join(out)
 
 
+DIGEST = [("a300", "att300"), ("a150", "att150"), ("a60", "att60"), ("attack men", "att_men"), ("frozen 150-500", "frzN"),
+          ("squad men", "mgd"), ("other men", "sup"), ("prone", "prone"), ("unconscious", "unc"), ("fps low", "fps"),
+          ("AI agents", "ai"), ("drones up", "air"), ("aboard", "aboard"), ("lost", "lost")]
+DIGEST_MIN = (5, 8, 10, 12, 15, 20, 25, 30)
+
+
+def digest(b: dict) -> str:
+    """One battle in a few lines: each measure at game minutes 5, 8, 10, 12, 15, 20, 25, 30."""
+    cap = f"taken {b['first_cap_s'] / 60:.1f} min by {b['cap_by']}" if b.get("first_cap_s") is not None else "not taken"
+    lines = [f"{b['run']} [{b['variant']}{', watched' if b['watched'] else ''}] door {'on' if b['door'] else 'OFF'}, {cap}",
+             f"  {'game minute':<15}" + "".join(f"{m:>5}" for m in DIGEST_MIN)]
+    for name, k in DIGEST:
+        lines.append(f"  {name:<15}" + "".join(f"{fmt(b['minutes'].get(m, {}).get(k)):>5}" for m in DIGEST_MIN))
+    return "\n".join(lines)
+
+
 def town_runs(since: str = SINCE) -> list:
     runs = []
     for run in RUNS.glob("*beauregard-town-*"):
@@ -446,6 +465,7 @@ def main() -> int:
     ap.add_argument("runs", nargs="*", help="run folders (default: every town battle since --since)")
     ap.add_argument("--since", default=SINCE)
     ap.add_argument("--summary", action="store_true", help="only the summary")
+    ap.add_argument("--digest", action="store_true", help="each battle as a few lines (measures at minutes 5-30), then the summary")
     ap.add_argument("--json", default="", help="write every battle's minutes to this file")
     ap.add_argument("--min-minutes", type=int, default=5, help="leave out battles shorter than this")
     a = ap.parse_args()
@@ -456,7 +476,10 @@ def main() -> int:
         if b.get("error") or b.get("last_min", -1) + 1 < a.min_minutes:
             continue
         battles.append(b)
-        if not a.summary:
+        if a.digest:
+            print(digest(b))
+            print()
+        elif not a.summary:
             print(table(b))
             print()
     print(summary(battles))
