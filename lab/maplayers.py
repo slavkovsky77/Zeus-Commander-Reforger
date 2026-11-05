@@ -384,19 +384,34 @@ def live_plans(run: Path) -> tuple:
     with open(f, "rb") as fh:
         fh.seek(max(0, f.stat().st_size - 400_000))
         rows = fh.read().decode("utf-8", "replace").splitlines()
-    # The latest round of each side (3 Nov night: lab/liveplan.py --side both plans both sides into one file).
+    # The latest round of each side (3 Nov night: lab/liveplan.py --side both plans both sides into one file), and the
+    # older ones back to where each team got the route it is on (the ETA, 5 Nov: when it was given).
     latest = {}
+    older = {}
     for line in reversed(rows):
         try:
             row = json.loads(line)
         except ValueError:
             continue
-        if row.get("entries") is not None and row.get("side") and row["side"] not in latest:
+        if row.get("entries") is None or not row.get("side"):
+            continue
+        if row["side"] not in latest:
             latest[row["side"]] = row
-        if len(latest) == 2:
-            break
+        else:
+            older.setdefault(row["side"], []).append(row)
     if not latest:
         return [], {}, {}
+
+    def given_at(side: str, tid: str, e: dict):
+        """The game second the team got its route (same route and drop since): the first round of the latest run."""
+        key = (e.get("route"), tuple(round(v) for v in e["drop"]) if e.get("drop") else None)
+        t = latest[side].get("t")
+        for row in older.get(side, []):
+            o = (row.get("entries") or {}).get(tid)
+            if not o or (o.get("route"), tuple(round(v) for v in o["drop"]) if o.get("drop") else None) != key:
+                break
+            t = row.get("t", t)
+        return t
     # Each side's danger zones (4 Nov, note 541): where it lost men or vehicles lately, as its general was told.
     zones = {side: last.get("zones") or [] for side, last in latest.items()}
     groups = {}
@@ -421,7 +436,8 @@ def live_plans(run: Path) -> tuple:
                 g["why"].append(o["why"])
             # Each team's own order and reason (the /v2 map's clicked team, 4 Nov): who picked it (model / code / kept).
             g.setdefault("team_orders", {})[str(tid)] = {"order": o.get("order") or ("go" if e.get("go", 1) else "wait"),
-                                                         "why": o.get("why") or "", "source": o.get("source") or ""}
+                                                         "why": o.get("why") or "", "source": o.get("source") or "",
+                                                         "given_t": given_at(side, str(tid), e)}
     for g in groups.values():
         g["teams"].sort()
         g["why"] = "; ".join(g["why"])
@@ -507,6 +523,7 @@ def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -
         units = {"team": [], "truck": [], "van": [], "builder": []}
         # Where each vehicle and team has been (the click-a-van view): "van:7", "truck:US:2", "team:USSR:A3" -> [[x, z], ...].
         trails = {}
+        seen = {}   # team key -> [(t, [x, z])]: how far it moved in the last game minute (the ETA, 5 Nov)
         for tt, kind, rest in rows:
             u = dict(kv.split("=", 1) for kv in rest.split() if "=" in kv)
             key = f"{kind}:{u.get('id')}" if kind == "van" else f"{kind}:{u.get('side')}:{u.get('id')}"
@@ -517,6 +534,8 @@ def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -
             tr = trails.setdefault(key, [])
             if not tr or abs(tr[-1][0] - pt[0]) + abs(tr[-1][1] - pt[1]) > 4:
                 tr.append(pt)
+            if kind == "team":
+                seen.setdefault(key, []).append((tt, pt))
         for tt, kind, rest in rows:
             if tt < last - 4 or kind not in units:
                 continue
@@ -545,6 +564,11 @@ def live(map_slug: str, max_age_s: float = 90, scan: int = 15, only: str = "") -
             for k in ("to", "from", "base", "what"):
                 if k in u:
                     u[k] = u[k].replace("_", " ")
+            # Metres moved in the last game minute (5 Nov - Martin: "I still have feeling they dont move a lot").
+            if kind == "team" and isinstance(u.get("x"), float):
+                back = [p for t_, p in seen.get(f"team:{u.get('side')}:{u.get('id')}", []) if t_ <= tt - 60]
+                if back:
+                    u["moved60"] = round(math.hypot(u["x"] - back[-1][0], u["z"] - back[-1][1]))
             units[kind].append(u)
         # Vans: their planned route (lab/roadgraph.py routes.json, by the route the game picked) and the game's own path now.
         paths = {m.group(1): [[float(v) for v in xy.split(",")] for xy in m.group(2).split(";")] for m in PATH_OF.finditer(tail)}

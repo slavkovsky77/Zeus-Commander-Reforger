@@ -141,7 +141,8 @@ main { flex: 1; min-height: 0; position: relative; }
 .lbl.point small { font: 600 10px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-left: 6px; }
 .lbl.effort { font-size: 13px; font-weight: 700; color: #fff; border: 0; }
 .lbl.effort.US { background: var(--us); } .lbl.effort.USSR { background: var(--ussr); }
-.leaflet-tooltip.tip { font: 13px/1.35 var(--f-body); background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 280px; white-space: normal; }
+.leaflet-tooltip.tip { font: 15px/1.4 var(--f-body); background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); width: max-content; max-width: min(440px, 86vw); white-space: normal; padding: 6px 10px; }
+.late { color: #b3261e; }
 .leaflet-tooltip.tip::before { display: none; }
 .tm { display: grid; place-items: center; width: 22px; height: 18px; border-radius: 4px; font: 700 11.5px/1 var(--f-mono); color: #fff; border: 1.5px solid #fff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .3); }

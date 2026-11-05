@@ -26,6 +26,16 @@
   const ago = (iso) => { const t = Date.parse(iso); if (isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 60000);
     return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 48 * 60 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; };
   const len = (pts) => { let m = 0; for (let i = 1; i < (pts || []).length; i++) m += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return m; };
+  // Game seconds as rough minutes ("~4 min", "under a minute").
+  const mins = (s) => s < 60 ? "under a minute" : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+  // The team tooltip's rough ETA (5 Nov): what is left of the game's waypoints at a walk or riding, and a standing team.
+  const etaWords = (t) => {
+    const q = t.wps && t.wps.length ? t.wps : null;
+    let s = "";
+    if (q) { const m = len([[t.x, t.z], ...q]); if (m > 20) s += ` · ETA ~${mins(m / (t.ride ? 8 : 1.5))}`; }
+    if (t.moved60 != null && t.moved60 < 15) s += " · standing";
+    return s;
+  };
   const ll = (pts) => pts.map((p) => [p[1], p[0]]);
   const sideCol = () => ({ US: css("--us"), USSR: css("--ussr"), FIA: css("--fia") });
 
@@ -394,7 +404,7 @@
         }
         const cls = `tm ${esc(t.side)}${atk ? "" : " hold"}${home ? " home" : ""}${mine ? " on" : ""}${sel && !mine ? " dim" : ""}`;
         marker([t.z, t.x], `<div class="${cls}">${esc(t.id)}</div>`, [22, 18], { zIndexOffset: mine ? 2000 : atk ? 300 : 0 })
-          .bindTooltip(`<b>${esc(t.side)} team ${esc(t.id)}</b> · ${Math.round(t.men || 0)} men · ${esc(doingOf(t))}${t.ride ? " · riding" : ""}${t.to && t.to !== "-" ? " · " + esc(t.to) : ""}`, tip)
+          .bindTooltip(`<b>${esc(t.side)} team ${esc(t.id)}</b> · ${Math.round(t.men || 0)} men · ${esc(doingOf(t))}${t.ride ? " · riding" : ""}${t.to && t.to !== "-" ? " · " + esc(t.to) : ""}${etaWords(t)}`, tip)
           .on("click", () => this.pick(key)).addTo(g.units);
         if (mine) { found = true; this.selAt = L.latLng(t.z, t.x); this.drawTeam(d, t, c); }
       }
@@ -578,10 +588,31 @@
       }
       const now = (t.wpk || [])[0] || {};
       const order = queue ? `${ORDER[now.kind] || now.kind || "move"}${Number(now.level) > 0 ? " · storm (keeps moving under fire)" : ""}` : "";
+      // A rough ETA (5 Nov - Martin: "when you click on waypoints of a team what was maybe ETA and how long are they late",
+      // "rough eta"): what is left of its planned route at a walk (1.5 m/s - the plans' own pace) or riding (8 m/s); since it
+      // got that route, how far behind a steady walk it is; and how far it moved in the last game minute.
+      const pace = t.ride ? 8 : 1.5;
+      const leftM = ahead.length ? len([[t.x, t.z], ...ahead]) : queue ? len([[t.x, t.z], ...queue]) : 0;
+      const to2 = pl ? (pl.team_orders || {})[String(t.id)] || {} : {};
+      let etaHtml = "";
+      if (leftM > 20) {
+        const etaS = leftM / pace;
+        let late = "";
+        if (pl && to2.given_t != null && d.t != null && to2.order !== "wait" && to2.order !== "support") {
+          const lane = pl.lanes[pl.by ? 0 : Number(t.id) % pl.lanes.length] || [];
+          const fullM = Math.max(len(lane), leftM);
+          const since = d.t - to2.given_t, shouldS = (fullM - leftM) / pace;
+          const behind = since - shouldS;
+          late = ` · on this route ${mins(since)}${behind > 90 ? ` · <b class="late">~${mins(behind)} behind</b> a steady walk` : behind > -60 ? " · about on time" : ""}`;
+        }
+        etaHtml = `<div>Rough ETA <b>~${mins(etaS)}</b> · ${km(leftM)} left at ${t.ride ? "riding" : "walking"} pace${late}</div>`;
+      } else if (queue || ahead.length) etaHtml = `<div>Rough ETA <b>there</b> - under 20 m left</div>`;
+      if (t.moved60 != null) etaHtml += `<div>Moved <b>${Math.round(t.moved60)} m</b> in the last game minute${t.moved60 < 15 ? " - standing" : ""}</div>`;
       const badge = (r) => `<span class="wp ${r.badge}" style="${r.badge === "next" ? "" : "width:22px;height:22px"}">${esc(r.n)}</span>`;
       const html = `<div class="facts">
           ${order ? `<div>The game's order now: <b>${esc(order)}</b>${gameRows[0] ? ` · ${gameRows[0].dist} to it` : ""}</div>` : ""}
-          <div>${t.to && t.to !== "-" ? `Assigned <b>${esc(t.to)}</b> · ` : ""}walked ${km(len(trail))} so far${t.ride ? " · riding now" : ""}</div></div>
+          <div>${t.to && t.to !== "-" ? `Assigned <b>${esc(t.to)}</b> · ` : ""}walked ${km(len(trail))} so far${t.ride ? " · riding now" : ""}</div>
+          ${etaHtml}</div>
         ${planWhy}
         ${rows.length ? `<h3>${planHead}</h3><ol class="wps">${rows.map((r) => `<li class="${r.cls}"><span class="n">${badge(r)}</span><span class="k">${esc(r.k[0])}${r.k[1] ? `<small>${esc(r.k[1])}</small>` : ""}</span><span class="st">${esc(r.st)}</span></li>`).join("")}</ol>
           ${pl && pl.chain ? `<p class="muted" style="margin:0;font-size:13px">Cover along the way: ${esc(pl.chain.replace(/Farm$/, point || "the objective"))}</p>` : ""}`
