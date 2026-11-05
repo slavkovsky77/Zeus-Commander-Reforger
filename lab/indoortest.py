@@ -29,6 +29,7 @@ SCENARIOS = {
     "canopy": ("canopy", "a soldier under a roof with open sides - a fuel station, a shed open at the sides"),
     "open": ("infantry", "three soldiers in the open (as before - nothing should change)"),
     "house": ("housedoor", "a soldier in a village or town house with its doors opened, in a room in line with a door"),
+    "garage": ("garage", "a crewed UAZ in a garage with its doors opened, the anti-vehicle drone 150 m out"),
 }
 
 VARIANTS = {
@@ -124,6 +125,6 @@ if __name__ == "__main__":
                     "rooms, a closed room and a canopy - the scenario and variant are ignored; only with the game free")
     a = ap.parse_args()
     if a.watch:
-        cases = "housedoor,indoor,indoorclosed,canopy,housedoor"
+        cases = "housedoor,garage,indoor,indoorclosed,canopy,garage"
         sys.exit(subprocess.run([sys.executable, str(FPV / "tools" / "run_tests.py"), "--window", "--cases", cases], cwd=str(FPV)).returncode)
     print(json.dumps(run(a.scenario, a.variant, a.minutes, a.units, a.port), indent=1))
