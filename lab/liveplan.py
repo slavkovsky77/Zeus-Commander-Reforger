@@ -687,7 +687,7 @@ class Planner:
 
     # Field fortifications (4 Nov, note 538 - Martin: "llm general could actually build defense lines (bunkers and shit)
     # where it needs like who told that some position outside of the base could not set up?"): places outside any base
-    # where the side's builders can put a bunker or MG nest (AICF_ZcrFortPlan builds the ones the general picks - 'fort'
+    # where the side's builders can put a bunker or guard tower (AICF_ZcrFortPlan builds the ones the general picks - 'fort'
     # lines). Open flat ground (no roof, under 2 trees, slope <= FORT_SLOPE), cover in reach. The side holding the objective:
     # a ring FORT_HOLD_M out toward the enemy's side, facing outward; the other side: places FORT_ATTACK_M out on its own
     # side that see the objective, facing it - a base of fire. Not in the side's danger zones nor (attacking) the enemy's view.
@@ -1264,14 +1264,14 @@ class Commander:
                              f"{compass(math.degrees(math.atan2(a_['x'] - g.ox, a_['z'] - g.oz)))} of Farm, health {a_['health']}%, "
                              f"now {doing.get(a_['phase'], a_['phase'].lower() or 'waiting for orders')}")
         lines += ["", "Your strategy - think about the battle, not only the next move, and choose one: 'assault' (take Farm), "
-                  "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers, sandbags and MG nests "
+                  "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers and guard towers "
                   "there first), 'counter_drone' (enemy drones are killing your men: twice as many of your soldiers fire at "
                   "drones, out to 180 m, and every one of your FPVs goes for the enemy drone sites you have located). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
                   "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
                   "often the way in."]
         if pic.get("forts"):
-            lines += ["", "Field positions where your builders can put a bunker or MG nest outside any base - they walk out from "
-                      "your nearest base and build it in a few minutes; it is cover your men can fight from (drones and fire "
+            lines += ["", "Field positions where your builders can put a bunker or guard tower outside any base - they walk out from "
+                      "your nearest base (up to 1.2 km, so a far one takes 10-15 minutes) and build it; it is cover your men can fight from (drones and fire "
                       "kill men in the open). Pick up to 3, or none:"]
             for f in pic["forts"]:
                 lines.append(f"  {f['id']}: {f['from_obj_m']} m {f['dir']} of Farm, facing {compass(f['facing'])}, a {f['role']} position"
