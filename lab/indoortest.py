@@ -54,7 +54,14 @@ def run(scenario: str, variant: str, minutes: float, units: int, port: int) -> d
     t0 = time.time()
     p = subprocess.run(argv, cwd=str(FPV), capture_output=True, text=True, errors="replace")
     out = re.sub(r"\x1b\[[0-9;]*m", "", p.stdout + p.stderr)
-    return summarize(out.splitlines(), scenario, n, round(time.time() - t0))
+    # The test server keeps only its last log: each run's drone lines kept here (.runtime/sublab/indoors/logs).
+    logs = Path(__file__).resolve().parents[1] / ".runtime" / "sublab" / "indoors" / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    log = logs / f"{time.strftime('%Y%m%d-%H%M%S')}-{scenario}-{variant}.log"
+    log.write_text(out, encoding="utf-8")
+    r = summarize(out.splitlines(), scenario, n, round(time.time() - t0))
+    r["log"] = str(log)
+    return r
 
 
 def summarize(lines, scenario: str, n: int, seconds: int = 0) -> dict:
