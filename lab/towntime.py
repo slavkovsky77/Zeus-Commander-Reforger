@@ -77,7 +77,7 @@ def kv(line: str, key: str, cast=int, default=None):
 
 
 TOWN_VARIANTS = ("town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70",
-                 "town-cleanup")
+                 "town-cleanup", "town-storm60-cleanup")
 
 
 def meta(run: Path) -> dict:
@@ -490,7 +490,7 @@ def digest(b: dict) -> str:
 
 # 5 Nov night: the A/B arms - town-brains, the door off, the storm at priority 60, the side cap at 70 (the subagent's two bets
 # for the 150-300 m stall and the fade with time), and both.
-AB_ARMS = ("town-brains", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70", "town-cleanup")
+AB_ARMS = ("town-brains", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70", "town-cleanup", "town-storm60-cleanup")
 
 
 def arm_name(b: dict) -> str:
