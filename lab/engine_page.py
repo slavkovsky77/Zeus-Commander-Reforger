@@ -23,14 +23,19 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing. 5 Nov: two watched battles for Beauregard crashed after ~15 min (two engine crash kinds - not the station cleanup, the second had none); the third, without DCO's relentless push (town-watch), ran 40 min with no crash - the Soviets took the town at minute 10 and held it.",
+    "Running now": "Nothing. 5 Nov: Reforger's update (engine 193322, 14:44) broke the AI Conflict fork's compile - fixed; the dedicated server updates tonight (Steam), so no headless battles until then. Watched battles without DCO's relentless push (town-watch): 2 of 2 ran 40 min with no crash (v 2 crashes in 2 with it) - 16:01: the Soviets took Beauregard at minute 11, the US took it back at 21 and held it.",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Martin watching the battle with the night's changes; men who go into the houses at the point (still few within 60 m); room for the attack teams beside the support soldiers without costing the watched game's FPS.",
+    "Being built next": "Martin to watch the new PANORAMA camera (the camera circles a town slowly, like TV); one more watched battle without the relentless push before calling it the crash cause; men who go into the houses at the point (still few within 60 m).",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r77", "PANORAMA: the camera circles a town, like TV",
+     "Martin, 5 Nov: 'something like panorama view like i would choose town and maybe position then i would start this panorama style view where camera would move slowly around point', 'imagine watching it from tv passively around town'. A PANORAMA button above the look stick (and on the lab app's camera bar): the camera circles what it shows - a town picked with TYPE: POINTS, a tapped spot - from the view on screen, a lap in 3 min of real time at any game speed, 150-700 m out and 40-300 m up. The overlays hide 4 s after it starts and 8 s after the last tap; a tap brings them back, and with them up a tap on the picture circles that spot, NEXT / PREV the next pick. The look stick: < > the turn, tilt the height, zoom the distance. Compile-checked; not watched yet."),
+    ("bug", "r77", "Reforger's 5 Nov update renamed a script enum",
+     "The update at 14:44 (engine 192142 -> 193322, 18 GB) renamed SCR_ELoiterItemID to SCR_EAnimationItemID; the AI Conflict fork's idle animations (a cigar, a chair) used it, the Game module did not compile and the watched game quit while loading. Fixed (fork f1fbd8b). The other 'Can't find class' lines in the game's own files (Tuple2 and two more) are noise that comes with any failed compile. The dedicated server is still the old version until Steam updates it."),
+
     ("design", "r76", "Why the attack stalls and fades - measured over 27 town battles",
      "Martin: 'it takes some time that ai basically fails to attack storm and get units to front', 'like it degrades with time? too many drone team? too many vehicles?', 'team 0 team 5 ... dont follow order'. A subagent measured every town battle minute by minute (lab/towntime.py): the battles that fall early and the ones that stall are equal at 300 m and differ only inside it - teams reach 300 m of the point, then hover 150-300 m out (3-8 m closer a game minute; 60-90% of the frozen ones have a waypoint 40+ m ahead - a soldier's move at storm priority 25 loses to taking fire positions). With time the attack is not rebuilt: squad men fall 96 -> 60 while support soldiers (supply-truck crews, drone pilots, builders) rise 34 -> 58 and count against the 50-a-side cap. Not the cause: the door reaction (A/B), FPS, drones up, jams, prone or unconscious men."),
     ("design", "r76", "The night A/B: the storm at priority 60",
@@ -406,10 +411,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin to watch the battle for Beauregard with the storm at 60 and the stations cleaned up - do the men now push into the town?",
+    "Martin to watch the PANORAMA camera in the battle for Beauregard.",
+    "One more watched battle without DCO's relentless push before calling it the cause of the window's crashes (2 clean of 2 so far).",
     "Still few within 60 m of the point: the last 150 m, house by house.",
     "Room for the attack teams beside the support soldiers without costing the watched game's FPS (a cap of 70 alone did not help).",
-    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander).",
+    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\work\release\reforger-commander).",
 ]
 
 FACTS = [
@@ -429,6 +435,12 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (77, "The afternoon of 5 Nov: the game's update, watched battles without the relentless push, the panorama camera", "5 Nov 13:05 - 16:50",
+     ["AI Conflict fork: f1fbd8b - SCR_ELoiterItemID is SCR_EAnimationItemID since Reforger's 5 Nov update (the Game module did not compile).",
+      "ZCR: 974c7b2 - PANORAMA: the camera circles what it shows, slowly, the overlays hidden (in-game button above the look stick, and the lab app's camera bar). Lab: town-watch in lab/assaulttest.py - the watched battle without DCO's relentless push."],
+     "Martin, 5 Nov ~15:58: 'and i was thinking something like panorama view like i would choose town and maybe position then i would start this panorama style view where camera would move slowly around point what do you think?', 'imagine watchinf it from tv passivly around town'.",
+     "Watched, town-watch: 13:08 and 16:01, 40 min each, no crash (the town taken at minute 10-11; at 16:01 taken back at minute 21). Panorama compile-checked (0 script errors), not watched yet."),
+
     (76, "The night of 5 Nov: why the attack stalls, the storm at 60, field forts for the attacker", "5 Nov 02:40 - 08:00",
      ["AI Conflict fork: d30655e - field fortifications reach 1200 m from a base, the builder's walk timed by the distance; 984f285 - their site is not path-checked from the base.",
       "ZCR: c6e907e - -zcrDroneTeamCleanup deletes a used-up drone station 90 s after its team is done. Lab: 520d590 - the general is told its builders put bunkers and towers; lab/towntime.py (subagent: the battle minute by minute, 27 battles); lab/townarms.py (the A/B by arm); town-storm60, town-cap70, town-cleanup and their pairs in lab/assaulttest.py.",
