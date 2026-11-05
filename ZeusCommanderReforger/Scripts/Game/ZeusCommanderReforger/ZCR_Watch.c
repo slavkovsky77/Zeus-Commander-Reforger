@@ -105,6 +105,7 @@ class ZCR_Watch
 
 	protected CameraBase m_Camera;
 	protected Widget m_Root;
+	protected Widget m_TagRoot;
 	protected TextWidget m_Caption;
 	protected TextWidget m_Panel;
 	protected TextWidget m_Left;
@@ -583,8 +584,139 @@ class ZCR_Watch
 		return s_Instance != null;
 	}
 
+	// -zcrDiagDump (5 Nov): Reforger's update to engine 193322 moved the Diag Menu's time multiplier off 375 / 376 - SPEED set them
+	// and read them back, and the game ran at 1x (Martin: "speeding up game broke down hmm? maybe update?"). Every engine Diag value
+	// that is not 0 is logged once, read only, in the old build and the new, to see where the entries went.
+	protected static bool s_bDiagDumped;
+
+	protected static void DiagDump()
+	{
+		if (s_bDiagDumped || !GetGame().GetWorld())
+			return;
+		s_bDiagDumped = true;
+		if (!System.IsCLIParam("zcrDiagDump"))
+			return;
+		int shown;
+		for (int id = 0; id < 1024; id++)
+		{
+			int v = DiagMenu.GetEngineValue(id);
+			float r = DiagMenu.GetEngineRangeValue(id);
+			if (v == 0 && r == 0)
+				continue;
+			shown++;
+			Print(string.Format("[ZCR][DIAG] id=%1 v=%2 r=%3", id, v, r), LogLevel.NORMAL);
+		}
+		Print(string.Format("[ZCR][DIAG] done shown=%1 scale=%2", shown, GetGame().GetWorld().GetTimeScale()), LogLevel.NORMAL);
+	}
+
+	// The time multiplier's Diag Menu entries: the switch and the value (375 / 376 to engine 192142). Reforger's update of 5 Nov
+	// (engine 193322) moved them - SPEED set 375 / 376 and the game stayed at 1x - so they are found by what they do: SPEED asked
+	// for 2x or 3x and the world still at 1x 10 s later (or -zcrSpeedProbe), every engine range value of 1 in 200-799 is set to
+	// 3 for 1.2 s, the bool entry before it on with it, nearest to 376 first; the world's time scale is read (the Game Master
+	// camera divides by it) and the values set back. The one that runs the world at 3x is kept for this session and logged
+	// [ZCR][SPEEDPROBE] found=; then it goes in here.
+	protected static int s_iSpeedSwitch = 375;
+	protected static int s_iSpeedRange = 376;
+	protected static int s_iProbeStage;        // 0 not asked, 1 asked, 2 running, 3 done
+	protected static int s_iProbeAskedAt;
+	protected static ref array<int> s_aProbe;
+	protected static int s_iProbeIdx;
+	protected static int s_iProbeAt;           // real time the candidate was set; 0: none set
+	protected static float s_fProbeWorld0;
+	protected static int s_iProbeOldV;
+	protected static float s_fProbeOldR;
+	protected static bool s_bProbeSwitched;
+
+	protected static void ProbeAsk(string why)
+	{
+		if (s_iProbeStage != 0)
+			return;
+		s_iProbeStage = 1;
+		s_iProbeAskedAt = System.GetTickCount();
+		Print(string.Format("[ZCR][SPEEDPROBE] asked why=%1", why), LogLevel.NORMAL);
+	}
+
+	protected static void ProbeTick()
+	{
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return;
+		int now = System.GetTickCount();
+		if (s_iProbeStage == 0 && System.IsCLIParam("zcrSpeedProbe"))
+			ProbeAsk("cli");
+		if (s_iProbeStage == 1)
+		{
+			// 20 s after it was asked: the world loaded and running.
+			if (now - s_iProbeAskedAt < 20000)
+				return;
+			s_aProbe = {};
+			for (int d = 0; d < 300; d++)
+			{
+				for (int sgn = 0; sgn < 2; sgn++)
+				{
+					int k = 376 + d;
+					if (sgn == 1)
+						k = 376 - d - 1;
+					if (k < 200 || k >= 800)
+						continue;
+					if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(k) - 1) < 0.001)
+						s_aProbe.Insert(k);
+				}
+			}
+			s_iProbeStage = 2;
+			s_iProbeIdx = 0;
+			s_iProbeAt = 0;
+			Print(string.Format("[ZCR][SPEEDPROBE] start candidates=%1 scale=%2", s_aProbe.Count(), world.GetTimeScale()), LogLevel.NORMAL);
+		}
+		if (s_iProbeStage != 2)
+			return;
+		if (s_iProbeAt == 0)
+		{
+			if (s_iProbeIdx >= s_aProbe.Count())
+			{
+				// Not found: SPEED writes nothing (the old entries are something else in this build).
+				s_iProbeStage = 3;
+				s_iSpeedSwitch = -1;
+				Print("[ZCR][SPEEDPROBE] not found", LogLevel.NORMAL);
+				return;
+			}
+			int c = s_aProbe[s_iProbeIdx];
+			s_fProbeOldR = DiagMenu.GetEngineRangeValue(c);
+			s_iProbeOldV = DiagMenu.GetEngineValue(c - 1);
+			s_bProbeSwitched = s_iProbeOldV == 0;
+			DiagMenu.SetEngineRangeValue(c, 3);
+			if (s_bProbeSwitched)
+				DiagMenu.SetEngineValue(c - 1, 1);
+			s_iProbeAt = now;
+			s_fProbeWorld0 = world.GetWorldTime();
+			return;
+		}
+		if (now - s_iProbeAt < 1200)
+			return;
+		int cand = s_aProbe[s_iProbeIdx];
+		float scale = world.GetTimeScale();
+		float rate = (world.GetWorldTime() - s_fProbeWorld0) / Math.Max(1, now - s_iProbeAt);
+		bool found = scale > 2.2 || rate > 2.2;
+		Print(string.Format("[ZCR][SPEEDPROBE] id=%1 switch=%2 scale=%3 rate=%4", cand, s_bProbeSwitched, scale, rate), LogLevel.NORMAL);
+		DiagMenu.SetEngineRangeValue(cand, s_fProbeOldR);
+		if (s_bProbeSwitched)
+			DiagMenu.SetEngineValue(cand - 1, s_iProbeOldV);
+		s_iProbeAt = 0;
+		s_iProbeIdx++;
+		if (!found)
+			return;
+		s_iSpeedRange = cand;
+		s_iSpeedSwitch = cand - 1;
+		s_iProbeStage = 3;
+		s_fNextSpeed = 0;
+		s_bSpeedLogged = false;
+		Print(string.Format("[ZCR][SPEEDPROBE] found= switch=%1 value=%2 (the switch was off: %3)", s_iSpeedSwitch, s_iSpeedRange, s_bProbeSwitched), LogLevel.NORMAL);
+	}
+
 	static void Update(float timeslice)
 	{
+		DiagDump();
+		ProbeTick();
 		if (!s_bChecked)
 		{
 			s_bChecked = true;
@@ -607,6 +739,8 @@ class ZCR_Watch
 	// Re-applied every 5 s (cheap) in case the game resets it; logs [ZCR][SPEED] once.
 	protected static float s_fNextSpeed;
 	protected static bool s_bSpeedLogged;
+	protected static bool s_bSpeedTouched;
+	protected static int s_iScaleChecks;
 	// The SPEED button (Martin, 21 Oct 21:40: "can I set the speed of the game? ... if the speed affects the
 	// crazy AI driving"): 3x -> 1x -> 2x -> 3x from the screen, over -zcrSpeed; each change logs [ZCR][SPEED].
 	protected static float s_fSpeedOverride;
@@ -650,18 +784,43 @@ class ZCR_Watch
 		float speed = Speed();
 		if (speed <= 0)
 			return;
+		// Not while the entries are being looked for (the probe sets and restores them itself).
+		if (s_iProbeStage == 1 || s_iProbeStage == 2 || s_iSpeedSwitch < 0)
+			return;
+		// 1x and never changed: nothing to write (wrong entries after an update are then left alone).
+		if (speed > 1.01 || speed < 0.99)
+			s_bSpeedTouched = true;
+		if (!s_bSpeedTouched)
+			return;
 		float now = System.GetTickCount() / 1000.0;
 		if (now < s_fNextSpeed)
 			return;
 		s_fNextSpeed = now + 5;
-		if (DiagMenu.GetEngineValue(375) != 1)
-			DiagMenu.SetEngineValue(375, 1);
-		if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(376) - speed) > 0.01)
-			DiagMenu.SetEngineRangeValue(376, speed);
-		if (!s_bSpeedLogged && GetGame().GetWorld())
+		if (DiagMenu.GetEngineValue(s_iSpeedSwitch) != 1)
+			DiagMenu.SetEngineValue(s_iSpeedSwitch, 1);
+		if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(s_iSpeedRange) - speed) > 0.01)
+			DiagMenu.SetEngineRangeValue(s_iSpeedRange, speed);
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return;
+		if (!s_bSpeedLogged)
 		{
 			s_bSpeedLogged = true;
-			Print(string.Format("[ZCR][SPEED] multiplier=%1 switch=%2 value=%3", speed, DiagMenu.GetEngineValue(375), DiagMenu.GetEngineRangeValue(376)), LogLevel.NORMAL);
+			s_iScaleChecks = 2;
+			Print(string.Format("[ZCR][SPEED] multiplier=%1 switch=%2 value=%3 ids=%4/%5 scale=%6", speed, DiagMenu.GetEngineValue(s_iSpeedSwitch), DiagMenu.GetEngineRangeValue(s_iSpeedRange), s_iSpeedSwitch, s_iSpeedRange, world.GetTimeScale()), LogLevel.NORMAL);
+		}
+		// What the world really runs at, 5 and 10 s later (the update of 5 Nov: the values took, the game stayed at 1x); still
+		// 1x at 2x or 3x - the entries moved: look for them (the game window only - a dedicated server has no Diag Menu).
+		else if (s_iScaleChecks > 0)
+		{
+			s_iScaleChecks--;
+			float scale = world.GetTimeScale();
+			Print(string.Format("[ZCR][SPEED] wanted=%1 scale=%2", speed, scale), LogLevel.NORMAL);
+			if (s_iScaleChecks == 0 && speed >= 1.5 && scale < 1.3 && s_Instance)
+			{
+				ProbeAsk("scale");
+				s_iProbeAskedAt = System.GetTickCount() - 20000;
+			}
 		}
 	}
 
@@ -825,6 +984,12 @@ class ZCR_Watch
 		FrameSlot.SetAnchorMin(m_Root, 0, 0);
 		FrameSlot.SetAnchorMax(m_Root, 1, 1);
 		FrameSlot.SetOffsets(m_Root, 0, 0, 0, 0);
+		// The tags on soldiers, vehicles and drones on their own layer: HIDE UI leaves them (5 Nov - Martin: "when you show ui/hide ui
+		// you should still show tag on vehicles, units and drones now it hides everything").
+		m_TagRoot = NewWidget(WidgetType.FrameWidgetTypeID, 1000, null);
+		FrameSlot.SetAnchorMin(m_TagRoot, 0, 0);
+		FrameSlot.SetAnchorMax(m_TagRoot, 1, 1);
+		FrameSlot.SetOffsets(m_TagRoot, 0, 0, 0, 0);
 		// Arma 3's layout: a panel per side - BLUFOR left, OPFOR right - the score along the top, the
 		// lab's measures along the bottom, the shot's caption above them.
 		m_Caption = NewText(0.26, 0.865, 0.74, 0.945, 22, 0.55);
@@ -986,6 +1151,9 @@ class ZCR_Watch
 		foreach (ZCR_WatchMarker m : m_aMarkers)
 		{
 			if (overview && !s_bDetails && (m.m_sKind == "S" || m.m_sKind == "A" || m.m_sKind == "F" || m.m_sKind == "L" || m.m_sKind == "T"))
+				continue;
+			// HIDE UI: of the markers only the armour's tags stay (with the soldiers', vehicles' and drones' below).
+			if (m_bHudHidden && m.m_sKind != "A")
 				continue;
 			vector screen = workspace.ProjWorldToScreen(m.m_vPos, world);
 			if (screen[2] <= 0)
@@ -1316,11 +1484,11 @@ class ZCR_Watch
 			w.RemoveFromHierarchy();
 		if (text)
 		{
-			w = NewWidget(WidgetType.TextWidgetTypeID, 1003, m_Root);
+			w = NewWidget(WidgetType.TextWidgetTypeID, 1003, m_TagRoot);
 			TextWidget.Cast(w).SetFont(FONT_BOLD);
 		}
 		else
-			w = NewWidget(WidgetType.ImageWidgetTypeID, 1003, m_Root);
+			w = NewWidget(WidgetType.ImageWidgetTypeID, 1003, m_TagRoot);
 		FrameSlot.SetAnchorMin(w, 0, 0);
 		FrameSlot.SetAnchorMax(w, 0, 0);
 		m_aPool[i] = w;
