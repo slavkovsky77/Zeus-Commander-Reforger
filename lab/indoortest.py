@@ -10,7 +10,8 @@ launched 150 m out each time. The run dict counts what happened:
     python lab/sublab.py run indoors --scenario rooms --variant default --repeat 2
     python lab/indoortest.py rooms default --units 2          # one run by hand
 
-Watched in the game window (Martin): python D:\\work\\fpv-ai-reforger\\tools\\run_tests.py --cases indoor,indoorclosed,canopy --window
+Watched in the game window (Martin), the game free - rooms, a closed room and a canopy, the mod's chase camera behind the drone:
+    python lab/indoortest.py rooms default --watch
 """
 import argparse
 import json
@@ -111,5 +112,10 @@ if __name__ == "__main__":
     ap.add_argument("--units", type=int, default=1, help="cases in the run (each a new spot)")
     ap.add_argument("--minutes", type=float, default=12)
     ap.add_argument("--port", type=int, default=2192)
+    ap.add_argument("--watch", action="store_true", help="in the game window for Martin (the mod's chase camera behind the drone): "
+                    "rooms, a closed room and a canopy - the scenario and variant are ignored; only with the game free")
     a = ap.parse_args()
+    if a.watch:
+        cases = "indoor,indoorclosed,canopy,indoor,canopy"
+        sys.exit(subprocess.run([sys.executable, str(FPV / "tools" / "run_tests.py"), "--window", "--cases", cases], cwd=str(FPV)).returncode)
     print(json.dumps(run(a.scenario, a.variant, a.minutes, a.units, a.port), indent=1))
