@@ -491,8 +491,8 @@ def ab(battles: list) -> str:
     out = [f"{'battle':46} {'build':8} door  taken  " + " ".join(f"{k[0]:>12}" for k in keys) + "   closing 150-300 / 300-700"]
     arms = defaultdict(list)
     for b in battles:
-        if b["variant"] not in ("town-brains", "town-nodoor") or b.get("watched"):
-            continue
+        if b["variant"] not in ("town-brains", "town-nodoor") or b.get("watched") or b.get("last_min", 0) < 25:
+            continue   # watched (2-3x), other setups, or still running / cut short
         ms = b["minutes"]
         vals = []
         for _, k, lo, hi in keys:
