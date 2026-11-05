@@ -201,14 +201,21 @@ VARIANTS["town-vs-rules"] = (VARIANTS["town-brains"][0],
 # orders field positions in its first rounds (note 538; in the night's battles the town fell too late to see any built).
 VARIANTS["town-forts"] = (VARIANTS["town-brains"][0].replace("-zcrBaseTo Farm:USSR", "-zcrBaseTo Farm:USSR,Beauregard:US"),
                           "town-brains with Beauregard American from the start - its general's field fortifications from the first rounds")
-LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts"}   # variants whose live planner plans both sides
+# 5 Nov night (Martin: "it takes some time that ai basically fails to attack storm and get units to front", "like it degrades
+# with time?"): the town fell at 9-16 min in 5 of the 6 battles before the door fix (780f2a9, 4 Nov 04:51), rarely since -
+# town-brains without the AI's navlink-door reaction, as the A/B arm (its own name, so lab/towntest.py's town-brains curve
+# doesn't take these battles in; lab/towntime.py compares the two).
+VARIANTS["town-nodoor"] = (VARIANTS["town-brains"][0] + " -zcrNoDoorReaction",
+                           "town-brains without the AI's navlink-door reaction (as before 4 Nov 04:51) - the A/B of the town captures")
+LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts", "town-nodoor"}   # variants whose live planner plans both sides
 RULES_VS = {"town-vs-rules"}   # ... one of them by the rules: the side opposite --live-side
 # 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
 # ratio right? and it provides defense?"): DCO's defend and idle positions indoors first (coverPreference 1; Recommended:
 # 0 = balanced) and several teams may share a building (Farm has few).
 DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}, "town-brains": {"coverPreference": 1, "shareBuildings": True},
-           "town-vs-rules": {"coverPreference": 1, "shareBuildings": True}, "town-forts": {"coverPreference": 1, "shareBuildings": True}}
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True), "town-forts": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+           "town-vs-rules": {"coverPreference": 1, "shareBuildings": True}, "town-forts": {"coverPreference": 1, "shareBuildings": True},
+           "town-nodoor": {"coverPreference": 1, "shareBuildings": True}}
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True), "town-forts": ("gemini", True), "town-nodoor": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")
