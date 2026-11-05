@@ -99,6 +99,7 @@ def parse(run: Path) -> dict:
     mins = defaultdict(lambda: defaultdict(float))
     teams = {}          # current snapshot: (side, id) -> parsed team, for the snapshot at snap_t
     track = defaultdict(list)   # (side, id) -> [(t, x, z)] team centres, for the 'frozen' measure
+    centre = defaultdict(dict)  # (side, id) -> {minute: (distance to the point, on foot)}, for the closing speed
     snap_t = None
     slot_state = {}     # (faction, numeric slot) -> (role, allowed_idle_reason, alive)
     last_wall = last_t = None
@@ -137,6 +138,7 @@ def parse(run: Path) -> dict:
                 hist.pop(0)
             old = [h for h in hist if h[0] <= snap_t - 180]
             cd = math.hypot(cx - OBJ[0], cz - OBJ[1])
+            centre[(side, _)][m] = (cd, not any(st == "v" for _, _, st in tm["mp"]))
             if old and not any(st == "v" for _, _, st in tm["mp"]) and cd > 150:
                 if math.hypot(cx - old[-1][1], cz - old[-1][2]) < 25:
                     a["frz"] += tm["men"]
@@ -335,6 +337,13 @@ def parse(run: Path) -> dict:
     out["minutes"] = res
     out["acts_near"] = {m: dict(v) for m, v in acts_near.items() if v}
     out["acts_all"] = {m: dict(v) for m, v in acts_all.items() if v}
+    # Closing speed: metres a team on foot got closer to the point in a game minute, by where it was (minutes 0-30).
+    closing = {}
+    for lo, hi in CLOSING_BANDS:
+        steps = [d - nxt[0] for mins_ in centre.values() for mm, (d, foot) in mins_.items()
+                 if mm < 30 and foot and lo <= d < hi and (nxt := mins_.get(mm + 1)) and nxt[1]]
+        closing[f"{lo}-{hi}"] = (round(sum(steps) / len(steps), 1), len(steps)) if steps else (None, 0)
+    out["closing"] = closing
     return out
 
 
@@ -435,6 +444,7 @@ def summary(battles: list) -> str:
     return "\n".join(out)
 
 
+CLOSING_BANDS = ((60, 150), (150, 300), (300, 700))
 DIGEST = [("a300", "att300"), ("a150", "att150"), ("a60", "att60"), ("attack men", "att_men"), ("frozen 150-500", "frzN"),
           ("squad men", "mgd"), ("other men", "sup"), ("prone", "prone"), ("unconscious", "unc"), ("fps low", "fps"),
           ("AI agents", "ai"), ("drones up", "air"), ("aboard", "aboard"), ("lost", "lost")]
@@ -444,11 +454,48 @@ DIGEST_MIN = (5, 8, 10, 12, 15, 20, 25, 30)
 def digest(b: dict) -> str:
     """One battle in a few lines: each measure at game minutes 5, 8, 10, 12, 15, 20, 25, 30."""
     cap = f"taken {b['first_cap_s'] / 60:.1f} min by {b['cap_by']}" if b.get("first_cap_s") is not None else "not taken"
-    lines = [f"{b['run']} [{b['variant']}{', watched' if b['watched'] else ''}] door {'on' if b['door'] else 'OFF'}, {cap}",
+    clo = ", ".join(f"{k} m {v[0]}" for k, v in (b.get("closing") or {}).items() if v[0] is not None)
+    lines = [f"{b['run']} [{b['variant']}{', watched' if b['watched'] else ''}] door {'on' if b['door'] else 'OFF'}, {cap}; "
+             f"teams on foot got closer by (m per game minute): {clo}",
              f"  {'game minute':<15}" + "".join(f"{m:>5}" for m in DIGEST_MIN)]
     for name, k in DIGEST:
         lines.append(f"  {name:<15}" + "".join(f"{fmt(b['minutes'].get(m, {}).get(k)):>5}" for m in DIGEST_MIN))
     return "\n".join(lines)
+
+
+def ab(battles: list) -> str:
+    """Door on v off (town-brains v town-nodoor), paired by build: one row per battle, then each arm's means."""
+    keys = [("a300 8-15", "att300", 8, 15), ("a150 8-30", "att150", 8, 30), ("a60 8-30", "att60", 8, 30),
+            ("frozen 10-30", "frzN", 10, 30), ("prone 8-30", "prone", 8, 30), ("unc 8-30", "unc", 8, 30),
+            ("door acts", "pact", 0, 30), ("imf/min", "imf", 0, 30), ("lost 30", "lost", 29, 30)]
+    out = [f"{'battle':46} {'build':8} door  taken  " + " ".join(f"{k[0]:>12}" for k in keys) + "   closing 150-300 / 300-700"]
+    arms = defaultdict(list)
+    for b in battles:
+        if b["variant"] not in ("town-brains", "town-nodoor") or b.get("watched"):
+            continue
+        ms = b["minutes"]
+        vals = []
+        for _, k, lo, hi in keys:
+            v = [ms[m].get(k, 0) for m in ms if lo <= m <= hi]
+            vals.append(sum(v) / len(v) if v else None)
+        cap = b["first_cap_s"] / 60 if b.get("first_cap_s") is not None else None
+        clo = b.get("closing") or {}
+        row = {"cap": cap, "vals": vals, "c1": (clo.get("150-300") or (None,))[0], "c2": (clo.get("300-700") or (None,))[0]}
+        arms[(b.get("commit"), b["door"])].append(row)
+        out.append(f"{b['run'][-46:]:46} {b.get('commit', ''):8} {'on ' if b['door'] else 'OFF'}  {fmt(round(cap, 1)) if cap else '  -':>5}  "
+                   + " ".join(f"{fmt(round(v, 1)) if v is not None else '.':>12}" for v in vals) + f"   {fmt(row['c1'])} / {fmt(row['c2'])}")
+    out.append("")
+    for (commit, door), rows in sorted(arms.items(), key=lambda x: (str(x[0][0]), x[0][1])):
+        n = len(rows)
+        taken = sum(1 for r in rows if r["cap"] is not None)
+        early = sum(1 for r in rows if r["cap"] is not None and r["cap"] * 60 <= EARLY_S)
+        means = [sum(r["vals"][i] or 0 for r in rows) / n for i in range(len(keys))]
+        c1 = [r["c1"] for r in rows if r["c1"] is not None]
+        c2 = [r["c2"] for r in rows if r["c2"] is not None]
+        out.append(f"build {commit} door {'on ' if door else 'OFF'}: {n} battles, taken {taken} (by min 16: {early}) | "
+                   + ", ".join(f"{k[0]} {fmt(round(v, 1))}" for k, v in zip(keys, means))
+                   + f" | closing {fmt(round(sum(c1) / len(c1), 1)) if c1 else '.'} / {fmt(round(sum(c2) / len(c2), 1)) if c2 else '.'}")
+    return "\n".join(out)
 
 
 def town_runs(since: str = SINCE) -> list:
@@ -465,6 +512,7 @@ def main() -> int:
     ap.add_argument("runs", nargs="*", help="run folders (default: every town battle since --since)")
     ap.add_argument("--since", default=SINCE)
     ap.add_argument("--summary", action="store_true", help="only the summary")
+    ap.add_argument("--ab", action="store_true", help="the door A/B: town-brains v town-nodoor headless battles, paired by build")
     ap.add_argument("--digest", action="store_true", help="each battle as a few lines (measures at minutes 5-30), then the summary")
     ap.add_argument("--json", default="", help="write every battle's minutes to this file")
     ap.add_argument("--min-minutes", type=int, default=5, help="leave out battles shorter than this")
@@ -476,12 +524,17 @@ def main() -> int:
         if b.get("error") or b.get("last_min", -1) + 1 < a.min_minutes:
             continue
         battles.append(b)
+        if a.ab:
+            continue
         if a.digest:
             print(digest(b))
             print()
         elif not a.summary:
             print(table(b))
             print()
+    if a.ab:
+        print(ab(battles))
+        return 0
     print(summary(battles))
     if a.json:
         Path(a.json).write_text(json.dumps(battles, indent=1, default=str), encoding="utf-8")
