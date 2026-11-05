@@ -26,6 +26,8 @@ Per town battle (lab/assaulttest.py beauregard: town-brains, town-vs-rules, town
   fhm                   soldiers of the slots (any role) whose last SLOT_ACTIVITY says PERSISTENT_STUCK_FIELD_HOLD
   mgd / sup             soldiers in AI Conflict's squads (FORCE_HEARTBEAT managed_agents) / all others (AIChar - mgd: builders,
                         truck and armour crews, drone operators) - with -aicfCapCountsAll the others count against the side cap
+  trk / bld / plt       supply trucks and builders on the live map ([ZCR][LIVE] kind=truck / kind=builder) and drone pilots
+                        ([ZCR][OPERATOR] pilots=, both sides) - the support soldiers that fill the cap
   rblk                  REINFORCEMENT_BLOCKED reason=FACTION_LIMIT (a dead squad not respawned: the side is at its cap)
   pact                  attack men whose current behaviour is a PerformAction or a door behaviour (opening a navlink door; acts=,
                         battles from 5 Nov 00:57)
@@ -112,6 +114,8 @@ def parse(run: Path) -> dict:
     lost = {"US": 0, "USSR": 0}
     acts_near = defaultdict(lambda: defaultdict(int))   # minute -> behaviour -> attack men within 300 m
     acts_all = defaultdict(lambda: defaultdict(int))    # minute -> behaviour -> attack men anywhere (summed over the minute's last snapshot)
+    support_ids = defaultdict(lambda: defaultdict(set))  # minute -> truck|builder -> ids seen
+    pilots = {}
     speed = out["speed"]
     anchor = None
     last_minute = -1
@@ -236,6 +240,12 @@ def parse(run: Path) -> dict:
                             k, n = p.rsplit(":", 1)
                             acts[k] = int(n) if n.isdigit() else 0
                 teams[(side, tid)] = {"role": role, "men": men, "mp": mp, "acts": acts, "nowp": " wp=- " in line}
+            elif "[ZCR][LIVE]" in line and (" kind=truck " in line or " kind=builder " in line):
+                kind = "trk" if " kind=truck " in line else "bld"
+                support_ids[m][kind].add(kv(line, "side", str, "") + kv(line, "id", str, ""))
+            elif "[ZCR][OPERATOR]" in line and " pilots=" in line:
+                pilots[kv(line, "side", str, "")] = kv(line, "pilots", int, 0)
+                row["plt"] = sum(pilots.values())
             elif "FPS:" in line and "AIChar" in line:
                 mf = RE_FPS.search(line)
                 if mf:
@@ -324,7 +334,10 @@ def parse(run: Path) -> dict:
         r["stuck"] = r.get("stuck_US", 0) + r.get("stuck_USSR", 0)
         res[m] = {k: v for k, v in r.items() if not k.startswith("fps_s") and k != "fps_n"}
     # carry the last value forward for state measures sampled less often than every minute
-    for k in ("ai", "aich", "vehs", "fh", "fhm", "trh", "orphan_wp", "mgd"):
+    for m, kinds in support_ids.items():
+        for kind, ids in kinds.items():
+            res.setdefault(m, {})[kind] = len(ids)
+    for k in ("ai", "aich", "vehs", "fh", "fhm", "trh", "orphan_wp", "mgd", "plt"):
         last = None
         for m in sorted(res):
             if k in res[m]:
@@ -351,7 +364,7 @@ COLS = [("att300", "a300"), ("att150", "a150"), ("att60", "a60"), ("att_men", "a
         ("frz", "frz"), ("frzN", "frzN"), ("nowp", "nowp"), ("prone", "prn"), ("unc", "unc"),
         ("veh", "inveh"), ("react", "react"), ("dtprn", "dtprn"), ("fps", "fps"), ("ai", "AI"), ("aich", "AIch"), ("vehs", "veh"), ("air", "air"),
         ("launched", "lnch"), ("aboard", "abrd"), ("stuck", "stk"), ("unjam", "unjam"), ("lost", "lost"),
-        ("mgd", "mgd"), ("sup", "sup"), ("rblk", "rblk"), ("wpf", "wpf"), ("rec", "rec"), ("recd", "recD"), ("fcr", "fcr"), ("gsd", "gsd"), ("imf", "imf"), ("fh", "fh"), ("fhm", "fhm"), ("trh", "trh"), ("pact", "pact")]
+        ("mgd", "mgd"), ("sup", "sup"), ("trk", "trk"), ("bld", "bld"), ("plt", "plt"), ("rblk", "rblk"), ("wpf", "wpf"), ("rec", "rec"), ("recd", "recD"), ("fcr", "fcr"), ("gsd", "gsd"), ("imf", "imf"), ("fh", "fh"), ("fhm", "fhm"), ("trh", "trh"), ("pact", "pact")]
 
 
 def fmt(v):
@@ -446,7 +459,7 @@ def summary(battles: list) -> str:
 
 CLOSING_BANDS = ((60, 150), (150, 300), (300, 700))
 DIGEST = [("a300", "att300"), ("a150", "att150"), ("a60", "att60"), ("attack men", "att_men"), ("frozen 150-500", "frzN"),
-          ("squad men", "mgd"), ("other men", "sup"), ("prone", "prone"), ("unconscious", "unc"), ("fps low", "fps"),
+          ("squad men", "mgd"), ("other men", "sup"), ("trucks", "trk"), ("drone pilots", "plt"), ("prone", "prone"), ("unconscious", "unc"), ("fps low", "fps"),
           ("AI agents", "ai"), ("drones up", "air"), ("aboard", "aboard"), ("lost", "lost")]
 DIGEST_MIN = (5, 8, 10, 12, 15, 20, 25, 30)
 
