@@ -100,6 +100,17 @@ def command(a, profile: Path) -> list:
             mod_dirs = mod_dirs + [str(d.parent)]
         if mod_id == DCO_ID and (ROOT / "ZCR_DCO" / "addon.gproj").exists():
             addons += "," + DCO_BRIDGE   # our bridge (ZCR_DCO): our commander's orders as DCO's per-group switches
+    # Extra local addons every match loads (5 Nov): <mods dir>/lab_extra_addons.txt, one addon id a line, '#' comments.
+    # The Faces tool (D:\work\reforger-faces) writes it on Deploy, so the next match has the converted faces.
+    for d in DRONE_DIRS:
+        extra_file = Path(d) / "lab_extra_addons.txt"
+        if extra_file.exists():
+            for line in extra_file.read_text(encoding="utf-8").splitlines():
+                mod_id = line.split("#", 1)[0].strip()
+                if mod_id and mod_id not in addons.split(","):
+                    addons += "," + mod_id
+                    if str(d) not in mod_dirs:
+                        mod_dirs = mod_dirs + [str(d)]
     # The crash bisect (26 Oct): our addon from another checkout (a worktree at an older commit) - ZCR_ADDON_ROOT.
     zcr_root = os.environ.get("ZCR_ADDON_ROOT") or str(ROOT)
     roots = [str(AICF), zcr_root] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
