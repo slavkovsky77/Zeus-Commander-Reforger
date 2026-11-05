@@ -197,6 +197,11 @@ class ZCR_Watch
 	{
 		if (!s_Instance || !s_Instance.m_Camera)
 			return;
+		if (s_Instance.m_bPano)
+		{
+			s_Instance.PanoLook(what);
+			return;
+		}
 		if (s_Instance.m_bFree)
 		{
 			Nudge(what);
@@ -276,6 +281,195 @@ class ZCR_Watch
 	static bool IsFree()
 	{
 		return s_Instance && s_Instance.m_bFree;
+	}
+
+	// PANORAMA (5 Nov - Martin: "something like panorama view like i would choose town and maybe position then i would start this
+	// panorama style view where camera would move slowly around point", "imagine watching it from tv passively around town"): the
+	// camera circles the spot it shows - a town picked with TYPE: POINTS, a tapped spot - starting from the view on screen, 2
+	// degrees a second of real time (a lap in 3 min at any game speed), 150-700 m out and 40-300 m up. The overlays hide 4 s after
+	// it starts and 8 s after the last tap; a tap brings them back, and with them up a tap on the picture circles that spot
+	// instead, NEXT / PREV the next pick. The look stick: < > the turn (slower, still, the other way), tilt the height, zoom the
+	// distance. PANORAMA or CAMERA again ends it.
+	protected bool m_bPano;
+	protected vector m_vPanoCenter;
+	protected vector m_vPanoTo;          // where the centre glides to (a new spot)
+	protected float m_fPanoAngle;        // the camera's yaw; it sits on the far side of the centre, looking at it
+	protected float m_fPanoRate = 2;     // degrees a second, + to the right
+	protected float m_fPanoR;            // wanted distance and height; the camera's glide to them
+	protected float m_fPanoH;
+	protected float m_fPanoRNow;
+	protected float m_fPanoHNow;
+	protected float m_fPanoLift;         // over a hill under the circle
+	protected int m_iPanoLastMs;
+	protected int m_iPanoShowMs;         // the overlays stay up until this (real time)
+	protected int m_iPanoTakeShotMs = -100000;   // a pick asked for: the director's next shot moves the circle
+
+	static bool IsPano()
+	{
+		return s_Instance && s_Instance.m_bPano;
+	}
+
+	static void TogglePano()
+	{
+		if (!s_Instance || !s_Instance.m_Camera)
+			return;
+		if (s_Instance.m_bPano)
+			s_Instance.StopPano();
+		else
+			s_Instance.StartPano();
+	}
+
+	// A pick (NEXT / PREV, TYPE, the lab app's map) while circling: its shot moves the circle there.
+	static void PanoTakeNextShot()
+	{
+		if (s_Instance && s_Instance.m_bPano)
+			s_Instance.m_iPanoTakeShotMs = System.GetTickCount();
+	}
+
+	// A tap on the picture while circling, the overlays up: that spot.
+	static void PanoAt(vector pos)
+	{
+		if (!s_Instance || !s_Instance.m_bPano || !Finite(pos))
+			return;
+		s_Instance.m_vPanoTo = pos;
+		s_Instance.m_iPanoShowMs = System.GetTickCount() + 4000;
+		Print(string.Format("[ZCR][CAMUI] pano at x=%1 z=%2", Math.Round(pos[0]), Math.Round(pos[2])), LogLevel.NORMAL);
+	}
+
+	protected void StartPano()
+	{
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return;
+		vector eye = m_Camera.GetOrigin();
+		vector center = m_vSpot;
+		if (m_bFree || center == vector.Zero)
+			center = ViewGround(world, eye);
+		if (m_bFree)
+			SetFree(false);
+		float dx = center[0] - eye[0];
+		float dz = center[2] - eye[2];
+		float dist = Math.Sqrt(dx * dx + dz * dz);
+		float ground = world.GetSurfaceY(center[0], center[2]);
+		m_fPanoAngle = Math.Atan2(dx, dz) * Math.RAD2DEG;
+		m_fPanoRNow = Math.Max(dist, 1);
+		m_fPanoHNow = eye[1] - ground;
+		m_fPanoR = Math.Clamp(dist, 150, 700);
+		m_fPanoH = Math.Clamp(m_fPanoHNow, 40, 300);
+		// From a close-up: out to a view of the town.
+		if (dist < 150)
+		{
+			m_fPanoR = 250;
+			m_fPanoH = Math.Max(m_fPanoH, 80);
+		}
+		m_fPanoRate = 2;
+		m_fPanoLift = 0;
+		m_vPanoCenter = center;
+		m_vPanoTo = center;
+		int now = System.GetTickCount();
+		m_iPanoLastMs = now;
+		m_iPanoShowMs = now + 4000;
+		m_bPano = true;
+		if (m_Caption)
+			m_Caption.SetText("PANORAMA - the camera circles this spot; tap for the controls, then tap the picture to circle another spot");
+		Print(string.Format("[ZCR][CAMUI] pano on x=%1 z=%2 r=%3 h=%4", Math.Round(center[0]), Math.Round(center[2]), Math.Round(m_fPanoR), Math.Round(m_fPanoH)), LogLevel.NORMAL);
+	}
+
+	protected void StopPano()
+	{
+		m_bPano = false;
+		// Back to the director's shot (or what is locked), gliding from the circle; the view keeps the circle's angle.
+		m_vSpot = m_vPanoCenter;
+		m_vFrom = m_vPanoCenter;
+		m_fOrbitYaw = m_fPanoAngle;
+		m_fFromBack = m_fPanoRNow / m_fOrbitZoom;
+		m_fFromHeight = m_fPanoHNow / (m_fOrbitLift * m_fOrbitZoom);
+		m_fGlideStart = m_fClock;
+		if (m_bHudHidden)
+			ToggleHud();
+		Print("[ZCR][CAMUI] pano off", LogLevel.NORMAL);
+	}
+
+	// The ground in the middle of the picture (free look has no shot spot).
+	protected vector ViewGround(BaseWorld world, vector eye)
+	{
+		vector ypr = m_Camera.GetYawPitchRoll();
+		float y = ypr[0] * Math.DEG2RAD;
+		float p = ypr[1] * Math.DEG2RAD;
+		vector dir = Vector(Math.Sin(y) * Math.Cos(p), Math.Sin(p), Math.Cos(y) * Math.Cos(p));
+		TraceParam t = new TraceParam();
+		t.Start = eye;
+		t.End = eye + dir * 4000;
+		t.Flags = TraceFlags.WORLD;
+		float f = world.TraceMove(t, null);
+		vector hit = eye + dir * 4000 * f;
+		if (f < 1 && Finite(hit))
+			return hit;
+		vector ahead = eye + Vector(Math.Sin(y), 0, Math.Cos(y)) * 250;
+		ahead[1] = world.GetSurfaceY(ahead[0], ahead[2]);
+		return ahead;
+	}
+
+	// The look stick while circling.
+	protected void PanoLook(string what)
+	{
+		if (what == "turnl")
+			m_fPanoRate = Math.Clamp(m_fPanoRate - 1, -6, 6);
+		else if (what == "turnr")
+			m_fPanoRate = Math.Clamp(m_fPanoRate + 1, -6, 6);
+		else if (what == "tiltup")
+			m_fPanoH = Math.Clamp(m_fPanoH * 1.25, 20, 450);
+		else if (what == "tiltdn")
+			m_fPanoH = Math.Clamp(m_fPanoH / 1.25, 20, 450);
+		else if (what == "zin")
+			m_fPanoR = Math.Clamp(m_fPanoR * 0.8, 60, 1000);
+		else if (what == "zout")
+			m_fPanoR = Math.Clamp(m_fPanoR / 0.8, 60, 1000);
+		if (m_Caption)
+			m_Caption.SetText(string.Format("PANORAMA - %1 degrees a second, %2 m out, %3 m up", m_fPanoRate, Math.Round(m_fPanoR), Math.Round(m_fPanoH)));
+		Print(string.Format("[ZCR][CAMUI] pano look=%1 rate=%2 r=%3 h=%4", what, m_fPanoRate, Math.Round(m_fPanoR), Math.Round(m_fPanoH)), LogLevel.NORMAL);
+	}
+
+	// Real time, not game time (at 3x a lap would take a minute).
+	protected void PanoMove(BaseWorld world)
+	{
+		int now = System.GetTickCount();
+		float dt = Math.Clamp((now - m_iPanoLastMs) / 1000.0, 0, 0.1);
+		m_iPanoLastMs = now;
+		m_fPanoAngle += m_fPanoRate * dt;
+		if (m_fPanoAngle > 360)
+			m_fPanoAngle -= 360;
+		else if (m_fPanoAngle < -360)
+			m_fPanoAngle += 360;
+		float glide = Math.Clamp(dt * 1.2, 0, 1);
+		m_vPanoCenter = m_vPanoCenter + (m_vPanoTo - m_vPanoCenter) * Math.Clamp(dt * 0.8, 0, 1);
+		m_fPanoRNow += (m_fPanoR - m_fPanoRNow) * glide;
+		m_fPanoHNow += (m_fPanoH - m_fPanoHNow) * glide;
+		vector c = m_vPanoCenter;
+		float ground = world.GetSurfaceY(c[0], c[2]);
+		float a = m_fPanoAngle * Math.DEG2RAD;
+		vector eye = Vector(c[0] - Math.Sin(a) * m_fPanoRNow, ground + m_fPanoHNow, c[2] - Math.Cos(a) * m_fPanoRNow);
+		// 15 m over a hill under the circle: up at once, down slowly (no bump as the camera passes it).
+		float need = Math.Max(0, world.GetSurfaceY(eye[0], eye[2]) + 15 - eye[1]);
+		if (need > m_fPanoLift)
+			m_fPanoLift = need;
+		else
+			m_fPanoLift += (need - m_fPanoLift) * Math.Clamp(dt * 0.5, 0, 1);
+		eye[1] = eye[1] + m_fPanoLift;
+		vector look = Vector(c[0], ground + 2, c[2]) - eye;
+		float pitch = Math.Atan2(look[1], Math.Sqrt(look[0] * look[0] + look[2] * look[2])) * Math.RAD2DEG;
+		if (!Finite(eye) || pitch != pitch || m_fPanoAngle != m_fPanoAngle)
+			return;
+		m_Camera.SetOrigin(eye);
+		m_Camera.SetYawPitchRoll(Vector(m_fPanoAngle, pitch, 0));
+		m_vSpot = c;
+		// Watched like TV: the overlays go 4 s after it starts or the circle moves, 8 s after the last tap.
+		int quiet = m_iPanoShowMs;
+		int tapQuiet = ZCR_WatchControls.LastTapMs() + 8000;
+		if (tapQuiet > quiet)
+			quiet = tapQuiet;
+		if (!m_bHudHidden && now > quiet)
+			ToggleHud();
 	}
 
 	// DETAILS (a watch button): the full label texts; off, the short ones (Martin, 21 Oct: "a details button
@@ -476,7 +670,13 @@ class ZCR_Watch
 		if (!s_Instance)
 			return;
 		s_Instance.Aim(target, back, height, follow);
-		if (s_Instance.m_Caption && !s_Instance.m_bFree)
+		// Circling: only a shot asked for (a pick) moves the circle; the director's own shots leave it.
+		if (s_Instance.m_bPano && System.GetTickCount() - s_Instance.m_iPanoTakeShotMs < 3000)
+		{
+			s_Instance.m_iPanoTakeShotMs = -100000;
+			PanoAt(target);
+		}
+		if (s_Instance.m_Caption && !s_Instance.m_bFree && !s_Instance.m_bPano)
 			s_Instance.m_Caption.SetText(label);
 		ZCR_WatchControls.OnLabel(label);
 		Print(string.Format("[ZCR][CAM] t=%1 label=%2", ZCR_LossLog.Seconds(), label), LogLevel.NORMAL);
@@ -486,7 +686,7 @@ class ZCR_Watch
 	{
 		if (!s_Instance)
 			return;
-		if (s_Instance.m_Caption && !s_Instance.m_bFree)
+		if (s_Instance.m_Caption && !s_Instance.m_bFree && !s_Instance.m_bPano)
 			s_Instance.m_Caption.SetText(label);
 		ZCR_WatchControls.OnLabel(label);
 	}
@@ -560,6 +760,12 @@ class ZCR_Watch
 				GetGame().GetCameraManager().SetCamera(m_Camera);
 		}
 		ZCR_WatchControls.Tick(m_fClock);
+		if (m_Camera && m_bPano)
+		{
+			PanoMove(world);
+			Draw(world);
+			return;
+		}
 		if (m_Camera && m_bFree)
 		{
 			FreeMove(world);
@@ -855,7 +1061,12 @@ class ZCR_Watch
 	// within 90 m of the spot gets a small tag in his side's colour with his role.
 	protected int DrawTags(BaseWorld world, WorkspaceWidget workspace, int used)
 	{
-		if (m_fToHeight > 140 || m_fClock - m_fGlideStart < 2)
+		if (m_bPano)
+		{
+			if (m_fPanoHNow > 140)
+				return used;
+		}
+		else if (m_fToHeight > 140 || m_fClock - m_fGlideStart < 2)
 			return used;
 		if (m_fClock >= m_fNextNear)
 		{

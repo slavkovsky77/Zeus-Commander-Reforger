@@ -89,6 +89,7 @@ class ZCR_WatchControls
 	protected int m_iLastClickMs = -10000;   // real time: the watch clock runs at the game's speed
 	protected bool m_bListening;
 	protected bool m_bWasFree;
+	protected bool m_bWasPano;
 	protected bool m_bSettling;         // a tap waiting for the cursor to come to rest
 	protected int m_iClickX;
 	protected int m_iClickY;
@@ -132,6 +133,14 @@ class ZCR_WatchControls
 	{
 		if (s_Instance)
 			s_Instance.Update(clock);
+	}
+
+	// The last tap or click taken (real time) - the panorama hides the overlays 8 s after it.
+	static int LastTapMs()
+	{
+		if (!s_Instance)
+			return -100000;
+		return s_Instance.m_iLastClickMs;
 	}
 
 	// The overlays shown or hidden (ZCR_Watch.ToggleHud): every button but HIDE UI / SHOW UI.
@@ -342,6 +351,9 @@ class ZCR_WatchControls
 		AddPad("v", "look-tiltdn", c1, l0 + 2 * (sh + sg), false);
 		AddPad("+", "look-zin", c0, l0, false);
 		AddPad("-", "look-zout", c0, l0 + 2 * (sh + sg), false);
+		// PANORAMA above the look stick, under the right thumb (5 Nov - Martin: "panorama view ... camera would move slowly around
+		// point", "watching it from tv passively"); the look stick steers the circle.
+		AddAt("PANORAMA", "pano", c0, l0 - 0.062, c2 + sw - c0, 0.052);
 		Visibility();
 		Labels();
 	}
@@ -351,6 +363,8 @@ class ZCR_WatchControls
 	// The camera's mode: free (the watcher flies it), locked (on what it shows - a pick, a tap, LOCK), else auto.
 	protected string CameraMode()
 	{
+		if (ZCR_Watch.IsPano())
+			return "pano";
 		if (ZCR_Watch.IsFree())
 			return "free";
 		if (m_bLocked || m_bAutoOff)
@@ -399,9 +413,13 @@ class ZCR_WatchControls
 
 	protected void Add(string text, string cmd, int row, int col)
 	{
+		AddAt(text, cmd, X0 + col * (W + GAP), Y0 + row * (H + GAP * 1.6), W, H);
+	}
+
+	// A button at a screen spot and size (fractions of the screen).
+	protected void AddAt(string text, string cmd, float x0, float y0, float bw, float bh)
+	{
 		WorkspaceWidget ws = GetGame().GetWorkspace();
-		float x0 = X0 + col * (W + GAP);
-		float y0 = Y0 + row * (H + GAP * 1.6);
 		ZCR_WatchButton b = new ZCR_WatchButton();
 		b.m_sCmd = cmd;
 		b.m_wBack = ImageWidget.Cast(ws.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, new Color(0, 0, 0, 0.6), 1010, null));
@@ -409,10 +427,10 @@ class ZCR_WatchControls
 		if (!b.m_wBack || !b.m_wText)
 			return;
 		FrameSlot.SetAnchorMin(b.m_wBack, x0, y0);
-		FrameSlot.SetAnchorMax(b.m_wBack, x0 + W, y0 + H);
+		FrameSlot.SetAnchorMax(b.m_wBack, x0 + bw, y0 + bh);
 		FrameSlot.SetOffsets(b.m_wBack, 0, 0, 0, 0);
-		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.008, y0 + H * 0.25);
-		FrameSlot.SetAnchorMax(b.m_wText, x0 + W, y0 + H);
+		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.008, y0 + bh * 0.25);
+		FrameSlot.SetAnchorMax(b.m_wText, x0 + bw, y0 + bh);
 		FrameSlot.SetOffsets(b.m_wText, 0, 0, 0, 0);
 		b.m_wText.SetFont(FONT_BOLD);
 		b.m_wText.SetExactFontSize(18);
@@ -447,6 +465,13 @@ class ZCR_WatchControls
 				string modeText = CameraMode();
 				modeText.ToUpper();
 				b.m_wText.SetText("CAMERA: " + modeText);
+			}
+			else if (b.m_sCmd == "pano")
+			{
+				if (ZCR_Watch.IsPano())
+					b.m_wText.SetText("PANORAMA: ON");
+				else
+					b.m_wText.SetText("PANORAMA");
 			}
 			else if (b.m_sCmd == "type")
 			{
@@ -491,6 +516,8 @@ class ZCR_WatchControls
 				c = new Color(0.75, 0.15, 0.12, 0.8);
 			else if (b.m_sCmd == "mode" && CameraMode() == "free")
 				c = new Color(0.18, 0.35, 0.75, 0.85);
+			else if ((b.m_sCmd == "mode" || b.m_sCmd == "pano") && CameraMode() == "pano")
+				c = new Color(0.12, 0.45, 0.45, 0.85);
 			else if (b.m_sCmd == "details" && ZCR_Watch.Details())
 				c = new Color(0.15, 0.55, 0.22, 0.8);
 			else if (b.m_sCmd == "side" && m_sFocus == "US")
@@ -521,9 +548,11 @@ class ZCR_WatchControls
 		TouchTap();
 		// Free look switched on or off elsewhere too (a tap on the picture, AUTO from the lab app): the move stick follows.
 		bool free = ZCR_Watch.IsFree();
-		if (free != m_bWasFree)
+		bool pano = ZCR_Watch.IsPano();
+		if (free != m_bWasFree || pano != m_bWasPano)
 		{
 			m_bWasFree = free;
+			m_bWasPano = pano;
 			Visibility();
 			Labels();
 		}
@@ -591,6 +620,12 @@ class ZCR_WatchControls
 		if (!OnButton(x, y))
 		{
 			Print(string.Format("[ZCR][CAMUI] touch no-button at=%1,%2", x, y), LogLevel.NORMAL);
+			// Circling with the overlays hidden: a touch anywhere brings them back.
+			if (ZCR_Watch.IsPano() && !m_bHudOn)
+			{
+				m_iLastClickMs = now;
+				ZCR_Watch.ToggleHud();
+			}
 			return;
 		}
 		m_iLastClickMs = now;
@@ -703,11 +738,20 @@ class ZCR_WatchControls
 				Send("side-" + m_sFocus, vector.Zero);
 				return;
 			}
-			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look.
+			if (cmd == "pano")
+			{
+				ZCR_Watch.TogglePano();
+				Visibility();
+				Labels();
+				return;
+			}
+			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look; from PANORAMA back.
 			if (cmd == "mode")
 			{
 				string mode = CameraMode();
-				if (mode == "free")
+				if (mode == "pano")
+					ZCR_Watch.TogglePano();
+				else if (mode == "free")
 					ZCR_Watch.SetFree(false);
 				else if (mode == "locked")
 					ZCR_Watch.SetFree(true);
@@ -721,8 +765,10 @@ class ZCR_WatchControls
 				Labels();
 				return;
 			}
-			// What is picked is shown, so a pick ends free look.
-			if (ZCR_Watch.IsFree())
+			// What is picked is shown, so a pick ends free look; circling, the circle moves to it.
+			if (ZCR_Watch.IsPano())
+				ZCR_Watch.PanoTakeNextShot();
+			else if (ZCR_Watch.IsFree())
 				ZCR_Watch.SetFree(false);
 			// TYPE: auto -> teams -> vehicles -> drones -> points -> fights; each tap shows one of the new kind at once
 			// (AUTO gives the camera back to the director).
@@ -780,7 +826,13 @@ class ZCR_WatchControls
 			Send(cmd, vector.Zero);
 			return;
 		}
-		// The picture: the ground under the tap.
+		// Circling with the overlays hidden: a tap brings them back.
+		if (ZCR_Watch.IsPano() && !m_bHudOn)
+		{
+			ZCR_Watch.ToggleHud();
+			return;
+		}
+		// The picture: the ground under the tap (circling: the circle moves there).
 		BaseWorld world = GetGame().GetWorld();
 		vector dir;
 		vector from = GetGame().GetWorkspace().ProjScreenToWorldNative(x, y, dir, world, -1);
@@ -791,6 +843,11 @@ class ZCR_WatchControls
 		float f = world.TraceMove(p, null);
 		if (f >= 1)
 			return;
+		if (ZCR_Watch.IsPano())
+		{
+			ZCR_Watch.PanoAt(from + dir * 6000 * f);
+			return;
+		}
 		Send("tap", from + dir * 6000 * f);
 	}
 

@@ -1134,6 +1134,13 @@ class ZCR_Director
 			ZCR_Watch.CycleSpeed();
 			return;
 		}
+		// PANORAMA (5 Nov, note 558): the camera circles what it shows; while it does, a pick below moves the circle there.
+		if (cmd == "pano")
+		{
+			ZCR_Watch.TogglePano();
+			return;
+		}
+		ZCR_Watch.PanoTakeNextShot();
 		if (cmd == "goto" && v.Count() >= 4)
 		{
 			pos = Vector(v[2].ToFloat(), 0, v[3].ToFloat());

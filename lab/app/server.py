@@ -392,7 +392,7 @@ def inbox(n: int = 30) -> list:
 
 
 CAMERA_CMDS = {"auto", "lock", "next", "prev", "closer", "wider", "action", "overview", "point+", "point-", "report", "ui",
-               "group+", "group-", "speed", "side-US", "side-USSR", "side-"}
+               "group+", "group-", "speed", "side-US", "side-USSR", "side-", "pano"}
 
 
 def camera_command(cmd: str) -> dict:
