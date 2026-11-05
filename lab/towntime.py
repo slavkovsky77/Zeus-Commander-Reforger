@@ -43,6 +43,7 @@ import argparse
 import json
 import math
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -86,6 +87,12 @@ def meta(run: Path) -> dict:
     d.update(commit=(r.get("commit") or "")[:7], dirty=r.get("dirty"), started=r.get("started", ""),
              nodoor="-zcrNoDoorReaction" in extra, relentless="-zcrStormRelentless" in extra,
              stations="-fpvaiKeepStations" in extra)
+    # The game scripts' tree at that commit (lab-only commits leave it the same), for pairing A/B battles by build.
+    try:
+        d["scripts"] = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", f"{r.get('commit')}:ZeusCommanderReforger"],
+                                      capture_output=True, text=True, timeout=10).stdout.strip() if r.get("commit") else ""
+    except (OSError, subprocess.SubprocessError):
+        d["scripts"] = ""
     m = re.search(r"-zcrSpeed ([\d.]+)", extra)
     d["speed"] = float(m.group(1)) if m else 1.0
     return d
@@ -494,8 +501,8 @@ def ab(battles: list) -> str:
         cap = b["first_cap_s"] / 60 if b.get("first_cap_s") is not None else None
         clo = b.get("closing") or {}
         row = {"cap": cap, "vals": vals, "c1": (clo.get("150-300") or (None,))[0], "c2": (clo.get("300-700") or (None,))[0]}
-        arms[(b.get("commit"), b["door"])].append(row)
-        out.append(f"{b['run'][-46:]:46} {b.get('commit', ''):8} {'on ' if b['door'] else 'OFF'}  {fmt(round(cap, 1)) if cap else '  -':>5}  "
+        arms[(b.get("scripts") or b.get("commit"), b["door"])].append(row)
+        out.append(f"{b['run'][-46:]:46} {b.get('scripts') or b.get('commit', ''):8} {'on ' if b['door'] else 'OFF'}  {fmt(round(cap, 1)) if cap else '  -':>5}  "
                    + " ".join(f"{fmt(round(v, 1)) if v is not None else '.':>12}" for v in vals) + f"   {fmt(row['c1'])} / {fmt(row['c2'])}")
     out.append("")
     for (commit, door), rows in sorted(arms.items(), key=lambda x: (str(x[0][0]), x[0][1])):
@@ -505,7 +512,7 @@ def ab(battles: list) -> str:
         means = [sum(r["vals"][i] or 0 for r in rows) / n for i in range(len(keys))]
         c1 = [r["c1"] for r in rows if r["c1"] is not None]
         c2 = [r["c2"] for r in rows if r["c2"] is not None]
-        out.append(f"build {commit} door {'on ' if door else 'OFF'}: {n} battles, taken {taken} (by min 16: {early}) | "
+        out.append(f"scripts {commit} door {'on ' if door else 'OFF'}: {n} battles, taken {taken} (by min 16: {early}) | "
                    + ", ".join(f"{k[0]} {fmt(round(v, 1))}" for k, v in zip(keys, means))
                    + f" | closing {fmt(round(sum(c1) / len(c1), 1)) if c1 else '.'} / {fmt(round(sum(c2) / len(c2), 1)) if c2 else '.'}")
     return "\n".join(out)
