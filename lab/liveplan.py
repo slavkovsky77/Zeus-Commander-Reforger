@@ -1678,17 +1678,31 @@ def named(text: str) -> str:
     return text if OBJECTIVE == "Farm" else text.replace("Farm", OBJECTIVE.replace("_", " "))
 
 
+# The cost (5 Nov - Martin: "shit we spent 11 euros ?!?! on gemini calls?", "some optimization would be nice"): 1,423 calls that
+# day, $12.52 - 0.88 cents a call: 4,832 tokens in (0.36 c - the 1200 px map about half of it) and 1,403 out (0.52 c), 913 of them
+# the model's hidden thinking (0.34 c). The map goes at IMAGE_PX (one image tile) and the thinking at REASONING (OpenRouter's
+# reasoning effort; LIVEPLAN_REASONING=default leaves the model's own, LIVEPLAN_IMAGE_PX=1200 the old size). Each call's tokens and
+# cost stay in liveplan.jsonl (answer._usage).
+IMAGE_PX = int(os.environ.get("LIVEPLAN_IMAGE_PX", "768"))
+REASONING = os.environ.get("LIVEPLAN_REASONING", "low")
+
+
 def ask_model(llm, image: Path, text: str) -> dict:
     import providers
     img = Image.open(image).convert("RGB")
+    if max(img.size) > IMAGE_PX:
+        img.thumbnail((IMAGE_PX, IMAGE_PX), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=85)
     url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    r = providers._post("https://openrouter.ai/api/v1/chat/completions",
-                        {"model": llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
-                         "messages": [{"role": "system", "content": named(SYSTEM)},
-                                      {"role": "user", "content": [{"type": "text", "text": named(text)},
-                                                                   {"type": "image_url", "image_url": {"url": url}}]}]},
+    body = {"model": llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
+            "usage": {"include": True},
+            "messages": [{"role": "system", "content": named(SYSTEM)},
+                         {"role": "user", "content": [{"type": "text", "text": named(text)},
+                                                      {"type": "image_url", "image_url": {"url": url}}]}]}
+    if REASONING and REASONING != "default":
+        body["reasoning"] = {"effort": REASONING}
+    r = providers._post("https://openrouter.ai/api/v1/chat/completions", body,
                         {"authorization": f"Bearer {llm.key}", "x-title": "Zeus Commander Reforger"}, 60)
     if "error" in r:
         raise RuntimeError(f"openrouter: {r['error']}")

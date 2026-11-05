@@ -15,6 +15,15 @@ higher_is_better = true
 keys = ["pass_pct", "kills", "wasted", "roof_hits", "entries", "stuck", "lines_per_min"]
 title = "Drones and buildings"
 main = "pass_pct"
+conclusion_at = "5 Nov 20:52 · 16 runs, headless on the old server build (192142)"
+conclusion = """Through a way in is better on every building scenario - and no worse in the open.
+- **Inside, a way in:** 4 of 4 killed through the door, window or hole (the dive: 1 of 4, 3 drones wasted on the building).
+- **Inside, no way in:** no strike, no drone wasted (the dive wasted 3 on the roofs).
+- **Under a canopy** (one was Arland's fuel station roof): 4 of 4 killed, coming in level from the open side (the dive 3 of 4, 1 wasted).
+- **In the open:** 7 kills against 5 - unchanged behaviour.
+- **Cost:** ~300 traces a minute only while a drone circles a soldier it can't reach; in a battle 100-200 a minute.
+- **But:** the two watched battles with it loaded crashed (engine, 14-15 min in) - it is off in the watched battle (-fpvaiNoShelter) until that is understood.
+Next: watch it in the game window (python lab/indoortest.py rooms default --watch); find whether drones going off inside buildings crash the game window."""
 score_words = "a point per 10% of the cases passed, a point per soldier killed, 3 off for each drone that went off without killing or on something short of him"
 baseline_words = "as before 5 Nov - the dive, whatever is over him"
 candidate_words = "the mod now - under a roof only through a way in, along one straight line"
