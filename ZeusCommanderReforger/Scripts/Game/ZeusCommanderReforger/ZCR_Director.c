@@ -1235,6 +1235,14 @@ class ZCR_Director
 		{
 			m_sFocus = cmd.Substring(5, cmd.Length() - 5);
 			Print(string.Format("[ZCR][CAMUI] t=%1 side focus %2", now, m_sFocus), LogLevel.NORMAL);
+			// 5 Nov 00:53 - Martin: "buttons seem not to work on side soviet/us so this is clear regression". SIDE took ('side
+			// focus US' at 00:53:07.2), but PREV then went "TEAM 15 OF 15: USSR team D0", "14 OF 15: USSR team A3", "13 OF 15: US
+			// team A10"...: the PREV / NEXT list of both sides was kept 40 s (5 s for vehicles and drones) - US only from 00:54:46,
+			// "TEAM 2 OF 6" - and the camera stayed on what it showed, so SIDE seemed to do nothing. Now the list is made again
+			// for the side, a picked team, vehicle, drone or point of the other side gives way to the nearest of this one, and in
+			// AUTO a shot of this side comes at once.
+			m_iGroupsAt = -1000;
+			SideRefocus(now);
 		}
 		else if (cmd.StartsWith("kind-"))
 		{
@@ -1270,6 +1278,27 @@ class ZCR_Director
 			Tap(now, pos);
 		else if (cmd == "ui")
 			ZCR_Watch.ToggleHud();
+	}
+
+	// SIDE pressed: the camera onto that side (see DoCommand side-). A pick of the PREV / NEXT list is stepped again (dir 0:
+	// the same one if it is of the side, else the nearest of the side); a tapped spot or a followed soldier stays.
+	protected void SideRefocus(int now)
+	{
+		if (!m_bHold)
+		{
+			if (m_sFocus.IsEmpty())
+				return;
+			m_iSpotUntil = 0;
+			NextShot(now);
+			return;
+		}
+		if (m_ShownFollow && m_aGroupLeaders.Contains(m_ShownFollow))
+		{
+			StepGroup(now, 0);
+			return;
+		}
+		if (!m_ShownFollow && m_iPoint >= 0 && m_sShownLabel.StartsWith("LOCKED - POINT"))
+			StepPoint(now, 0);
 	}
 
 	// Lab tests (the drive track, the guns test, the traffic and supply runs): PREV / NEXT step through the test's own

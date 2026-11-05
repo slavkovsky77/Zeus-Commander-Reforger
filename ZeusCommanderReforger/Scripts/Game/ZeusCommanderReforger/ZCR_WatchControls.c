@@ -106,6 +106,19 @@ class ZCR_WatchControls
 	protected int m_iJumpSeenAt = -100000;   // the last cursor jump a touch made (confirmed: still before and after)
 	protected bool m_bJumpCandidate;         // a jump this frame, to confirm on the next
 	protected float m_fLastStep;             // how far the cursor moved the frame before
+	// A mouse glides, a touch only jumps (5 Nov 00:10-00:55 - Martin, with the mouse: "clicking on ui on computer resets mouse
+	// to middle", "clicking on next/prev drone mouse resets to middle that bug"): the cursor moving GLIDE_FRAMES frames in a
+	// row is a hand on a mouse, and for MOUSE_MS after it every press acts at once where the cursor is, nothing parks the
+	// cursor and a cursor resting on a button is no tap. A one-frame jump alone was not enough: the cursor coming back into
+	// the window (the 00:34 battle: 'touch no-button' five times near 1200,1160, the mouse back from the chat) and a fast
+	// flick at 25 FPS jump like a touch, and the click after one was read as a touch and parked the cursor.
+	protected static const int GLIDE_FRAMES = 3;
+	protected static const int MOUSE_MS = 5000;
+	protected int m_iGlideFrames;
+	protected int m_iGlideAt = -100000;
+	// A press in the gap between two buttons (8 px between the rows) is the nearer button (5 Nov 00:39:17 - 'press
+	// at=123,733', between PREV and TYPE, flew the camera to a USSR soldier there).
+	protected static const int HIT_PX = 6;
 
 	static void Create()
 	{
@@ -188,15 +201,31 @@ class ZCR_WatchControls
 		int nowMs = System.GetTickCount();
 		s_Instance.m_bDownHandled = false;
 		s_Instance.m_iDownAt = nowMs;
-		if (nowMs - s_Instance.m_iJumpSeenAt < 1500 || s_Instance.m_bJumpCandidate || nowMs - s_Instance.m_iLastClickMs < 500)
+		// A mouse in use (see GLIDE_FRAMES): every press at once. The 0.5 s guard is for a touch's click after its touch tap; with
+		// it a quick second mouse click went the release-and-wait way (5 Nov 00:52:55 'click from=377,678 at=290,717': read 0.3 s
+		// later, 87 px on) or was lost - Martin's "why does button react on mouse release".
+		bool mouse = s_Instance.MouseMode();
+		if (mouse && nowMs - s_Instance.m_iLastClickMs < 60)
+			return;
+		if (!mouse && (nowMs - s_Instance.m_iJumpSeenAt < 1500 || s_Instance.m_bJumpCandidate || nowMs - s_Instance.m_iLastClickMs < 500))
 			return;
 		int x, y;
 		WidgetManager.GetMousePos(x, y);
 		s_Instance.m_bDownHandled = true;
 		s_Instance.m_iLastClickMs = nowMs;
 		s_Instance.m_bJumpPending = false;
-		Print(string.Format("[ZCR][CAMUI] press at=%1,%2", x, y), LogLevel.NORMAL);
+		if (s_Instance.m_bSettling)
+		{
+			s_Instance.m_bSettling = false;
+			GetGame().GetCallqueue().Remove(s_Instance.Settle);
+		}
+		Print(string.Format("[ZCR][CAMUI] press at=%1,%2 mouse=%3", x, y, mouse), LogLevel.NORMAL);
 		s_Instance.Resolve(x, y);
+	}
+
+	protected bool MouseMode()
+	{
+		return System.GetTickCount() - m_iGlideAt < MOUSE_MS;
 	}
 
 	static void OnClick()
@@ -256,7 +285,7 @@ class ZCR_WatchControls
 			return;
 		}
 		m_bSettling = false;
-		Print(string.Format("[ZCR][CAMUI] click from=%1,%2 at=%3,%4 ms=%5", m_iClickX, m_iClickY, x, y, waited), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][CAMUI] click from=%1,%2 at=%3,%4 ms=%5 mouse=%6", m_iClickX, m_iClickY, x, y, waited, MouseMode()), LogLevel.NORMAL);
 		Resolve(x, y);
 	}
 
@@ -521,6 +550,18 @@ class ZCR_WatchControls
 		// Martin, with the mouse: "clicking on ui on computer resets mouse to middle" - a fast mouse move counted as a touch and
 		// the click parked the cursor). The jump is confirmed on the next frame if the cursor is still; else it was a mouse.
 		float step = Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY);
+		// Gliding (see GLIDE_FRAMES): a mouse - the jump before it, if any, was no touch.
+		if (step >= 3)
+			m_iGlideFrames++;
+		else
+			m_iGlideFrames = 0;
+		if (m_iGlideFrames >= GLIDE_FRAMES)
+		{
+			m_iGlideAt = now;
+			m_iJumpSeenAt = -100000;
+			m_bJumpPending = false;
+			m_bJumpCandidate = false;
+		}
 		if (m_bJumpCandidate)
 		{
 			m_bJumpCandidate = false;
@@ -543,7 +584,7 @@ class ZCR_WatchControls
 		if (!m_bJumpPending || now - m_iJumpAt < TOUCH_WAIT_MS)
 			return;
 		m_bJumpPending = false;
-		if (m_bSettling || now - m_iLastClickMs < 500)
+		if (m_bSettling || now - m_iLastClickMs < 500 || MouseMode())
 			return;
 		if (Math.AbsFloat(x - m_iJumpX) > 4 || Math.AbsFloat(y - m_iJumpY) > 4)
 			return;      // the cursor moved on: a mouse, not a touch
@@ -568,16 +609,26 @@ class ZCR_WatchControls
 		m_Catcher.GetScreenSize(w, h);
 		int px = w * 0.5;
 		int py = h * 0.3;
+		Print(string.Format("[ZCR][CAMUI] park from=%1,%2", m_iMouseX, m_iMouseY), LogLevel.NORMAL);
 		GetGame().GetInputManager().GetMouseDeviceHandler().SetCursorPosition(px, py);
 		m_iMouseX = px;
 		m_iMouseY = py;
 		m_bJumpPending = false;
 		m_bJumpCandidate = false;
 		m_fLastStep = 0;
+		m_iGlideFrames = 0;
 	}
 
 	protected bool OnButton(int x, int y)
 	{
+		return Hit(x, y) != null;
+	}
+
+	// The button at a screen spot: the one it is on, else the nearest within HIT_PX (a press in the gap between two).
+	protected ZCR_WatchButton Hit(int x, int y)
+	{
+		ZCR_WatchButton best;
+		float bestGap = HIT_PX + 1;
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
 			if (!b.m_wBack.IsVisible())
@@ -585,26 +636,30 @@ class ZCR_WatchControls
 			float bx, by, bw, bh;
 			b.m_wBack.GetScreenPos(bx, by);
 			b.m_wBack.GetScreenSize(bw, bh);
-			if (x >= bx && x <= bx + bw && y >= by && y <= by + bh)
-				return true;
+			float gx = Math.Max(0, Math.Max(bx - x, x - bx - bw));
+			float gy = Math.Max(0, Math.Max(by - y, y - by - bh));
+			float gap = Math.Max(gx, gy);
+			if (gap < bestGap)
+			{
+				bestGap = gap;
+				best = b;
+			}
 		}
-		return false;
+		if (bestGap > HIT_PX)
+			return null;
+		return best;
 	}
 
 	// Where the tap really was (x, y: the cursor at rest): a button, else the picture.
 	protected void Resolve(int x, int y)
 	{
-		foreach (ZCR_WatchButton b : m_aButtons)
+		ZCR_WatchButton b = Hit(x, y);
+		if (b)
 		{
-			if (!b.m_wBack.IsVisible())
-				continue;
-			float bx, by, bw, bh;
-			b.m_wBack.GetScreenPos(bx, by);
-			b.m_wBack.GetScreenSize(bw, bh);
-			if (x < bx || x > bx + bw || y < by || y > by + bh)
-				continue;
 			b.m_fFlashUntil = m_fClock + 0.25;
-			if (System.GetTickCount() - m_iJumpSeenAt < 1500)
+			// The cursor parks only after a touch: never while a mouse is in use, and only with the cursor still where the
+			// touch's jump put it (5 Nov - Martin: "the park must only follow a real touch").
+			if (!MouseMode() && System.GetTickCount() - m_iJumpSeenAt < 1500 && Math.AbsFloat(x - m_iJumpX) <= 8 && Math.AbsFloat(y - m_iJumpY) <= 8)
 				Park();
 			string cmd = b.m_sCmd;
 			if (cmd.StartsWith("cam-"))
