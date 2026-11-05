@@ -1,13 +1,108 @@
-# Zeus Commander Reforger 0.1.0-alpha - ready to press Publish
+# Zeus Commander Reforger 0.1.0-alpha - almost ready (rebuild for the 5 Nov game update first)
 
 Prepared overnight 4 Nov 2026 (Martin, 03:37: "current version is great ... i want it out as alpha version now").
-**Nothing was uploaded or posted.** Everything up to Workbench's Publish button is ready; Martin's decisions are in
-section 7, the exact steps in section 8.
+**Nothing was uploaded or posted.** Everything up to Workbench's Publish button was ready on 4 Nov; Reforger's update
+of 5 Nov needs a rebuild first - **section 0** (5 Nov) has the blockers, the open decisions and what changed since;
+section 7 the decisions in full, section 8 the exact steps.
 
 Branches: `release-alpha` in reforger-commander (origin) and in the AI Conflict fork (remote `mine`, never `origin`).
 Worktrees on this PC: `D:\work\release\reforger-commander`, `D:\work\release\reforger-ai-conflict`. The lab's own
 branches (master, zcr) are untouched: every release change lives on release-alpha, and the two code changes there are
 off unless a scenario asks for them.
+
+## 0. Where it stands - 5 Nov 2026, evening (read this first)
+
+**Still nothing uploaded.** The packed alpha of 4 Nov is **out of date**: Reforger's update of 5 Nov 14:44 (game 1.6,
+engine 193322) broke it, and a day of fixes on master / zcr is not in it yet.
+
+### Blockers before Publish
+
+1. **The update breaks the alpha's AI Conflict edition.** release-alpha of the fork (cut 4 Nov) still uses
+   `SCR_ELoiterItemID`, which the update renamed to `SCR_EAnimationItemID` - `AICF_SocialActor.c` no longer compiles on
+   the new game (that is what made the 15:55 watched battle quit while loading). The fix is fork commit **f1fbd8b on zcr**.
+   release-alpha needs it - the section-9 merge of zcr (or at least `git cherry-pick f1fbd8b`) - then pack and load-test
+   again. Every check of section 4 ran on the old build 192142; the PC's dedicated server is still on it and updates
+   about 03:50 on 6 Nov, so the new-build load test can run from then.
+2. **A night of integration tests on the new game version first** - Martin, 5 Nov ~17:40 (note 559): "we will later
+   have to run all the integration tests (probably for a night) because of update".
+3. **FPV AI Drones (item 4) goes up first, from its own release folder**: version 1.1.0 is staged and validated in
+   `D:\work\fpv-ai-reforger-release`; checklist in fpv-ai-reforger `docs/RELEASE_NEXT.md`. Publish it from there, not
+   with `publish_4_FPV_AI_Drones.bat` (that one opens the local install in reforger-local-mods, which other test runs
+   rebuild).
+4. **Preview images** for each item (section 8) - none of them has one yet.
+
+### Decisions still open - none of them answered by Martin's own words of 5 Nov (notes 557-561); details in section 7
+
+1. **Drones in the alpha** - *yes*: publish FPV AI Drones 1.1.0 first (it is being readied for you now), then the rest.
+2. **The general** - *the in-game rules general in 0.1.0; Gemini stays a lab / companion tool* (needs a helper program
+   and a paid key).
+3. **Licences** - *Zeus Commander Reforger and the scenario: APL-SA*. **FPV AI Drones: APL-ND** - its Workshop text
+   says "do not reupload ... modified or not" (as the Arma 3 page), which APL-SA would allow; if you want APL-SA there
+   too, that paragraph changes. The fork stays Apache-2.0.
+4. **The fork's titles and Ishafel** - *keep "AI Conflict Core/Arland - Zeus Commander edition"; message Ishafel before
+   publishing.*
+5. **Visibility** - *Unlisted first*, one battle from the Workshop copies, then Public.
+6. **DCO's settings** - *leave the player's DCO file alone*; name the two keys the lab used in the description.
+7. **Watch mode for players** - *off in 0.1.0*; the PANORAMA camera (note 561: "fun to watch under panorama") makes a
+   "spectator" scenario variant a good 0.2.
+8. **Merge release-alpha's two opt-in changes back into master / zcr** - *yes*, and do it with the section-9 merge,
+   which blocker 1 needs anyway.
+9. **Ship despite the crashes** - *yes, as an alpha, with the known issues stated*; the setup suspected in today's two
+   window crashes (DCO's relentless push) is not in the alpha.
+
+### What the alpha depends on - publishable as it is?
+
+| Item | Whose | Licence | In the alpha as | Publishable? |
+|---|---|---|---|---|
+| DCO_AI Reforger 5EDAAE0D3CC60D6B (0.4.145) | Richz (DCO) | APL-ND | a Workshop dependency; we call its public API only (DCO_SetFeatureOff, DCO_API; master adds DCO_SetPostureOverride, off by default) - no DCO class modded, nothing copied | yes, as a dependency only - never bundle or change it |
+| Realistic Combat Drones 65AD60E204191D37 (2.3.7) | SalamiBoiDev | APL | a Workshop dependency (FPV AI Drones flies its FPVs through its components; no class of it modded) | yes, as a dependency |
+| FPV AI Drones 3257E44260058CE5 (1.1.0) | ours | none yet (decision 3) | item 4 | yes once a licence and a preview image are chosen - not on the Workshop yet, so it goes first |
+| Competent AI driving 68FCF11534562F2E (1.0.0) | its Workshop author | APL (its page) | a Workshop dependency, nothing copied | yes, as a dependency |
+| ZCR Road Price | ours | as decision 3 | not its own item any more: its road price override (`Prefabs/AI/SCR_AIWorld.et`) lives in item 5 | yes (an override of the game's own prefab, the usual modding) |
+| AI Conflict - Zeus Commander edition (fork, items 1-2) | Ishafel's, modified by us | Apache-2.0 (LICENSE, NOTICE kept and added) | items 1 and 2 | **not as packed on 4 Nov** - needs f1fbd8b (blocker 1); licence-wise yes |
+
+ZEUS WARGAME: nothing of it in any shipped folder (section 5). No APL-ND code is copied anywhere.
+
+### Changed since this document was written (4 Nov 04:49) - on master / zcr, not yet in release-alpha
+
+Comes into the alpha with the section-9 merge:
+- **The fork's fix for the update** (f1fbd8b, zcr): `SCR_EAnimationItemID` - see blocker 1.
+- **Drones** (ZCR): a drone that stopped no longer holds a launch slot (ceb41e0); a stuck drone is brought down like one
+  shot down (53717fc - Martin: "when they're stuck we should do something about"); riders bail out of a standing vehicle
+  a drone is over (25e1e0b); `-zcrDroneTeamCleanup` deletes a used-up drone station 90 s after its team is done (c6e907e,
+  off unless set).
+- **FPV AI Drones 1.1.0** (item 4, its own repo): soldiers under a roof - a drone goes in level through an open door,
+  window, hole or a canopy's open side, or leaves him alone; no more drones wasted on roofs (Martin, note 560; fpv-ai-
+  reforger 25da7f1, ede6d79; `-fpvaiNoShelter` turns it off). Also `-fpvaiKeepStations` (a used-up station stays).
+- **Field fortifications** (fork): bunkers and guard towers only (Martin: "lets not build mg nests"), out to 1200 m from
+  a base, built and paid for while enemies are at the base; a ride whose team was killed aboard is ended and its slot
+  rides again (6150d1d).
+- **Tickets**: each side's starting tickets can be set with `-aicfInitialTickets N` (AI Conflict's own parameter;
+  default 12, a replacement squad costs 1). In the alpha every read goes through AICF_Launch, so it works on a server's
+  command line and in the scenario's `m_sAICFLaunchParams` alike. The alpha keeps the default.
+- **Setup**: `-zcrBaseTo` can name the one-point battle's point (eaa6ec2). Lab-only A/B switches, not for the alpha:
+  `-zcrNoDoorReaction` (cde0a76), `-zcrStormRelentless` (bbb32dd - DCO's aggressive posture near the point; see below).
+  On master the relentless push sits in ZCR_DCO's bridge; release-alpha's copy of the bridge in ZCR_Alpha does not need
+  it - leave it out when merging.
+- Houses at the point: the move-and-hold of 4 Nov 04:06 measured worse and is off by default (49b826a) - nothing changes
+  for the alpha.
+
+Watch mode (the lab and the game window; off for players in 0.1.0 - decision 7):
+- **PANORAMA** (974c7b2; ZCR_Watch.c / ZCR_WatchControls.c, and Panorama on the lab app's camera bar): the camera circles
+  what it shows, slowly - a lap in 3 minutes of real time at any game speed, 150-700 m out, 40-300 m up; the overlays hide
+  4 s after it starts, a tap brings them back, a tap on the picture circles that spot, NEXT / PREV the next pick (TYPE:
+  POINTS = the towns), the look stick changes turn, height and distance (note 558). Martin, watching (note 561): "its fun
+  to watch under panorama".
+- **HIDE UI keeps the tags** on soldiers, vehicles and drones; only the panels, caption and buttons hide (fa5ef44, note 559).
+- **SPEED fixed for the update**: the time multiplier moved to Diag Menu ids **400 / 401** (were 375 / 376); a self-probe
+  (`-zcrSpeedProbe`, and automatically when SPEED stays at 1x for 10 s) finds it (fa5ef44, 58ce6ac; 2.7x at 3).
+- Watch buttons: touches and mouse presses handled apart (d8fb29d, 0fa6fc1, 834ec94).
+
+The watched battles' setup (note 557):
+- **town-watch** (lab/assaulttest.py, 9ed9182): the storm at 60, drone stations kept, **no DCO relentless push**. Two
+  40-minute watched battles on 5 Nov without a crash (13:08; 16:01 on the updated game - 0 script errors of ours); the
+  two watched battles with the relentless push crashed (12:39 after 21 min, 13:04 after 15 min). The deleted drone
+  stations were ruled out as the cause. The alpha was cut before the relentless push existed - keep it that way.
 
 ## 1. What ships - five Workshop items of ours
 
@@ -16,7 +111,7 @@ off unless a scenario asks for them.
 | 1 | AI Conflict Core - Zeus Commander edition | reforger-ai-conflict/AIConflictCore | CF39E4A7CCBBF845 | 0.82 MB, 221 files | Arma Reforger |
 | 2 | AI Conflict Arland - Zeus Commander edition | reforger-ai-conflict/AIConflictArland | ACAA98B674F022BB | 0.02 MB | 1 |
 | 3 | Zeus Commander Reforger | reforger-commander/ZeusCommanderReforger | CA2CA4E14BB55417 | 0.33 MB, 69 scripts | 1, 2 |
-| 4 | FPV AI Drones (Reforger) - only if drones stay (decision 1) | reforger-local-mods/FPV_AI_Drones (repo fpv-ai-reforger) | 3257E44260058CE5 | 0.04 MB | Realistic Combat Drones |
+| 4 | FPV AI Drones (Reforger) 1.1.0 - only if drones stay (decision 1) | D:\work\fpv-ai-reforger-release (repo fpv-ai-reforger, its docs/RELEASE_NEXT.md; 5 Nov - the 4 Nov load tests used the local install) | 3257E44260058CE5 | 0.04 MB | Realistic Combat Drones |
 | 5 | Zeus Commander: The Battle for Beauregard (Alpha) | reforger-commander/ZCR_Alpha | CF67CCE40B62DA50 | 3 files | 1-4, DCO, Competent AI driving, RCD |
 
 Item 5 holds the scenario (`{E035D09029D235F6}Missions/ZCR_Alpha_Beauregard.conf`), our DCO bridge (moved in from
@@ -155,6 +250,12 @@ Left out on purpose: -zcrLivePlan (Gemini), -zcrBridgeUS/USSR, -zcrLabWeather, -
 - The log is big: about 13 MB per 25 minutes (the lab's other measurements stay on - the crash trace helps bug reports).
 - The scenario writes `[ZCR][ATTACKPLAN] no $profile:zcr/attackplan.txt` once (harmless: no stored plans in the alpha).
 - Do not load together with Ishafel's original AI Conflict (same classes).
+- (5 Nov) The game window crashed in watched lab battles on 4-5 Nov (no script error; two kinds: one 1-5 s after a drone
+  station was deleted - ruled out as the cause on 5 Nov - and one after an FPV drone went off on a soldier). Today's two
+  crashed battles both ran DCO's relentless push, which the alpha does not use; the two 40-minute battles without it
+  had no crash. Thin evidence either way - say "can crash" in the description.
+- (5 Nov) Drones hitting the roofs over soldiers inside: fixed in FPV AI Drones 1.1.0 (in through a way in, or not at
+  all); headless only so far (old build), Martin to watch it in the window.
 
 ## 7. Decisions for Martin
 
@@ -171,6 +272,7 @@ Left out on purpose: -zcrLivePlan (Gemini), -zcrBridgeUS/USSR, -zcrLabWeather, -
    the Workshop asks for one). *Recommendation: APL-SA* (the Arma community's usual choice: free to use and change,
    credit, share alike, not commercial; it also fits FPV AI Drones flying RCD's APL drones). Alternative: Apache-2.0
    like AI Conflict. The fork stays Apache-2.0 either way. Then a LICENSE file goes into each repo.
+   (5 Nov) For FPV AI Drones *APL-ND* fits better: its Workshop text forbids modified reuploads, as on Arma 3 - section 0.
 4. **The fork's names and courtesy to Ishafel.** Titles "AI Conflict Core/Arland - Zeus Commander edition".
    *Recommendation: keep them; message Ishafel before publishing* (Apache-2.0 doesn't require it; it is the decent thing
    and Ishafel may prefer another name or an upstream merge later).
@@ -192,7 +294,9 @@ Before: decisions 1, 3, 5 made; a preview image per item (Workbench asks for one
 better). Publishing uses your Bohemia account in Workbench; the first publish of each item can only be done in the
 Workbench window (its `-publishAddon` command line is for updates).
 
-For each item **in this order: 1, 2, 3, 4, 5** (an item's dependencies must be on the Workshop before it):
+For each item **in this order: 1, 2, 3, 4, 5** (an item's dependencies must be on the Workshop before it). Item 4,
+FPV AI Drones, is published from its own release folder with its own steps: fpv-ai-reforger `docs/RELEASE_NEXT.md`
+(`D:\work\fpv-ai-reforger\tools\publish_workbench.bat`), not with publish_4 below.
 1. Double-click `D:\work\release\reforger-commander\tools\release\publish_<n>_<item>.bat` - Workbench opens the item
    with its dependencies found (it needs the junction folder `D:\work\release\deps`, made by tools/release/loadtest.py).
 2. In Workbench: **Publish Project** (Workbench menu; "Publish to Workshop").
@@ -211,11 +315,15 @@ Updates later (from the command line, per item): Workbench with `-gproj <item> -
 
 ## 9. The next alpha from master
 
-1. In each release worktree: merge master (ZCR) / zcr (fork) into release-alpha.
+1. In each release worktree: merge master (ZCR) / zcr (fork) into release-alpha. **Needed for the 5 Nov game update**:
+   the fork's f1fbd8b (section 0, blocker 1). ZCR_DCO's bridge changes on master (the relentless push) stay out of
+   ZCR_Alpha's copy.
 2. `python tools/release/launch_params.py <the four addon folders>` (the rewrite; `--check` must say 0 left).
 3. `python tools/release/fork_notice.py D:/work/release/reforger-ai-conflict`.
 4. `python tools/release/pack.py`, then `python tools/release/loadtest.py --minutes 25 --packed D:/work/release/packed`.
-5. Publish each changed item as an update.
+5. Publish each changed item as an update (before the first publish: just publish the rebuilt items).
+6. (5 Nov) Load-test on the **new** game build (the PC's dedicated server updates about 03:50 on 6 Nov), and the night of
+   integration tests Martin asked for (note 559).
 
 ## 10. Where everything is
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## Since the 4 Nov alpha build - comes in with the rebuild from master / zcr (5 Nov 2026, not packed yet)
+
+Not published yet, so these join 0.1.0 when the alpha is rebuilt (docs/RELEASE_ALPHA.md, sections 0 and 9).
+- **Works with Reforger's 5 Nov update** (game 1.6, engine 193322): AI Conflict edition fixed for the renamed
+  `SCR_EAnimationItemID` (fork f1fbd8b) - the 4 Nov build does not load on the updated game.
+- **Drones**: FPV AI Drones 1.1.0 - drones go into buildings through an open door, window, hole or under a canopy
+  instead of hitting the roof, and leave soldiers in closed rooms alone. A stuck drone is brought down; a drone that
+  stopped frees its launch slot; riders bail out of a standing vehicle a drone is over.
+- **Fortifications**: bunkers and guard towers only (no MG nests or sandbags), field forts out to 1200 m from a base,
+  built while enemies are at the base. A ride whose team was killed aboard is ended and its slot rides again.
+- **Tickets**: each side's starting tickets settable with `-aicfInitialTickets N` - on the server's command line or in
+  the scenario's settings (default 12).
+- Watch mode (lab and the game window; not in the alpha): PANORAMA camera, HIDE UI keeps the tags on soldiers,
+  vehicles and drones, SPEED fixed for the update.
+- Known issue update: the game window crashed in watched lab battles on 4-5 Nov; the two crashed battles of 5 Nov
+  both had DCO's relentless push (not in the alpha), the two 40-minute battles without it had none.
+
 ## 0.1.0-alpha - 4 November 2026 (Workshop version 0.1.0)
 
 The first public alpha: **Zeus Commander: The Battle for Beauregard (Alpha)**. Lab builds r1-r73 (18 Oct - 4 Nov 2026),
