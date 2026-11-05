@@ -66,6 +66,46 @@ def arms(bs: list) -> dict:
     return rows
 
 
+COLORS = [(31, 119, 180), (214, 39, 40), (44, 160, 44), (255, 127, 14), (148, 103, 189), (140, 86, 75), (227, 119, 194), (23, 190, 207)]
+
+
+def draw_png(rows: dict, out: Path, w=1000, h=520):
+    """The curves of attackers within 150 m per game minute, one per arm (PIL - no plotting library on this PC)."""
+    from PIL import Image, ImageDraw, ImageFont
+    img = Image.new("RGB", (w, h), "white")
+    d = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("arial.ttf", 15)
+        small = ImageFont.truetype("arial.ttf", 13)
+    except OSError:
+        font = small = ImageFont.load_default()
+    x0, y0, x1, y1 = 70, 40, w - 300, h - 60
+    top = max([v for r in rows.values() for v in r["a150_by_minute"] if v is not None] + [1])
+    top = int(top) + 1
+    px = lambda m: x0 + (x1 - x0) * m / 30
+    py = lambda v: y1 - (y1 - y0) * v / top
+    for v in range(0, top + 1):
+        d.line([(x0, py(v)), (x1, py(v))], fill=(232, 232, 232))
+        d.text((x0 - 25, py(v) - 8), str(v), fill=(90, 90, 90), font=small)
+    for m in range(0, 31, 5):
+        d.line([(px(m), y1), (px(m), y1 + 5)], fill=(90, 90, 90))
+        d.text((px(m) - 6, y1 + 8), str(m), fill=(90, 90, 90), font=small)
+    d.line([(x0, y0), (x0, y1), (x1, y1)], fill=(60, 60, 60), width=2)
+    d.text((x0, 10), "Attackers within 150 m of Beauregard's point, per game minute (mean of the battles)", fill=(20, 20, 20), font=font)
+    d.text(((x0 + x1) / 2 - 40, h - 30), "game minute", fill=(60, 60, 60), font=small)
+    order = sorted(rows.items(), key=lambda x: -x[1]["a150"])
+    for k, (v, r) in enumerate(order):
+        c = COLORS[k % len(COLORS)]
+        pts = [(px(m), py(val)) for m, val in enumerate(r["a150_by_minute"]) if val is not None]
+        if len(pts) > 1:
+            d.line(pts, fill=c, width=3)
+        ly = y0 + 10 + k * 46
+        d.line([(x1 + 20, ly + 8), (x1 + 50, ly + 8)], fill=c, width=4)
+        d.text((x1 + 58, ly), r["words"], fill=(20, 20, 20), font=small)
+        d.text((x1 + 58, ly + 17), f"{r['battles']} battles, taken {r['taken']}, median {r['capture_min_median']} min", fill=(90, 90, 90), font=small)
+    img.save(out)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--since", default="20261105-0100", help="battles started at or after this (YYYYMMDD-HHMM)")
@@ -80,19 +120,7 @@ def main() -> int:
     if a.json:
         Path(a.json).write_text(json.dumps(rows, indent=1), encoding="utf-8")
     if a.png:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(9, 4.5))
-        for v, r in sorted(rows.items()):
-            ax.plot(range(31), [x if x is not None else float("nan") for x in r["a150_by_minute"]], lw=2,
-                    label=f"{r['words']} ({r['battles']})")
-        ax.set_xlabel("game minute")
-        ax.set_ylabel("attackers within 150 m of the point")
-        ax.grid(alpha=0.3)
-        ax.legend(fontsize=8)
-        fig.tight_layout()
-        fig.savefig(a.png, dpi=110)
+        draw_png(rows, Path(a.png))
     return 0
 
 
