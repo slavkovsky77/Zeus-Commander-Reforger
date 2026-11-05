@@ -612,11 +612,11 @@ class ZCR_Watch
 	// The time multiplier's Diag Menu entries: the switch and the value (375 / 376 to engine 192142). Reforger's update of 5 Nov
 	// (engine 193322) moved them - SPEED set 375 / 376 and the game stayed at 1x - so they are found by what they do: SPEED asked
 	// for 2x or 3x and the world still at 1x 10 s later (or -zcrSpeedProbe), every engine range value of 1 in 200-799 is set to
-	// 3 for 1.2 s, the bool entry before it on with it, nearest to 376 first; the world's time scale is read (the Game Master
+	// 3 for 1.2 s, the bool entry before it on with it, nearest to 401 first; the world's time scale is read (the Game Master
 	// camera divides by it) and the values set back. The one that runs the world at 3x is kept for this session and logged
-	// [ZCR][SPEEDPROBE] found=; then it goes in here.
-	protected static int s_iSpeedSwitch = 375;
-	protected static int s_iSpeedRange = 376;
+	// [ZCR][SPEEDPROBE] found=; then it goes in here. Engine 193322: 400 / 401 (found 5 Nov 17:45, the first candidate - 2.7x at 3).
+	protected static int s_iSpeedSwitch = 400;
+	protected static int s_iSpeedRange = 401;
 	protected static int s_iProbeStage;        // 0 not asked, 1 asked, 2 running, 3 done
 	protected static int s_iProbeAskedAt;
 	protected static ref array<int> s_aProbe;
@@ -654,9 +654,9 @@ class ZCR_Watch
 			{
 				for (int sgn = 0; sgn < 2; sgn++)
 				{
-					int k = 376 + d;
+					int k = 401 + d;
 					if (sgn == 1)
-						k = 376 - d - 1;
+						k = 401 - d - 1;
 					if (k < 200 || k >= 800)
 						continue;
 					if (Math.AbsFloat(DiagMenu.GetEngineRangeValue(k) - 1) < 0.001)
@@ -733,7 +733,7 @@ class ZCR_Watch
 	}
 
 	// -zcrSpeed=3: the game's time multiplier set from script - the Diag Menu's Cheats > "DTime
-	// multiplier" switch (engine ID 375) and value (376), found 19 Oct 23:21 in a game where the key
+	// multiplier" switch (engine ID 375) and value (376; 400 / 401 since the update of 5 Nov), found 19 Oct 23:21 in a game where the key
 	// presses had set it (2.88 there). No more ~200 key presses at the start of a match: they fought
 	// Martin's typing, landed in other menus and twice crashed the game. Diagnostic build, solo only.
 	// Re-applied every 5 s (cheap) in case the game resets it; logs [ZCR][SPEED] once.
