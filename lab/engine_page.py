@@ -23,14 +23,23 @@ RESEARCH_URL = "https://claude.ai/artifact/HeQBbPV4PanCcGWGRBmAGp"
 ARMA3_URL = "https://claude.ai/artifact/8iF2jyqs5rgjxxbQUKtqWx"
 
 VERDICT = {
-    "Running now": "Nothing - the night's town battles are done; Martin to review in the morning (the phone taps, field forts, the alpha's decisions).",
+    "Running now": "Headless only, Martin asleep: an A/B of the AI's door reaction (on v off, paired by build) and a minute-by-minute study of why the attack stalls with time (lab/towntime.py).",
     "Supplies (r30-r32)": "Front bases now live on supply trucks (the free refill is off). Depots came late - the building planner checked about one site a second, lost orders when a squad died, and both Arland main bases are coastal with no depot site - fixed in r31-r32: headless, depots at minute 5-6 and 4 loads delivered in 15 minutes. Still open in watched matches: trucks drive slowly (AI vehicles a median 8-19 km/h) and die to drones on the way.",
     "Armour (r26-r27)": "Each side buys a crewed tank and IFV at its HQ - M1A1 Abrams / T-72, M2A2 Bradley / BMP-1 (armour mods, loaded in the watched matches from 05:17), else the game's LAV-25 / BTR-70 - and sends it to its front; the crew stays aboard and fights from the vehicle. Headless armour-5 and -6: all four units got into the assault on their front, 14 and 10 enemy killed, none lost. Open: friendly fire and soldiers run over (1-4 a test, now slowed for), stuck spots out of the HQs, 2 watched-match crashes since armour went live (cause not proven).",
-    "Being built next": "Field fortifications actually built (every try so far failed the game's checks or its commit; fixed at 07:03), why the men at the point don't stay in the houses (14-34% early in the night, 0-8% later), and Martin's calls on the alpha release.",
+    "Being built next": "Why attacks stall with time (teams that stop short of the town, moves failing as 'stuck'); field forts for the side attacking the point (its nearest base is 810-1110 m from Gemini's spots, past the 600 m the bases reach); Martin to watch tonight's fixes.",
 }
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("design", "r75", "The camera buttons, fixed where Martin found them broken",
+     "Martin, at the PC: 'clicking on ui on computer resets mouse to middle', 'why does button react on mouse release not on mouse click?', 'buttons seem not to work on side soviet/us so this is clear regression'. A mouse press now acts at once (a phone's touch keeps the release and the wait); a real mouse never parks the cursor (a mouse coming back into the window looked like a touch); SIDE jumps the camera to that side at once (PREV/NEXT kept a 40-s list of both); a press in the gap between buttons hits the nearer one. Not watched yet."),
+    ("design", "r75", "The soldiers 'stuck in the cars' were dead - and drones that stopped",
+     "Martin: 'dont we have many us soldiers stuck unconscious in the cars? like it seem vehicles have tags soldiers seem dead'. In 28 town battles a third of each side's losses died aboard: an FPV hits a jeep standing in a jam, the M998 doesn't burn and stays with the bodies in their seats, its tag counted them as crew, and the trip never ended (so its slot never rode again). Now the tag says '(0 + 4 dead)', a trip whose team is gone ends, and riders get out of a standing vehicle an enemy drone is over. Martin: '0 drones ... fix this when they're stuck': a drone that hasn't moved 2 m in 90 s is brought down like one shot down and frees its launch slot."),
+    ("design", "r75", "Danger a risk, bunkers only, a relentless push at the point",
+     "Martin: 'maybe it should be just danger risk, sometimes they have to go through killzone anyway' - a danger zone's cost is capped and none within 150 m of the point; Gemini is told it's a risk to weigh, not a wall. 'lets not build mg nests', 'only bunkers and some covered fortifications' - 4 bunkers and 2 guard towers in 6. 'i saw them stuck in one house ... they should definitely move, maybe check dco' - attack squads within 500 m of the point are set to DCO's aggressive posture (bound every 0.5 s, not a 20-40 s wait in cover)."),
+    ("design", "r75", "The first field fortification built - only after a capture",
+     "In the 01:00 battle the Soviets finished a field bunker at minute 28, after they took Beauregard (built from the town itself). Gemini orders forts for both sides from minute 1, but each side's nearest base is 810-1110 m from its forward spots, past the 600 m a base reaches - so none starts before a capture. Next: 1200 m and a longer walk for the builder."),
+
     ("design", "r74", "The night's town battles: Gemini against the code, Gemini against Gemini",
      "Martin: 'over night you can test both gemini vs gemini but also gemini vs rule based'. 8 headless battles for Beauregard, 30 min each (the 'town' integration test, curves in the lab app): Gemini against the code from the nearer HQ: took the town 1 of 2, lost 44 and took out 40 a battle; Gemini against the code from the farther HQ: took the town 0 of 3, lost 39 and took out 34 a battle; the code against Gemini from the nearer HQ: took the town 2 of 3, lost 34 and took out 39 a battle; the code against Gemini from the farther HQ: took the town 0 of 2, lost 40 and took out 44 a battle; Gemini against Gemini from the nearer HQ: took the town 2 of 3, lost 30 and took out 48 a battle; Gemini against Gemini from the farther HQ: took the town 1 of 3, lost 48 and took out 30 a battle. Gemini against Gemini took the town in 2 of 3. The nearer HQ matters most; with 1-2 battles per arm none of it is settled. Not watched."),
     ("design", "r74", "Field fortifications the general orders outside any base - tried, not built yet",
@@ -390,10 +399,10 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin: the phone taps in Artemis (one tap a button now), the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander), whether the crashes stopped.",
-    "Field fortifications built in a battle (the commit fix is in since 07:03) and shown on the lab map.",
-    "Men who stay in the houses at the point - an A/B of the door reaction; the house spots.",
-    "From the nearer HQ Gemini took the town 1 of 2 against the code, the code 2 of 3 against Gemini - more battles before it means anything.",
+    "Martin to watch tonight's fixes: the camera buttons with the mouse, riders bailing out, the vehicle tags, drones that never stall, the relentless push at the point.",
+    "Why attacks stall with time: the per-minute study and the door A/B (running), then a fix where it shows.",
+    "Field fortifications for the side attacking the point, built during the fight, not only after a capture.",
+    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander).",
 ]
 
 FACTS = [
@@ -413,6 +422,13 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (75, "The evening of 4 Nov: what Martin saw watching the battle for Beauregard", "4 Nov 21:00 - 5 Nov 03:00",
+     ["ZCR (d8fb29d, 0fa6fc1, 834ec94): the camera buttons - a mouse press acts at once, a mouse never parks the cursor, SIDE jumps to that side, gap presses hit the nearer button; ceb41e0 / 53717fc: a drone that stopped frees its slot and is brought down; 25e1e0b: riders bail out of a standing vehicle a drone is over, tags count the dead apart; bbb32dd: attack squads near the point push relentlessly (DCO aggressive); c258dae: the live map shows unconscious men and each team's behaviours; eaa6ec2: -zcrBaseTo; cde0a76: -zcrNoDoorReaction (for the A/B).",
+      "AI Conflict fork: 6150d1d - a trip whose team was killed aboard ends; 5e92b60 - bunkers and guard towers only; field fortifications (1716917, 5c4fb9b, ce9a913, fc136b1, e9034cb, 389f457) - go on and are paid for while enemies are at the base, their sites resumed first, their builder past the cap with 5 minutes to get there, the completion check keeps their reach.",
+      "Lab: 7b3043b - danger zones a risk, not a wall; b3054ed - the point's owner from the setup line; the lab app /v2 - 'Integration tests' back (f342b87) with 'Overall progress' first (465c293); lab/ridedeaths.py (d169077); lab/towntime.py - the battle minute by minute, door A/B (e1f6a2e, 5517ee2, 902165e, 2089ca6, e42877f); town-nodoor (408ceef)."],
+     "Martin, 4 Nov 23:30 - 5 Nov 01:10, watching: 'wtf clicking on ui on computer resets mouse to middle', 'where is reworked commander lab v2?', 'you dropped integration tests', 'what about overall progress', 'for some reason now there are 0 drones', 'why does button react on mouse release not on mouse click?', 'ok battle seems great!!', 'why no side captures point yet?', 'maybe it should be just danger risk', 'what I am still missing infantry to push from one building to another', 'dont we have many us soldiers stuck unconscious in the cars?', 'lets not build mg nests', 'buttons seem not to work on side soviet/us', 'it degrades with time? too many drone team? too many vehicles?', 'team 0 team 5 ... dont follow order ... maybe dco issue?'.",
+     "Every change compile-checked (0 script errors of ours). Headless town battles since: the town taken in 3 of 4 (01:00, 01:36, 02:07); the first field fort built (01:00, a Soviet bunker at minute 28, after the capture). None of it watched yet."),
+
     (74, "The night of 4 Nov: field fortifications, waits that end, the door fix, a crash lead", "4 Nov 03:20 - 08:40",
      ["AI Conflict fork (b7fd903, 5d1247f, 78fa87c): field fortifications - 'fort <side> x z facing' in the live plan, the side's nearest base builds them first with its radius stretched to the spot, each spot searched round (41 tries out to 30 m), the commit's coverage re-check no longer cancels them (and 'fortify' at the point is capped at 8, not 5).",
       "ZCR (8716234, 02fa8ec, 9779445): the phone camera - eight buttons, a stick for each thumb, a single Artemis tap counts (a cursor jump onto a button with no click), the cursor parks after a tap; 780f2a9: the AI's navlink-door reaction loads again; dfb0f07 / 11523f8 / 49b826a: a house hold tried and turned off. FPV AI Drones (290befc): -fpvaiKeepStations.",
