@@ -76,10 +76,14 @@ def kv(line: str, key: str, cast=int, default=None):
         return default
 
 
+TOWN_VARIANTS = ("town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70",
+                 "town-cleanup")
+
+
 def meta(run: Path) -> dict:
-    d = {"run": run.name, "variant": next((v for v in ("town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60",
-                                                     "town-cap70", "town-storm60-cap70")
-                                            if f"-{v}-" in run.name), "?"), "watched": "-watch-" in run.name}
+    # the longest name first: "-town-storm60-" is in a town-storm60-cap70 run's name too
+    d = {"run": run.name, "variant": next((v for v in sorted(TOWN_VARIANTS, key=len, reverse=True) if f"-{v}-" in run.name), "?"),
+         "watched": "-watch-" in run.name}
     try:
         r = json.loads((run / "run.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -486,7 +490,7 @@ def digest(b: dict) -> str:
 
 # 5 Nov night: the A/B arms - town-brains, the door off, the storm at priority 60, the side cap at 70 (the subagent's two bets
 # for the 150-300 m stall and the fade with time), and both.
-AB_ARMS = ("town-brains", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70")
+AB_ARMS = ("town-brains", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70", "town-cleanup")
 
 
 def arm_name(b: dict) -> str:
