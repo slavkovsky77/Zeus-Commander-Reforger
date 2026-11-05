@@ -868,6 +868,7 @@ class ZCR_Watch
 		// Soldiers in a vehicle: one tag over the vehicle - side, vehicle, how many aboard.
 		map<IEntity, int> aboard = new map<IEntity, int>();
 		map<IEntity, string> aboardSide = new map<IEntity, string>();
+		map<IEntity, int> aboardDead = new map<IEntity, int>();      // the dead in its seats (5 Nov)
 		foreach (IEntity e : m_aNear)
 		{
 			if (!e)
@@ -888,20 +889,33 @@ class ZCR_Watch
 				continue;
 			array<BaseCompartmentSlot> seats = {};
 			AICF_FIAPatrolCrew.Seats(veh, seats);
-			int crew;
-			string crewSide;
+			// The dead are no crew (5 Nov - Martin: "like it seem vehicles have tags soldiers seem dead or something": a jeep an FPV
+			// killed all four in read "US M998 (4)"); they are shown as dead.
+			int crew, dead;
+			string crewSide, deadSide;
 			foreach (BaseCompartmentSlot seat : seats)
 			{
 				if (!seat || !seat.GetOccupant())
 					continue;
+				ChimeraCharacter occupant = ChimeraCharacter.Cast(seat.GetOccupant());
+				if (occupant && occupant.GetCharacterController() && occupant.GetCharacterController().GetLifeState() == ECharacterLifeState.DEAD)
+				{
+					dead++;
+					if (deadSide.IsEmpty())
+						deadSide = ZCR_LossLog.SideOf(occupant);
+					continue;
+				}
 				crew++;
 				if (crewSide.IsEmpty())
 					crewSide = ZCR_LossLog.SideOf(seat.GetOccupant());
 			}
-			if (crew == 0 && ZCR_VehicleTag.Mission(veh).IsEmpty())
+			if (crew == 0 && dead == 0 && ZCR_VehicleTag.Mission(veh).IsEmpty())
 				continue;
+			if (crewSide.IsEmpty())
+				crewSide = deadSide;
 			aboard.Set(veh, crew);
 			aboardSide.Set(veh, crewSide);
+			aboardDead.Set(veh, dead);
 		}
 		foreach (IEntity v, int n : aboard)
 		{
@@ -921,6 +935,8 @@ class ZCR_Watch
 			// supplies?"): a test van's goal and cargo, an AI Conflict supply truck's run and cargo (ZCR_VehicleTag).
 			string mission = ZCR_VehicleTag.Mission(v);
 			string vtext = string.Format("%1 %2 (%3)", vside, VehicleName(v), n);
+			if (aboardDead.Get(v) > 0)
+				vtext = string.Format("%1 %2 (%3 + %4 dead)", vside, VehicleName(v), n, aboardDead.Get(v));
 			if (!mission.IsEmpty())
 				vtext += "\n" + mission;
 			vt.SetText(vtext);

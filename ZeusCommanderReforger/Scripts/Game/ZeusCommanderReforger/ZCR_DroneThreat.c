@@ -191,6 +191,11 @@ class ZCR_DroneThreat
 			{
 				ChimeraCharacter c = ChimeraCharacter.Cast(e);
 				string side = ZCR_LossLog.SideOf(e);
+				if (c && c.IsInVehicle() && side != droneSide && !side.IsEmpty())
+				{
+					Bailout(c, dp, now);
+					continue;
+				}
 				if (!c || c.IsInVehicle() || side == droneSide || side.IsEmpty())
 					continue;
 				CharacterControllerComponent ctl = c.GetCharacterController();
@@ -318,6 +323,42 @@ class ZCR_DroneThreat
 		if (ChimeraCharacter.Cast(e))
 			s_aFound.Insert(e);
 		return true;
+	}
+
+	// Riders out of a standing vehicle an enemy drone is over (5 Nov - Martin: "dont we have many us soldiers stuck unconscious in
+	// the cars? like it seem vehicles have tags soldiers seem dead"): they were dead - in 28 town battles 32-38% of each side's
+	// losses died aboard, 178 vehicles hit by an FPV, 74% of them standing at 3 km/h or less while the drone circled 11-20 s
+	// before its dive; nothing got them out (this reaction skipped men in a vehicle; DCO's exit rule held riders aboard). A
+	// living passenger or driver (not a turret seat - static weapons, gunners) of a vehicle under BAIL_KMH with an enemy drone
+	// within REACT gets out, at most once per BAIL_S; the crew ZCR_CrewStays keeps stays. -zcrNoBailout turns it off.
+	//   [ZCR][BAILOUT] t= side= x= z= drone_m= kmh= total=
+	static const float BAIL_KMH = 5;
+	static const int BAIL_S = 15;
+	protected static ref map<IEntity, int> s_mBailAt = new map<IEntity, int>();
+	protected static int s_iBailouts;
+
+	protected static void Bailout(ChimeraCharacter c, vector dp, int now)
+	{
+		if (System.IsCLIParam("zcrNoBailout"))
+			return;
+		CharacterControllerComponent ctl = c.GetCharacterController();
+		if (!ctl || ctl.GetLifeState() != ECharacterLifeState.ALIVE || now < s_mBailAt.Get(c))
+			return;
+		IEntity vehicle = CompartmentAccessComponent.GetVehicleIn(c);
+		CompartmentAccessComponent access = c.GetCompartmentAccessComponent();
+		if (!vehicle || !vehicle.GetPhysics() || !access || !access.GetCompartment())
+			return;
+		if (access.GetCompartment().GetType() == ECompartmentType.TURRET)
+			return;
+		float kmh = vehicle.GetPhysics().GetVelocity().Length() * 3.6;
+		if (kmh >= BAIL_KMH || ZCR_CrewStays.Keep(c, vehicle))
+			return;
+		s_mBailAt.Set(c, now + BAIL_S);
+		access.GetOutVehicle(AICF_VehicleSpawner.SafeExitType(vehicle), -1, ECloseDoorAfterActions.LEAVE_OPEN, false);
+		s_iBailouts++;
+		vector at = c.GetOrigin();
+		Print(string.Format("[ZCR][BAILOUT] t=%1 side=%2 x=%3 z=%4 drone_m=%5 kmh=%6 total=%7", now, ZCR_LossLog.SideOf(c), Math.Round(at[0]),
+			Math.Round(at[2]), Math.Round(vector.Distance(at, dp)), Math.Round(kmh), s_iBailouts), LogLevel.NORMAL);
 	}
 
 	static SCR_AIUtilityComponent UtilityOf(ChimeraCharacter c)
