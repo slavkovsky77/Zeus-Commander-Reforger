@@ -415,7 +415,7 @@ NEXT = [
     "One more watched battle without DCO's relentless push before calling it the cause of the window's crashes (2 clean of 2 so far).",
     "Still few within 60 m of the point: the last 150 m, house by house.",
     "Room for the attack teams beside the support soldiers without costing the watched game's FPS (a cap of 70 alone did not help).",
-    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\work\release\reforger-commander).",
+    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander).",
 ]
 
 FACTS = [
