@@ -3,6 +3,8 @@ at night while the lab runs its batches - agreed with that session).
 
     .runtime/game.lock   who holds the game: owner, purpose, start. The holder touches it every minute; one not touched for
                          20 minutes is stale (a crashed holder) and may be taken.
+    .runtime/game.window.lock  another session's game window test (its own file, same lines, kind: window): our launchers
+                         wait while it was touched in the last 20 minutes - its tests may run beside our headless servers.
     .runtime/game.want   another session waiting for a slot: owner, time. Before each launch we wait while a want younger than
                          15 minutes from someone else exists (at most 20 minutes) - so a night batch leaves gaps for it.
 
@@ -22,6 +24,7 @@ from pathlib import Path
 RUNTIME = Path(r"D:\work\reforger-commander\.runtime")
 LOCK = RUNTIME / "game.lock"
 WANT = RUNTIME / "game.want"
+WINDOW = RUNTIME / "game.window.lock"   # another session's game window test (the Faces tool, 6 Nov): no server starts during it
 STALE_S = 20 * 60
 WANT_FRESH_S = 15 * 60
 WANT_MAX_WAIT_S = 20 * 60
@@ -45,7 +48,7 @@ def _owner(p: Path) -> str:
 
 def status() -> str:
     out = []
-    for name, p in (("lock", LOCK), ("want", WANT)):
+    for name, p in (("lock", LOCK), ("window", WINDOW), ("want", WANT)):
         age = _age(p)
         if age is None:
             out.append(f"{name}: none")
@@ -78,8 +81,13 @@ def acquire(owner: str = OWNER, purpose: str = "", max_wait_s: float | None = No
     t0, said = time.time(), False
     while True:
         age = _age(LOCK)
-        if age is None or age > STALE_S or _owner(LOCK) == owner:
+        wage = _age(WINDOW)
+        window_busy = wage is not None and wage <= STALE_S and _owner(WINDOW) != owner
+        if not window_busy and (age is None or age > STALE_S or _owner(LOCK) == owner):
             break
+        if window_busy and not said:
+            _say(f"{_owner(WINDOW)}'s game window test runs - waiting")
+            said = True
         if not said:
             _say(f"the game is held by {_owner(LOCK)} - waiting")
             said = True
