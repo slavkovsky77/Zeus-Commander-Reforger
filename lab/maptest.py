@@ -86,17 +86,23 @@ def summarize(run_dir: Path) -> dict:
     out["captures"] = caps
     out["captures_n"] = len(caps)
     out["took"] = {s: sorted({c["base"] for c in caps if c["to"] == s}) for s in ("US", "USSR")}
-    # Script errors of ours (ZCR_, AICF_, FPVAI_ in the error or the lines after it); the game's and other mods' apart.
-    ours = other = 0
+    # Script errors of ours: a VM exception whose stack runs through our scripts (ZCR, the AI Conflict fork, FPV AI Drones);
+    # AI Conflict's own ERROR reports ([AICF]...[ERROR]) and the game's / DCO's exceptions counted apart.
+    ours = other = reports = 0
     for i, l in enumerate(lines):
-        if ERR.search(l):
-            near = " ".join(lines[i:i + 4])
-            if re.search(r"ZCR_|AICF_|FPVAI_", near):
-                ours += 1
-            else:
-                other += 1
+        if not ERR.search(l):
+            continue
+        if "[AICF]" in l:
+            reports += 1
+            continue
+        stack = " ".join(lines[i:i + 14])
+        if re.search(r"scripts/Game/(ZeusCommanderReforger|ZCR_|AIConflict|FPVAI)", stack):
+            ours += 1
+        else:
+            other += 1
     out["script_errors"] = ours
     out["other_errors"] = other
+    out["aicf_reports"] = reports
     m = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8")) if (run_dir / "metrics.json").exists() else {}
     out["minutes"] = m.get("minutes")
     lost = m.get("lost") or {}
