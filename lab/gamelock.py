@@ -73,7 +73,7 @@ def yield_to_others(owner: str = OWNER):
     _say("waited 20 minutes for the other session's want - going on")
 
 
-def acquire(owner: str = OWNER, purpose: str = "", max_wait_s: float | None = None) -> bool:
+def acquire(owner: str = OWNER, purpose: str = "", max_wait_s: float | None = None, kind: str = "headless") -> bool:
     yield_to_others(owner)
     t0, said = time.time(), False
     while True:
@@ -87,8 +87,9 @@ def acquire(owner: str = OWNER, purpose: str = "", max_wait_s: float | None = No
             return False
         time.sleep(10)
     RUNTIME.mkdir(parents=True, exist_ok=True)
-    LOCK.write_text(f"owner: {owner}\npurpose: {purpose}\nstarted: {datetime.now().isoformat(timespec='seconds')}\npid: {os.getpid()}\n",
-                    encoding="utf-8")
+    # kind: headless (a dedicated server, no window - another session's window test may run beside it) or window (the game).
+    LOCK.write_text(f"owner: {owner}\npurpose: {purpose}\nstarted: {datetime.now().isoformat(timespec='seconds')}\npid: {os.getpid()}\n"
+                    f"kind: {kind}\n", encoding="utf-8")
     return True
 
 
@@ -101,9 +102,9 @@ def release(owner: str = OWNER):
 
 
 @contextmanager
-def hold(purpose: str = "", owner: str = OWNER):
+def hold(purpose: str = "", owner: str = OWNER, kind: str = "headless"):
     """The lock for the duration of a game or server, touched every minute."""
-    acquire(owner, purpose)
+    acquire(owner, purpose, kind=kind)
     stop = threading.Event()
 
     def beat():
@@ -123,10 +124,10 @@ def hold(purpose: str = "", owner: str = OWNER):
         release(owner)
 
 
-def take(purpose: str = "", owner: str = OWNER):
+def take(purpose: str = "", owner: str = OWNER, kind: str = "headless"):
     """hold() for code that can't use a with-block: returns the function that releases it (also run at exit)."""
     import atexit
-    cm = hold(purpose, owner)
+    cm = hold(purpose, owner, kind)
     cm.__enter__()
     done = []
 

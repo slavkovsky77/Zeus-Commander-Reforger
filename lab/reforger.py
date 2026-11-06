@@ -227,7 +227,7 @@ def main() -> int:
     headless = not (a.client or getattr(a, "solo", False))
     gate = cpu.aoe_gate(profile.name) if headless else None   # AoE mode: one headless server at a time (waits its turn)
     # One Reforger game or server at a time with the other sessions on this PC (6 Nov: the Faces tool's night tests).
-    free_lock = gamelock.take(profile.name) if not a.client else None
+    free_lock = gamelock.take(profile.name, kind="headless" if headless else "window") if not a.client else None
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
     if headless:
