@@ -16,7 +16,8 @@ off unless a scenario asks for them.
 - **Blocker 1 solved**: release-alpha merged with master (7a636f3, 03bd7bd) and the fork's zcr (d5e63c5 - includes the
   update fix f1fbd8b), launch reads rewritten (`launch_params.py --check`: 0 left), NOTICE refreshed (81 files), all five
   items packed on Workbench 193322 with no script error. The FPV AI Drones item is packed from its release folder
-  (`D:\workelease\deps\FPV_AI_Drones` now points at `D:\workpv-ai-reforger-release`).
+  (`D:\work
+  (`D:/work/release/deps/FPV_AI_Drones` now points at `D:/work/fpv-ai-reforger-release`).
 - **Load test from the packed items on the new server build** (port 2198, 26 game min): compiled, `params=28`, both sides
   planned in-game (point-ingame), Farm to the US at 10:45, Beauregard to the Soviets at 14:00, lost US 36 / USSR 30,
   90 drone launches, median 58 FPS; the only error RCD's own `SAL_DroneBulletComponent` line.
