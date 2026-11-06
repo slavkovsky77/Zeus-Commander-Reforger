@@ -31,6 +31,15 @@ VERDICT = {
 
 # (chip class, chip text, title, text) - what changed most recently.
 NOW = [
+    ("bug", "r78", "A crash of the watched game explained: a rifle falling through the ground",
+     "5 Nov 21:10: a Soviet squad leader died (a friend's fire, 5 m); his rifle fell through the ground and kept falling for 55 s - our physics watch logged it at 120, 300, 700 m/s - the engine asserted 'entity out of world bounds' at -34 km and crashed at about -56 km. The opt-in fix (-zcrPhysFix) acted only below 120 m/s. Now on by default (-zcrNoPhysFix off): an item or a dead soldier more than 30 m under the ground is deleted, however fast. In earlier battles items fell the same way and the game lived (3 of 3 times) - a risk, not a certain crash. The other window crashes (21:26 and four on 4-5 Nov) are access violations with no falling item before them; spinning helmets show up before some of them and in clean battles too - not a lead. Compile-checked; in tonight's headless battles."),
+    ("design", "r78", "Drones and buildings: in through a way in, round the house, cars in garages",
+     "Martin, 5 Nov: 'hitting buildings when soldiers are inside is pointless', 'if there is no chance to hit target drone operator in reality would not do that', gas stations, open windows, 'lets not make solution that will eatup all the cpu'. FPV AI Drones 1.1.0: a soldier under a roof is a target only with a way in at his height (16 level lines, one clear 10 m with open sky); the drone comes down outside it and goes in level at 4.5 m/s, one straight line. The only target and no way in: one slow lap round the building itself (~3 m off the walls, 3 m/s, a clear-line check four times a second), then it leaves him a minute. Vehicles under a roof the same - a UAZ in a garage taken through its door. Integration test 'Drones and buildings' (headless): 7 drones wasted on roofs v 0; watched by Martin 5 of 6 cases; the closer lap round the house still to watch."),
+    ("design", "r78", "The whole-map battle",
+     "Martin, 6 Nov 02:45: 'test battle on everon ot arland with not fixed battle point ... like we would actually fight for whole map'. lab/maptest.py: the watched battle's setup without the one-point binding - every base a target, our rules general for both sides (or AI Conflict's own commanders alone), drones, 40 tickets a side. Tonight headless: Arland twice (rules general / AI Conflict alone), Everon once, 60 min each. The Gemini general is built round one objective - for the whole map it would need its own step."),
+    ("design", "r78", "The release night",
+     "Martin, 6 Nov ~02:50: 'prepare mods for release', 'watch for crashes, test shit', 'lets git push repos'. The alpha's branches merged with the day's work (incl. the fork's fix for the game update), the launch reads rewritten, all five items packed on the new Workbench build with no script error; tonight on the new server build: the FPV AI Drones suite (13 cases), the packed alpha's load test, the whole-map battles and the integration tests (guns, driving, vans, transport, infantry, crash, assault, building). The game is shared with the Faces session through a lock file (lab/gamelock.py)."),
+
     ("design", "r77", "PANORAMA: the camera circles a town, like TV",
      "Martin, 5 Nov: 'something like panorama view like i would choose town and maybe position then i would start this panorama style view where camera would move slowly around point', 'imagine watching it from tv passively around town'. A PANORAMA button above the look stick (and on the lab app's camera bar): the camera circles what it shows - a town picked with TYPE: POINTS, a tapped spot - from the view on screen, a lap in 3 min of real time at any game speed, 150-700 m out and 40-300 m up. The overlays hide 4 s after it starts and 8 s after the last tap; a tap brings them back, and with them up a tap on the picture circles that spot, NEXT / PREV the next pick. The look stick: < > the turn, tilt the height, zoom the distance. Compile-checked; not watched yet."),
     ("bug", "r77", "Reforger's 5 Nov update renamed a script enum",
@@ -411,11 +420,11 @@ PROBLEMS = [
 ]
 
 NEXT = [
-    "Martin to watch the PANORAMA camera in the battle for Beauregard.",
-    "One more watched battle without DCO's relentless push before calling it the cause of the window's crashes (2 clean of 2 so far).",
-    "Still few within 60 m of the point: the last 150 m, house by house.",
-    "Room for the attack teams beside the support soldiers without costing the watched game's FPS (a cap of 70 alone did not help).",
-    "Martin: the alpha's 9 decisions (docs/RELEASE_ALPHA.md in D:\\work\\release\\reforger-commander).",
+    "Martin to watch the closer lap round the house (python lab/indoortest.py house default --watch) and the whole-map battle.",
+    "Martin: FPV AI Drones 1.1.0 - licence, preview image, Publish (docs/RELEASE_NEXT.md in fpv-ai-reforger).",
+    "Martin: the alpha's open decisions (docs/RELEASE_ALPHA.md in the release worktree, D:/work/release/reforger-commander).",
+    "Teams standing still at the point: the pier defend spot (41%), AI Conflict's parking (35%) - fixes ready to try, his call.",
+    "A test set of soldiers shooting back at drones, and drones dodging.",
 ]
 
 FACTS = [
@@ -435,6 +444,14 @@ FACTS = [
 
 # The changelog: (build, name, date, what, why, result)
 CHANGELOG = [
+    (78, "The evening and night of 5-6 Nov: drones and buildings, the ETA, Gemini's cost, a crash explained, the release night", "5 Nov 17:00 - 6 Nov 08:00",
+     ["FPV AI Drones (25da7f1, ede6d79, e9b43d5, d9a866c, b8ad0c6): soldiers and vehicles under a roof - in through a way in or left alone, the lap round the house, out from under trees; test cases housedoor and garage, the test camera's FREE LOOK and SPEED; c34c57c.",
+      "ZCR: 974c7b2 / fa5ef44 / 58ce6ac / 4a60d1d - PANORAMA, HIDE UI keeps the tags, SPEED for the update (Diag Menu 400/401), -zcrPano; 79bef52 - items and dead soldiers falling under the ground deleted by default.",
+      "Lab: e986267 - the team's rough ETA and lateness on the map, a wider tooltip; f256e8e / d0cdd7b - Gemini's thinking at low (~43% cheaper), opt-in cheaper modes, lab/llmcost.py; 75ed32f - lab/standstill.py; lab/indoortest.py; 11d6b37 - lab/maptest.py (the whole-map battle); a150eea - lab/gamelock.py; 39de123 - lab/night6.py.",
+      "Release: release-alpha merged with master / zcr (7a636f3, 03bd7bd; fork d5e63c5, 9443d04), the five items packed on Workbench 193322."],
+     "Martin, 5 Nov 19:10-23:30: 'i notice drones hitting top of buildings', 'jf there is no chance to hit target drone operator in reality would not do that', 'shit we spent 11 euros ?!?! on gemini calls?', 'it would be nice when you click on waypoints of a team what was maybe ETA', 'i though he would examine much closer'; 6 Nov 02:45-03:00: 'test battle on everon ot arland with not fixed battle point', 'prepare mods for release', 'watch for crashes, test shit'.",
+     "Drones and buildings (headless): 7 drones wasted on roofs v 0; the lap round the house 3 of 3. Every change compile-checked, 0 script errors of ours; the alpha packed with no script error. The night's results to follow."),
+
     (77, "The afternoon of 5 Nov: the game's update, watched battles without the relentless push, the panorama camera", "5 Nov 13:05 - 16:50",
      ["AI Conflict fork: f1fbd8b - SCR_ELoiterItemID is SCR_EAnimationItemID since Reforger's 5 Nov update (the Game module did not compile).",
       "ZCR: 974c7b2 - PANORAMA: the camera circles what it shows, slowly, the overlays hidden (in-game button above the look stick, and the lab app's camera bar). Lab: town-watch in lab/assaulttest.py - the watched battle without DCO's relentless push."],
