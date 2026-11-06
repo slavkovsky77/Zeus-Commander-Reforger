@@ -10,6 +10,26 @@ Worktrees on this PC: `D:\work\release\reforger-commander`, `D:\work\release\ref
 branches (master, zcr) are untouched: every release change lives on release-alpha, and the two code changes there are
 off unless a scenario asks for them.
 
+## 0a. 6 Nov 2026, morning - the rebuild is done and tested on the new game (read this first)
+
+**Still nothing uploaded.** Overnight (Martin, ~02:50: 'prepare mods for release', 'watch for crashes, test shit'):
+- **Blocker 1 solved**: release-alpha merged with master (7a636f3, 03bd7bd) and the fork's zcr (d5e63c5 - includes the
+  update fix f1fbd8b), launch reads rewritten (`launch_params.py --check`: 0 left), NOTICE refreshed (81 files), all five
+  items packed on Workbench 193322 with no script error. The FPV AI Drones item is packed from its release folder
+  (`D:\workelease\deps\FPV_AI_Drones` now points at `D:\workpv-ai-reforger-release`).
+- **Load test from the packed items on the new server build** (port 2198, 26 game min): compiled, `params=28`, both sides
+  planned in-game (point-ingame), Farm to the US at 10:45, Beauregard to the Soviets at 14:00, lost US 36 / USSR 30,
+  90 drone launches, median 58 FPS; the only error RCD's own `SAL_DroneBulletComponent` line.
+- **Blocker 2 done**: the night of integration tests on the new build (guns, driving, vans, transport twice, infantry,
+  crash, building, assault) - as before, 0 script errors of ours, no crash; plus three whole-map battles (one Everon server
+  crash at minute 55, an engine access violation with no lead).
+- **New in the alpha**: items and dead soldiers falling under the ground are deleted (on by default, `-zcrNoPhysFix` off) -
+  the 5 Nov 21:10 window crash was a rifle falling through the ground to -56 km.
+- **Not in the alpha, broken by the update**: the Workshop tank mods (WCS 8.2.x) - the alpha uses the game's own APCs.
+- **FPV AI Drones 1.1.0** (blocker 3): its suite on the new build 12/13 (+ reruns 7/7), re-staged and validated - see
+  fpv-ai-reforger `docs/RELEASE_NEXT.md`.
+- Left for Martin: the decisions below, preview images (blocker 4), Publish.
+
 ## 0. Where it stands - 5 Nov 2026, evening (read this first)
 
 **Still nothing uploaded.** The packed alpha of 4 Nov is **out of date**: Reforger's update of 5 Nov 14:44 (game 1.6,
