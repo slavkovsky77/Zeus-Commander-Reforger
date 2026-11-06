@@ -26,6 +26,7 @@ import metrics  # noqa: E402
 
 import config  # noqa: E402  - this machine's paths: lab/lab.toml + lab/lab.local.toml
 import cpu  # noqa: E402  - headless servers off the watched game's cores (note 279)
+import gamelock  # noqa: E402  - one game at a time with the other sessions
 
 STEAM = config.path("paths.steam")
 SERVER_ROOT = STEAM / "Arma Reforger Server"
@@ -225,6 +226,8 @@ def main() -> int:
         window_settings(profile / "profile")
     headless = not (a.client or getattr(a, "solo", False))
     gate = cpu.aoe_gate(profile.name) if headless else None   # AoE mode: one headless server at a time (waits its turn)
+    # One Reforger game or server at a time with the other sessions on this PC (6 Nov: the Faces tool's night tests).
+    free_lock = gamelock.take(profile.name) if not a.client else None
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
     if headless:
@@ -257,6 +260,8 @@ def main() -> int:
                 proc.wait(30)
             except subprocess.TimeoutExpired:
                 proc.kill()
+        if free_lock:
+            free_lock()
     log = console_log(profile)
     if not log:
         print("no console.log written")
