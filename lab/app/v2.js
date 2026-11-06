@@ -26,6 +26,16 @@
   const ago = (iso) => { const t = Date.parse(iso); if (isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 60000);
     return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 48 * 60 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; };
   const len = (pts) => { let m = 0; for (let i = 1; i < (pts || []).length; i++) m += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return m; };
+  // Game seconds as rough minutes ("~4 min", "under a minute").
+  const mins = (s) => s < 60 ? "under a minute" : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+  // The team tooltip's rough ETA (5 Nov): what is left of the game's waypoints at a walk or riding, and a standing team.
+  const etaWords = (t) => {
+    const q = t.wps && t.wps.length ? t.wps : null;
+    let s = "";
+    if (q) { const m = len([[t.x, t.z], ...q]); if (m > 20) s += ` · ETA ~${mins(m / (t.ride ? 8 : 1.5))}`; }
+    if (t.moved60 != null && t.moved60 < 15) s += " · standing";
+    return s;
+  };
   const ll = (pts) => pts.map((p) => [p[1], p[0]]);
   const sideCol = () => ({ US: css("--us"), USSR: css("--ussr"), FIA: css("--fia") });
 
@@ -273,6 +283,8 @@
     // ---- the top bar: which battle, the point and who holds it, the game time, the losses, each side's general
     renderBattle() {
       const d = this.d, B = d && d.battle;
+      // The general's model spend, all runs (lab/llmcost.py via the slow refresh, 5 Nov - a $12.52 day).
+      const spend = (c) => c && c.today ? `<br>Model spend: today <b>$${c.today.cost.toFixed(2)}</b> (${c.today.calls} calls) · this week $${c.week.cost.toFixed(2)}` : "";
       if (!B) { $("battle").innerHTML = `<div class="l1"><span class="state ended">NO BATTLE</span><span class="muted">Nothing played on Arland or Everon lately.</span></div>`; return; }
       if (B.error) { $("battle").innerHTML = `<div class="l1"><span class="state ${B.live ? "live" : "ended"}">${B.live ? "LIVE" : "ENDED"}</span><span class="muted">${esc(B.run)} - the summary failed: ${esc(B.error)}</span></div>`; return; }
       const own = B.owner === "FIA" ? "neutral" : B.owner ? "held by " + B.owner : "";
@@ -298,7 +310,7 @@
         ${gen("US")}${gen("USSR")}
         <div class="more-info">${esc(cap(B.title))}${B.watched ? " · watched" : " · headless"}${B.speed && B.speed !== "1" ? ` · ${esc(B.speed)}x` : ""} · started ${esc(B.started)}
           ${[effort("US"), effort("USSR")].filter(Boolean).map((x) => "<br>" + x).join("")}
-          ${caps ? `<br>Captures: ${caps}` : ""}${calls ? `<br>Gemini (${esc(g0.model || g1.model || "")}): ${calls}` : ""}
+          ${caps ? `<br>Captures: ${caps}` : ""}${calls ? `<br>Gemini (${esc(g0.model || g1.model || "")}): ${calls}` : ""}${spend(d.llmcost)}
           <br><span class="mono">${esc(B.run)}</span></div>`;
     },
 
@@ -351,10 +363,25 @@
         for (const [s, zones] of Object.entries(d.danger || {})) {
           const c = col[s] || css("--muted");
           for (const z of zones || []) {
-            const t = `<b>${esc(s)} danger zone ${esc(z.id || "")}</b><br>${z.men} soldiers${z.vehicles ? ` and ${z.vehicles} vehicles` : ""} lost here, the last ${Math.max(0, Math.floor((z.newest_s || 0) / 60))} min ago - its general keeps away`;
+            const t = `<b>${esc(s)} danger zone ${esc(z.id || "")}</b><br>${z.men} soldiers${z.vehicles ? ` and ${z.vehicles} vehicles` : ""} lost here, the last ${Math.max(0, Math.floor((z.newest_s || 0) / 60))} min ago - a risk its general weighs, not a wall`;
             L.circle([z.z, z.x], { radius: 70, color: c, weight: 3, dashArray: "4 4", fillColor: c, fillOpacity: .12, bubblingMouseEvents: false }).bindTooltip(t, tip).addTo(g.danger);
             L.polyline([[z.z - 35, z.x - 35], [z.z + 35, z.x + 35]], { color: c, weight: 2.5, opacity: .85, interactive: false }).addTo(g.danger);
             L.polyline([[z.z - 35, z.x + 35], [z.z + 35, z.x - 35]], { color: c, weight: 2.5, opacity: .85, interactive: false }).addTo(g.danger);
+          }
+        }
+      }
+      // Field fortifications (4 Nov, note 538 - Martin: "llm general could actually build defense lines (bunkers) where it needs"):
+      // the spots each general ordered outside any base - a hollow square, solid once built - with a tick the way it faces.
+      if (this.layers.plans) {
+        for (const [s, forts] of Object.entries(d.forts || {})) {
+          const c = col[s] || css("--muted");
+          for (const f of forts || []) {
+            const t = `<b>${esc(s)} field fortification</b><br>${f.built ? "built" : "ordered by its general, the builders on the way"}`;
+            L.rectangle([[f.z - 9, f.x - 9], [f.z + 9, f.x + 9]], { color: c, weight: 3, fillColor: c, fillOpacity: f.built ? .75 : .08, bubblingMouseEvents: false }).bindTooltip(t, tip).addTo(g.plans);
+            if (f.facing != null) {
+              const r = f.facing * Math.PI / 180;
+              L.polyline([[f.z, f.x], [f.z + 26 * Math.cos(r), f.x + 26 * Math.sin(r)]], { color: c, weight: 3, interactive: false }).addTo(g.plans);
+            }
           }
         }
       }
@@ -371,14 +398,15 @@
         }
         if (this.layers.soldiers) for (const m of t.mp || []) {
           const hollow = m[2] === "p" || m[2] === "v";
-          L.circleMarker([m[1], m[0]], { bubblingMouseEvents: false, radius: (mine ? 4 : 2.6) + (this.view.getZoom() >= 5 ? .8 : 0), color: c, weight: hollow ? 1.5 : 0, fill: !hollow, fillColor: c,
+          const down = m[2] === "u";   // unconscious (5 Nov): grey, ringed in the side's colour
+          L.circleMarker([m[1], m[0]], { bubblingMouseEvents: false, radius: (mine ? 4 : 2.6) + (this.view.getZoom() >= 5 ? .8 : 0), color: c, weight: hollow || down ? 1.5 : 0, fill: !hollow, fillColor: down ? "#9a9a9a" : c,
             fillOpacity: sel && !mine ? .35 : .9, opacity: sel && !mine ? .35 : 1 })
-            .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${{ s: "standing", c: "crouched", p: "prone", v: "in a vehicle" }[m[2]] || esc(m[2])}`, tip)
+            .bindTooltip(`${esc(t.side)} team ${esc(t.id)} - ${{ s: "standing", c: "crouched", p: "prone", v: "in a vehicle", u: "unconscious" }[m[2]] || esc(m[2])}`, tip)
             .on("click", () => this.pick(key)).addTo(g.units);
         }
         const cls = `tm ${esc(t.side)}${atk ? "" : " hold"}${home ? " home" : ""}${mine ? " on" : ""}${sel && !mine ? " dim" : ""}`;
         marker([t.z, t.x], `<div class="${cls}">${esc(t.id)}</div>`, [22, 18], { zIndexOffset: mine ? 2000 : atk ? 300 : 0 })
-          .bindTooltip(`<b>${esc(t.side)} team ${esc(t.id)}</b> · ${Math.round(t.men || 0)} men · ${esc(doingOf(t))}${t.ride ? " · riding" : ""}${t.to && t.to !== "-" ? " · " + esc(t.to) : ""}`, tip)
+          .bindTooltip(`<b>${esc(t.side)} team ${esc(t.id)}</b> · ${Math.round(t.men || 0)} men · ${esc(doingOf(t))}${t.ride ? " · riding" : ""}${t.to && t.to !== "-" ? " · " + esc(t.to) : ""}${etaWords(t)}`, tip)
           .on("click", () => this.pick(key)).addTo(g.units);
         if (mine) { found = true; this.selAt = L.latLng(t.z, t.x); this.drawTeam(d, t, c); }
       }
@@ -562,10 +590,31 @@
       }
       const now = (t.wpk || [])[0] || {};
       const order = queue ? `${ORDER[now.kind] || now.kind || "move"}${Number(now.level) > 0 ? " · storm (keeps moving under fire)" : ""}` : "";
+      // A rough ETA (5 Nov - Martin: "when you click on waypoints of a team what was maybe ETA and how long are they late",
+      // "rough eta"): what is left of its planned route at a walk (1.5 m/s - the plans' own pace) or riding (8 m/s); since it
+      // got that route, how far behind a steady walk it is; and how far it moved in the last game minute.
+      const pace = t.ride ? 8 : 1.5;
+      const leftM = ahead.length ? len([[t.x, t.z], ...ahead]) : queue ? len([[t.x, t.z], ...queue]) : 0;
+      const to2 = pl ? (pl.team_orders || {})[String(t.id)] || {} : {};
+      let etaHtml = "";
+      if (leftM > 20) {
+        const etaS = leftM / pace;
+        let late = "";
+        if (pl && to2.given_t != null && d.t != null && to2.order !== "wait" && to2.order !== "support") {
+          const lane = pl.lanes[pl.by ? 0 : Number(t.id) % pl.lanes.length] || [];
+          const fullM = Math.max(len(lane), leftM);
+          const since = d.t - to2.given_t, shouldS = (fullM - leftM) / pace;
+          const behind = since - shouldS;
+          late = ` · on this route ${mins(since)}${behind > 90 ? ` · <b class="late">~${mins(behind)} behind</b> a steady walk` : behind > -60 ? " · about on time" : ""}`;
+        }
+        etaHtml = `<div>Rough ETA <b>~${mins(etaS)}</b> · ${km(leftM)} left at ${t.ride ? "riding" : "walking"} pace${late}</div>`;
+      } else if (queue || ahead.length) etaHtml = `<div>Rough ETA <b>there</b> - under 20 m left</div>`;
+      if (t.moved60 != null) etaHtml += `<div>Moved <b>${Math.round(t.moved60)} m</b> in the last game minute${t.moved60 < 15 ? " - standing" : ""}</div>`;
       const badge = (r) => `<span class="wp ${r.badge}" style="${r.badge === "next" ? "" : "width:22px;height:22px"}">${esc(r.n)}</span>`;
       const html = `<div class="facts">
           ${order ? `<div>The game's order now: <b>${esc(order)}</b>${gameRows[0] ? ` · ${gameRows[0].dist} to it` : ""}</div>` : ""}
-          <div>${t.to && t.to !== "-" ? `Assigned <b>${esc(t.to)}</b> · ` : ""}walked ${km(len(trail))} so far${t.ride ? " · riding now" : ""}</div></div>
+          <div>${t.to && t.to !== "-" ? `Assigned <b>${esc(t.to)}</b> · ` : ""}walked ${km(len(trail))} so far${t.ride ? " · riding now" : ""}</div>
+          ${etaHtml}</div>
         ${planWhy}
         ${rows.length ? `<h3>${planHead}</h3><ol class="wps">${rows.map((r) => `<li class="${r.cls}"><span class="n">${badge(r)}</span><span class="k">${esc(r.k[0])}${r.k[1] ? `<small>${esc(r.k[1])}</small>` : ""}</span><span class="st">${esc(r.st)}</span></li>`).join("")}</ol>
           ${pl && pl.chain ? `<p class="muted" style="margin:0;font-size:13px">Cover along the way: ${esc(pl.chain.replace(/Farm$/, point || "the objective"))}</p>` : ""}`
@@ -636,7 +685,7 @@
         <div class="it">${sw(`<path d="M2 10h17" style="stroke:var(--us);stroke-width:5"/><path d="M18 3l10 7-10 7z" style="fill:var(--us);stroke:#fff"/>`)}<span>A side's attack; thick, labelled: its main effort ("4/28 there" = soldiers within 300 m)</span></div>
         <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:none;stroke:var(--ussr);stroke-width:2;stroke-dasharray:4 3"/>`)}<span>A base the side defends</span></div>
         <div class="it">${sw(`<path d="M2 15c8-2 14-10 26-8" style="fill:none;stroke:#fff;stroke-width:6"/><path d="M2 15c8-2 14-10 26-8" style="fill:none;stroke:var(--us);stroke-width:3"/>`)}<span>A line of attack through cover; ring: where the teams get out; black bar: the hold line</span></div>
-        <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:var(--ussr);fill-opacity:.15;stroke:var(--ussr);stroke-width:2;stroke-dasharray:3 3"/><path d="M10 5l10 10M20 5L10 15" style="stroke:var(--ussr);stroke-width:2"/>`)}<span>Danger zone: the side lost soldiers or vehicles here lately - its general keeps away</span></div>
+        <div class="it">${sw(`<circle cx="15" cy="10" r="8" style="fill:var(--ussr);fill-opacity:.15;stroke:var(--ussr);stroke-width:2;stroke-dasharray:3 3"/><path d="M10 5l10 10M20 5L10 15" style="stroke:var(--ussr);stroke-width:2"/>`)}<span>Danger zone: the side lost soldiers or vehicles here lately - a risk its general weighs, not a wall</span></div>
         <h3>The clicked team</h3>
         <div class="it"><span><span class="wp next" style="display:inline-grid;width:24px;height:24px">3</span></span><span>Its NEXT waypoint; dark: the ones after; grey ✓: passed</span></div>
         <div class="it"><span><span class="wp game cur" style="display:inline-grid">1</span></span><span>The game's own waypoints (white dashes): move, search and destroy, defend, hold, storm</span></div>
@@ -685,7 +734,9 @@
     },
     items() {
       const out = this.labs.map((l) => ({ key: l.name, label: cap(l.title || l.name), n: (l.all || []).filter((r) => !r.watched).length }));
-      if (this.prog) out.push({ key: "matches", label: "Matches", n: this.prog.rows.filter((r) => r.kind !== "probe" && r.family !== "control").length });
+      // 5 Nov (Martin: "what about overall progress why did we drop that? ... it seemed important there was a lot a features"):
+      // the whole matches' ~30 measures first in the picker, as on the old page.
+      if (this.prog) out.unshift({ key: "matches", label: "Overall progress", n: this.prog.rows.filter((r) => r.kind !== "probe" && r.family !== "control").length });
       return out;
     },
     pick(key, push = true) {
@@ -739,7 +790,7 @@
       if (!P) { body.innerHTML = '<div class="empty">Measuring the matches - ready in a minute.</div>'; return; }
       const rows = P.rows.filter((r) => r.kind !== "probe" && r.family !== "control").sort((a, b) => String(a.started).localeCompare(String(b.started)));
       const blds = Object.fromEntries((P.builds || []).map((b) => [b.n, b.name]));
-      body.innerHTML = `<div class="card"><h2 class="pg">Matches</h2>
+      body.innerHTML = `<div class="card"><h2 class="pg">Overall progress - whole matches</h2>
           <p class="lead">The engine page's measures over every watched and headless match, ${esc(shortAt(rows[0] && rows[0].started))} to ${esc(shortAt(rows[rows.length - 1] && rows[rows.length - 1].started))}. No whole matches since then - the work moved to the integration tests.</p>
           <p class="muted" style="margin:0;font-size:13.5px"><a class="plain" href="/#progress">per build and every match on the old page</a></p></div>
         <div class="curves" id="pg-curves"></div>`;

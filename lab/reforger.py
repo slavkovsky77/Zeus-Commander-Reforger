@@ -26,6 +26,7 @@ import metrics  # noqa: E402
 
 import config  # noqa: E402  - this machine's paths: lab/lab.toml + lab/lab.local.toml
 import cpu  # noqa: E402  - headless servers off the watched game's cores (note 279)
+import gamelock  # noqa: E402  - one game at a time with the other sessions
 
 STEAM = config.path("paths.steam")
 SERVER_ROOT = STEAM / "Arma Reforger Server"
@@ -100,6 +101,17 @@ def command(a, profile: Path) -> list:
             mod_dirs = mod_dirs + [str(d.parent)]
         if mod_id == DCO_ID and (ROOT / "ZCR_DCO" / "addon.gproj").exists():
             addons += "," + DCO_BRIDGE   # our bridge (ZCR_DCO): our commander's orders as DCO's per-group switches
+    # Extra local addons every match loads (5 Nov): <mods dir>/lab_extra_addons.txt, one addon id a line, '#' comments.
+    # The Faces tool (D:\work\reforger-faces) writes it on Deploy, so the next match has the converted faces.
+    for d in DRONE_DIRS:
+        extra_file = Path(d) / "lab_extra_addons.txt"
+        if extra_file.exists():
+            for line in extra_file.read_text(encoding="utf-8").splitlines():
+                mod_id = line.split("#", 1)[0].strip()
+                if mod_id and mod_id not in addons.split(","):
+                    addons += "," + mod_id
+                    if str(d) not in mod_dirs:
+                        mod_dirs = mod_dirs + [str(d)]
     # The crash bisect (26 Oct): our addon from another checkout (a worktree at an older commit) - ZCR_ADDON_ROOT.
     zcr_root = os.environ.get("ZCR_ADDON_ROOT") or str(ROOT)
     roots = [str(AICF), zcr_root] + mod_dirs + [str((SERVER_ROOT if not game else GAME_ROOT) / "addons")]
@@ -214,6 +226,8 @@ def main() -> int:
         window_settings(profile / "profile")
     headless = not (a.client or getattr(a, "solo", False))
     gate = cpu.aoe_gate(profile.name) if headless else None   # AoE mode: one headless server at a time (waits its turn)
+    # One Reforger game or server at a time with the other sessions on this PC (6 Nov: the Faces tool's night tests).
+    free_lock = gamelock.take(profile.name) if not a.client else None
     proc = subprocess.Popen(cmd, cwd=str(exe.parent))
     print(f"{'client' if a.client else 'server'} started (pid {proc.pid}), profile {profile}", flush=True)
     if headless:
@@ -246,6 +260,8 @@ def main() -> int:
                 proc.wait(30)
             except subprocess.TimeoutExpired:
                 proc.kill()
+        if free_lock:
+            free_lock()
     log = console_log(profile)
     if not log:
         print("no console.log written")

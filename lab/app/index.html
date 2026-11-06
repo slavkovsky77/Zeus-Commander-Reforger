@@ -338,6 +338,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       </form>
       <div id="inbox" style="display:grid;gap:8px"></div>
     </div>
+    <div class="mono muted" id="llmcost"></div>
     <div class="mono muted" id="servers"></div>
   </section>
 
@@ -404,7 +405,7 @@ video { width: 100%; border-radius: 8px; background: #000; }
       <div id="map-efforts" class="map-efforts"></div>
       <p class="muted" id="map-sum">Loading the map…</p>
       <div id="mapwrap"><div id="mapview" role="region" aria-label="Map"></div><div id="map-selwrap"><div id="cambar" class="cambar" title="The game window's camera - for watching over Moonlight, where a touch turns it">Camera:
-          <button type="button" data-cam="auto">Auto</button><button type="button" data-cam="point+">Next point</button><button type="button" data-cam="group+">Next team</button><button type="button" data-cam="closer">Closer</button><button type="button" data-cam="wider">Wider</button><button type="button" data-cam="ui">Game UI on/off</button><button type="button" data-cam="side-US">US only</button><button type="button" data-cam="side-USSR">USSR only</button><button type="button" data-cam="side-">Both sides</button><button type="button" data-cam="speed">Speed</button><button type="button" data-cam="report">Report</button><span class="muted" id="cam-msg"></span></div><div id="map-sel"></div>
+          <button type="button" data-cam="auto">Auto</button><button type="button" data-cam="point+">Next point</button><button type="button" data-cam="group+">Next team</button><button type="button" data-cam="closer">Closer</button><button type="button" data-cam="wider">Wider</button><button type="button" data-cam="pano">Panorama</button><button type="button" data-cam="ui">Game UI on/off</button><button type="button" data-cam="side-US">US only</button><button type="button" data-cam="side-USSR">USSR only</button><button type="button" data-cam="side-">Both sides</button><button type="button" data-cam="speed">Speed</button><button type="button" data-cam="report">Report</button><span class="muted" id="cam-msg"></span></div><div id="map-sel"></div>
         <form id="map-note" class="mapnote" hidden>
           <div class="kinds" role="radiogroup" aria-label="Kind">
             <label><input type="radio" name="mapkind" value="question" checked>Question</label>
@@ -862,10 +863,24 @@ video { width: 100%; border-radius: 8px; background: #000; }
         for (const [s, zones] of Object.entries(d.danger)) {
           const c = side[s] || this.css("--muted");
           for (const zn of zones || []) {
-            const tip = `${esc(s)} danger zone ${esc(zn.id)}: ${zn.men} soldiers and ${zn.vehicles} vehicles lost here, the last ${Math.floor(zn.newest_s / 60)} min ago - its general keeps away`;
+            const tip = `${esc(s)} danger zone ${esc(zn.id)}: ${zn.men} soldiers and ${zn.vehicles} vehicles lost here, the last ${Math.floor(zn.newest_s / 60)} min ago - a risk its general weighs, not a wall`;
             extra.push(L.circle([zn.z, zn.x], { radius: 70, color: c, weight: 3, dashArray: "4 4", fillColor: c, fillOpacity: .12 }).bindTooltip(tip));
             extra.push(L.polyline([[zn.z - 35, zn.x - 35], [zn.z + 35, zn.x + 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
             extra.push(L.polyline([[zn.z - 35, zn.x + 35], [zn.z + 35, zn.x - 35]], { color: c, weight: 2, opacity: .8, interactive: false }));
+          }
+        }
+      }
+      // Field fortifications (4 Nov, note 538): each general's ordered spots outside any base - hollow, solid once built.
+      if ($("map-l-plans").checked && d.forts) {
+        for (const [s, forts] of Object.entries(d.forts)) {
+          const c = side[s] || this.css("--muted");
+          for (const f of forts || []) {
+            extra.push(L.rectangle([[f.z - 9, f.x - 9], [f.z + 9, f.x + 9]], { color: c, weight: 3, fillColor: c, fillOpacity: f.built ? .75 : .08 })
+              .bindTooltip(`${esc(s)} field fortification: ${f.built ? "built" : "ordered by its general"}`));
+            if (f.facing != null) {
+              const r = f.facing * Math.PI / 180;
+              extra.push(L.polyline([[f.z, f.x], [f.z + 26 * Math.cos(r), f.x + 26 * Math.sin(r)]], { color: c, weight: 3, interactive: false }));
+            }
           }
         }
       }
@@ -1319,6 +1334,9 @@ video { width: 100%; border-radius: 8px; background: #000; }
     $("videos").innerHTML = (s.videos || []).length ? `<table><thead><tr><th>Recording</th><th></th><th>Size</th></tr></thead><tbody>` + s.videos.map((v) =>
       `<tr><td><span class="mono">${esc(v.at)}</span> <span class="muted">${esc(v.title)}</span></td><td><button class="go" data-video="${esc(v.name)}" style="padding:4px 10px">Play</button></td><td class="mono">${esc(v.mb)} MB</td></tr>`).join("") + "</tbody></table>" : '<div class="empty">No recordings.</div>';
     renderSublab(s.sublab || []);
+    // The LLM general's model spend (lab/llmcost.py): today and this week, by run kind.
+    const c = s.llmcost, kinds = (x) => Object.entries(x.by_kind || {}).map(([k, v]) => `${k} $${v.cost.toFixed(2)}`).join(", ");
+    $("llmcost").textContent = c && c.today ? `Model spend: today $${c.today.cost.toFixed(2)} (${c.today.calls} calls${kinds(c.today) ? "; " + kinds(c.today) : ""}) · this week $${c.week.cost.toFixed(2)} (${c.week.calls} calls)` : "";
   }
   let sublabSeen = "";
   // Each sub-lab reads top to bottom (Martin, 23 Oct: "make it so clear how the experiment ended - self-explanatory, hard

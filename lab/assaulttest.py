@@ -190,18 +190,62 @@ VARIANTS["farm-now-staymounted-wave"] = (VARIANTS["farm-now-staymounted"][0] + "
 # plan file, the second wave on, riders stay mounted to the drop point.
 VARIANTS["farm-brains"] = ((_sized(4) + " -aicfSquadsPerSide 12 -zcrBindMainEffort -zcrAttackPlan -zcrNoAttackHold -aicfArmedRideEvery 0 -zcrLivePlan -zcrRideStayMounted -aicfZcrSecondWave 1").replace(" -aicfNoHiddenSeat", ""),
                            "Gemini commands both sides live (drop points, routes through cover, go/wait/support, drone teams) - no stored plans; second wave on")
-VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR",
+# -fpvaiKeepStations (4 Nov night): both crashes of the watched town battles came 1-4 s after the FPV mod deleted a used-up
+# drone station - the empty stations stay, to see whether the crashes go.
+# -zcrStormRelentless (5 Nov, Martin: "they should definitely move"): DCO's aggressive posture for attack squads near the point.
+VARIANTS["town-brains"] = (VARIANTS["farm-brains"][0] + " -zcrBaseTo Farm:USSR -fpvaiKeepStations -zcrStormRelentless",
                            "farm-brains for the battle of a city: Gemini commands both sides, no stored plans, the second wave - Farm a Soviet base")
 VARIANTS["town-vs-rules"] = (VARIANTS["town-brains"][0],
                              "the battle of the city, Gemini commands one side (--live-side: harbour or south), the code's rules the other - same routes, drops, danger zones")
-LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules"}   # variants whose live planner plans both sides
+# 4 Nov evening: field fortifications tested where they happen - the US holds Beauregard from the start, so its general
+# orders field positions in its first rounds (note 538; in the night's battles the town fell too late to see any built).
+VARIANTS["town-forts"] = (VARIANTS["town-brains"][0].replace("-zcrBaseTo Farm:USSR", "-zcrBaseTo Farm:USSR,Beauregard:US"),
+                          "town-brains with Beauregard American from the start - its general's field fortifications from the first rounds")
+# 5 Nov night (Martin: "it takes some time that ai basically fails to attack storm and get units to front", "like it degrades
+# with time?"): the town fell at 9-16 min in 5 of the 6 battles before the door fix (780f2a9, 4 Nov 04:51), rarely since -
+# town-brains without the AI's navlink-door reaction, as the A/B arm (its own name, so lab/towntest.py's town-brains curve
+# doesn't take these battles in; lab/towntime.py compares the two).
+VARIANTS["town-nodoor"] = (VARIANTS["town-brains"][0] + " -zcrNoDoorReaction",
+                           "town-brains without the AI's navlink-door reaction (as before 4 Nov 04:51) - the A/B of the town captures")
+# 5 Nov night (the subagent's study of 27 town battles, lab/towntime.py): teams reach 300 m of the point but hover 150-300 m out
+# (a soldier's formation move at storm priority 25 loses to taking fire positions and attacking) - town-storm60; and the attack
+# fades with time because supply-truck crews and drone pilots fill the side cap (squad men 96 -> 60, support 34 -> 58 by minute
+# 25; REINFORCEMENT_BLOCKED reason=FACTION_LIMIT) - town-cap70. Both: town-storm60-cap70.
+VARIANTS["town-storm60"] = (VARIANTS["town-brains"][0] + " -zcrStormPriority 60",
+                            "town-brains with the storm's legs at priority 60 (25): the men keep moving under fire rather than stopping at fire positions")
+_cap70 = VARIANTS["town-brains"][0].replace("-aicfMaxAgentsPerFaction 50", "-aicfMaxAgentsPerFaction 70")
+assert _cap70 != VARIANTS["town-brains"][0]
+VARIANTS["town-cap70"] = (_cap70, "town-brains with the side cap at 70 soldiers (50) - room for the attack teams beside the support soldiers")
+VARIANTS["town-storm60-cap70"] = (_cap70 + " -zcrStormPriority 60", "town-storm60 and town-cap70 together")
+# 5 Nov night: the used-up drone stations ZCR deletes itself 90 s after the team is done (one empty group leaked per launch
+# since -fpvaiKeepStations) - is it crash-free headless, and does the AI-agent count stay flat?
+VARIANTS["town-cleanup"] = (VARIANTS["town-brains"][0] + " -zcrDroneTeamCleanup", "town-brains with used-up drone stations deleted 90 s after their team is done")
+VARIANTS["town-storm60-cleanup"] = (VARIANTS["town-storm60"][0] + " -zcrDroneTeamCleanup", "town-storm60 and town-cleanup together - the candidate for the watched battle")
+# 5 Nov 07:15 (the night A/B, lab/townarms.py): the town battle itself now runs with the storm at 60 and the drone stations
+# cleaned up - storm 60 took Beauregard at a median 13 min (2 of 3 by minute 16) with ~3x the men within 150 m, against 23 min
+# (1 of 7 by minute 16) as it was. The variants above keep the flags they were measured with (they copy town-brains as it was).
+TOWN_BRAINS_R75 = VARIANTS["town-brains"][0]
+VARIANTS["town-brains"] = (TOWN_BRAINS_R75 + " -zcrStormPriority 60 -zcrDroneTeamCleanup", VARIANTS["town-brains"][1])
+for _v in ("town-vs-rules", "town-forts"):   # the town integration test's other setups: the same storm and cleanup
+    VARIANTS[_v] = (VARIANTS[_v][0] + " -zcrStormPriority 60 -zcrDroneTeamCleanup", VARIANTS[_v][1])
+LIVE_BOTH = {"farm-brains", "town-brains", "town-vs-rules", "town-forts", "town-nodoor", "town-storm60", "town-cap70", "town-storm60-cap70", "town-cleanup", "town-storm60-cleanup"}   # variants whose live planner plans both sides
 RULES_VS = {"town-vs-rules"}   # ... one of them by the rules: the side opposite --live-side
 # 4 Nov ~02:00 (note 536 - Martin: "I would expect at farm ai to hide and clear house as priority as it is withing capture
 # ratio right? and it provides defense?"): DCO's defend and idle positions indoors first (coverPreference 1; Recommended:
 # 0 = balanced) and several teams may share a building (Farm has few).
 DCO_CFG = {"farm-brains": {"coverPreference": 1, "shareBuildings": True}, "town-brains": {"coverPreference": 1, "shareBuildings": True},
-           "town-vs-rules": {"coverPreference": 1, "shareBuildings": True}}
-LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+           "town-vs-rules": {"coverPreference": 1, "shareBuildings": True}, "town-forts": {"coverPreference": 1, "shareBuildings": True},
+           "town-nodoor": {"coverPreference": 1, "shareBuildings": True}, "town-storm60": {"coverPreference": 1, "shareBuildings": True},
+           "town-cap70": {"coverPreference": 1, "shareBuildings": True}, "town-storm60-cap70": {"coverPreference": 1, "shareBuildings": True},
+           "town-cleanup": {"coverPreference": 1, "shareBuildings": True}, "town-storm60-cleanup": {"coverPreference": 1, "shareBuildings": True}}
+LIVE = {"farm-live": ("code", False), "farm-gemini-routes": ("gemini", False), "farm-gemini": ("gemini", True), "farm-gemini-forts": ("gemini", True), "farm-review": ("gemini", True), "farm-brains": ("gemini", True), "town-brains": ("gemini", True), "town-vs-rules": ("gemini", True), "town-forts": ("gemini", True), "town-nodoor": ("gemini", True), "town-storm60": ("gemini", True), "town-cap70": ("gemini", True), "town-storm60-cap70": ("gemini", True), "town-cleanup": ("gemini", True), "town-storm60-cleanup": ("gemini", True)}   # variant -> lab/liveplan.py's picker, drones
+# 5 Nov 13:05 (note 557): the watched town battle crashed twice today after ~15 min (two engine crash kinds), while the 3 watched
+# battles of 5 Nov 00:08-01:00 ran 109 min without one - they had neither the storm at 60 nor DCO's relentless push. The
+# relentless push did not bring the men closer (the night's study), so the watched battle goes without it.
+VARIANTS["town-watch"] = (VARIANTS["town-storm60"][0].replace(" -zcrStormRelentless", ""), "town-storm60 without DCO's relentless push - the watched battle while the window's crashes are hunted")
+LIVE_BOTH.add("town-watch")
+DCO_CFG["town-watch"] = DCO_CFG["town-storm60"]
+LIVE["town-watch"] = LIVE["town-storm60"]
 SEEDS = {"storm-plan": "model", "storm-plan-hold": "model", "storm-plan-light": "model", "storm-plan-light-hold": "model", "storm-plan-light-hold-noarm": "model", "storm-plan-light-hold-algo": "algorithm", "storm-plan-trans-hold": "model", "storm-plan-trans": "model", "storm-plan-close": "close_model", "storm-plan-trans-hold-algo": "algorithm", "storm-plan-algo": "algorithm", "storm-plan-measured": "measured", "storm-plan-measured-cap0": "measured", "farm-now": "measured", "farm-now-nocontact": "measured", "farm-now-staymounted": "measured", "farm-now-staymounted-nodrones": "measured", "farm-now-staymounted-hold": "measured", "farm-now-staymounted-wave": "measured", "farm-live": "measured", "farm-gemini": "measured", "farm-gemini-forts": "measured_forts", "farm-review": "measured_forts", "farm-gemini-routes": "measured", "now-plan": "@arland_all"}   # variant -> which plan pick (lab/attackplan.py --export)
 RIDE_FAIL = ("BOARDING_PHASE_DEADLINE_EXCEEDED", "BOARDING_PROGRESS_GRACE_DEADLINE_EXCEEDED", "DRIVER_RECOVERY_EXHAUSTED",
              "VEHICLE_STUCK_PERSISTENT", "MOB_EGRESS_SOFT_NUDGE", "MOB_EGRESS_HIDDEN_RECOVERY", "VEHICLE_FALLBACK_LONE_SURVIVOR")

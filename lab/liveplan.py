@@ -31,6 +31,10 @@ $profile:zcr/liveplan.jsonl (the model's reasons too) and every model call's ima
 
     python lab/liveplan.py --label assault-city-farm-gemini-p2178 --side harbour --picker gemini   # beside the battle
     python lab/liveplan.py --replay .runtime/runs/<run> --t 420 --side USSR --picker code --known-from-live   # offline
+
+Cheaper, opt-in (5 Nov; off unless set - the environment reaches it through lab/assaulttest.py; lab/llmcost.py shows the spend):
+    LIVEPLAN_STRETCH=2                                  # no call while nothing material changed, up to 2 x GEMINI_S
+    LIVEPLAN_CHEAP_MODEL=google/gemini-3.5-flash-lite   # routine calls to it, the strong model on events and 1 call in 3
 """
 import argparse
 import base64
@@ -58,6 +62,28 @@ OBJECTIVE = "Farm"      # the battle's objective: --objective (4 Nov: Beauregard
 ROUND_S = 30            # the code redraws every this many game seconds
 GEMINI_S = 150          # the model every this many game seconds ...
 GEMINI_MIN_S = 110      # ... or on an event, but never sooner than this after the last call
+# Fewer and cheaper model calls - OPT-IN, all off by default (5 Nov - Martin: "some optimization would be nice", "they have
+# cheaper models..", "we could combine multiple models"). See COST NOTES below ask_model for what each saved on 5 Nov's calls.
+#   LIVEPLAN_STRETCH=2 (--stretch 2): when nothing material changed since the side's last call - none of STRETCH_ON
+#     (LIVEPLAN_STRETCH_ON, kinds of changes(): the objective's owner, a team gone or arrived, a known enemy group of 2+ men
+#     NEW_ENEMY_M from every one known then, a drone site located) - the side keeps its orders and the model is asked only after
+#     STRETCH x GEMINI_S. The other kinds (team_new, left, men, losses, zone, armour) can be added; "all" = every kind. The
+#     early call on 4+ losses (between GEMINI_MIN_S and GEMINI_S) stays as it was. 1 = off.
+#   LIVEPLAN_CHEAP_MODEL=google/gemini-3.5-flash-lite (--cheap-model): routine calls go to this model, the strong one (bridge's)
+#     on events (STRONG_ON: the first call, the objective changing hands, a team gone, a big new enemy group) and at least every
+#     LIVEPLAN_STRONG_EVERY-th call (default 3). A cheap answer that leaves a team out or is broken goes to the strong model
+#     (LIVEPLAN_CHEAP_FALLBACK=strong, the default) or keeps that team's previous orders (=fill). Empty = off.
+STRETCH = float(os.environ.get("LIVEPLAN_STRETCH", "1") or 1)
+STRETCH_ON = {k.strip() for k in os.environ.get("LIVEPLAN_STRETCH_ON", "owner,team_gone,arrived,enemy,enemy_big,site").split(",") if k.strip()}
+CHEAP_MODEL = os.environ.get("LIVEPLAN_CHEAP_MODEL", "").strip()
+STRONG_EVERY = max(1, int(os.environ.get("LIVEPLAN_STRONG_EVERY", "3") or 3))
+CHEAP_FALLBACK = os.environ.get("LIVEPLAN_CHEAP_FALLBACK", "strong").strip().lower()
+CHEAP_REASONING = os.environ.get("LIVEPLAN_CHEAP_REASONING", "low")
+CHANGE_LOSSES = 3       # this many of the side's soldiers lost since its last call is a change
+NEW_ENEMY_M = 150       # a known enemy group this far from every group known at the last call is new ...
+NEW_ENEMY_W = 1.5       # ... when it is 2+ men within 30 m (observers_from's weight); BIG_ENEMY_W (3+ men, its cap) wakes
+BIG_ENEMY_W = 2.0       # the strong model
+STRONG_ON = ("first", "owner", "team_gone", "enemy_big")
 GOAL_M = 50             # a route ends this close to the objective's centre
 VIEW_M = 500            # a known enemy's sight counts this far
 EYE_M, TARGET_M = 1.7, 1.4
@@ -70,6 +96,12 @@ DANGER_S = 600
 DANGER_GROUP_M = 80
 DANGER_R_M = 70
 DANGER_COST = 2.0       # per unit of faded weight, on top of the cell cost
+# A risk, not a wall (5 Nov - Martin, watching: "general keeps them away but should it really be like that? maybe it should be
+# just danger risk, sometimes they probably have to go through killzone anyway"): the weight per cell is capped at DANGER_CAP
+# (20 losses at the town's edge had made it 40x dearer - every way in a wall), and none counts within DANGER_FREE_M of the
+# objective - the fight is there, the teams must go in.
+DANGER_CAP = 1.5
+DANGER_FREE_M = 150
 THREAT_CAP = 3.0
 NO_COVER_COST = 0.6     # ... more with no roof, canopy or dense trees within COVER_REACH_M (drones)
 COVER_REACH_M = 40
@@ -84,6 +116,10 @@ WALK_MPS, DRIVE_MPS = 1.5, 8.0
 HOLD_M = 180
 WAYPOINT_M = 50
 WAIT_S, SUPPORT_S = 180, 480
+# Waits that never end (4 Nov night - in the town battles Gemini renewed a team's 'wait' for 8-12 minutes: US T0 stood 4+
+# minutes 75 m short of its waypoint): a team kept waiting WAIT_MAX_S in a row goes on, for RELEASED_S before a wait holds
+# it again; the prompt says so.
+WAIT_MAX_S, RELEASED_S = 240, 300
 RAID_S = 150            # a raid team fights at the enemy drone site up to this long, then goes on to the objective
 SITE_SEEN_M = 100       # an enemy drone site is located once one of the side's known enemies stood this close to it
 STANCES = ("assault", "fortify", "counter_drone")
@@ -323,6 +359,7 @@ class LogReader:
     LIVE = re.compile(r"\[ZCR\]\[LIVE\] t=(\d+) kind=team side=(\w+) id=(\d+) role=(\w+) men=(\d+) ride=(\d) x=(-?\d+) z=(-?\d+) to=(.*?) posture=")
     KNOWN = re.compile(r"\[ZCR\]\[KNOWN\] t=(\d+) side=(\w+) n=(\d+) at=(\S*)")
     CAPTURE = re.compile(r"\[ZCR\]\[CAPTURE\] t=(\d+) base=(.+?) from=(\w*) to=(\w+)")
+    SETUP = re.compile(r"\[ZCR\]\[SETUP\] t=(\d+) no_fia base=(\S+) to=(\w+)")
     LOSS = re.compile(r"\[ZCR\]\[LOSS\] t=(\d+) .* side=(\w+) kind=man")
     DRONEPLAN = re.compile(r"\[ZCR\]\[DRONEPLAN\] t=(\d+) side=(\w+) teams=(\d+) tempo=(\d+) have=(\d+) .*?why=(.*)$")
 
@@ -339,6 +376,7 @@ class LogReader:
         self.lost = {"US": 0, "USSR": 0}
         self.losses = []        # (t, side, kind "man"|"vehicle", x, z) - every loss (danger zones, note 541)
         self.sites = []         # [side, x, z, name] - every drone site set up ([ZCR][DRONESITE] set_up)
+        self.field_built = {"US": [], "USSR": []}   # (x, z) of each field fortification built ([ZCR][FORTPLAN] source=field)
         self.located = {"US": set(), "USSR": set()}   # side -> indexes of ENEMY drone sites it has located (note 542)
         self.armour = {"US": {}, "USSR": {}}  # side -> unit -> its last [ZCR][ARMOUR] STATUS (note 544)
         self.first_round = {}
@@ -399,6 +437,14 @@ class LogReader:
                     except (KeyError, ValueError):
                         pass
             return
+        if "[ZCR][FORTPLAN]" in line and " event=placed " in line and "source=field" in line:
+            d = dict(kv.split("=", 1) for kv in line.split("[ZCR][FORTPLAN]", 1)[1].split() if "=" in kv)
+            try:
+                if d.get("side") in self.field_built:
+                    self.field_built[d["side"]].append((float(d["x"]), float(d["z"])))
+            except ValueError:
+                pass
+            return
         if "[ZCR][DRONESITE]" in line and " set_up " in line:
             d = dict(kv.split("=", 1) for kv in line.split("[ZCR][DRONESITE]", 1)[1].split() if "=" in kv)
             try:
@@ -426,6 +472,13 @@ class LogReader:
         m = self.CAPTURE.search(line)
         if m and m.group(2) == OBJECTIVE:
             self.owner = m.group(4)
+            self.owner_t = int(m.group(1))
+            return
+        # The objective dealt to a side at the start (-zcrBaseTo, 4 Nov evening: the field fortification test gave Beauregard
+        # to the US and its general planned as the attacker - captures were all the reader knew).
+        m = self.SETUP.search(line)
+        if m and m.group(2) == OBJECTIVE and m.group(3) in ("US", "USSR"):
+            self.owner = m.group(3)
             self.owner_t = int(m.group(1))
             return
         m = self.LOSS.search(line)
@@ -486,8 +539,11 @@ def hq_positions(run_dir: Path, reader: LogReader) -> dict:
 
 class Planner:
     def __init__(self, slug="arland", scan=None):
-        self.g = Grid(scan or ATTACK / "farm_scan.jsonl", slug)
+        self.scan_path = scan or ATTACK / "farm_scan.jsonl"
+        self.g = Grid(self.scan_path, slug)
         roads = [json.loads(l) for l in (MAPS / slug / "map_roads.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        self.roads = roads
+        self._fort_terrain = None
         self.graph = roadgraph.Graph(roads, [])
         g = self.g
         self.goal = g.valid & (g.robj <= GOAL_M)
@@ -514,6 +570,8 @@ class Planner:
                 continue
             r2 = (g.X - x) ** 2 + (g.Z - z) ** 2
             D += np.where(r2 <= DANGER_R_M ** 2, w, 0.0).astype(np.float32)
+        D = np.minimum(D, DANGER_CAP)
+        D[g.robj <= DANGER_FREE_M] = 0
         return D
 
     @staticmethod
@@ -650,6 +708,78 @@ class Planner:
                             "sees": int(g.seen[c]), "height_over_obj_m": round(float(g.H[c] - g.oy), 1),
                             "cover": bool(g.cover_m[c] <= 10)})
             if len(out) >= 2:
+                break
+        return out
+
+    # Field fortifications (4 Nov, note 538 - Martin: "llm general could actually build defense lines (bunkers and shit)
+    # where it needs like who told that some position outside of the base could not set up?"): places outside any base
+    # where the side's builders can put a bunker or guard tower (AICF_ZcrFortPlan builds the ones the general picks - 'fort'
+    # lines). Open flat ground (no roof, under 2 trees, slope <= FORT_SLOPE), cover in reach. The side holding the objective:
+    # a ring FORT_HOLD_M out toward the enemy's side, facing outward; the other side: places FORT_ATTACK_M out on its own
+    # side that see the objective, facing it - a base of fire. Not in the side's danger zones nor (attacking) the enemy's view.
+    FORT_SLOPE = 0.15
+    FORT_HOLD_M = (110, 240)     # 4 Nov night: from 50 m - spots inside the town's base failed its access corridors
+    FORT_ATTACK_M = (150, 400)
+    FORT_SPACING_M = 50
+    FORT_CANDIDATES = 5
+    FORT_ROAD_M = 12     # from a road's edge (the game's ROAD_OR_ACCESS_CORRIDOR: 10 of the first test's 21 tries)
+    FORT_OBJECT_M = 7    # no wall, fence or rock 0.4 m+ this close (PHYSICAL_OBSTRUCTION: 8 of 21) - lab/fortplan.py's checks
+
+    def fort_terrain(self):
+        """lab/fortplan.py's ground around the objective (its objects on a 2 m grid), loaded once."""
+        if self._fort_terrain is None:
+            import fortplan
+            self._fort_terrain = fortplan.Terrain({"scan": Path(self.scan_path), "x": self.g.ox, "z": self.g.oz})
+        return self._fort_terrain
+
+    def field_forts(self, s: Situation, threat, danger):
+        g = self.g
+        hq = s.hq.get(s.side)
+        enemy_hq = s.hq.get(s.enemy)
+        holding = s.owner == s.side
+        if not hasattr(g, "slope_cell"):
+            gx, gz = np.gradient(g.H, g.step)
+            g.slope_cell = np.hypot(gx, gz)
+        ang = np.degrees(np.arctan2(g.X - g.ox, g.Z - g.oz))
+        if holding and enemy_hq:
+            to_deg = math.degrees(math.atan2(enemy_hq[0] - g.ox, enemy_hq[1] - g.oz))
+            lo, hi = self.FORT_HOLD_M
+            width = 80
+        elif hq:
+            to_deg = math.degrees(math.atan2(hq[0] - g.ox, hq[1] - g.oz))
+            lo, hi = self.FORT_ATTACK_M
+            width = 80
+        else:
+            return []
+        off = np.abs((ang - to_deg + 180) % 360 - 180)
+        ok = (g.valid & ~g.roof & (g.trees < 2) & (g.slope_cell <= self.FORT_SLOPE) & (g.robj >= lo) & (g.robj <= hi)
+              & (off <= width) & (danger < 0.5) & (g.cover_m <= 40))
+        if not holding:
+            ok &= threat < 0.5     # 4 Nov night: a town hides the point - no cell 150-400 m out sees Beauregard; sight only scores
+        mid = (lo + hi) / 2
+        score = -off * 0.15 - np.abs(g.robj - mid) / 15 + 8 * (g.cover_m <= 15) - 20 * danger
+        if not holding:
+            score += g.seen * 1.5 - 20 * threat
+        score = np.where(ok, score, -np.inf)
+        out = []
+        for k in np.argsort(score, axis=None)[::-1][:6000]:
+            c = np.unravel_index(k, score.shape)
+            if not np.isfinite(score[c]):
+                break
+            x, z = g.xz(c)
+            if any(math.hypot(x - f["x"], z - f["z"]) < self.FORT_SPACING_M for f in out):
+                continue
+            import fortplan
+            if fortplan.road_gap(x, z, self.roads) < self.FORT_ROAD_M or self.fort_terrain().object_near(x, z, self.FORT_OBJECT_M) >= 0.4:
+                continue
+            if holding:
+                facing = math.degrees(math.atan2(x - g.ox, z - g.oz)) % 360        # outward, the way the enemy comes
+            else:
+                facing = math.degrees(math.atan2(g.ox - x, g.oz - z)) % 360        # at the objective
+            out.append({"id": f"F{len(out) + 1}", "x": round(x, 1), "z": round(z, 1), "facing": round(facing),
+                        "from_obj_m": round(float(g.robj[c])), "dir": compass(math.degrees(math.atan2(x - g.ox, z - g.oz))),
+                        "cover_m": round(float(g.cover_m[c])), "sees": int(g.seen[c]), "role": "hold" if holding else "fire base"})
+            if len(out) >= self.FORT_CANDIDATES:
                 break
         return out
 
@@ -867,6 +997,55 @@ def compass(angle):
     return names[int(((angle + 360) % 360 + 22.5) // 45) % 8]
 
 
+def digest(s: Situation, pic) -> dict:
+    """What the side's general knew at one round, as far as its orders go - changes() compares two (the skip/stretch rule
+    and the model mix, both opt-in). Plain lists and string ids, so it goes into liveplan.jsonl as it is."""
+    return {"t": s.t, "owner": s.owner, "lost": s.lost.get(s.side, 0),
+            "teams": {str(tm["id"]): [pic["status"][tm["id"]], tm["men"]] for tm in pic["teams"]},
+            "groups": [[round(x), round(z), w] for x, z, w in pic["known"]],
+            "sites": len(pic.get("sites") or []), "zones": [[zn["x"], zn["z"]] for zn in pic.get("zones") or []],
+            "armour": sorted(a_["unit"] for a_ in pic.get("armour") or [])}
+
+
+def changes(last, now) -> list:
+    """What changed materially between two digests: [(kind, text)], [] = nothing. Kinds: first, owner, team_gone,
+    team_new, arrived, left, men, losses, enemy, enemy_big, site, zone, armour."""
+    if not last:
+        return [("first", "first call")]
+    out = []
+    if now["owner"] != last["owner"]:
+        out.append(("owner", f"objective {last['owner']} -> {now['owner']}"))
+    lt, nt = last["teams"], now["teams"]
+    for tid, (st, men) in lt.items():
+        if tid not in nt:
+            out.append(("team_gone", f"T{tid} gone"))
+            continue
+        nst, nmen = nt[tid]
+        if (nst == "at_farm") != (st == "at_farm"):
+            out.append(("arrived" if nst == "at_farm" else "left", f"T{tid} {'arrived' if nst == 'at_farm' else 'out of the objective'}"))
+        if men >= 2 and nmen * 2 <= men:
+            out.append(("men", f"T{tid} {men} -> {nmen} men"))
+    for tid, (st, _) in nt.items():
+        if tid not in lt and st != "at_farm":
+            out.append(("team_new", f"T{tid} new"))
+    if now["lost"] - last["lost"] >= CHANGE_LOSSES:
+        out.append(("losses", f"{now['lost'] - last['lost']} soldiers lost"))
+    for x, z, w in now["groups"]:
+        if w >= NEW_ENEMY_W and all(math.hypot(x - a, z - b) > NEW_ENEMY_M for a, b, _ in last["groups"]):
+            out.append(("enemy_big" if w >= BIG_ENEMY_W else "enemy", f"new enemy group ({w:g}) at {x},{z}"))
+            if w >= BIG_ENEMY_W:
+                break
+    if now["sites"] > last["sites"]:
+        out.append(("site", "drone site located"))
+    for x, z in now["zones"]:
+        if all(math.hypot(x - a, z - b) > DANGER_GROUP_M for a, b in last["zones"]):
+            out.append(("zone", f"new danger zone at {x},{z}"))
+            break
+    if set(last["armour"]) - set(now["armour"]):
+        out.append(("armour", "vehicle lost"))
+    return out
+
+
 # -- orders ----------------------------------------------------------------------------------------------------------
 class Commander:
     """One side's live plan: the picture every round, the picker's orders per team, the file for the game."""
@@ -892,12 +1071,19 @@ class Commander:
         self.lines = []         # this side's lines of the plan file (team/drones), for a shared file
         self.strategy = None    # {"stance", "why"} - the model's battle strategy (note 542)
         self.armour_orders = {}  # unit -> {"order", "xz", "why"} - the model's orders for its fighting vehicles (note 544)
+        self.forts = []         # [{"x", "z", "facing", "t", "why"}] - the field fortifications the model wants built (note 538)
+        self.wait_since = {}    # team id -> game second its present run of 'wait' orders began
+        self.released = {}      # team id -> game second it was sent on after waiting WAIT_MAX_S
         self.sink = None        # --side both: writes both sides' lines into one liveplan.txt
         self.last_model_t = -1e9
         self.last_model_owner = None
         self.last_model_lost = 0
         self.model_calls = 0
         self.last = None        # the last round's picture (for the image)
+        self.last_digest = None  # digest() at the side's last model call (the opt-in stretch rule and model mix)
+        self.cheap_run = 0      # cheap-model answers since the strong model's last (LIVEPLAN_CHEAP_MODEL)
+        self.skip_note = ""     # why this round's due call was left out (LIVEPLAN_STRETCH)
+        self.call_meta = {}     # the last call's model, tier, usages (every call billed), fallback
 
     # The picture: threat, drop points, starts and their routes, support positions.
     def picture(self, s: Situation):
@@ -913,6 +1099,7 @@ class Commander:
         for d in drops:
             d["zones"] = [zn["id"] for zn in zones if math.hypot(zn["x"] - d["x"], zn["z"] - d["z"]) <= DANGER_R_M + 30]
         sup = p.support(s, threat)
+        forts = p.field_forts(s, threat, danger)
         teams = [tm for tm in s.teams if tm["men"] > 0 and tm["role"] == "ATTACK" and tm["to"] == OBJECTIVE]
         hq = s.hq.get(s.side)
         status = {}
@@ -964,7 +1151,7 @@ class Commander:
                           "from_obj_m": round(math.hypot(sx - g.ox, sz - g.oz)), "dir": compass(ang)})
         known = observers_from(s.known)
         pic = {"t": s.t, "nodes": s.nodes, "threat": threat, "costs": costs, "D_obj": D_obj, "drops": drops, "support": sup, "teams": teams,
-               "zones": zones, "sites": sites, "armour": list(s.armour),
+               "zones": zones, "sites": sites, "armour": list(s.armour), "forts": forts,
                "status": status, "starts": starts, "routes": routes, "known": known, "owner": s.owner, "lost": dict(s.lost),
                "hq": hq, "seconds": round(time.time() - t0, 1)}
         self.last = pic
@@ -1046,11 +1233,16 @@ class Commander:
         return out
 
     # -- the model --------------------------------------------------------------------------------------------------
-    def want_model(self, s: Situation):
+    def want_model(self, s: Situation, now=None):
         if self.picker != "gemini" or self.llm is None:
             return False
         since = s.t - self.last_model_t
         if since >= GEMINI_S:
+            # Opt-in (LIVEPLAN_STRETCH): nothing changed materially since the last call - the orders stand, up to STRETCH x GEMINI_S.
+            if STRETCH > 1 and now is not None and self.last_digest is not None and since < STRETCH * GEMINI_S \
+                    and not [c for c in changes(self.last_digest, now) if "all" in STRETCH_ON or c[0] in STRETCH_ON]:
+                self.skip_note = f"no change in {since} s"
+                return False
             return True
         if since < GEMINI_MIN_S:
             return False
@@ -1058,12 +1250,49 @@ class Commander:
             return True
         return s.lost.get(s.side, 0) - self.last_model_lost >= 4
 
-    def model_orders(self, pic, s: Situation, image: Path):
+    def tier(self, why) -> str:
+        """The model mix (opt-in, LIVEPLAN_CHEAP_MODEL): the strong model on an event (STRONG_ON) and at least every
+        STRONG_EVERY-th call, the cheap one for the rounds between."""
+        if not CHEAP_MODEL:
+            return "strong"
+        if any(k in STRONG_ON for k, _ in why) or self.cheap_run >= STRONG_EVERY - 1:
+            return "strong"
+        return "cheap"
+
+    @staticmethod
+    def missing_teams(ans, pic) -> list:
+        """The teams the answer should order (not fighting at the objective) and doesn't."""
+        given = set()
+        for e in (ans or {}).get("teams") or [] if isinstance(ans, dict) else []:
+            try:
+                given.add(int(str(e.get("team", "")).lstrip("Tt")))
+            except (ValueError, AttributeError):
+                continue
+        return [tm["id"] for tm in pic["teams"] if pic["status"][tm["id"]] != "at_farm" and tm["id"] not in given]
+
+    def model_orders(self, pic, s: Situation, image: Path, why=()):
         text = self.prompt_text(pic, s)
         t0 = time.time()
+        meta = self.call_meta = {"model": self.llm.model, "tier": "strong", "usages": []}
+        if self.tier(why) == "cheap":
+            # A cheap answer that leaves a team out (or is broken) goes to the strong model (CHEAP_FALLBACK=strong);
+            # with =fill the teams left out keep their previous orders (validate's "kept").
+            try:
+                ans = ask_model(self.llm, image, text, model=CHEAP_MODEL, reasoning=CHEAP_REASONING)
+                meta["usages"].append(ans.get("_usage"))
+                missing = self.missing_teams(ans, pic)
+                if not missing or CHEAP_FALLBACK == "fill":
+                    meta.update(model=CHEAP_MODEL, tier="cheap", missing=missing)
+                    self.cheap_run += 1
+                    return ans, text, round(time.time() - t0, 1)
+                meta["fallback"] = "the cheap answer left out " + ", ".join(f"T{t}" for t in missing)
+            except Exception as e:
+                meta["usages"].append(getattr(e, "usage", None))
+                meta["fallback"] = f"the cheap model failed: {type(e).__name__}: {str(e)[:160]}"
         ans = ask_model(self.llm, image, text)
-        secs = round(time.time() - t0, 1)
-        return ans, text, secs
+        meta["usages"].append(ans.get("_usage"))
+        self.cheap_run = 0
+        return ans, text, round(time.time() - t0, 1)
 
     def prompt_text(self, pic, s: Situation):
         g = self.p.g
@@ -1085,11 +1314,18 @@ class Commander:
             if o:
                 sp = self.match_support(pic, o.get("support_xz")) if o.get("order") == "support" else None
                 prev = f"; current order: route {start}-{o.get('route')}, {o.get('order')}" + (f" at {sp['id']}" if sp else "")
+                if o.get("order") == "wait" and tm["id"] in self.wait_since:
+                    waited = s.t - self.wait_since[tm["id"]]
+                    if s.t - self.released.get(tm["id"], -1e9) < RELEASED_S:
+                        prev += f" (it waited {waited // 60} min, so it is going on now whatever you say)"
+                    elif waited >= 60:
+                        prev += f" (waiting {waited // 60} min so far; at {WAIT_MAX_S // 60} min it goes on)"
             lines.append(f"  T{tm['id']}: {tm['men']} men, {where}, {round(d)} m from Farm" + (f", routes from {start}" if start and st != "at_farm" else "") + prev)
         zones = pic.get("zones") or []
         if zones:
             lines += ["", f"Danger zones - where your side lost soldiers or vehicles in the last {DANGER_S // 60} minutes (drones, mines, "
-                      "fire; the enemy is likely still watching them; the routes and drives listed avoid them where they can):"]
+                      "fire; the enemy is likely still watching them). A risk to weigh, not a wall: the routes listed go round them when "
+                      "that costs little, and through them when it's the way in - then fast and in cover:"]
             for zn in zones:
                 lines.append(f"  {zn['id']}: {zn['from_obj_m']} m {zn['dir']} of Farm - {zn['men']} soldiers and {zn['vehicles']} vehicles lost, "
                              f"the last {zn['newest_s'] // 60} min {zn['newest_s'] % 60:02d} s ago")
@@ -1132,8 +1368,9 @@ class Commander:
                   "and never stop in the open (a team lying in a field is what an FPV kills) - they stop ~15 s in cover at each tree "
                   "line's edge and go into the buildings on their way; choose routes with short open "
                   "stretches; put several teams on one or two axes rather than one team everywhere; 'wait' only to gather "
-                  "teams in cover for a joint push; keep away from the danger zones - where you just lost men or vehicles, the "
-                  "next team dies the same way - pick another drop point or route unless there is no other way in."]
+                  "teams in cover for a joint push; weigh the danger zones - where you just lost men or vehicles the next team may "
+                  "die the same way, so take another drop point or route when one is about as good, but don't give up the attack "
+                  "for them: sometimes the way in runs through a killzone, then go through it fast, in cover, with several teams."]
         if pic.get("armour"):
             kinds = {"LAV25": "LAV-25 APC (25 mm autocannon and MG)", "BTR70": "BTR-70 APC (14.5 mm HMG and MG)",
                      "M2A2": "M2A2 Bradley IFV", "BMP": "BMP IFV", "M1A1": "M1A1 tank", "T72": "T-72 tank"}
@@ -1148,11 +1385,27 @@ class Commander:
                              f"{compass(math.degrees(math.atan2(a_['x'] - g.ox, a_['z'] - g.oz)))} of Farm, health {a_['health']}%, "
                              f"now {doing.get(a_['phase'], a_['phase'].lower() or 'waiting for orders')}")
         lines += ["", "Your strategy - think about the battle, not only the next move, and choose one: 'assault' (take Farm), "
-                  "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers, sandbags and MG nests "
+                  "'fortify' (you hold Farm and your men there die in the open: your builders put bunkers and guard towers "
                   "there first), 'counter_drone' (enemy drones are killing your men: twice as many of your soldiers fire at "
                   "drones, out to 180 m, and every one of your FPVs goes for the enemy drone sites you have located). Besides, any team may 'raid' a located enemy drone site (H1..: route there, fight the "
                   "operators up to 2.5 min, then on to Farm) - if drones kill your attackers, killing their operators is "
                   "often the way in."]
+        if pic.get("forts"):
+            lines += ["", "Field positions where your builders can put a bunker or guard tower outside any base - they walk out from "
+                      "your nearest base (up to 1.2 km, so a far one takes 10-15 minutes) and build it; it is cover your men can fight from (drones and fire "
+                      "kill men in the open). Pick up to 3, or none:"]
+            for f in pic["forts"]:
+                lines.append(f"  {f['id']}: {f['from_obj_m']} m {f['dir']} of Farm, facing {compass(f['facing'])}, a {f['role']} position"
+                             f", cover {f['cover_m']} m away" + (f", sees Farm from {f['sees']}/9 eye points" if f['role'] != "hold" else ""))
+            built = getattr(s, "field_built", [])
+            if built:
+                lines.append(f"  Built so far: {len(built)} - " + ", ".join(
+                    f"{round(math.hypot(x - g.ox, z - g.oz))} m {compass(math.degrees(math.atan2(x - g.ox, z - g.oz)))} of Farm"
+                    for x, z in built[-6:]) + " (your men can fight from them).")
+            if self.forts:
+                lines.append("  Already ordered: " + ", ".join(f"{round(math.hypot(f['x'] - g.ox, f['z'] - g.oz))} m "
+                                                             f"{compass(math.degrees(math.atan2(f['x'] - g.ox, f['z'] - g.oz)))} of Farm"
+                                                             for f in self.forts) + " (they stay ordered unless you pick others).")
         raid = ', "site": "H1" or null' if pic.get("sites") else ""
         armour = (', "armour": [{"unit": <A number>, "order": "overwatch"|"assault"|"hold", "support": "P1" or null (for '
                   'overwatch: the support position it fires from), "why": "few words"}]') if pic.get("armour") and pic.get("support") else ""
@@ -1160,7 +1413,8 @@ class Commander:
                   '"why": "few words"}, "teams": [{"team": <id>, "drop": "D1" or null, '
                   '"route": "<start>-L|C|R", "order": "go"|"wait"|"support"' + ('|"raid"' if raid else '') + ', "support": "P1" or null'
                   + raid + ', "why": "few words"}]'
-                  + drones + armour + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
+                  + drones + armour + (', "forts": ["F1", ...] (up to 3 field positions to fortify, [] for none)' if pic.get("forts") else "")
+                  + "} - one entry per team above that is not fighting at Farm. drop: only for teams at the HQ (a team "
                   "in a vehicle keeps its drop point). route: one of the routes listed from the team's start (for a team at the "
                   "HQ, from the drop point you give it)."]
         return "\n".join(lines)
@@ -1246,6 +1500,19 @@ class Commander:
                         continue
                     xz = (sp["x"], sp["z"])
                 self.armour_orders[unit] = {"order": order, "xz": xz, "why": str(e.get("why", ""))[:120]}
+        if isinstance(ans, dict) and isinstance(ans.get("forts"), list) and pic.get("forts") is not None:
+            by_id = {f["id"]: f for f in pic.get("forts") or []}
+            chosen = []
+            for fid in ans["forts"][:3]:
+                f = by_id.get(str(fid).strip().upper())
+                if not f:
+                    problems.append(f"fort {fid!r}")
+                    continue
+                # The same place as one ordered before (within 30 m): its spot as given then, so the game keeps its tries.
+                same = next((o for o in self.forts if math.hypot(o["x"] - f["x"], o["z"] - f["z"]) <= 30), None)
+                chosen.append(same or {"x": f["x"], "z": f["z"], "facing": f["facing"], "t": pic["t"]})
+            if chosen or ans["forts"] == []:
+                self.forts = chosen
         if isinstance(ans, dict) and isinstance(ans.get("strategy"), dict):
             stance = str(ans["strategy"].get("stance", "")).lower()
             if stance in STANCES:
@@ -1297,8 +1564,18 @@ class Commander:
                 continue
             go, hold, hold_s = 1, route["hold"], 0
             if o.get("order") == "wait":
-                go, hold_s = 0, WAIT_S
-            elif o.get("order") == "raid" and o.get("site_xz"):
+                since = self.wait_since.setdefault(tid, pic["t"])
+                last = self.released.get(tid, -1e9)
+                if pic["t"] - last < RELEASED_S:
+                    pass
+                elif pic["t"] - since >= WAIT_MAX_S:
+                    self.released[tid] = pic["t"]
+                    self.log(f"t={pic['t']} {self.side} T{tid} waited {pic['t'] - since} s - goes on")
+                else:
+                    go, hold_s = 0, WAIT_S
+            else:
+                self.wait_since.pop(tid, None)
+            if o.get("order") == "raid" and o.get("site_xz"):
                 cell = g.nearest_valid(o["site_xz"][0], o["site_xz"][1], 40, avoid_building=True)
                 if cell is not None:
                     from_xz = drop_xz if (st in ("at_hq", "riding") and drop_xz) else (tm["x"], tm["z"])
@@ -1332,6 +1609,8 @@ class Commander:
         lines = []
         if self.strategy:
             lines.append(f"strategy {self.side} {self.strategy['stance']}")
+        for f in self.forts:
+            lines.append(f"fort {self.side} {f['x']:.1f} {f['z']:.1f} {f['facing']:.0f}")
         alive = {a_["unit"] for a_ in pic.get("armour") or []}
         for unit, o in sorted(self.armour_orders.items()):
             if unit in alive:
@@ -1360,7 +1639,7 @@ class Commander:
     # -- one round ------------------------------------------------------------------------------------------------------
     def round(self, s: Situation, profile_zcr: Path, write=True):
         pic = self.picture(s)
-        entry = {"t": s.t, "side": s.side, "owner": s.owner, "lost": s.lost, "known": len(s.known), "known_groups": len(pic["known"]),
+        entry = {"at": round(time.time()), "t": s.t, "side": s.side, "owner": s.owner, "lost": s.lost, "known": len(s.known), "known_groups": len(pic["known"]),
                  "teams": {tm["id"]: pic["status"][tm["id"]] for tm in pic["teams"]}, "drops": [{k: v for k, v in d.items() if k != "cell"} for d in pic["drops"]],
                  "routes": {rid: {k: v for k, v in r.items() if k not in ("cells", "pts")} for rid, r in pic["routes"].items()},
                  "support": [{k: v for k, v in p_.items() if k != "cell"} for p_ in pic["support"]], "picture_s": pic["seconds"],
@@ -1373,14 +1652,19 @@ class Commander:
         else:
             if fresh:
                 self.orders.update(self.code_orders(pic, only=fresh))
-            if self.want_model(s) and any(pic["status"][tm["id"]] != "at_farm" for tm in pic["teams"]):
+            now = digest(s, pic)
+            self.skip_note = ""
+            if self.want_model(s, now) and any(pic["status"][tm["id"]] != "at_farm" for tm in pic["teams"]):
                 image = profile_zcr / "liveplan" / f"t{s.t:05d}.jpg"
                 image.parent.mkdir(parents=True, exist_ok=True)
                 draw(self.p, pic, s).save(image, quality=85)
+                why = changes(self.last_digest, now)
                 self.last_model_t, self.last_model_owner, self.last_model_lost = s.t, s.owner, s.lost.get(s.side, 0)
+                self.last_digest = now
                 self.model_calls += 1
+                self.call_meta = {}
                 try:
-                    ans, text, secs = self.model_orders(pic, s, image)
+                    ans, text, secs = self.model_orders(pic, s, image, why)
                     orders, problems = self.validate(ans, pic)
                     self.orders.update(orders)
                     entry.update(source="gemini", reason=ans.get("reason"), answer=ans, problems=problems, model_s=secs, prompt=text,
@@ -1388,11 +1672,25 @@ class Commander:
                     stance = f" [strategy: {self.strategy['stance']}]" if self.strategy else ""
                     self.log(f"t={s.t} {s.side} gemini ({secs} s, {len(problems)} problems): {ans.get('reason')}{stance}")
                 except Exception as e:   # the model failed: the code's pick for every team
+                    if getattr(e, "usage", None):
+                        self.call_meta.setdefault("usages", []).append(e.usage)
                     self.orders.update(self.code_orders(pic))
                     entry.update(source="code-fallback", error=f"{type(e).__name__}: {e}")
                     self.log(f"t={s.t} {s.side} model failed ({type(e).__name__}: {e}) - the code's pick")
+                # Which model answered and every call's usage (a cheap answer sent on to the strong model was billed too):
+                # lab/llmcost.py sums "usages" (or answer._usage on older rows).
+                meta = self.call_meta or {}
+                entry.update(model=meta.get("model"), tier=meta.get("tier"), usages=meta.get("usages") or [],
+                             changes=[txt for _, txt in why][:8], digest=now)
+                if meta.get("fallback"):
+                    entry["fallback"] = meta["fallback"]
+                if CHEAP_MODEL:
+                    self.log(f"t={s.t} {s.side} model {meta.get('model')} ({meta.get('tier')}"
+                             + (f"; {meta['fallback']}" if meta.get("fallback") else "") + ")")
             else:
                 entry["source"] = "kept"
+                if self.skip_note:
+                    entry["skipped"] = self.skip_note
         entries = self.entries(pic)
         if self.drones_on:
             entry["drones"] = self.drones
@@ -1401,6 +1699,8 @@ class Commander:
         entry["armour"] = {"units": pic.get("armour") or [], "orders": {str(k): v for k, v in self.armour_orders.items()}}
         entry["sites"] = [{k: v for k, v in sp_.items() if k != "cell"} for sp_ in pic.get("sites") or []]
         entry["orders"] = {tid: {k: v for k, v in o.items()} for tid, o in self.orders.items() if tid in entries}
+        entry["field_spots"] = pic.get("forts") or []
+        entry["forts"] = [dict(f) for f in self.forts]
         entry["entries"] = {tid: {"route": e["route"]["id"], "go": e["go"], "drop": e["drop"], "hold": e["hold"], "hold_s": e["hold_s"],
                                   "waypoints": e["route"]["waypoints"], "wp_kinds": e["route"].get("wp_kinds"),
                                   "chain": e["route"].get("chain")} for tid, e in entries.items()}
@@ -1518,24 +1818,81 @@ def named(text: str) -> str:
     return text if OBJECTIVE == "Farm" else text.replace("Farm", OBJECTIVE.replace("_", " "))
 
 
-def ask_model(llm, image: Path, text: str) -> dict:
+# The cost (5 Nov - Martin: "shit we spent 11 euros ?!?! on gemini calls?", "some optimization would be nice"): 1,423 calls that
+# day, $12.52 - 0.88 cents a call: 4,832 tokens in (0.36 c - the 1200 px map about half of it) and 1,403 out (0.52 c), 913 of them
+# the model's hidden thinking (0.34 c). The map goes at IMAGE_PX (one image tile) and the thinking at REASONING (OpenRouter's
+# reasoning effort; LIVEPLAN_REASONING=default leaves the model's own, LIVEPLAN_IMAGE_PX=1200 the old size). Each call's tokens and
+# cost stay in liveplan.jsonl (answer._usage).
+#
+# COST NOTES - the opt-in savings at the top, measured offline on 5 Nov (lab/llmsavings.py calls / replay / score; the spend:
+# lab/llmcost.py). That day: 1,442 calls, $12.68 - headless 837 ($7.49, 34 battles of 30 min, 0.87 calls a game minute for
+# both sides), watched 605 ($5.19, 0.78 a game minute, the game at ~1.9x on average = ~87 calls a watched hour). Almost all on
+# the timer (GEMINI_S); 18% (headless) and 27% (watched) of the answers repeated the side's previous orders for every team.
+#   The strong model asked the same call twice (24 saved calls, reasoning low, 0.50 c a call): the same order for 85% of the
+#     teams (go/wait 98%) - its own noise; against the battle's answer with full thinking 83-85%: thinking low costs nothing seen.
+#     Call to call the orders changed for 24-27% of the teams (mostly the route side) - little more than that noise.
+#   Stretch (x2, STRETCH_ON as set): -20% calls headless, -21% watched (all change kinds: -4%/-8%; without new enemies -25%;
+#     plain 300 s: -27%/-30% - the loss event keeps calling). The calls it leaves out would have changed as many team orders as
+#     the others (27-29%, go/wait 5-6%): what changes counts can't tell the calls that matter - its quality cost is the delay.
+#   Cheap models on the same 24 calls (against both strong answers; teams left out / invalid picks fixed by validate):
+#     gemini-3.5-flash-lite 0.25 c: 77% the same order, go/wait 97%, 0 left out, invalid picks in 5 of 24 answers, drones 71%
+#     gemini-3.1-flash-lite 0.22 c: 55%, go/wait 76%, invalid in 8 of 24 (routes from another team's start), drones 54%
+#     gemini-2.5-flash-lite 0.09 c: 41%, go/wait 63%, invalid in 13 of 24 - effort low switches its thinking ON (~780 tokens)
+#   The mix (1 call in 3 strong, STRONG_ON events): 50% of the calls strong (57-58% with the stretch) - with 3.5-flash-lite
+#     0.375 c a call (-25%); stretch + mix -37%: a 30-min headless battle 13 c -> 8 c, a watched hour ~43 c -> ~27 c.
+IMAGE_PX = int(os.environ.get("LIVEPLAN_IMAGE_PX", "768"))
+REASONING = os.environ.get("LIVEPLAN_REASONING", "low")
+
+
+def ask_model(llm, image: Path, text: str, model: str = None, reasoning: str = None) -> dict:
+    """One call: the map and the text to `model` (default: the bridge's). The answer's JSON, with the call's usage and cost
+    in "_usage" (a broken answer raises with its usage in the exception's .usage - it was billed too)."""
     import providers
     img = Image.open(image).convert("RGB")
+    if max(img.size) > IMAGE_PX:
+        img.thumbnail((IMAGE_PX, IMAGE_PX), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=85)
     url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    r = providers._post("https://openrouter.ai/api/v1/chat/completions",
-                        {"model": llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
-                         "messages": [{"role": "system", "content": named(SYSTEM)},
-                                      {"role": "user", "content": [{"type": "text", "text": named(text)},
-                                                                   {"type": "image_url", "image_url": {"url": url}}]}]},
+    body = {"model": model or llm.model, "temperature": 0.3, "max_tokens": 4000, "response_format": {"type": "json_object"},
+            "usage": {"include": True},
+            "messages": [{"role": "system", "content": named(SYSTEM)},
+                         {"role": "user", "content": [{"type": "text", "text": named(text)},
+                                                      {"type": "image_url", "image_url": {"url": url}}]}]}
+    reasoning = REASONING if reasoning is None else reasoning
+    if reasoning and reasoning != "default":
+        body["reasoning"] = {"effort": reasoning}
+    r = providers._post("https://openrouter.ai/api/v1/chat/completions", body,
                         {"authorization": f"Bearer {llm.key}", "x-title": "Zeus Commander Reforger"}, 60)
     if "error" in r:
         raise RuntimeError(f"openrouter: {r['error']}")
     content = r["choices"][0]["message"].get("content") or ""
-    out = providers.extract_json(content)
+    try:
+        out = providers.extract_json(content)
+        if not isinstance(out, dict):
+            raise ValueError(f"the answer is a {type(out).__name__}, not an object")
+    except ValueError as e:
+        e.usage = r.get("usage")
+        raise
     out["_usage"] = r.get("usage")
     return out
+
+
+def savings() -> dict:
+    """The opt-in call savings in force (for the side row of liveplan.jsonl); {} when all are off."""
+    out = {}
+    if STRETCH > 1:
+        out.update(stretch=STRETCH, stretch_on=sorted(STRETCH_ON))
+    if CHEAP_MODEL:
+        out.update(cheap_model=CHEAP_MODEL, strong_every=STRONG_EVERY, cheap_fallback=CHEAP_FALLBACK)
+    return out
+
+
+def savings_text() -> str:
+    sv = savings()
+    parts = ([f"stretch x{sv['stretch']:g} while nothing changes"] if "stretch" in sv else []) + \
+            ([f"cheap {sv['cheap_model']}, the strong model on events and at least 1 call in {sv['strong_every']}"] if "cheap_model" in sv else [])
+    return f"; saving: {'; '.join(parts)}" if parts else ""
 
 
 def make_llm():
@@ -1577,6 +1934,7 @@ def situation(reader: LogReader, side: str, hqs: dict, known_from_live=False) ->
     s.own_losses = [(lt, k, x, z) for lt, sd, k, x, z in reader.losses if sd == side and reader.t - lt <= DANGER_S]
     s.sites = [(reader.sites[k][1], reader.sites[k][2], reader.sites[k][3]) for k in sorted(reader.located.get(side, ()))]
     s.armour = sorted(reader.armour.get(side, {}).values(), key=lambda a_: a_["unit"])
+    s.field_built = list(reader.field_built.get(side, []))
     s.droneplan = dict(reader.droneplan.get(side, {}))
     s.nodes = base_nodes(reader, side)
     return s
@@ -1646,7 +2004,7 @@ def live(a):
         logf.write(line + "\n")
         logf.flush()
 
-    log(f"liveplan for {run_dir.name}: side {a.side}, picker {a.picker}" + (f" ({llm.model})" if llm else ""))
+    log(f"liveplan for {run_dir.name}: side {a.side}, picker {a.picker}" + (f" ({llm.model})" if llm else "") + savings_text())
     console = None
     t0 = time.time()
     while console is None:
@@ -1706,7 +2064,7 @@ def live(a):
                     f.write(json.dumps({"event": "side", "side": side, "spec": a.side, "picker": picker, "hqs": hqs,
                                         "drones": bool(a.drones and a.picker == "gemini"),
                                         "hq_m": round(math.hypot(hqs[side][0] - g.ox, hqs[side][1] - g.oz)),
-                                        "model": llm.model if llm else None}) + "\n")
+                                        "model": llm.model if llm else None, **savings()}) + "\n")
         for side, cmd in cmds.items():
             if reader.t - last_round_t.get(side, -1e9) < ROUND_S or not reader.teams(side):
                 continue
@@ -1734,7 +2092,9 @@ def cmd_hqs(run_dir, reader):
 
 def replay(a):
     """Offline: the picture at game second --t of an old run, the image, the code's (and optionally the model's) pick."""
-    planner = Planner()
+    global OBJECTIVE
+    OBJECTIVE = a.objective
+    planner = Planner(scan=Path(a.scan) if a.scan else None)
     run_dir = Path(a.replay)
     console = sorted(run_dir.glob("logs/*/console.log"))[-1]
     reader = LogReader(console)
@@ -1756,6 +2116,10 @@ def replay(a):
         print(f"  route {rid}: {r['length_m']} m, view {r['known_enemy_view_pct']}%, farm view {r['farm_view_pct']}%, cover {r['cover_in_reach_pct']}%, cost {r['cost']}")
     for tid, o in sorted(e["entries"].items()):
         print(f"  T{tid} ({e['teams'][tid]}): {o['route']} go={o['go']} drop={o['drop']} hold={o['hold']} ({len(o['waypoints'])} waypoints)")
+    for f in (cmd.last or {}).get("forts") or []:
+        print("  field spot", f)
+    for f in cmd.forts:
+        print("  fort ordered", f)
     if e.get("reason"):
         print("  model:", e["reason"], e.get("problems"))
     draw(planner, cmd.last, s).save(out / f"replay_t{s.t}.jpg", quality=85)
@@ -1778,7 +2142,17 @@ def main() -> int:
     ap.add_argument("--t", type=int, default=420, help="with --replay: the game second")
     ap.add_argument("--out", default="", help="with --replay: where to write (default .runtime/liveplan_test)")
     ap.add_argument("--known-from-live", action="store_true", help="with --replay on runs before [ZCR][KNOWN]: enemy teams near ours")
+    # Fewer / cheaper model calls, opt-in (default: the environment's LIVEPLAN_STRETCH etc., else off) - see STRETCH at the top.
+    ap.add_argument("--stretch", type=float, default=None, help="no call while nothing changed, up to this x GEMINI_S (LIVEPLAN_STRETCH; 1 = off)")
+    ap.add_argument("--cheap-model", default=None, help="routine calls to this OpenRouter model, the strong one on events (LIVEPLAN_CHEAP_MODEL)")
+    ap.add_argument("--strong-every", type=int, default=None, help="with --cheap-model: the strong model at least every Nth call (LIVEPLAN_STRONG_EVERY, 3)")
+    ap.add_argument("--cheap-fallback", default=None, choices=["strong", "fill"], help="a cheap answer leaving teams out: re-ask the strong model, or keep their orders")
     a = ap.parse_args()
+    global STRETCH, CHEAP_MODEL, STRONG_EVERY, CHEAP_FALLBACK
+    STRETCH = a.stretch if a.stretch is not None else STRETCH
+    CHEAP_MODEL = a.cheap_model.strip() if a.cheap_model is not None else CHEAP_MODEL
+    STRONG_EVERY = max(1, a.strong_every) if a.strong_every is not None else STRONG_EVERY
+    CHEAP_FALLBACK = a.cheap_fallback or CHEAP_FALLBACK
     if a.replay:
         return replay(a)
     return live(a)

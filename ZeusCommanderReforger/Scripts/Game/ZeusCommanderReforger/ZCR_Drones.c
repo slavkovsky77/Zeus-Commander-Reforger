@@ -499,9 +499,48 @@ class ZCR_Drones
 	// else a sweep round the area (Martin: "they should always scan"); with none, after a minute its drones
 	// are called home (removed). The drone mod's group station follows the team's waypoint.
 	// Logs [ZCR][DRONES] ... retarget / home.
+	// Drones that stopped (5 Nov - Martin, watching: "for some reason now there are 0 drones"): a drone that hasn't moved 2 m in
+	// STALE_S is not flying any more (lost by the drone mod on a roof or a tree, or frozen far from the watch camera) but it
+	// held its team's launch slot for good - the watched battle of 00:08: 6 'in the air' a side, 0 spotted, no launch for the
+	// last 9 minutes. It leaves the count and is brought down like a drone shot down (Martin: "when they're stuck we should do
+	// something about"): it falls, its team's slot free for a new launch. [ZCR][DRONES] ... stale.
+	static const int STALE_S = 90;
+	protected static ref map<IEntity, vector> s_mDronePos = new map<IEntity, vector>();
+	protected static ref map<IEntity, int> s_mDroneMovedAt = new map<IEntity, int>();
+
+	protected static void Sweep(int now)
+	{
+		for (int i = s_aDrones.Count() - 1; i >= 0; i--)
+		{
+			IEntity d = s_aDrones[i];
+			if (!d)
+				continue;
+			vector p = d.GetOrigin();
+			vector was;
+			if (!s_mDronePos.Find(d, was) || vector.Distance(was, p) > 2)
+			{
+				s_mDronePos.Set(d, p);
+				s_mDroneMovedAt.Set(d, now);
+				continue;
+			}
+			if (now - s_mDroneMovedAt.Get(d) < STALE_S)
+				continue;
+			Print(string.Format("[ZCR][DRONES] t=%1 side=%2 stale x=%3 z=%4 still_s=%5", now, s_aDroneSide[i], Math.Round(p[0]), Math.Round(p[2]),
+				now - s_mDroneMovedAt.Get(d)), LogLevel.NORMAL);
+			s_aDrones.Remove(i);
+			s_aDroneSide.Remove(i);
+			s_mDronePos.Remove(d);
+			s_mDroneMovedAt.Remove(d);
+			s_mDroneTeam.Remove(d);
+			ZCR_AntiDrone.Destroy(d, "stuck");
+		}
+	}
+
 	static void Tend(FactionKey side)
 	{
 		int now = ZCR_LossLog.Seconds();
+		Sweep(now);
+		Cleanup(now);
 		// A launch between plan rounds (26 Oct night: a launch was tried only when a new plan came, every 40-90 s, and an
 		// operator not ready at that moment waited for the next round - 14-16 drones a side in 30 minutes).
 		ZCR_StrategicPlan current = ZCR_StrategicPlan.Get(side);
@@ -1263,6 +1302,44 @@ class ZCR_Drones
 		return n;
 	}
 
+	// Used-up drone teams (5 Nov night - the per-minute study of the town battles: the server's AI agents grew ~1 per drone
+	// launch, 193 -> 299 in 30 game minutes and 408 by minute 60, since -fpvaiKeepStations keeps every used-up station: each
+	// launch is a station group of its own with one drone, empty once the drone is gone). With -zcrDroneTeamCleanup a team
+	// done here is deleted CLEANUP_S later, and only with no soldier in it - not 0.25 s after its last drone as the drone mod
+	// did before (both watched crashes of 4 Nov came 1-4 s after one of those). [ZCR][DRONES] t= side= team= cleanup done_s=
+	static const int CLEANUP_S = 90;
+	protected static ref array<SCR_AIGroup> s_aDone = {};
+	protected static ref array<int> s_aDoneAt = {};
+	protected static ref array<string> s_aDoneSide = {};
+	protected static int s_iCleaned;
+
+	protected static void Cleanup(int now)
+	{
+		for (int i = s_aDone.Count() - 1; i >= 0; i--)
+		{
+			SCR_AIGroup team = s_aDone[i];
+			if (team && now - s_aDoneAt[i] < CLEANUP_S)
+				continue;
+			if (team && team.GetAgentsCount() == 0)
+			{
+				s_iCleaned++;
+				Print(string.Format("[ZCR][DRONES] t=%1 side=%2 team=%3 cleanup done_s=%4 total=%5", now, s_aDoneSide[i], s_mTeamNo.Get(team),
+					now - s_aDoneAt[i], s_iCleaned), LogLevel.NORMAL);
+				s_mTeamGoal.Remove(team);
+				s_mTeamGoalAt.Remove(team);
+				s_mTeamNo.Remove(team);
+				s_mTeamLaunchedAt.Remove(team);
+				s_mTeamRoute.Remove(team);
+				s_mTeamSwept.Remove(team);
+				s_mTeamPilot.Remove(team);
+				SCR_EntityHelper.DeleteEntityAndChildren(team);
+			}
+			s_aDone.Remove(i);
+			s_aDoneAt.Remove(i);
+			s_aDoneSide.Remove(i);
+		}
+	}
+
 	protected static int Active(FactionKey side)
 	{
 		// Teams with a drone still flying, or just launched (their drones not found yet). A team whose
@@ -1280,6 +1357,12 @@ class ZCR_Drones
 		{
 			if (!s_aTeams[i] || (!flying.Contains(s_aTeams[i]) && now - s_mTeamLaunchedAt.Get(s_aTeams[i]) > 60))
 			{
+				if (s_aTeams[i] && AICF_Launch.Has("zcrDroneTeamCleanup"))
+				{
+					s_aDone.Insert(s_aTeams[i]);
+					s_aDoneAt.Insert(now);
+					s_aDoneSide.Insert(s_aTeamSide[i]);
+				}
 				s_aTeams.Remove(i);
 				s_aTeamSide.Remove(i);
 				continue;

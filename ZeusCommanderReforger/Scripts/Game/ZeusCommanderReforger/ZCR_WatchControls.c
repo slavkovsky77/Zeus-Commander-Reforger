@@ -33,6 +33,8 @@ class ZCR_WatchTapHandler : ScriptedWidgetEventHandler
 {
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
+		if (button == 0)
+			ZCR_WatchControls.OnPress();
 		if (button == 1)
 			ZCR_WatchControls.s_bRight = true;
 		return true;
@@ -87,6 +89,7 @@ class ZCR_WatchControls
 	protected int m_iLastClickMs = -10000;   // real time: the watch clock runs at the game's speed
 	protected bool m_bListening;
 	protected bool m_bWasFree;
+	protected bool m_bWasPano;
 	protected bool m_bSettling;         // a tap waiting for the cursor to come to rest
 	protected int m_iClickX;
 	protected int m_iClickY;
@@ -101,7 +104,22 @@ class ZCR_WatchControls
 	protected int m_iJumpAt;
 	protected int m_iJumpX;
 	protected int m_iJumpY;
-	protected int m_iJumpSeenAt = -100000;   // the last cursor jump (a touch moved it)
+	protected int m_iJumpSeenAt = -100000;   // the last cursor jump a touch made (confirmed: still before and after)
+	protected bool m_bJumpCandidate;         // a jump this frame, to confirm on the next
+	protected float m_fLastStep;             // how far the cursor moved the frame before
+	// A mouse glides, a touch only jumps (5 Nov 00:10-00:55 - Martin, with the mouse: "clicking on ui on computer resets mouse
+	// to middle", "clicking on next/prev drone mouse resets to middle that bug"): the cursor moving GLIDE_FRAMES frames in a
+	// row is a hand on a mouse, and for MOUSE_MS after it every press acts at once where the cursor is, nothing parks the
+	// cursor and a cursor resting on a button is no tap. A one-frame jump alone was not enough: the cursor coming back into
+	// the window (the 00:34 battle: 'touch no-button' five times near 1200,1160, the mouse back from the chat) and a fast
+	// flick at 25 FPS jump like a touch, and the click after one was read as a touch and parked the cursor.
+	protected static const int GLIDE_FRAMES = 3;
+	protected static const int MOUSE_MS = 5000;
+	protected int m_iGlideFrames;
+	protected int m_iGlideAt = -100000;
+	// A press in the gap between two buttons (8 px between the rows) is the nearer button (5 Nov 00:39:17 - 'press
+	// at=123,733', between PREV and TYPE, flew the camera to a USSR soldier there).
+	protected static const int HIT_PX = 6;
 
 	static void Create()
 	{
@@ -115,6 +133,14 @@ class ZCR_WatchControls
 	{
 		if (s_Instance)
 			s_Instance.Update(clock);
+	}
+
+	// The last tap or click taken (real time) - the panorama hides the overlays 8 s after it.
+	static int LastTapMs()
+	{
+		if (!s_Instance)
+			return -100000;
+		return s_Instance.m_iLastClickMs;
 	}
 
 	// The overlays shown or hidden (ZCR_Watch.ToggleHud): every button but HIDE UI / SHOW UI.
@@ -170,8 +196,52 @@ class ZCR_WatchControls
 		s_Instance.Labels();
 	}
 
+	// A mouse press acts at once (5 Nov - Martin: "why does button react on mouse release not on mouse click?"): the release and
+	// the 0.3 s wait for the cursor to rest are for a phone's touch over Moonlight / Artemis, whose click can come before the
+	// finger's position. A press with no touch jump just before it is a mouse: resolved where the cursor is, and its release
+	// (both ways in - the catcher and the listener) is ignored.
+	protected bool m_bDownHandled;
+	protected int m_iDownAt;
+
+	static void OnPress()
+	{
+		if (!s_Instance)
+			return;
+		int nowMs = System.GetTickCount();
+		s_Instance.m_bDownHandled = false;
+		s_Instance.m_iDownAt = nowMs;
+		// A mouse in use (see GLIDE_FRAMES): every press at once. The 0.5 s guard is for a touch's click after its touch tap; with
+		// it a quick second mouse click went the release-and-wait way (5 Nov 00:52:55 'click from=377,678 at=290,717': read 0.3 s
+		// later, 87 px on) or was lost - Martin's "why does button react on mouse release".
+		bool mouse = s_Instance.MouseMode();
+		if (mouse && nowMs - s_Instance.m_iLastClickMs < 60)
+			return;
+		if (!mouse && (nowMs - s_Instance.m_iJumpSeenAt < 1500 || s_Instance.m_bJumpCandidate || nowMs - s_Instance.m_iLastClickMs < 500))
+			return;
+		int x, y;
+		WidgetManager.GetMousePos(x, y);
+		s_Instance.m_bDownHandled = true;
+		s_Instance.m_iLastClickMs = nowMs;
+		s_Instance.m_bJumpPending = false;
+		if (s_Instance.m_bSettling)
+		{
+			s_Instance.m_bSettling = false;
+			GetGame().GetCallqueue().Remove(s_Instance.Settle);
+		}
+		Print(string.Format("[ZCR][CAMUI] press at=%1,%2 mouse=%3", x, y, mouse), LogLevel.NORMAL);
+		s_Instance.Resolve(x, y);
+	}
+
+	protected bool MouseMode()
+	{
+		return System.GetTickCount() - m_iGlideAt < MOUSE_MS;
+	}
+
 	static void OnClick()
 	{
+		// The release of a press already acted on.
+		if (s_Instance && s_Instance.m_bDownHandled && System.GetTickCount() - s_Instance.m_iDownAt < 5000)
+			return;
 		// One tap arrives twice (the catcher and the mouse-up listener): the second within 0.5 s of real time is the same
 		// tap. It was 0.3 s on the watch clock, which runs at the game's speed - at 2x the window was 0.15 s (28 Oct:
 		// SPEED went 1x -> 2x -> 3x within 0.32 s, Martin watching).
@@ -224,7 +294,7 @@ class ZCR_WatchControls
 			return;
 		}
 		m_bSettling = false;
-		Print(string.Format("[ZCR][CAMUI] click from=%1,%2 at=%3,%4 ms=%5", m_iClickX, m_iClickY, x, y, waited), LogLevel.NORMAL);
+		Print(string.Format("[ZCR][CAMUI] click from=%1,%2 at=%3,%4 ms=%5 mouse=%6", m_iClickX, m_iClickY, x, y, waited, MouseMode()), LogLevel.NORMAL);
 		Resolve(x, y);
 	}
 
@@ -281,6 +351,9 @@ class ZCR_WatchControls
 		AddPad("v", "look-tiltdn", c1, l0 + 2 * (sh + sg), false);
 		AddPad("+", "look-zin", c0, l0, false);
 		AddPad("-", "look-zout", c0, l0 + 2 * (sh + sg), false);
+		// PANORAMA above the look stick, under the right thumb (5 Nov - Martin: "panorama view ... camera would move slowly around
+		// point", "watching it from tv passively"); the look stick steers the circle.
+		AddAt("PANORAMA", "pano", c0, l0 - 0.062, c2 + sw - c0, 0.052);
 		Visibility();
 		Labels();
 	}
@@ -290,6 +363,8 @@ class ZCR_WatchControls
 	// The camera's mode: free (the watcher flies it), locked (on what it shows - a pick, a tap, LOCK), else auto.
 	protected string CameraMode()
 	{
+		if (ZCR_Watch.IsPano())
+			return "pano";
 		if (ZCR_Watch.IsFree())
 			return "free";
 		if (m_bLocked || m_bAutoOff)
@@ -338,9 +413,13 @@ class ZCR_WatchControls
 
 	protected void Add(string text, string cmd, int row, int col)
 	{
+		AddAt(text, cmd, X0 + col * (W + GAP), Y0 + row * (H + GAP * 1.6), W, H);
+	}
+
+	// A button at a screen spot and size (fractions of the screen).
+	protected void AddAt(string text, string cmd, float x0, float y0, float bw, float bh)
+	{
 		WorkspaceWidget ws = GetGame().GetWorkspace();
-		float x0 = X0 + col * (W + GAP);
-		float y0 = Y0 + row * (H + GAP * 1.6);
 		ZCR_WatchButton b = new ZCR_WatchButton();
 		b.m_sCmd = cmd;
 		b.m_wBack = ImageWidget.Cast(ws.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, new Color(0, 0, 0, 0.6), 1010, null));
@@ -348,10 +427,10 @@ class ZCR_WatchControls
 		if (!b.m_wBack || !b.m_wText)
 			return;
 		FrameSlot.SetAnchorMin(b.m_wBack, x0, y0);
-		FrameSlot.SetAnchorMax(b.m_wBack, x0 + W, y0 + H);
+		FrameSlot.SetAnchorMax(b.m_wBack, x0 + bw, y0 + bh);
 		FrameSlot.SetOffsets(b.m_wBack, 0, 0, 0, 0);
-		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.008, y0 + H * 0.25);
-		FrameSlot.SetAnchorMax(b.m_wText, x0 + W, y0 + H);
+		FrameSlot.SetAnchorMin(b.m_wText, x0 + 0.008, y0 + bh * 0.25);
+		FrameSlot.SetAnchorMax(b.m_wText, x0 + bw, y0 + bh);
 		FrameSlot.SetOffsets(b.m_wText, 0, 0, 0, 0);
 		b.m_wText.SetFont(FONT_BOLD);
 		b.m_wText.SetExactFontSize(18);
@@ -386,6 +465,13 @@ class ZCR_WatchControls
 				string modeText = CameraMode();
 				modeText.ToUpper();
 				b.m_wText.SetText("CAMERA: " + modeText);
+			}
+			else if (b.m_sCmd == "pano")
+			{
+				if (ZCR_Watch.IsPano())
+					b.m_wText.SetText("PANORAMA: ON");
+				else
+					b.m_wText.SetText("PANORAMA");
 			}
 			else if (b.m_sCmd == "type")
 			{
@@ -430,6 +516,8 @@ class ZCR_WatchControls
 				c = new Color(0.75, 0.15, 0.12, 0.8);
 			else if (b.m_sCmd == "mode" && CameraMode() == "free")
 				c = new Color(0.18, 0.35, 0.75, 0.85);
+			else if ((b.m_sCmd == "mode" || b.m_sCmd == "pano") && CameraMode() == "pano")
+				c = new Color(0.12, 0.45, 0.45, 0.85);
 			else if (b.m_sCmd == "details" && ZCR_Watch.Details())
 				c = new Color(0.15, 0.55, 0.22, 0.8);
 			else if (b.m_sCmd == "side" && m_sFocus == "US")
@@ -460,9 +548,11 @@ class ZCR_WatchControls
 		TouchTap();
 		// Free look switched on or off elsewhere too (a tap on the picture, AUTO from the lab app): the move stick follows.
 		bool free = ZCR_Watch.IsFree();
-		if (free != m_bWasFree)
+		bool pano = ZCR_Watch.IsPano();
+		if (free != m_bWasFree || pano != m_bWasPano)
 		{
 			m_bWasFree = free;
+			m_bWasPano = pano;
 			Visibility();
 			Labels();
 		}
@@ -485,26 +575,57 @@ class ZCR_WatchControls
 			m_iMouseY = y;
 			return;
 		}
-		if (Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY) >= JUMP_PX)
+		// A touch teleports the cursor in one frame from rest, and it stays; a mouse moves over several frames (5 Nov 00:10 -
+		// Martin, with the mouse: "clicking on ui on computer resets mouse to middle" - a fast mouse move counted as a touch and
+		// the click parked the cursor). The jump is confirmed on the next frame if the cursor is still; else it was a mouse.
+		float step = Math.AbsFloat(x - m_iMouseX) + Math.AbsFloat(y - m_iMouseY);
+		// Gliding (see GLIDE_FRAMES): a mouse - the jump before it, if any, was no touch.
+		if (step >= 3)
+			m_iGlideFrames++;
+		else
+			m_iGlideFrames = 0;
+		if (m_iGlideFrames >= GLIDE_FRAMES)
 		{
+			m_iGlideAt = now;
+			m_iJumpSeenAt = -100000;
+			m_bJumpPending = false;
+			m_bJumpCandidate = false;
+		}
+		if (m_bJumpCandidate)
+		{
+			m_bJumpCandidate = false;
+			if (step <= 2)
+				m_iJumpSeenAt = m_iJumpAt;
+			else
+				m_bJumpPending = false;
+		}
+		if (step >= JUMP_PX && m_fLastStep <= 2)
+		{
+			m_bJumpCandidate = true;
 			m_bJumpPending = true;
-			m_iJumpSeenAt = now;
 			m_iJumpAt = now;
 			m_iJumpX = x;
 			m_iJumpY = y;
 		}
+		m_fLastStep = step;
 		m_iMouseX = x;
 		m_iMouseY = y;
 		if (!m_bJumpPending || now - m_iJumpAt < TOUCH_WAIT_MS)
 			return;
 		m_bJumpPending = false;
-		if (m_bSettling || now - m_iLastClickMs < 500)
+		if (m_bSettling || now - m_iLastClickMs < 500 || MouseMode())
 			return;
 		if (Math.AbsFloat(x - m_iJumpX) > 4 || Math.AbsFloat(y - m_iJumpY) > 4)
 			return;      // the cursor moved on: a mouse, not a touch
 		if (!OnButton(x, y))
 		{
 			Print(string.Format("[ZCR][CAMUI] touch no-button at=%1,%2", x, y), LogLevel.NORMAL);
+			// Circling with the overlays hidden: a touch anywhere brings them back.
+			if (ZCR_Watch.IsPano() && !m_bHudOn)
+			{
+				m_iLastClickMs = now;
+				ZCR_Watch.ToggleHud();
+			}
 			return;
 		}
 		m_iLastClickMs = now;
@@ -523,14 +644,26 @@ class ZCR_WatchControls
 		m_Catcher.GetScreenSize(w, h);
 		int px = w * 0.5;
 		int py = h * 0.3;
+		Print(string.Format("[ZCR][CAMUI] park from=%1,%2", m_iMouseX, m_iMouseY), LogLevel.NORMAL);
 		GetGame().GetInputManager().GetMouseDeviceHandler().SetCursorPosition(px, py);
 		m_iMouseX = px;
 		m_iMouseY = py;
 		m_bJumpPending = false;
+		m_bJumpCandidate = false;
+		m_fLastStep = 0;
+		m_iGlideFrames = 0;
 	}
 
 	protected bool OnButton(int x, int y)
 	{
+		return Hit(x, y) != null;
+	}
+
+	// The button at a screen spot: the one it is on, else the nearest within HIT_PX (a press in the gap between two).
+	protected ZCR_WatchButton Hit(int x, int y)
+	{
+		ZCR_WatchButton best;
+		float bestGap = HIT_PX + 1;
 		foreach (ZCR_WatchButton b : m_aButtons)
 		{
 			if (!b.m_wBack.IsVisible())
@@ -538,26 +671,30 @@ class ZCR_WatchControls
 			float bx, by, bw, bh;
 			b.m_wBack.GetScreenPos(bx, by);
 			b.m_wBack.GetScreenSize(bw, bh);
-			if (x >= bx && x <= bx + bw && y >= by && y <= by + bh)
-				return true;
+			float gx = Math.Max(0, Math.Max(bx - x, x - bx - bw));
+			float gy = Math.Max(0, Math.Max(by - y, y - by - bh));
+			float gap = Math.Max(gx, gy);
+			if (gap < bestGap)
+			{
+				bestGap = gap;
+				best = b;
+			}
 		}
-		return false;
+		if (bestGap > HIT_PX)
+			return null;
+		return best;
 	}
 
 	// Where the tap really was (x, y: the cursor at rest): a button, else the picture.
 	protected void Resolve(int x, int y)
 	{
-		foreach (ZCR_WatchButton b : m_aButtons)
+		ZCR_WatchButton b = Hit(x, y);
+		if (b)
 		{
-			if (!b.m_wBack.IsVisible())
-				continue;
-			float bx, by, bw, bh;
-			b.m_wBack.GetScreenPos(bx, by);
-			b.m_wBack.GetScreenSize(bw, bh);
-			if (x < bx || x > bx + bw || y < by || y > by + bh)
-				continue;
 			b.m_fFlashUntil = m_fClock + 0.25;
-			if (System.GetTickCount() - m_iJumpSeenAt < 1500)
+			// The cursor parks only after a touch: never while a mouse is in use, and only with the cursor still where the
+			// touch's jump put it (5 Nov - Martin: "the park must only follow a real touch").
+			if (!MouseMode() && System.GetTickCount() - m_iJumpSeenAt < 1500 && Math.AbsFloat(x - m_iJumpX) <= 8 && Math.AbsFloat(y - m_iJumpY) <= 8)
 				Park();
 			string cmd = b.m_sCmd;
 			if (cmd.StartsWith("cam-"))
@@ -601,11 +738,20 @@ class ZCR_WatchControls
 				Send("side-" + m_sFocus, vector.Zero);
 				return;
 			}
-			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look.
+			if (cmd == "pano")
+			{
+				ZCR_Watch.TogglePano();
+				Visibility();
+				Labels();
+				return;
+			}
+			// CAMERA: AUTO -> LOCKED (on what it shows) -> FREE -> back to what it showed before free look; from PANORAMA back.
 			if (cmd == "mode")
 			{
 				string mode = CameraMode();
-				if (mode == "free")
+				if (mode == "pano")
+					ZCR_Watch.TogglePano();
+				else if (mode == "free")
 					ZCR_Watch.SetFree(false);
 				else if (mode == "locked")
 					ZCR_Watch.SetFree(true);
@@ -619,8 +765,10 @@ class ZCR_WatchControls
 				Labels();
 				return;
 			}
-			// What is picked is shown, so a pick ends free look.
-			if (ZCR_Watch.IsFree())
+			// What is picked is shown, so a pick ends free look; circling, the circle moves to it.
+			if (ZCR_Watch.IsPano())
+				ZCR_Watch.PanoTakeNextShot();
+			else if (ZCR_Watch.IsFree())
 				ZCR_Watch.SetFree(false);
 			// TYPE: auto -> teams -> vehicles -> drones -> points -> fights; each tap shows one of the new kind at once
 			// (AUTO gives the camera back to the director).
@@ -678,7 +826,13 @@ class ZCR_WatchControls
 			Send(cmd, vector.Zero);
 			return;
 		}
-		// The picture: the ground under the tap.
+		// Circling with the overlays hidden: a tap brings them back.
+		if (ZCR_Watch.IsPano() && !m_bHudOn)
+		{
+			ZCR_Watch.ToggleHud();
+			return;
+		}
+		// The picture: the ground under the tap (circling: the circle moves there).
 		BaseWorld world = GetGame().GetWorld();
 		vector dir;
 		vector from = GetGame().GetWorkspace().ProjScreenToWorldNative(x, y, dir, world, -1);
@@ -689,6 +843,11 @@ class ZCR_WatchControls
 		float f = world.TraceMove(p, null);
 		if (f >= 1)
 			return;
+		if (ZCR_Watch.IsPano())
+		{
+			ZCR_Watch.PanoAt(from + dir * 6000 * f);
+			return;
+		}
 		Send("tap", from + dir * 6000 * f);
 	}
 

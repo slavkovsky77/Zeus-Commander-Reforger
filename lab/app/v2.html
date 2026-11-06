@@ -16,7 +16,7 @@
 <header class="top">
   <nav class="views" aria-label="Views">
     <a href="#map" data-view="map">Map</a>
-    <a href="#progress" data-view="progress">Progress</a>
+    <a href="#progress" data-view="progress">Integration tests</a>
     <a href="#remarks" data-view="remarks">Remarks<span class="badge-n" id="waiting-n" hidden></span></a>
   </nav>
   <span class="spacer"></span>
@@ -38,6 +38,7 @@
       <button type="button" data-cam="group+" title="Look at the next team">Next team</button>
       <button type="button" data-cam="closer">Closer</button>
       <button type="button" data-cam="wider">Wider</button>
+      <button type="button" data-cam="pano" title="The camera circles what it shows, slowly - for watching like TV">Panorama</button>
       <span class="cam-msg" id="cam-msg" aria-live="polite"></span>
     </div>
     <div class="mapbox">
@@ -86,10 +87,10 @@
   </section>
 
   <!-- ============================================================ Progress -->
-  <section class="view scroll" id="v-progress" hidden aria-label="Progress">
+  <section class="view scroll" id="v-progress" hidden aria-label="Integration tests">
     <div class="page">
-      <div><h1 class="pg">Progress</h1>
-        <p class="lead">Each question as a training curve: a dot per run, the line the average of the last runs, the green dashed line the target, dotted lines where a new build started.</p></div>
+      <div><h1 class="pg">Integration tests</h1>
+        <p class="lead">Pick a test; each of its questions as a training curve: a dot per run, the line the average of the last runs, the green dashed line the target, dotted lines where a new build started.</p></div>
       <div class="picker" id="pg-picker" role="group" aria-label="Which test"></div>
       <div id="pg-body"><div class="empty">Loading…</div></div>
     </div>

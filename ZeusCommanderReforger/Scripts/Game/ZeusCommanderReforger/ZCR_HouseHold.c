@@ -7,10 +7,18 @@
 // out; the spot is his while he lives and stays near the point. Both sides: the attackers take the houses on the way in,
 // the holders fight from them (the capture counts every man within the core, inside or not).
 // [ZCR][HOUSE] every 30 s: spots, men in the core and inside a house per side, runs. -zcrNoFarmHouses turns it off.
+// 4 Nov night: they didn't stay - in the town battles only 14-34% of the men at the point were inside, with 704 runs in one
+// battle (the move ends on arrival and the squad takes them out again). Now the run is a move-and-hold (the game's
+// move-and-investigate behaviour: to the spot, then HOLD_S there within 2 m), renewed every RENEW_S while the man is at his
+// spot - at the point only. Measured worse (0 inside of 7-8 at the point): off unless -zcrHouseHoldStay 1.
 class ZCR_HouseHold
 {
 	static const float SPOT_STEP = 3;
 	static const int AGAIN_S = 8;
+	static const float HOLD_S = 40;
+	static const int RENEW_S = 30;
+	protected ref map<IEntity, int> m_mHoldUntil = new map<IEntity, int>();
+	protected int m_iRenews;
 	protected static bool s_bStarted;
 	protected static ref ZCR_HouseHold s_Instance;
 	protected ref array<vector> m_aSpots;
@@ -59,6 +67,7 @@ class ZCR_HouseHold
 			m_mSpotOf.Remove(leaver);
 			m_mManAt.Remove(freed);
 			m_mNextAt.Remove(leaver);
+			m_mHoldUntil.Remove(leaver);
 		}
 		map<string, int> inCore = new map<string, int>();
 		map<string, int> inHouse = new map<string, int>();
@@ -82,6 +91,17 @@ class ZCR_HouseHold
 			if ((has && vector.Distance(c.GetOrigin(), m_aSpots[mine]) <= 2.5) || (!has && ZCR_DroneThreat.IsInside(c.GetOrigin(), c)))
 			{
 				inHouse.Set(side, inHouse.Get(side) + 1);
+				// At his spot: the hold renewed before it runs out.
+				if (has && Stay() && now >= m_mHoldUntil.Get(c))
+				{
+					SCR_AIUtilityComponent holder = ZCR_DroneThreat.UtilityOf(c);
+					if (holder)
+					{
+						ZCR_Reserved.Add(holder, Run(holder, m_aSpots[mine]));
+						m_mHoldUntil.Set(c, now + RENEW_S);
+						m_iRenews++;
+					}
+				}
 				continue;
 			}
 			if (now < m_mNextAt.Get(c))
@@ -97,10 +117,9 @@ class ZCR_HouseHold
 			SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(c);
 			if (!utility)
 				continue;
-			SCR_AIMoveIndividuallyBehavior move = new SCR_AIMoveIndividuallyBehavior(utility, null, m_aSpots[mine],
-				SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0);
-			ZCR_Reserved.Add(utility, move);
+			ZCR_Reserved.Add(utility, Run(utility, m_aSpots[mine]));
 			m_mNextAt.Set(c, now + AGAIN_S);
+			m_mHoldUntil.Set(c, now + RENEW_S);
 			m_iRuns++;
 		}
 		Stops(at, radius, now);
@@ -111,7 +130,7 @@ class ZCR_HouseHold
 		if (m_aSpots)
 			spots = m_aSpots.Count();
 		Print(string.Format("[ZCR][HOUSE] t=%1 spots=%2 taken=%3 us_core=%4 us_inside=%5 ussr_core=%6 ussr_inside=%7 runs=%8", now, spots,
-			m_mManAt.Count(), inCore.Get("US"), inHouse.Get("US"), inCore.Get("USSR"), inHouse.Get("USSR"), m_iRuns) + string.Format(" stop_runs=%1", m_iStopRuns), LogLevel.NORMAL);
+			m_mManAt.Count(), inCore.Get("US"), inHouse.Get("US"), inCore.Get("USSR"), inHouse.Get("USSR"), m_iRuns) + string.Format(" stop_runs=%1 renews=%2", m_iStopRuns, m_iRenews), LogLevel.NORMAL);
 	}
 
 	// Interior spots of the houses within the core, on the navmesh (found with this man's pathfinding), SPOT_STEP apart.
@@ -163,6 +182,8 @@ class ZCR_HouseHold
 					SCR_AIUtilityComponent utility = ZCR_DroneThreat.UtilityOf(mc);
 					if (!utility)
 						continue;
+					// A stop on the way: the plain move, no hold (4 Nov night - a 40-s hold kept men in the houses after their team
+					// moved on; the first night battle had nobody in Beauregard in 30 minutes).
 					ZCR_Reserved.Add(utility, new SCR_AIMoveIndividuallyBehavior(utility, null, mine,
 						SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0));
 					m_mNextAt.Set(mc, now + AGAIN_S);
@@ -225,6 +246,24 @@ class ZCR_HouseHold
 			}
 		}
 		return best;
+	}
+
+	protected static bool Stay()
+	{
+		string value;
+		// Off by default (4 Nov night, battle 2: 7-8 men at the point, none inside, 630 runs and 2 renews - the hold never let
+		// them settle at the spot; the plain move had 14-34% inside). -zcrHouseHoldStay 1: the move-and-hold.
+		return AICF_Launch.Get("zcrHouseHoldStay", value) && value == "1";
+	}
+
+	// The run to a spot: to it and a hold there (HOLD_S within 2 m), or the plain move (-zcrHouseHoldStay 0).
+	protected static SCR_AIActionBase Run(SCR_AIUtilityComponent utility, vector spot)
+	{
+		float priority = SCR_AIActionBase.PRIORITY_BEHAVIOR_MOVE_FROM_DANGER + 2;
+		if (!Stay())
+			return new SCR_AIMoveIndividuallyBehavior(utility, null, spot, priority, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, null, 1.0);
+		return new SCR_AIMoveAndInvestigateBehavior(utility, null, spot, priority, SCR_AIActionBase.PRIORITY_LEVEL_NORMAL, 2.0, true,
+			EAIUnitType.UnitType_Infantry, HOLD_S);
 	}
 
 	protected static bool Alive(IEntity e)

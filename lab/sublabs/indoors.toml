@@ -1,0 +1,77 @@
+# Integration test "indoors" - created 2026-11-05 19:50 (review note 560)
+name = "indoors"
+question = "Do FPV drones stop wasting themselves on the roofs over soldiers inside - in through a way in when there is one, no strike when there is none?"
+issue = "Martin, 5 Nov: 'i notice drones hitting top of buildings', 'hitting buildings when soldiers are inside is pointless', 'if there is no chance to hit target drone operator in reality would not do that' - 29 of 272 strikes on soldiers in the 17:45 battle went off on something 3-8 m short"
+pass_rule = "no drone goes off on a roof: a soldier inside with a way in is got through it, one with none is left alone, one under a canopy is got from the side, soldiers in the open as before"
+runner = "lab/indoortest.py"
+minutes = 12
+units = 2
+scenarios = ["rooms", "closed", "canopy", "open"]
+variants = ["off", "default"]
+baseline = "off"
+candidate = "default"
+score = "pass_pct/10 + kills - 3*wasted - 3*roof_hits"
+higher_is_better = true
+keys = ["pass_pct", "kills", "wasted", "roof_hits", "entries", "stuck", "lines_per_min"]
+title = "Drones and buildings"
+main = "pass_pct"
+conclusion_at = "5 Nov 20:52 · 16 runs, headless on the old server build (192142)"
+conclusion = """Through a way in is better on every building scenario - and no worse in the open.
+- **Inside, a way in:** 4 of 4 killed through the door, window or hole (the dive: 1 of 4, 3 drones wasted on the building).
+- **Inside, no way in:** no strike, no drone wasted (the dive wasted 3 on the roofs).
+- **Under a canopy** (one was Arland's fuel station roof): 4 of 4 killed, coming in level from the open side (the dive 3 of 4, 1 wasted).
+- **In the open:** 7 kills against 5 - unchanged behaviour.
+- **Cost:** ~300 traces a minute only while a drone circles a soldier it can't reach; in a battle 100-200 a minute.
+- **But:** the two watched battles with it loaded crashed (engine, 14-15 min in) - it is off in the watched battle (-fpvaiNoShelter) until that is understood.
+Next: watch it in the game window (python lab/indoortest.py rooms default --watch); find whether drones going off inside buildings crash the game window."""
+score_words = "a point per 10% of the cases passed, a point per soldier killed, 3 off for each drone that went off without killing or on something short of him"
+baseline_words = "as before 5 Nov - the dive, whatever is over him"
+candidate_words = "the mod now - under a roof only through a way in, along one straight line"
+
+[variant_labels]
+off = "As before (dive)"
+default = "Through a way in"
+
+[variant_words]
+off = "as before 5 Nov: the drone dives at him whatever is over his head (-fpvaiNoShelter)"
+default = "a soldier under a roof only through a way in at his height (door, window, hole, open side), slowly along one straight line; no way in - no strike"
+
+[scenario_labels]
+rooms = "Inside, a way in"
+closed = "Inside, no way in"
+canopy = "Under a canopy"
+open = "In the open"
+
+[scenario_words]
+rooms = "a soldier stood in a building room on Arland with an open door, window or hole at his height; one drone launched 150 m out"
+closed = "a soldier in a closed room - no way in; the drone should leave him alone"
+canopy = "a soldier under a roof with open sides - a fuel station's canopy, a shed open at the sides"
+open = "three soldiers in the open, as in the mod's own infantry test - nothing should change"
+
+[[questions]]
+key = "pass_pct"
+short = "% passed"
+title = "Cases that went as they should"
+better = "higher"
+axis = "% of the cases passed (inside with a way in: he was killed through it; no way in: no strike; canopy: killed; open: someone killed)"
+
+[[questions]]
+key = "roof_hits"
+short = "roof hits"
+title = "Drones that went off short of him"
+better = "lower"
+axis = "drones that went off on something more than 2.5 m from the soldier - a roof, a wall"
+
+[[questions]]
+key = "wasted"
+short = "wasted"
+title = "Drones that went off and killed nobody"
+better = "lower"
+axis = "drones that went off without killing the soldier"
+
+[[questions]]
+key = "lines_per_min"
+short = "lines/min"
+title = "What the building checks cost"
+better = "lower"
+axis = "traces a minute for the roof and way-in checks (the busiest minute of the run)"
