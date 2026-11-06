@@ -6,8 +6,11 @@
 //   [ZCR][PHYS] t= what=nan|wild|spin|falling|high name= kind=vehicle|man|item|drone|other v= av= y= ground= x= z= parent=
 // nan: a position that isn't a number; wild: over WILD_MS m/s; spin: over SPIN_RAD rad/s; falling: FALL_M under the ground
 // (rifles and a drone controller fell to -34 km last night - "entity out of world bounds"); high: HIGH_M above it.
-// Each entity once per kind and 5 s. -zcrPhysFix: an item (not a soldier or vehicle) falling under the ground is deleted
-// before it reaches the world's floor. -zcrNoPhysWatch off.
+// Each entity once per kind and 5 s. The fix (on by default since 6 Nov, -zcrNoPhysFix off; was opt-in -zcrPhysFix): an item
+// or a dead soldier more than FALL_M under the ground is deleted, however fast it falls - 5 Nov 21:10 the game window crashed
+// on a dead squad leader's rifle that fell through the ground (2672,3099 on Arland) and kept falling for 55 s (the engine asserted
+// "entity out of world bounds" at -34 km and crashed at about -56 km); it was going over 120 m/s, so the old fix (only in the
+// 'falling' branch below 120 m/s) would have missed it once it was fast. -zcrNoPhysWatch: the whole watch off.
 // 27 Oct 03:40: the crash sub-lab crashes in a soldier's get-in or get-out of an APC on a slope (both directions, never on
 // the flat apron), so each get-in and get-out a soldier starts is logged too, with the vehicle and its tilt - the lines
 // before a battle crash then say which vehicle, how tilted, in or out:
@@ -96,6 +99,8 @@ class ZCR_PhysWatch
 			v = physics.GetVelocity().Length();
 			av = physics.GetAngularVelocity().Length();
 		}
+		if (p[1] < ground - FALL_M && !System.IsCLIParam("zcrNoPhysFix") && (kind == "item" || (kind == "man" && Dead(e))))
+			m_aDelete.Insert(e);
 		if (v != v || av != av)
 			Report(e, kind, "nan", v, av, ground);
 		else if (v > WILD_MS)
@@ -105,12 +110,19 @@ class ZCR_PhysWatch
 		else if (p[1] < ground - FALL_M)
 		{
 			Report(e, kind, "falling", v, av, ground);
-			if (kind == "item" && System.IsCLIParam("zcrPhysFix"))
-				m_aDelete.Insert(e);
 		}
 		else if (p[1] > ground + HIGH_M)
 			Report(e, kind, "high", v, av, ground);
 		return true;
+	}
+
+	protected static bool Dead(IEntity e)
+	{
+		ChimeraCharacter ch = ChimeraCharacter.Cast(e);
+		if (!ch)
+			return false;
+		CharacterControllerComponent cc = ch.GetCharacterController();
+		return cc && cc.GetLifeState() == ECharacterLifeState.DEAD;
 	}
 
 	protected void GetInOut(ChimeraCharacter man)
